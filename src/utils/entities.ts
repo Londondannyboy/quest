@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { Company, Skill, Institution, EntityStatus } from '@prisma/client'
+import { Company, Skill, EntityStatus } from '@prisma/client'
 
 // Extract domain from various URL formats
 export function extractDomain(url: string | null | undefined): string | null {

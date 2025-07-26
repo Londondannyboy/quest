@@ -8,7 +8,7 @@ const HARVEST_API_ID = 'harvest/harvest-api' // For company enrichment
 
 interface ApifyRunOptions {
   actorId: string
-  input: any
+  input: Record<string, unknown>
   waitForFinish?: boolean
 }
 
@@ -98,7 +98,26 @@ export async function scrapeLinkedInProfile(linkedinUrl: string, userId: string)
 }
 
 // Extract entities from LinkedIn profile data
-async function extractEntitiesFromProfile(profileData: any, userId: string) {
+async function extractEntitiesFromProfile(profileData: {
+  experience?: Array<{
+    companyName?: string;
+    title?: string;
+    description?: string;
+    startDate?: string;
+    endDate?: string;
+    isCurrent?: boolean;
+    companyUrl?: string;
+    companyLinkedinUrl?: string;
+  }>;
+  skills?: string[];
+  education?: Array<{
+    schoolName?: string;
+    degree?: string;
+    fieldOfStudy?: string;
+    startDate?: string;
+    endDate?: string;
+  }>;
+}, userId: string) {
   const experiences = profileData.experience || []
   const skills = profileData.skills || []
   const education = profileData.education || []

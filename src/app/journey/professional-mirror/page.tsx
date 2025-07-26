@@ -68,7 +68,7 @@ export default function ProfessionalMirror() {
       const nodes: TimelineNode[] = []
       
       // Add experiences
-      data.experiences?.forEach((exp: any, index: number) => {
+      data.experiences?.forEach((exp: { title: string; companyName: string; startDate?: string; description?: string }, index: number) => {
         nodes.push({
           id: `exp-${index}`,
           type: 'experience',
@@ -80,7 +80,7 @@ export default function ProfessionalMirror() {
       })
 
       // Add education
-      data.education?.forEach((edu: any, index: number) => {
+      data.education?.forEach((edu: { degree?: string; schoolName: string; endDate?: string; fieldOfStudy?: string }, index: number) => {
         nodes.push({
           id: `edu-${index}`,
           type: 'education',
@@ -240,7 +240,7 @@ export default function ProfessionalMirror() {
           {/* Continue Button */}
           <div className="text-center">
             <p className="text-gray-400 mb-6">
-              Here's what we found (and might have missed)
+              Here&apos;s what we found (and might have missed)
             </p>
             <button
               onClick={handleContinue}

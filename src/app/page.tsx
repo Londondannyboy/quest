@@ -38,7 +38,7 @@ export default function Home() {
           </h1>
           
           <p className="text-xl md:text-2xl mb-4 text-gray-300">
-            You can't begin your Quest until we understand your story
+            You can&apos;t begin your Quest until we understand your story
           </p>
           
           <p className="text-lg mb-12 text-gray-400">
@@ -103,7 +103,7 @@ export default function Home() {
             </div>
 
             <p className="text-sm text-gray-400 mt-4">
-              Or search by name if you don't have your LinkedIn URL handy
+              Or search by name if you don&apos;t have your LinkedIn URL handy
             </p>
           </div>
 

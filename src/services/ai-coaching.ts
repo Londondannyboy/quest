@@ -103,7 +103,7 @@ export async function getCoachResponse({
   userId: string
   coachType: CoachType
   message: string
-  context?: any
+  context?: Record<string, unknown>
 }) {
   const coach = coachPersonalities[coachType]
   
@@ -176,7 +176,7 @@ function getModelCost(model: string): number {
 }
 
 // Analyze patterns in user's story for Trinity recognition
-export async function analyzeStoryPatterns(storyData: any) {
+export async function analyzeStoryPatterns(storyData: Record<string, unknown>) {
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     {
       role: 'system',
