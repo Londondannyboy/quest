@@ -1,36 +1,106 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Quest Core V2
 
-## Getting Started
+A revolutionary professional development platform where users must earn their Quest through story.
 
-First, run the development server:
+## Philosophy
 
+**Story → Trinity → Quest**
+
+"You can't begin your Quest until we understand your story."
+
+## Project Status
+
+### ✅ Completed (Phase 1 Foundation)
+- [x] Next.js 15 with TypeScript setup
+- [x] Entity-first Prisma schema (no strings!)
+- [x] Clerk authentication with webhook sync
+- [x] Professional Mirror page with timeline visualization
+- [x] Apify scraping service integration
+- [x] AI coaching service with OpenRouter
+- [x] Landing page with journey entry
+
+### 🚧 In Progress
+- [ ] Trinity discovery flow
+- [ ] Quest readiness gate
+- [ ] Voice coaching integration
+
+### 📋 Next Steps
+1. Complete Trinity discovery page
+2. Implement Quest readiness assessment
+3. Add voice coaching with Hume AI
+4. Set up monitoring and error tracking
+
+## Setup Instructions
+
+1. **Clone and install:**
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. **Set up environment variables:**
+Copy `.env.local` and fill in your actual API keys:
+- Clerk keys from dashboard
+- Database URLs from Neon
+- Apify token
+- OpenRouter API key
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. **Set up database:**
+```bash
+npx prisma generate
+npx prisma db push
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. **Configure Clerk webhook:**
+Add webhook endpoint in Clerk dashboard:
+`https://your-domain.com/api/webhooks/clerk`
 
-## Learn More
+5. **Run development server:**
+```bash
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Key Implementation Notes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Entity System
+- Everything is an entity (Company, Skill, Institution)
+- No raw strings stored
+- Provisional → Validated workflow
+- 6-month cache strategy
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Scraping Gotcha
+LinkedIn data is nested: `items[0].element` not `items[0]`
 
-## Deploy on Vercel
+### User Journey
+1. **Professional Mirror**: LinkedIn scraping & visualization
+2. **Trinity Discovery**: Past → Present → Future evolution
+3. **Quest Gate**: Only 30% earn Quest readiness
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Cost Optimization
+- Model routing based on coach type
+- Fallback strategies
+- Target: <$0.50/user/month
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Architecture
+
+```
+src/
+├── app/              # Next.js app router pages
+├── components/       # React components
+├── lib/             # Core utilities (prisma client)
+├── services/        # Business logic (scraping, AI)
+├── types/           # TypeScript types
+└── utils/           # Helper functions
+```
+
+## Security
+
+- Semgrep configured (add MCP from Day 1)
+- Environment variables never in code
+- Clerk webhook verification
+- API key rotation strategy
+
+## References
+
+- Product Requirements: `V2_PRODUCT_REQUIREMENTS.md`
+- Launch Checklist: `V2_LAUNCH_CHECKLIST.md`
+- Original Repository: https://github.com/Londondannyboy/quest-core

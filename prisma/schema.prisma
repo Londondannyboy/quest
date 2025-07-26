@@ -1,0 +1,308 @@
+// Quest Core V2 - Entity-First Schema
+// Philosophy: Everything is an entity, no raw strings
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Core User entity linked to Clerk
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // User's professional journey
+  professionalMirror ProfessionalMirror?
+  trinity           Trinity?
+  quest             Quest?
+  
+  // User's validated entities
+  validatedCompanies Company[] @relation("UserValidatedCompanies")
+  validatedSkills    Skill[]   @relation("UserValidatedSkills")
+  experiences        Experience[]
+  educations         Education[]
+  
+  // User's story and coaching sessions
+  storySessions     StorySession[]
+  coachingSessions  CoachingSession[]
+}
+
+// Professional Mirror - How the world sees them
+model ProfessionalMirror {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  
+  linkedinUrl      String?
+  lastScraped      DateTime?
+  rawLinkedinData  Json?
+  enrichmentData   Json?    // Tavily, LinkUp data
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Trinity - Past, Present, Future evolution
+model Trinity {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  
+  // Trinity through time
+  pastQuest     String?
+  pastService   String?
+  pastPledge    String?
+  
+  presentQuest  String?
+  presentService String?
+  presentPledge  String?
+  
+  futureQuest   String?
+  futureService String?
+  futurePledge  String?
+  
+  // Trinity clarity and evolution tracking
+  clarityScore  Float    @default(0)
+  evolutionData Json?    // Pattern recognition data
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Quest - Earned through story
+model Quest {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  
+  status         QuestStatus @default(NOT_READY)
+  readinessScore Float       @default(0)
+  activatedAt    DateTime?
+  
+  // Quest components
+  questStatement    String?
+  serviceStatement  String?
+  pledgeStatement   String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum QuestStatus {
+  NOT_READY
+  PREPARING
+  QUEST_READY
+  ACTIVE
+}
+
+// Company Entity - No strings!
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  domain    String?  @unique
+  website   String?
+  
+  // Entity validation
+  status     EntityStatus @default(PROVISIONAL)
+  confidence Float        @default(0)
+  verified   Boolean      @default(false)
+  lastScraped DateTime?
+  
+  // Relationships
+  parentCompany   Company?  @relation("CompanyHierarchy", fields: [parentCompanyId], references: [id])
+  parentCompanyId String?
+  subsidiaries    Company[] @relation("CompanyHierarchy")
+  
+  // Validation tracking
+  validators  User[]       @relation("UserValidatedCompanies")
+  experiences Experience[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([domain])
+  @@index([name])
+}
+
+// Skill Entity with clustering
+model Skill {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  
+  // Entity validation
+  status     EntityStatus @default(PROVISIONAL)
+  confidence Float        @default(0)
+  verified   Boolean      @default(false)
+  
+  // Skill clustering
+  cluster         SkillCluster? @relation(fields: [clusterId], references: [id])
+  clusterId       String?
+  parentSkill     Skill?        @relation("SkillHierarchy", fields: [parentSkillId], references: [id])
+  parentSkillId   String?
+  relatedSkills   Skill[]       @relation("SkillHierarchy")
+  
+  // Market intelligence
+  marketDemand   Float?
+  salaryPremium  Float?
+  demandTrend    String?
+  
+  // Validation tracking
+  validators      User[]         @relation("UserValidatedSkills")
+  experienceSkills ExperienceSkill[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([name])
+}
+
+// Skill Cluster for grouping
+model SkillCluster {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  
+  skills         Skill[]
+  parentCluster  SkillCluster? @relation("ClusterHierarchy", fields: [parentClusterId], references: [id])
+  parentClusterId String?
+  childClusters  SkillCluster[] @relation("ClusterHierarchy")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Education Entity
+model Education {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  institutionId String
+  
+  degree       String?
+  fieldOfStudy String?
+  startDate    DateTime?
+  endDate      DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Institution Entity
+model Institution {
+  id        String   @id @default(cuid())
+  name      String
+  domain    String?  @unique
+  
+  // Entity validation
+  status     EntityStatus @default(PROVISIONAL)
+  confidence Float        @default(0)
+  verified   Boolean      @default(false)
+  
+  // Institution metadata
+  ranking     Int?
+  specialties String[]
+  
+  educations Education[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([name])
+}
+
+// Experience linking users, companies, and skills
+model Experience {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  company   Company  @relation(fields: [companyId], references: [id])
+  companyId String
+  
+  title       String
+  description String?
+  startDate   DateTime?
+  endDate     DateTime?
+  isCurrent   Boolean   @default(false)
+  
+  skills ExperienceSkill[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Many-to-many relationship for Experience and Skills
+model ExperienceSkill {
+  experience   Experience @relation(fields: [experienceId], references: [id])
+  experienceId String
+  skill        Skill      @relation(fields: [skillId], references: [id])
+  skillId      String
+  
+  @@id([experienceId, skillId])
+}
+
+// Story Session tracking
+model StorySession {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  phase      String   // "professional_mirror", "trinity_discovery", "quest_gate"
+  startedAt  DateTime @default(now())
+  completedAt DateTime?
+  
+  // Story data
+  storyDepth      Float?
+  trinityClarity  Float?
+  futureOrientation Float?
+  
+  // Session memory (for Zep integration later)
+  sessionMemory Json?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Coaching Session for multi-coach system
+model CoachingSession {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  coachType  CoachType
+  startedAt  DateTime @default(now())
+  endedAt    DateTime?
+  
+  // AI model used and cost tracking
+  modelUsed  String?
+  tokenCount Int?
+  costUSD    Float?
+  
+  // Conversation data
+  messages   Json?
+  insights   Json?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum CoachType {
+  STORY_COACH
+  QUEST_COACH
+  DELIVERY_COACH
+}
+
+enum EntityStatus {
+  PROVISIONAL  // Created from scraping, not verified
+  VALIDATED    // User confirmed
+  REJECTED     // User rejected
+}
