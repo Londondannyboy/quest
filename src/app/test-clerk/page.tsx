@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 
 export default function TestClerk() {
   const { isLoaded, isSignedIn, user } = useUser()
-  const [apiTest, setApiTest] = useState<any>(null)
+  const [apiTest, setApiTest] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(false)
 
   const testAPI = async () => {
@@ -14,7 +14,7 @@ export default function TestClerk() {
       const response = await fetch('/api/test-clerk')
       const data = await response.json()
       setApiTest(data)
-    } catch (error) {
+    } catch {
       setApiTest({ error: 'Failed to test API' })
     }
     setLoading(false)
