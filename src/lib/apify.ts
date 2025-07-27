@@ -3,10 +3,6 @@ import { ApifyClient } from 'apify-client'
 // Initialize the ApifyClient with your API token
 const token = process.env.APIFY_TOKEN || process.env.APIFY_API_KEY
 
-if (!token) {
-  console.warn('Apify token not found in environment variables')
-}
-
 const client = new ApifyClient({
   token: token,
 })
@@ -38,14 +34,8 @@ export interface LinkedInProfileData {
 
 export async function scrapeLinkedInProfile(linkedinUrl: string): Promise<LinkedInProfileData> {
   try {
-    console.log('Starting LinkedIn scrape with URL:', linkedinUrl)
-    console.log('Apify token available:', !!token)
-    
     // LinkedIn Profile Scraper actor ID - HarvestAPI
     const actorId = 'harvestapi/linkedin-profile-scraper'
-    // Alternative: Use the actor ID directly: 'LpVuK3Zozwuipa5bp'
-    
-    console.log('Using actor:', actorId)
     
     // Run the actor - HarvestAPI expects both 'queries' and 'urls'
     const input = {
@@ -53,12 +43,7 @@ export async function scrapeLinkedInProfile(linkedinUrl: string): Promise<Linked
       urls: [linkedinUrl]      // And also 'urls' as fallback
     }
     
-    console.log('Actor input:', JSON.stringify(input, null, 2))
-    
     const run = await client.actor(actorId).call(input)
-    
-    console.log('Actor run ID:', run.id)
-    console.log('Actor run status:', run.status)
     
     // Fetch results
     const { items } = await client.dataset(run.defaultDatasetId).listItems()
@@ -68,8 +53,6 @@ export async function scrapeLinkedInProfile(linkedinUrl: string): Promise<Linked
     }
     
     const profile = items[0] as Record<string, unknown>
-    
-    console.log('Raw profile data keys:', Object.keys(profile))
     
     // Transform the data to our format - adjusted for HarvestAPI output
     const experiences = profile.experience as Array<Record<string, unknown>> || []
@@ -100,7 +83,6 @@ export async function scrapeLinkedInProfile(linkedinUrl: string): Promise<Linked
       skills: (profile.skills || profile.skill || []) as string[]
     }
   } catch (error) {
-    console.error('Error scraping LinkedIn:', error)
     
     // Provide more detailed error information
     if (error instanceof Error) {

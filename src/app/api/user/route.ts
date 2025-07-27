@@ -3,11 +3,9 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
-export const runtime = 'nodejs'
 
 export async function GET() {
   try {
-    // Use currentUser instead of auth() to avoid middleware issues
     const user = await currentUser()
     
     if (!user) {

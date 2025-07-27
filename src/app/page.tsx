@@ -10,9 +10,8 @@ function AuthContent() {
 
   const checkUser = async () => {
     try {
-      const response = await fetch('/api/user-workaround')
+      const response = await fetch('/api/user')
       const data = await response.json()
-      console.log('User info:', data)
       setUserInfo(data)
     } catch (error) {
       console.error('Error fetching user:', error)
@@ -21,7 +20,7 @@ function AuthContent() {
 
   const syncUser = async () => {
     try {
-      const response = await fetch('/api/user/sync-workaround', { method: 'POST' })
+      const response = await fetch('/api/user/sync', { method: 'POST' })
       const data = await response.json()
       
       if (!response.ok) {

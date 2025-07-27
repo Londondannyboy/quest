@@ -21,7 +21,7 @@ export default function TrinityPage() {
 
   const fetchUserProfile = useCallback(async () => {
     try {
-      const response = await fetch('/api/user-workaround')
+      const response = await fetch('/api/user')
       const data = await response.json()
       setUserProfile(data)
       
