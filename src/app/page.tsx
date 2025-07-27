@@ -37,8 +37,21 @@ function AuthContent() {
 }
 
 export default function Home() {
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 'pk_test_ZGFybGluZy1pbnNlY3QtNDMuY2xlcmsuYWNjb3VudHMuZGV2JA'
+  
+  if (!publishableKey) {
+    return (
+      <main className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Configuration Error</h1>
+          <p>Clerk publishable key is missing</p>
+        </div>
+      </main>
+    )
+  }
+  
   return (
-    <ClerkProvider publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}>
+    <ClerkProvider publishableKey={publishableKey}>
       <main className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
         <div className="container mx-auto px-4 py-16">
           <div className="max-w-4xl mx-auto text-center">
