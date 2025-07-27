@@ -9,7 +9,7 @@ function AuthContent() {
 
   const checkUser = async () => {
     try {
-      const response = await fetch('/api/user')
+      const response = await fetch('/api/user-workaround')
       const data = await response.json()
       setUserInfo(data)
     } catch (error) {
