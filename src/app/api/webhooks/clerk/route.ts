@@ -3,6 +3,8 @@ import { WebhookEvent } from '@clerk/nextjs/server'
 import { Webhook } from 'svix'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(req: Request) {
   // For now, just log the webhook to verify it's working
   console.log('Clerk webhook received')
