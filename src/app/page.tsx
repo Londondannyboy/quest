@@ -1,23 +1,57 @@
 'use client'
 
+import { useState } from 'react'
 import { ClerkProvider, SignInButton, SignOutButton, useUser } from '@clerk/nextjs'
 
 function AuthContent() {
   const { isSignedIn, user } = useUser()
+  const [userInfo, setUserInfo] = useState<any>(null)
+
+  const checkUser = async () => {
+    try {
+      const response = await fetch('/api/user')
+      const data = await response.json()
+      setUserInfo(data)
+    } catch (error) {
+      console.error('Error fetching user:', error)
+    }
+  }
 
   return (
     <div className="bg-gray-800 rounded-lg p-8 max-w-2xl mx-auto">
       {isSignedIn ? (
         <>
           <h2 className="text-2xl font-semibold mb-4">Welcome back!</h2>
-          <p className="text-gray-300 mb-6">
+          <p className="text-gray-300 mb-2">
             Hello {user.firstName || user.emailAddresses?.[0]?.emailAddress}
           </p>
-          <SignOutButton>
-            <button className="px-6 py-3 bg-red-500 rounded-lg hover:bg-red-600 transition-colors">
-              Sign Out
+          <p className="text-sm text-gray-400 mb-6">
+            Clerk ID: {user.id}
+          </p>
+          
+          <div className="space-y-4">
+            <button
+              onClick={checkUser}
+              className="px-6 py-3 bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors mr-4"
+            >
+              Check User API
             </button>
-          </SignOutButton>
+            
+            <SignOutButton>
+              <button className="px-6 py-3 bg-red-500 rounded-lg hover:bg-red-600 transition-colors">
+                Sign Out
+              </button>
+            </SignOutButton>
+          </div>
+          
+          {userInfo && (
+            <div className="mt-6 p-4 bg-gray-900 rounded-lg">
+              <p className="text-sm font-mono">API Response:</p>
+              <pre className="text-xs mt-2 overflow-auto">
+                {JSON.stringify(userInfo, null, 2)}
+              </pre>
+            </div>
+          )}
         </>
       ) : (
         <>
