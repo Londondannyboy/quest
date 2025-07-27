@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { WebhookEvent } from '@clerk/nextjs/server'
 import { Webhook } from 'svix'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(req: Request) {
   // For now, just log the webhook to verify it's working
@@ -55,13 +56,36 @@ export async function POST(req: Request) {
   console.log('User data:', evt.data)
 
   if (eventType === 'user.created') {
-    // TODO: Create user in database once we have it connected
-    console.log('User created:', evt.data.id)
+    const { id, email_addresses } = evt.data
+    
+    try {
+      const user = await prisma.user.create({
+        data: {
+          clerkId: id,
+          email: email_addresses[0].email_address,
+        }
+      })
+      console.log('User created in database:', user.id)
+    } catch (error) {
+      console.error('Error creating user in database:', error)
+      // Don't fail the webhook if database fails
+    }
   }
 
   if (eventType === 'user.updated') {
-    // TODO: Update user in database
-    console.log('User updated:', evt.data.id)
+    const { id, email_addresses } = evt.data
+    
+    try {
+      const user = await prisma.user.update({
+        where: { clerkId: id },
+        data: {
+          email: email_addresses[0].email_address,
+        }
+      })
+      console.log('User updated in database:', user.id)
+    } catch (error) {
+      console.error('Error updating user in database:', error)
+    }
   }
 
   return new Response('Webhook received', { status: 200 })

@@ -17,6 +17,18 @@ function AuthContent() {
     }
   }
 
+  const syncUser = async () => {
+    try {
+      const response = await fetch('/api/user/sync', { method: 'POST' })
+      const data = await response.json()
+      alert(data.message || 'Sync complete!')
+      checkUser() // Refresh user info
+    } catch (error) {
+      console.error('Error syncing user:', error)
+      alert('Sync failed!')
+    }
+  }
+
   return (
     <div className="bg-gray-800 rounded-lg p-8 max-w-2xl mx-auto">
       {isSignedIn ? (
@@ -29,12 +41,19 @@ function AuthContent() {
             Clerk ID: {user.id}
           </p>
           
-          <div className="space-y-4">
+          <div className="flex flex-wrap gap-4 mb-6">
             <button
               onClick={checkUser}
-              className="px-6 py-3 bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors mr-4"
+              className="px-6 py-3 bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors"
             >
               Check User API
+            </button>
+            
+            <button
+              onClick={syncUser}
+              className="px-6 py-3 bg-green-500 rounded-lg hover:bg-green-600 transition-colors"
+            >
+              Sync to Database
             </button>
             
             <SignOutButton>

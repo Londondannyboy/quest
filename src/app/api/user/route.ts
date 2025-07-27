@@ -1,5 +1,6 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   try {
@@ -10,6 +11,28 @@ export async function GET() {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
     
+    // Try to find user in database
+    let databaseUser = null
+    try {
+      databaseUser = await prisma.user.findUnique({
+        where: { clerkId: userId },
+        include: {
+          professionalMirror: true,
+          trinity: true,
+          quest: true,
+          _count: {
+            select: {
+              experiences: true,
+              educations: true,
+              storySessions: true,
+            }
+          }
+        }
+      })
+    } catch (error) {
+      console.error('Error fetching database user:', error)
+    }
+    
     return NextResponse.json({
       clerkId: userId,
       email: user.emailAddresses?.[0]?.emailAddress,
@@ -17,8 +40,8 @@ export async function GET() {
       lastName: user.lastName,
       imageUrl: user.imageUrl,
       createdAt: user.createdAt,
-      // TODO: Add database user info once connected
-      databaseUser: null
+      databaseUser,
+      databaseStatus: databaseUser ? 'synced' : 'not_synced'
     })
   } catch (error) {
     console.error('Error getting user:', error)
