@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { ClientClerkProvider } from '@/components/clerk-provider'
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,6 +17,9 @@ export const metadata: Metadata = {
   description: "A revolutionary professional development platform where you must earn your Quest through story.",
 };
 
+// Force dynamic rendering for all pages
+export const dynamic = 'force-dynamic'
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -28,9 +30,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ClientClerkProvider>
-          {children}
-        </ClientClerkProvider>
+        {children}
       </body>
     </html>
   );
