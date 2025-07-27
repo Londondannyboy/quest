@@ -1,21 +1,22 @@
-import { auth, currentUser } from '@clerk/nextjs/server'
+import { currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export async function POST() {
   try {
-    const { userId } = await auth()
+    // Use currentUser instead of auth() to avoid middleware issues
     const user = await currentUser()
     
-    if (!userId || !user) {
+    if (!user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
     
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
-      where: { clerkId: userId }
+      where: { clerkId: user.id }
     })
     
     if (existingUser) {
@@ -28,7 +29,7 @@ export async function POST() {
     // Create user in database
     const newUser = await prisma.user.create({
       data: {
-        clerkId: userId,
+        clerkId: user.id,
         email: user.emailAddresses?.[0]?.emailAddress || 'no-email@example.com',
       }
     })

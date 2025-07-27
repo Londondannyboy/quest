@@ -1,4 +1,4 @@
-import { auth, currentUser } from '@clerk/nextjs/server'
+import { currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
@@ -7,10 +7,10 @@ export const runtime = 'nodejs'
 
 export async function GET() {
   try {
-    const { userId } = await auth()
+    // Use currentUser instead of auth() to avoid middleware issues
     const user = await currentUser()
     
-    if (!userId || !user) {
+    if (!user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
     
@@ -18,7 +18,7 @@ export async function GET() {
     let databaseUser = null
     try {
       databaseUser = await prisma.user.findUnique({
-        where: { clerkId: userId },
+        where: { clerkId: user.id },
         include: {
           professionalMirror: true,
           trinity: true,
@@ -37,7 +37,7 @@ export async function GET() {
     }
     
     return NextResponse.json({
-      clerkId: userId,
+      clerkId: user.id,
       email: user.emailAddresses?.[0]?.emailAddress,
       firstName: user.firstName,
       lastName: user.lastName,
