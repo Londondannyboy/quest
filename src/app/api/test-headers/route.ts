@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const headersList = headers()
+  const headersList = await headers()
   
   // Get all cookies
   const cookieHeader = headersList.get('cookie') || ''
