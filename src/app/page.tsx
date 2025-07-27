@@ -5,7 +5,7 @@ import { ClerkProvider, SignInButton, SignOutButton, useUser } from '@clerk/next
 
 function AuthContent() {
   const { isSignedIn, user } = useUser()
-  const [userInfo, setUserInfo] = useState<any>(null)
+  const [userInfo, setUserInfo] = useState<Record<string, unknown> | null>(null)
 
   const checkUser = async () => {
     try {
