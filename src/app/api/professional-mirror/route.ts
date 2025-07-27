@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import jwt from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
+import { scrapeLinkedInProfile } from '@/lib/apify'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,6 +42,17 @@ export async function POST(req: Request) {
 
     // Create or update professional mirror
     let professionalMirror
+    let scrapedData = null
+    
+    // Try to scrape LinkedIn if Apify token is available
+    if (process.env.APIFY_TOKEN || process.env.APIFY_API_KEY) {
+      try {
+        scrapedData = await scrapeLinkedInProfile(linkedinUrl)
+      } catch (error) {
+        console.error('Scraping failed, continuing without data:', error)
+        // Continue without scraped data
+      }
+    }
     
     if (user.professionalMirror) {
       // Update existing
@@ -48,7 +60,8 @@ export async function POST(req: Request) {
         where: { id: user.professionalMirror.id },
         data: {
           linkedinUrl,
-          lastScraped: new Date()
+          lastScraped: new Date(),
+          rawLinkedinData: scrapedData ? JSON.parse(JSON.stringify(scrapedData)) : undefined
         }
       })
     } else {
@@ -56,13 +69,11 @@ export async function POST(req: Request) {
       professionalMirror = await prisma.professionalMirror.create({
         data: {
           userId: user.id,
-          linkedinUrl
+          linkedinUrl,
+          rawLinkedinData: scrapedData ? JSON.parse(JSON.stringify(scrapedData)) : undefined
         }
       })
     }
-
-    // In a real implementation, you would trigger the Apify scraper here
-    // For now, we'll just save the URL
 
     return NextResponse.json({
       message: 'Professional Mirror created successfully',

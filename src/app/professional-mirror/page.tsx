@@ -1,26 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 
 export default function ProfessionalMirrorPage() {
-  const { isSignedIn, user } = useUser()
+  const { isSignedIn } = useUser()
   const router = useRouter()
   const [linkedinUrl, setLinkedinUrl] = useState('')
   const [loading, setLoading] = useState(false)
-  const [userProfile, setUserProfile] = useState<any>(null)
+  const [userProfile, setUserProfile] = useState<Record<string, unknown> | null>(null)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    if (!isSignedIn) {
-      router.push('/')
-    } else {
-      fetchUserProfile()
-    }
-  }, [isSignedIn, router])
-
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = useCallback(async () => {
     try {
       const response = await fetch('/api/user-workaround')
       const data = await response.json()
@@ -33,7 +25,15 @@ export default function ProfessionalMirrorPage() {
     } catch (error) {
       console.error('Error fetching profile:', error)
     }
-  }
+  }, [router])
+
+  useEffect(() => {
+    if (!isSignedIn) {
+      router.push('/')
+    } else {
+      fetchUserProfile()
+    }
+  }, [isSignedIn, router, fetchUserProfile])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -82,7 +82,7 @@ export default function ProfessionalMirrorPage() {
           </p>
           
           <p className="text-lg mb-8 text-gray-400">
-            We'll analyze your LinkedIn profile to understand your professional journey. 
+            We&apos;ll analyze your LinkedIn profile to understand your professional journey. 
             This is the first step in discovering your Quest.
           </p>
 
@@ -125,7 +125,7 @@ export default function ProfessionalMirrorPage() {
             <div className="mt-8 p-4 bg-gray-900 rounded-lg">
               <h3 className="text-sm font-semibold mb-2">What happens next?</h3>
               <ol className="text-sm text-gray-400 space-y-2">
-                <li>1. We'll scan your LinkedIn profile</li>
+                <li>1. We&apos;ll scan your LinkedIn profile</li>
                 <li>2. Extract your professional experiences and skills</li>
                 <li>3. Begin your Trinity discovery process</li>
                 <li>4. Help you earn your Quest through your story</li>
