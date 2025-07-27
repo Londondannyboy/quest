@@ -18,8 +18,9 @@ export default function ProfessionalMirrorPage() {
       const data = await response.json()
       setUserProfile(data)
       
-      // If they already have a professional mirror, redirect to trinity
-      if (data.databaseUser?.professionalMirror) {
+      // If they already have a professional mirror with LinkedIn URL, redirect to trinity
+      const mirror = data.databaseUser?.professionalMirror as Record<string, unknown> | null
+      if (mirror?.linkedinUrl) {
         router.push('/trinity')
       }
     } catch (error) {
