@@ -82,6 +82,17 @@ function AuthContent() {
             </SignOutButton>
           </div>
           
+          {userInfo?.databaseStatus === 'synced' && (
+            <div className="mt-8">
+              <a 
+                href="/professional-mirror"
+                className="inline-block px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all text-lg font-semibold"
+              >
+                Begin Your Quest Journey →
+              </a>
+            </div>
+          )}
+          
           {userInfo && (
             <div className="mt-6 p-4 bg-gray-900 rounded-lg">
               <p className="text-sm font-mono">API Response:</p>
