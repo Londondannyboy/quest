@@ -1,4 +1,17 @@
-import { JourneyEntry } from '@/components/journey-entry'
+import dynamic from 'next/dynamic'
+
+// Dynamically import the component to avoid SSR issues with Clerk
+const JourneyEntry = dynamic(() => import('@/components/journey-entry').then(mod => mod.JourneyEntry), {
+  ssr: false,
+  loading: () => (
+    <div className="bg-gray-800 rounded-lg p-8 max-w-2xl mx-auto animate-pulse">
+      <div className="h-8 bg-gray-700 rounded w-1/3 mb-6"></div>
+      <div className="h-4 bg-gray-700 rounded w-full mb-6"></div>
+      <div className="h-12 bg-gray-700 rounded mb-4"></div>
+      <div className="h-12 bg-gray-700 rounded"></div>
+    </div>
+  )
+})
 
 export default function Home() {
   return (
