@@ -51,32 +51,34 @@ export async function scrapeLinkedInProfile(linkedinUrl: string): Promise<Linked
       throw new Error('No data scraped from LinkedIn')
     }
     
-    const profile = items[0] as any
+    const profile = items[0] as Record<string, unknown>
     
     // Transform the data to our format
+    const currentPosition = profile.currentPosition as Record<string, unknown> | undefined
+    
     return {
       url: linkedinUrl,
-      name: profile.name || profile.fullName,
-      headline: profile.headline,
-      about: profile.about || profile.summary,
-      currentPosition: profile.currentPosition ? {
-        title: profile.currentPosition.title,
-        company: profile.currentPosition.companyName,
-        duration: profile.currentPosition.duration
+      name: (profile.name || profile.fullName) as string | undefined,
+      headline: profile.headline as string | undefined,
+      about: (profile.about || profile.summary) as string | undefined,
+      currentPosition: currentPosition ? {
+        title: currentPosition.title as string,
+        company: currentPosition.companyName as string,
+        duration: currentPosition.duration as string
       } : undefined,
-      experiences: profile.positions?.map((pos: any) => ({
-        title: pos.title,
-        company: pos.companyName,
-        duration: pos.duration,
-        description: pos.description
+      experiences: (profile.positions as Array<Record<string, unknown>>)?.map((pos) => ({
+        title: pos.title as string,
+        company: pos.companyName as string,
+        duration: pos.duration as string,
+        description: pos.description as string | undefined
       })),
-      education: profile.education?.map((edu: any) => ({
-        school: edu.schoolName,
-        degree: edu.degree,
-        field: edu.fieldOfStudy,
-        dates: edu.dates
+      education: (profile.education as Array<Record<string, unknown>>)?.map((edu) => ({
+        school: edu.schoolName as string,
+        degree: edu.degree as string | undefined,
+        field: edu.fieldOfStudy as string | undefined,
+        dates: edu.dates as string | undefined
       })),
-      skills: profile.skills || []
+      skills: (profile.skills || []) as string[]
     }
   } catch (error) {
     console.error('Error scraping LinkedIn:', error)
