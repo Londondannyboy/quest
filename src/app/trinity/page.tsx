@@ -1,25 +1,25 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+interface UserProfile {
+  databaseUser?: {
+    professionalMirror?: Record<string, unknown>
+    [key: string]: unknown
+  }
+  [key: string]: unknown
+}
+
 export default function TrinityPage() {
   const { isSignedIn } = useUser()
   const router = useRouter()
-  const [userProfile, setUserProfile] = useState<Record<string, unknown> | null>(null)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (!isSignedIn) {
-      router.push('/')
-    } else {
-      fetchUserProfile()
-    }
-  }, [isSignedIn, router])
-
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = useCallback(async () => {
     try {
       const response = await fetch('/api/user-workaround')
       const data = await response.json()
@@ -35,7 +35,15 @@ export default function TrinityPage() {
       console.error('Error fetching profile:', error)
       setLoading(false)
     }
-  }
+  }, [router])
+
+  useEffect(() => {
+    if (!isSignedIn) {
+      router.push('/')
+    } else {
+      fetchUserProfile()
+    }
+  }, [isSignedIn, router, fetchUserProfile])
 
   if (loading) {
     return (
@@ -45,7 +53,7 @@ export default function TrinityPage() {
     )
   }
 
-  const professionalMirror = userProfile?.databaseUser?.professionalMirror as Record<string, unknown> | null
+  const professionalMirror = userProfile?.databaseUser?.professionalMirror
   const linkedinData = professionalMirror?.rawLinkedinData as Record<string, unknown> | null
 
   return (
