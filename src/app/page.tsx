@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ClerkProvider, SignInButton, SignOutButton, useUser } from '@clerk/nextjs'
+import { SignInButton, SignOutButton, useUser } from '@clerk/nextjs'
 
 function AuthContent() {
   const { isSignedIn, user } = useUser()
@@ -109,40 +109,25 @@ function AuthContent() {
 }
 
 export default function Home() {
-  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 'pk_test_ZGFybGluZy1pbnNlY3QtNDMuY2xlcmsuYWNjb3VudHMuZGV2JA'
-  
-  if (!publishableKey) {
-    return (
-      <main className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Configuration Error</h1>
-          <p>Clerk publishable key is missing</p>
-        </div>
-      </main>
-    )
-  }
-  
   return (
-    <ClerkProvider publishableKey={publishableKey}>
-      <main className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
-        <div className="container mx-auto px-4 py-16">
-          <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">
-              Quest Core V2
-            </h1>
-            
-            <p className="text-xl md:text-2xl mb-4 text-gray-300">
-              You can&apos;t begin your Quest until we understand your story
-            </p>
-            
-            <p className="text-lg mb-12 text-gray-400">
-              A revolutionary professional development platform
-            </p>
+    <main className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
+      <div className="container mx-auto px-4 py-16">
+        <div className="max-w-4xl mx-auto text-center">
+          <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">
+            Quest Core V2
+          </h1>
+          
+          <p className="text-xl md:text-2xl mb-4 text-gray-300">
+            You can&apos;t begin your Quest until we understand your story
+          </p>
+          
+          <p className="text-lg mb-12 text-gray-400">
+            A revolutionary professional development platform
+          </p>
 
-            <AuthContent />
-          </div>
+          <AuthContent />
         </div>
-      </main>
-    </ClerkProvider>
+      </div>
+    </main>
   )
 }
