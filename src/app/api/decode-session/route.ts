@@ -17,7 +17,7 @@ export async function GET() {
     }
     
     // Decode without verification for debugging
-    const decoded = jwt.decode(sessionToken) as any
+    const decoded = jwt.decode(sessionToken) as Record<string, unknown>
     
     if (!decoded) {
       return NextResponse.json({
@@ -28,12 +28,12 @@ export async function GET() {
     
     return NextResponse.json({
       authenticated: true,
-      userId: decoded.sub || decoded.user_id,
-      email: decoded.email,
+      userId: decoded.sub || decoded.user_id || null,
+      email: decoded.email || null,
       sessionClaims: {
-        issuedAt: new Date(decoded.iat * 1000).toISOString(),
-        expiresAt: new Date(decoded.exp * 1000).toISOString(),
-        issuer: decoded.iss,
+        issuedAt: decoded.iat ? new Date((decoded.iat as number) * 1000).toISOString() : null,
+        expiresAt: decoded.exp ? new Date((decoded.exp as number) * 1000).toISOString() : null,
+        issuer: decoded.iss || null,
       },
       // For debugging
       allClaims: Object.keys(decoded)
