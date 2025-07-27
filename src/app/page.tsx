@@ -19,7 +19,7 @@ function AuthContent() {
 
   const syncUser = async () => {
     try {
-      const response = await fetch('/api/user/sync', { method: 'POST' })
+      const response = await fetch('/api/user/sync-workaround', { method: 'POST' })
       const data = await response.json()
       
       if (!response.ok) {
