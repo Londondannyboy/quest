@@ -2,10 +2,25 @@
 
 import { useState } from 'react'
 
+interface ScrapeResult {
+  success?: boolean
+  error?: string
+  details?: string
+  data?: {
+    name?: string
+    headline?: string
+    currentPosition?: {
+      title: string
+      company: string
+    }
+    skills?: string[]
+  }
+}
+
 export default function TestScrapePage() {
   const [linkedinUrl, setLinkedinUrl] = useState('')
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<ScrapeResult | null>(null)
 
   const testScrape = async () => {
     setLoading(true)
