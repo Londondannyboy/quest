@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { SignInButton, SignOutButton, useUser } from '@clerk/nextjs'
+import Link from 'next/link'
 
 function AuthContent() {
   const { isSignedIn, user } = useUser()
@@ -11,6 +12,7 @@ function AuthContent() {
     try {
       const response = await fetch('/api/user-workaround')
       const data = await response.json()
+      console.log('User info:', data)
       setUserInfo(data)
     } catch (error) {
       console.error('Error fetching user:', error)
@@ -84,12 +86,12 @@ function AuthContent() {
           
           {userInfo?.databaseStatus === 'synced' && (
             <div className="mt-8">
-              <a 
+              <Link 
                 href="/professional-mirror"
                 className="inline-block px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all text-lg font-semibold"
               >
                 Begin Your Quest Journey →
-              </a>
+              </Link>
             </div>
           )}
           
