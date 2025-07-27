@@ -37,6 +37,17 @@ export async function POST() {
     })
   } catch (error) {
     console.error('Error syncing user:', error)
+    
+    // Check if it's a database table error
+    if (error instanceof Error && error.message.includes('relation')) {
+      return NextResponse.json({ 
+        error: 'Database not initialized',
+        details: 'The database tables have not been created yet.',
+        solution: 'Run these commands locally:\n1. npx prisma generate\n2. npx prisma db push',
+        rawError: error.message
+      }, { status: 500 })
+    }
+    
     return NextResponse.json({ 
       error: 'Failed to sync user',
       details: error instanceof Error ? error.message : 'Unknown error'

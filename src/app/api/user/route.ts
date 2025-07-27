@@ -45,6 +45,10 @@ export async function GET() {
     })
   } catch (error) {
     console.error('Error getting user:', error)
-    return NextResponse.json({ error: 'Failed to get user' }, { status: 500 })
+    return NextResponse.json({ 
+      error: 'Failed to get user',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      hint: 'Database might not be initialized. Run: npx prisma db push'
+    }, { status: 500 })
   }
 }

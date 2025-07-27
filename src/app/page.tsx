@@ -21,11 +21,18 @@ function AuthContent() {
     try {
       const response = await fetch('/api/user/sync', { method: 'POST' })
       const data = await response.json()
+      
+      if (!response.ok) {
+        console.error('Sync error:', data)
+        alert(`Sync failed: ${data.error}\n\n${data.details}\n\n${data.solution || ''}`)
+        return
+      }
+      
       alert(data.message || 'Sync complete!')
       checkUser() // Refresh user info
     } catch (error) {
       console.error('Error syncing user:', error)
-      alert('Sync failed!')
+      alert('Sync failed! Check console for details.')
     }
   }
 
@@ -54,6 +61,18 @@ function AuthContent() {
               className="px-6 py-3 bg-green-500 rounded-lg hover:bg-green-600 transition-colors"
             >
               Sync to Database
+            </button>
+            
+            <button
+              onClick={async () => {
+                const res = await fetch('/api/health')
+                const data = await res.json()
+                console.log('Health check:', data)
+                alert(`Database: ${data.database.connected ? 'Connected' : 'Not Connected'}\n${data.database.error || ''}`)
+              }}
+              className="px-6 py-3 bg-yellow-500 rounded-lg hover:bg-yellow-600 transition-colors"
+            >
+              Check Database
             </button>
             
             <SignOutButton>
