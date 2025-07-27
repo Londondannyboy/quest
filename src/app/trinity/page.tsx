@@ -77,15 +77,15 @@ export default function TrinityPage() {
             <div className="bg-gray-800 rounded-lg p-6 mb-8">
               <h2 className="text-2xl font-semibold mb-4">Your Professional Mirror</h2>
               
-              {linkedinData.name && (
+              {(linkedinData?.name as string) && (
                 <p className="text-xl mb-2">{linkedinData.name as string}</p>
               )}
               
-              {linkedinData.headline && (
+              {(linkedinData?.headline as string) && (
                 <p className="text-gray-400 mb-4">{linkedinData.headline as string}</p>
               )}
               
-              {linkedinData.about && (
+              {(linkedinData?.about as string) && (
                 <div className="text-gray-300 mb-4">
                   <h3 className="font-semibold mb-2">About</h3>
                   <p className="whitespace-pre-wrap">{linkedinData.about as string}</p>

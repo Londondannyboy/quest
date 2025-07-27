@@ -1,0 +1,105 @@
+name: Auto-fix Lint and TypeScript Errors
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  fix-errors:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        
+      - name: Run ESLint with fix
+        id: eslint
+        run: |
+          npm run lint -- --fix || true
+          git diff --exit-code || echo "has_fixes=true" >> $GITHUB_OUTPUT
+        
+      - name: Check TypeScript
+        id: typescript
+        run: |
+          npx tsc --noEmit || echo "has_errors=true" >> $GITHUB_OUTPUT
+          
+      - name: Create fixes summary
+        if: steps.eslint.outputs.has_fixes == 'true' || steps.typescript.outputs.has_errors == 'true'
+        run: |
+          echo "## 🤖 Automated Fixes Summary" > fix-summary.md
+          echo "" >> fix-summary.md
+          
+          if [ "${{ steps.eslint.outputs.has_fixes }}" == "true" ]; then
+            echo "### ESLint Fixes Applied:" >> fix-summary.md
+            git diff --name-only >> fix-summary.md
+            echo "" >> fix-summary.md
+          fi
+          
+          if [ "${{ steps.typescript.outputs.has_errors }}" == "true" ]; then
+            echo "### TypeScript Errors Found:" >> fix-summary.md
+            echo "Manual intervention may be required for TypeScript errors." >> fix-summary.md
+            npx tsc --noEmit 2>&1 | head -20 >> fix-summary.md || true
+            echo "" >> fix-summary.md
+          fi
+          
+      - name: Commit and push fixes
+        if: steps.eslint.outputs.has_fixes == 'true'
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          git add -A
+          git commit -m "🤖 Auto-fix: ESLint errors
+
+          Co-authored-by: GitHub Actions <actions@github.com>" || true
+          git push || true
+          
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && (steps.eslint.outputs.has_fixes == 'true' || steps.typescript.outputs.has_errors == 'true')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('fix-summary.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            })
+            
+      - name: Create issue for TypeScript errors
+        if: steps.typescript.outputs.has_errors == 'true' && github.event_name == 'push'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('fix-summary.md', 'utf8');
+            
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🔧 TypeScript errors need manual fixing',
+              body: summary + '\n\n@Londondannyboy - Claude can help fix these TypeScript errors.',
+              labels: ['typescript', 'automated']
+            })
