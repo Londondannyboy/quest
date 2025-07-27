@@ -1,8 +1,14 @@
 import { ApifyClient } from 'apify-client'
 
 // Initialize the ApifyClient with your API token
+const token = process.env.APIFY_TOKEN || process.env.APIFY_API_KEY
+
+if (!token) {
+  console.warn('Apify token not found in environment variables')
+}
+
 const client = new ApifyClient({
-  token: process.env.APIFY_TOKEN || process.env.APIFY_API_KEY,
+  token: token,
 })
 
 export interface LinkedInProfileData {
@@ -32,18 +38,30 @@ export interface LinkedInProfileData {
 
 export async function scrapeLinkedInProfile(linkedinUrl: string): Promise<LinkedInProfileData> {
   try {
+    console.log('Starting LinkedIn scrape with URL:', linkedinUrl)
+    console.log('Apify token available:', !!token)
+    
     // LinkedIn Profile Scraper actor ID
-    // You can also try: 'voyager/linkedin-profile-scraper' or 'misceres/linkedin-profile-scraper'
-    const actorId = 'vdrmota/linkedin-profile-scraper'
+    // Popular options: 'curious_coder/linkedin-profile-scraper', 'voyager/linkedin-profile-scraper'
+    const actorId = 'curious_coder/linkedin-profile-scraper'
+    
+    console.log('Using actor:', actorId)
     
     // Run the actor
-    const run = await client.actor(actorId).call({
-      profileUrls: [linkedinUrl],
+    const input = {
+      urls: [linkedinUrl],  // Some actors use 'urls' instead of 'profileUrls'
       proxy: {
         useApifyProxy: true,
         apifyProxyGroups: ['RESIDENTIAL']
       }
-    })
+    }
+    
+    console.log('Actor input:', JSON.stringify(input, null, 2))
+    
+    const run = await client.actor(actorId).call(input)
+    
+    console.log('Actor run ID:', run.id)
+    console.log('Actor run status:', run.status)
     
     // Fetch results
     const { items } = await client.dataset(run.defaultDatasetId).listItems()
@@ -83,6 +101,18 @@ export async function scrapeLinkedInProfile(linkedinUrl: string): Promise<Linked
     }
   } catch (error) {
     console.error('Error scraping LinkedIn:', error)
+    
+    // Provide more detailed error information
+    if (error instanceof Error) {
+      if (error.message.includes('Actor not found')) {
+        throw new Error('LinkedIn scraper actor not found. The actor ID may be incorrect.')
+      }
+      if (error.message.includes('insufficient')) {
+        throw new Error('Insufficient Apify credits. Please check your account balance.')
+      }
+      throw new Error(`Apify error: ${error.message}`)
+    }
+    
     throw new Error('Failed to scrape LinkedIn profile')
   }
 }
