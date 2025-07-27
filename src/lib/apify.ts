@@ -41,19 +41,16 @@ export async function scrapeLinkedInProfile(linkedinUrl: string): Promise<Linked
     console.log('Starting LinkedIn scrape with URL:', linkedinUrl)
     console.log('Apify token available:', !!token)
     
-    // LinkedIn Profile Scraper actor ID
-    // Popular options: 'curious_coder/linkedin-profile-scraper', 'voyager/linkedin-profile-scraper'
-    const actorId = 'curious_coder/linkedin-profile-scraper'
+    // LinkedIn Profile Scraper actor ID - HarvestAPI
+    const actorId = 'harvestapi/linkedin-profile-scraper'
+    // Alternative: Use the actor ID directly: 'LpVuK3Zozwuipa5bp'
     
     console.log('Using actor:', actorId)
     
-    // Run the actor
+    // Run the actor - HarvestAPI expects both 'queries' and 'urls'
     const input = {
-      urls: [linkedinUrl],  // Some actors use 'urls' instead of 'profileUrls'
-      proxy: {
-        useApifyProxy: true,
-        apifyProxyGroups: ['RESIDENTIAL']
-      }
+      queries: [linkedinUrl],  // HarvestAPI uses 'queries'
+      urls: [linkedinUrl]      // And also 'urls' as fallback
     }
     
     console.log('Actor input:', JSON.stringify(input, null, 2))
@@ -72,32 +69,35 @@ export async function scrapeLinkedInProfile(linkedinUrl: string): Promise<Linked
     
     const profile = items[0] as Record<string, unknown>
     
-    // Transform the data to our format
-    const currentPosition = profile.currentPosition as Record<string, unknown> | undefined
+    console.log('Raw profile data keys:', Object.keys(profile))
+    
+    // Transform the data to our format - adjusted for HarvestAPI output
+    const experiences = profile.experience as Array<Record<string, unknown>> || []
+    const currentPosition = experiences.find(exp => exp.current === true)
     
     return {
       url: linkedinUrl,
-      name: (profile.name || profile.fullName) as string | undefined,
-      headline: profile.headline as string | undefined,
-      about: (profile.about || profile.summary) as string | undefined,
+      name: (profile.name || profile.fullName || profile.full_name) as string | undefined,
+      headline: (profile.headline || profile.title) as string | undefined,
+      about: (profile.about || profile.summary || profile.description) as string | undefined,
       currentPosition: currentPosition ? {
-        title: currentPosition.title as string,
-        company: currentPosition.companyName as string,
+        title: (currentPosition.title || currentPosition.position) as string,
+        company: (currentPosition.companyName || currentPosition.company_name || currentPosition.company) as string,
         duration: currentPosition.duration as string
       } : undefined,
-      experiences: (profile.positions as Array<Record<string, unknown>>)?.map((pos) => ({
-        title: pos.title as string,
-        company: pos.companyName as string,
-        duration: pos.duration as string,
-        description: pos.description as string | undefined
+      experiences: experiences?.map((exp) => ({
+        title: (exp.title || exp.position) as string,
+        company: (exp.companyName || exp.company_name || exp.company) as string,
+        duration: exp.duration as string,
+        description: exp.description as string | undefined
       })),
       education: (profile.education as Array<Record<string, unknown>>)?.map((edu) => ({
-        school: edu.schoolName as string,
+        school: (edu.schoolName || edu.school_name || edu.school) as string,
         degree: edu.degree as string | undefined,
-        field: edu.fieldOfStudy as string | undefined,
+        field: (edu.fieldOfStudy || edu.field_of_study || edu.field) as string | undefined,
         dates: edu.dates as string | undefined
       })),
-      skills: (profile.skills || []) as string[]
+      skills: (profile.skills || profile.skill || []) as string[]
     }
   } catch (error) {
     console.error('Error scraping LinkedIn:', error)
