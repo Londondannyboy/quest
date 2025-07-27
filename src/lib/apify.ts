@@ -33,6 +33,7 @@ export interface LinkedInProfileData {
 export async function scrapeLinkedInProfile(linkedinUrl: string): Promise<LinkedInProfileData> {
   try {
     // LinkedIn Profile Scraper actor ID
+    // You can also try: 'voyager/linkedin-profile-scraper' or 'misceres/linkedin-profile-scraper'
     const actorId = 'vdrmota/linkedin-profile-scraper'
     
     // Run the actor
