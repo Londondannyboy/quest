@@ -1,4 +1,10 @@
+'use client'
+
+import { SignInButton, SignOutButton, useUser } from '@clerk/nextjs'
+
 export default function Home() {
+  const { isSignedIn, user } = useUser()
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
       <div className="container mx-auto px-4 py-16">
@@ -16,10 +22,31 @@ export default function Home() {
           </p>
 
           <div className="bg-gray-800 rounded-lg p-8 max-w-2xl mx-auto">
-            <h2 className="text-2xl font-semibold mb-6">Coming Soon</h2>
-            <p className="text-gray-300">
-              We&apos;re building something amazing. Check back soon!
-            </p>
+            {isSignedIn ? (
+              <>
+                <h2 className="text-2xl font-semibold mb-4">Welcome back!</h2>
+                <p className="text-gray-300 mb-6">
+                  Hello {user.firstName || user.emailAddresses?.[0]?.emailAddress}
+                </p>
+                <SignOutButton>
+                  <button className="px-6 py-3 bg-red-500 rounded-lg hover:bg-red-600 transition-colors">
+                    Sign Out
+                  </button>
+                </SignOutButton>
+              </>
+            ) : (
+              <>
+                <h2 className="text-2xl font-semibold mb-6">Begin Your Journey</h2>
+                <p className="text-gray-300 mb-6">
+                  Sign in to start your Quest
+                </p>
+                <SignInButton mode="modal">
+                  <button className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all">
+                    Sign In
+                  </button>
+                </SignInButton>
+              </>
+            )}
           </div>
         </div>
       </div>
