@@ -129,7 +129,7 @@ export default function TrinityPage() {
   }
   
   // Validate field
-  const validateField = (field: keyof TrinityData): boolean => {
+  const validateField = (field: TrinityFieldKey): boolean => {
     const value = trinity[field] || ''
     const wordCount = value.trim().split(/\s+/).filter(word => word.length > 0).length
     
@@ -146,8 +146,12 @@ export default function TrinityPage() {
   
   // Save Trinity
   const saveTrinity = async () => {
-    // Validate all fields
-    const fields = Object.keys(trinity) as Array<keyof TrinityData>
+    // Validate all fields except clarityScore
+    const fields: TrinityFieldKey[] = [
+      'pastQuest', 'pastService', 'pastPledge',
+      'presentQuest', 'presentService', 'presentPledge',
+      'futureQuest', 'futureService', 'futurePledge'
+    ]
     let hasErrors = false
     
     fields.forEach(field => {
@@ -157,10 +161,7 @@ export default function TrinityPage() {
     })
     
     if (hasErrors) {
-      setCoachMessage({
-        coach: 'delivery',
-        message: "Some fields need more detail. Each response should be at least 10 words to capture your true Trinity."
-      })
+      console.log('Validation errors - some fields need more detail')
       return
     }
     
