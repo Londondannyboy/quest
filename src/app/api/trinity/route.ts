@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
 }
 
 // GET /api/trinity - Retrieve user's Trinity
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const { userId } = await auth()
     if (!userId) {

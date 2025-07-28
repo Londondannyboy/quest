@@ -106,7 +106,7 @@ function generateRecommendations(scores: {
 }
 
 // POST /api/quest/readiness - Check Quest eligibility
-export async function POST(req: NextRequest) {
+export async function POST() {
   try {
     const { userId } = await auth()
     if (!userId) {
@@ -191,7 +191,7 @@ export async function POST(req: NextRequest) {
 }
 
 // GET /api/quest/readiness - Get current readiness status
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const { userId } = await auth()
     if (!userId) {

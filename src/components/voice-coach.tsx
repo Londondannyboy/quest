@@ -15,12 +15,7 @@ interface VoiceCoachProps {
 const HUME_API_KEY = process.env.NEXT_PUBLIC_HUME_API_KEY
 const HUME_SECRET_KEY = process.env.NEXT_PUBLIC_HUME_SECRET_KEY
 
-// EVI 3 Voice IDs from Voice Library (these would be actual voice IDs)
-const VOICE_IDS = {
-  STORY_COACH: 'kora', // Female, warm voice
-  QUEST_COACH: 'dacher', // Male, energetic voice  
-  DELIVERY_COACH: 'ito' // Clear, authoritative voice
-}
+// Note: Voice IDs are now configured in hume-config.ts
 
 export function VoiceCoach({ currentCoach, onCoachMessage, isActive }: VoiceCoachProps) {
   const [isConnected, setIsConnected] = useState(false)

@@ -30,7 +30,8 @@ interface TrinityData {
 }
 
 // Coach assignments for each Trinity phase
-const fieldCoachMap: Record<keyof TrinityData, CoachType> = {
+type TrinityFieldKey = Exclude<keyof TrinityData, 'clarityScore'>
+const fieldCoachMap: Record<TrinityFieldKey, CoachType> = {
   pastQuest: CoachType.STORY_COACH,
   pastService: CoachType.STORY_COACH,
   pastPledge: CoachType.STORY_COACH,
@@ -109,7 +110,7 @@ export default function TrinityPage() {
   }
   
   // Handle field focus to activate appropriate coach
-  const handleFieldFocus = (field: keyof TrinityData) => {
+  const handleFieldFocus = (field: TrinityFieldKey) => {
     const coach = fieldCoachMap[field]
     if (coach !== currentCoach) {
       setCurrentCoach(coach)
