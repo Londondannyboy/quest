@@ -92,12 +92,20 @@ export default function TrinityPage() {
                 </div>
               )}
               
-              <Link 
-                href="/professional-mirror"
-                className="text-blue-400 hover:text-blue-300 text-sm"
-              >
-                Update LinkedIn URL →
-              </Link>
+              <div className="flex items-center space-x-4">
+                <Link 
+                  href="/professional-mirror"
+                  className="text-blue-400 hover:text-blue-300 text-sm"
+                >
+                  Update LinkedIn URL →
+                </Link>
+                <Link 
+                  href="/colleagues"
+                  className="text-purple-400 hover:text-purple-300 text-sm"
+                >
+                  View Colleagues →
+                </Link>
+              </div>
             </div>
           )}
 

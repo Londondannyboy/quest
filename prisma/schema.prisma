@@ -33,6 +33,11 @@ model User {
   // User's story and coaching sessions
   storySessions     StorySession[]
   coachingSessions  CoachingSession[]
+  
+  // Professional network
+  colleagues        Colleague[]      @relation("UserColleagues")
+  alsoViewed        User[]           @relation("AlsoViewed")
+  viewedBy          User[]           @relation("AlsoViewed")
 }
 
 // Professional Mirror - How the world sees them
@@ -45,6 +50,10 @@ model ProfessionalMirror {
   lastScraped      DateTime?
   rawLinkedinData  Json?
   enrichmentData   Json?    // Tavily, LinkUp data
+  
+  // Company employee scraping status
+  companyScraped   Boolean  @default(false)
+  employeesScrapedAt DateTime?
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -124,6 +133,7 @@ model Company {
   // Validation tracking
   validators  User[]       @relation("UserValidatedCompanies")
   experiences Experience[]
+  colleagues  Colleague[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -305,4 +315,35 @@ enum EntityStatus {
   PROVISIONAL  // Created from scraping, not verified
   VALIDATED    // User confirmed
   REJECTED     // User rejected
+}
+
+// Colleague relationship from company scraping
+model Colleague {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation("UserColleagues", fields: [userId], references: [id])
+  
+  // LinkedIn profile info
+  linkedinUrl     String   @unique
+  name            String
+  title           String?
+  profileImageUrl String?
+  
+  // Company relationship
+  company         Company? @relation(fields: [companyId], references: [id])
+  companyId       String?
+  
+  // Whether this colleague is also a Quest user
+  isQuestUser     Boolean  @default(false)
+  questUserId     String?  // If they join Quest later
+  
+  // Scraping metadata
+  scrapedAt       DateTime @default(now())
+  lastUpdated     DateTime @updatedAt
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([companyId])
 }

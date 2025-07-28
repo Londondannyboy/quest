@@ -1,26 +1,17 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import jwt from 'jsonwebtoken'
+import { currentUser } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
-import { scrapeLinkedInProfile } from '@/lib/apify'
+import { scrapeLinkedInProfile, scrapeCompanyEmployees } from '@/lib/apify'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: Request) {
   try {
-    // Get user from session
-    const cookieStore = await cookies()
-    const sessionToken = cookieStore.get('__session')?.value
+    // Get user from Clerk
+    const user = await currentUser()
     
-    if (!sessionToken) {
+    if (!user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-    }
-    
-    const decoded = jwt.decode(sessionToken) as Record<string, unknown>
-    const userId = decoded?.sub as string
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
     }
 
     // Get the LinkedIn URL from request
@@ -30,13 +21,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid LinkedIn URL' }, { status: 400 })
     }
 
-    // Find the user
-    const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+    // Find the database user
+    const dbUser = await prisma.user.findUnique({
+      where: { clerkId: user.id },
       include: { professionalMirror: true }
     })
 
-    if (!user) {
+    if (!dbUser) {
       return NextResponse.json({ error: 'User not found in database' }, { status: 404 })
     }
 
@@ -54,10 +45,10 @@ export async function POST(req: Request) {
       }
     }
     
-    if (user.professionalMirror) {
+    if (dbUser.professionalMirror) {
       // Update existing
       professionalMirror = await prisma.professionalMirror.update({
-        where: { id: user.professionalMirror.id },
+        where: { id: dbUser.professionalMirror.id },
         data: {
           linkedinUrl,
           lastScraped: new Date(),
@@ -68,16 +59,45 @@ export async function POST(req: Request) {
       // Create new
       professionalMirror = await prisma.professionalMirror.create({
         data: {
-          userId: user.id,
+          userId: dbUser.id,
           linkedinUrl,
           rawLinkedinData: scrapedData ? JSON.parse(JSON.stringify(scrapedData)) : undefined
         }
       })
     }
 
+    // Extract company URL from scraped data and trigger employee scraping
+    let companyScrapingResult = null
+    if (scrapedData?.currentPosition?.company) {
+      // Try to find company LinkedIn URL from the scraped data
+      const rawData = scrapedData as any
+      const companyUrl = rawData.currentCompanyUrl || 
+                        rawData.currentCompany?.url ||
+                        rawData.experiences?.[0]?.companyUrl
+      
+      if (companyUrl && companyUrl.includes('linkedin.com/company/')) {
+        try {
+          // Trigger company employee scraping in the background
+          fetch(`${process.env.NEXT_PUBLIC_URL || ''}/api/company/employees`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Cookie': req.headers.get('cookie') || ''
+            },
+            body: JSON.stringify({ companyUrl })
+          }).catch(err => console.error('Background company scraping failed:', err))
+          
+          companyScrapingResult = { triggered: true, companyUrl }
+        } catch (error) {
+          console.error('Failed to trigger company scraping:', error)
+        }
+      }
+    }
+
     return NextResponse.json({
       message: 'Professional Mirror created successfully',
       professionalMirror,
+      companyScrapingResult,
       nextStep: '/trinity'
     })
   } catch (error) {
