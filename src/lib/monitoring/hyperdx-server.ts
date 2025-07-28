@@ -3,9 +3,9 @@ import { HyperDX } from '@hyperdx/node-opentelemetry'
 
 // Initialize HyperDX for server-side monitoring
 export function initServerMonitoring() {
-  if (process.env.HYPERDX_API_KEY && process.env.NODE_ENV === 'production') {
+  if (process.env.HYPERDX_PERSONAL_API_TOKEN) {
     HyperDX.init({
-      apiKey: process.env.HYPERDX_API_KEY,
+      apiKey: process.env.HYPERDX_PERSONAL_API_TOKEN,
       service: 'quest-core-v2-api',
       instrumentations: [
         getNodeAutoInstrumentations({
@@ -19,7 +19,7 @@ export function initServerMonitoring() {
     // Start HyperDX
     HyperDX.start()
     
-    console.log('HyperDX monitoring initialized')
+    console.log('HyperDX monitoring initialized for', process.env.NODE_ENV)
   }
 }
 

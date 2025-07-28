@@ -3,9 +3,9 @@ import HyperDX from '@hyperdx/browser'
 let hdx: typeof HyperDX | null = null
 
 export function initHyperDX() {
-  if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_HYPERDX_API_KEY) {
+  if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_HYPERDX_PERSONAL_API_TOKEN) {
     hdx = HyperDX.init({
-      apiKey: process.env.NEXT_PUBLIC_HYPERDX_API_KEY,
+      apiKey: process.env.NEXT_PUBLIC_HYPERDX_PERSONAL_API_TOKEN,
       service: 'quest-core-v2',
       tracePropagationTargets: [/quest-omega-wheat\.vercel\.app/i],
       consoleCapture: true,

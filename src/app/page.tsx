@@ -3,10 +3,15 @@
 import { useEffect } from 'react'
 import { SignInButton, SignOutButton, useUser } from '@clerk/nextjs'
 import Link from 'next/link'
+import { captureMessage } from '@/lib/monitoring/hyperdx'
+
 function AuthContent() {
   const { isSignedIn, user } = useUser()
 
   useEffect(() => {
+    // Log page view for monitoring
+    captureMessage('Home page viewed', 'info')
+    
     // Auto-sync user on sign in
     if (isSignedIn && user) {
       fetch('/api/user/sync', { method: 'POST' })
