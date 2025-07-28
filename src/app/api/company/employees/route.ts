@@ -85,10 +85,39 @@ export async function POST(req: NextRequest) {
       }
     })
     
+    // Get the user's LinkedIn URL from their professional mirror
+    const userLinkedInUrl = dbUser.professionalMirror?.linkedinUrl
+    
     // Create colleague records
     const colleagues = await Promise.all(
       employees.slice(0, 50).map(async (employee) => { // Limit to 50 for now
-        // Check if this LinkedIn URL already exists
+        // Check if this colleague is actually the user themselves
+        if (userLinkedInUrl && employee.url === userLinkedInUrl) {
+          // Skip creating a colleague record for the user themselves
+          // Instead, mark that they've been found in the company scrape
+          console.log(`Found user ${dbUser.email} in company scrape as ${employee.name}`)
+          
+          // Optionally update the user's professional mirror with company-scraped data
+          if (dbUser.professionalMirror) {
+            await prisma.professionalMirror.update({
+              where: { id: dbUser.professionalMirror.id },
+              data: {
+                enrichmentData: {
+                  companyScrapeMatch: {
+                    name: employee.name,
+                    title: employee.title,
+                    profileImageUrl: employee.profileImageUrl,
+                    matchedAt: new Date()
+                  }
+                }
+              }
+            })
+          }
+          
+          return null // Skip this employee
+        }
+        
+        // Check if this LinkedIn URL already exists as a colleague
         const existingColleague = await prisma.colleague.findUnique({
           where: { linkedinUrl: employee.url }
         })
@@ -106,6 +135,15 @@ export async function POST(req: NextRequest) {
           })
         }
         
+        // Check if this person is already a Quest user
+        const existingUser = await prisma.user.findFirst({
+          where: {
+            professionalMirror: {
+              linkedinUrl: employee.url
+            }
+          }
+        })
+        
         // Create new colleague
         return prisma.colleague.create({
           data: {
@@ -114,11 +152,16 @@ export async function POST(req: NextRequest) {
             name: employee.name,
             title: employee.title,
             profileImageUrl: employee.profileImageUrl,
-            companyId: company.id
+            companyId: company.id,
+            isQuestUser: !!existingUser,
+            questUserId: existingUser?.id
           }
         })
       })
     )
+    
+    // Filter out null values (where we skipped the user themselves)
+    const validColleagues = colleagues.filter(c => c !== null)
     
     // Update professional mirror to indicate company has been scraped
     await prisma.professionalMirror.update({
@@ -136,8 +179,9 @@ export async function POST(req: NextRequest) {
         name: company.name,
         domain: company.domain
       },
-      colleagues: colleagues.length,
-      totalEmployees
+      colleagues: validColleagues.length,
+      totalEmployees,
+      foundUserInScrape: userLinkedInUrl ? employees.some(e => e.url === userLinkedInUrl) : false
     })
     
   } catch (error) {

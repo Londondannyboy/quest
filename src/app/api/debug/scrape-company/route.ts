@@ -45,10 +45,33 @@ export async function POST(req: NextRequest) {
       }
     })
     
+    // Get user's LinkedIn URL if they have a professional mirror
+    const userLinkedInUrl = await prisma.professionalMirror.findUnique({
+      where: { userId: dbUser.id }
+    }).then(pm => pm?.linkedinUrl)
+    
     // Save first 5 colleagues for testing
     const savedColleagues = []
+    let foundUserInScrape = false
+    
     for (const employee of employees.slice(0, 5)) {
       try {
+        // Check if this is the user themselves
+        if (userLinkedInUrl && employee.url === userLinkedInUrl) {
+          foundUserInScrape = true
+          console.log(`Found user ${dbUser.email} in company scrape`)
+          continue // Skip creating colleague record for the user
+        }
+        
+        // Check if this person is already a Quest user
+        const existingUser = await prisma.user.findFirst({
+          where: {
+            professionalMirror: {
+              linkedinUrl: employee.url
+            }
+          }
+        })
+        
         const colleague = await prisma.colleague.upsert({
           where: { linkedinUrl: employee.url },
           update: {
@@ -62,7 +85,9 @@ export async function POST(req: NextRequest) {
             name: employee.name,
             title: employee.title,
             profileImageUrl: employee.profileImageUrl,
-            companyId: company.id
+            companyId: company.id,
+            isQuestUser: !!existingUser,
+            questUserId: existingUser?.id
           }
         })
         savedColleagues.push(colleague)
@@ -82,7 +107,9 @@ export async function POST(req: NextRequest) {
       },
       scrapedCount: employees.length,
       savedCount: savedColleagues.length,
-      totalEmployees
+      totalEmployees,
+      foundUserInScrape,
+      userLinkedInUrl
     })
     
   } catch (error) {
