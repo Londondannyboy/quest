@@ -276,3 +276,580 @@ Import trace for requested module:
 ./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
 ./src/lib/monitoring/hyperdx-server.ts
  ⨯ [Error: Publishable key not valid.]
+ ⚠ ./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+Module not found: Can't resolve '@opentelemetry/winston-transport' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/instrumentation-winston/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+./node_modules/@opentelemetry/instrumentation-winston/build/src/index.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/utils.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+Module not found: Can't resolve '@opentelemetry/exporter-jaeger' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/sdk-node/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+./node_modules/@opentelemetry/sdk-node/build/src/sdk.js
+./node_modules/@opentelemetry/sdk-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+ ⚠ ./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+Module not found: Can't resolve '@opentelemetry/winston-transport' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/instrumentation-winston/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+./node_modules/@opentelemetry/instrumentation-winston/build/src/index.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/utils.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+Module not found: Can't resolve '@opentelemetry/exporter-jaeger' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/sdk-node/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+./node_modules/@opentelemetry/sdk-node/build/src/sdk.js
+./node_modules/@opentelemetry/sdk-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (158kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+   Reload env: .env.local
+ ⚠ ./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+Module not found: Can't resolve '@opentelemetry/winston-transport' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/instrumentation-winston/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+./node_modules/@opentelemetry/instrumentation-winston/build/src/index.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/utils.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+Module not found: Can't resolve '@opentelemetry/exporter-jaeger' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/sdk-node/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+./node_modules/@opentelemetry/sdk-node/build/src/sdk.js
+./node_modules/@opentelemetry/sdk-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+ ⚠ ./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+Module not found: Can't resolve '@opentelemetry/winston-transport' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/instrumentation-winston/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+./node_modules/@opentelemetry/instrumentation-winston/build/src/index.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/utils.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+Module not found: Can't resolve '@opentelemetry/exporter-jaeger' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/sdk-node/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+./node_modules/@opentelemetry/sdk-node/build/src/sdk.js
+./node_modules/@opentelemetry/sdk-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+ ⚠ ./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+Module not found: Can't resolve '@opentelemetry/winston-transport' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/instrumentation-winston/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+./node_modules/@opentelemetry/instrumentation-winston/build/src/index.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/utils.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+Module not found: Can't resolve '@opentelemetry/exporter-jaeger' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/sdk-node/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+./node_modules/@opentelemetry/sdk-node/build/src/sdk.js
+./node_modules/@opentelemetry/sdk-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+ ⚠ ./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+Module not found: Can't resolve '@opentelemetry/winston-transport' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/instrumentation-winston/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+./node_modules/@opentelemetry/instrumentation-winston/build/src/index.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/utils.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+Module not found: Can't resolve '@opentelemetry/exporter-jaeger' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/sdk-node/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+./node_modules/@opentelemetry/sdk-node/build/src/sdk.js
+./node_modules/@opentelemetry/sdk-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+ GET /api/simple 200 in 489ms
+ ⚠ ./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+Module not found: Can't resolve '@opentelemetry/winston-transport' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/instrumentation-winston/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+./node_modules/@opentelemetry/instrumentation-winston/build/src/index.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/utils.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+Module not found: Can't resolve '@opentelemetry/exporter-jaeger' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/sdk-node/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+./node_modules/@opentelemetry/sdk-node/build/src/sdk.js
+./node_modules/@opentelemetry/sdk-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+ ⚠ ./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+Module not found: Can't resolve '@opentelemetry/winston-transport' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/instrumentation-winston/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+./node_modules/@opentelemetry/instrumentation-winston/build/src/index.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/utils.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+Module not found: Can't resolve '@opentelemetry/exporter-jaeger' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/sdk-node/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+./node_modules/@opentelemetry/sdk-node/build/src/sdk.js
+./node_modules/@opentelemetry/sdk-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+ GET /api/health 200 in 694ms
+ ⚠ ./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+Module not found: Can't resolve '@opentelemetry/winston-transport' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/instrumentation-winston/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+./node_modules/@opentelemetry/instrumentation-winston/build/src/index.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/utils.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+Module not found: Can't resolve '@opentelemetry/exporter-jaeger' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/sdk-node/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+./node_modules/@opentelemetry/sdk-node/build/src/sdk.js
+./node_modules/@opentelemetry/sdk-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+ ⚠ ./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+Module not found: Can't resolve '@opentelemetry/winston-transport' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/instrumentation-winston/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+./node_modules/@opentelemetry/instrumentation-winston/build/src/index.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/utils.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+Module not found: Can't resolve '@opentelemetry/exporter-jaeger' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/sdk-node/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+./node_modules/@opentelemetry/sdk-node/build/src/sdk.js
+./node_modules/@opentelemetry/sdk-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+ GET /api/check-me 200 in 212ms
+ ⚠ ./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/node/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/platform/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/node_modules/@opentelemetry/instrumentation/build/esm/index.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/instrumentation.js
+./node_modules/@hyperdx/instrumentation-sentry-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+Module not found: Can't resolve '@opentelemetry/winston-transport' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/instrumentation-winston/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/instrumentation-winston/build/src/instrumentation.js
+./node_modules/@opentelemetry/instrumentation-winston/build/src/index.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/utils.js
+./node_modules/@opentelemetry/auto-instrumentations-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
+
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+Module not found: Can't resolve '@opentelemetry/exporter-jaeger' in '/Users/dankeegan/quest-core-v2/node_modules/@opentelemetry/sdk-node/build/src'
+
+Import trace for requested module:
+./node_modules/@opentelemetry/sdk-node/build/src/utils.js
+./node_modules/@opentelemetry/sdk-node/build/src/sdk.js
+./node_modules/@opentelemetry/sdk-node/build/src/index.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/otel.js
+./node_modules/@hyperdx/node-opentelemetry/build/src/index.js
+./src/lib/monitoring/hyperdx-server.ts
