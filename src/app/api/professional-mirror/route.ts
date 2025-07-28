@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
-import { scrapeLinkedInProfile, scrapeCompanyEmployees } from '@/lib/apify'
+import { scrapeLinkedInProfile } from '@/lib/apify'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,10 +70,12 @@ export async function POST(req: Request) {
     let companyScrapingResult = null
     if (scrapedData?.currentPosition?.company) {
       // Try to find company LinkedIn URL from the scraped data
-      const rawData = scrapedData as any
-      const companyUrl = rawData.currentCompanyUrl || 
-                        rawData.currentCompany?.url ||
-                        rawData.experiences?.[0]?.companyUrl
+      const rawData = scrapedData as Record<string, unknown>
+      const currentCompany = rawData.currentCompany as Record<string, unknown> | undefined
+      const experiences = rawData.experiences as Array<Record<string, unknown>> | undefined
+      const companyUrl = (rawData.currentCompanyUrl as string) || 
+                        (currentCompany?.url as string) ||
+                        (experiences?.[0]?.companyUrl as string)
       
       if (companyUrl && companyUrl.includes('linkedin.com/company/')) {
         try {

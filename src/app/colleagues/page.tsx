@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 
 interface Colleague {
   id: string
@@ -97,10 +98,12 @@ export default function ColleaguesPage() {
                 <div key={colleague.id} className="bg-gray-800 rounded-lg p-6 hover:bg-gray-750 transition-colors">
                   <div className="flex items-start space-x-4">
                     {colleague.profileImageUrl ? (
-                      <img
+                      <Image
                         src={colleague.profileImageUrl}
                         alt={colleague.name}
-                        className="w-16 h-16 rounded-full object-cover"
+                        width={64}
+                        height={64}
+                        className="rounded-full object-cover"
                       />
                     ) : (
                       <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl">
