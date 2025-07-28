@@ -70,7 +70,7 @@ export async function POST(req: Request) {
     let companyScrapingResult = null
     if (scrapedData?.currentPosition?.company) {
       // Try to find company LinkedIn URL from the scraped data
-      const rawData = scrapedData as Record<string, unknown>
+      const rawData = scrapedData as unknown as Record<string, unknown>
       const currentCompany = rawData.currentCompany as Record<string, unknown> | undefined
       const experiences = rawData.experiences as Array<Record<string, unknown>> | undefined
       const companyUrl = (rawData.currentCompanyUrl as string) || 
