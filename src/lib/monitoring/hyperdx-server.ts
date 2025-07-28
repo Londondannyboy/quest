@@ -1,17 +1,20 @@
-import { HyperDX } from '@hyperdx/node-opentelemetry'
-
 // Initialize HyperDX for server-side monitoring
-export function initServerMonitoring() {
-  if (process.env.HYPERDX_PERSONAL_API_TOKEN) {
-    HyperDX.init({
-      apiKey: process.env.HYPERDX_PERSONAL_API_TOKEN,
-      service: 'quest-core-v2-api',
-    })
-
-    // Start HyperDX
-    HyperDX.start()
-    
-    console.log('HyperDX monitoring initialized for', process.env.NODE_ENV)
+export async function initServerMonitoring() {
+  // Only initialize in Node.js runtime, not during build
+  if (typeof window === 'undefined' && process.env.HYPERDX_PERSONAL_API_TOKEN) {
+    try {
+      const { init } = await import('@hyperdx/node-opentelemetry')
+      
+      init({
+        apiKey: process.env.HYPERDX_PERSONAL_API_TOKEN,
+        service: 'quest-core-v2-api',
+        consoleCapture: true,
+      })
+      
+      console.log('HyperDX monitoring initialized for', process.env.NODE_ENV)
+    } catch (error) {
+      console.warn('Failed to initialize HyperDX monitoring:', error)
+    }
   }
 }
 
