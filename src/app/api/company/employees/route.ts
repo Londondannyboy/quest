@@ -27,7 +27,11 @@ export async function POST(req: NextRequest) {
         professionalMirror: true,
         experiences: {
           include: {
-            company: true
+            company: {
+              include: {
+                colleagues: true
+              }
+            }
           }
         }
       }
