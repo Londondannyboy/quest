@@ -1,4 +1,3 @@
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node'
 import { HyperDX } from '@hyperdx/node-opentelemetry'
 
 // Initialize HyperDX for server-side monitoring
@@ -7,13 +6,6 @@ export function initServerMonitoring() {
     HyperDX.init({
       apiKey: process.env.HYPERDX_PERSONAL_API_TOKEN,
       service: 'quest-core-v2-api',
-      instrumentations: [
-        getNodeAutoInstrumentations({
-          '@opentelemetry/instrumentation-fs': {
-            enabled: false,
-          },
-        }),
-      ],
     })
 
     // Start HyperDX
