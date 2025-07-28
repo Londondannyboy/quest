@@ -1,107 +1,54 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect } from 'react'
 import { SignInButton, SignOutButton, useUser } from '@clerk/nextjs'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 function AuthContent() {
   const { isSignedIn, user } = useUser()
-  const [userInfo, setUserInfo] = useState<Record<string, unknown> | null>(null)
+  const router = useRouter()
 
-  const checkUser = async () => {
-    try {
-      const response = await fetch('/api/user')
-      const data = await response.json()
-      setUserInfo(data)
-    } catch (error) {
-      console.error('Error fetching user:', error)
+  useEffect(() => {
+    // Auto-sync user on sign in
+    if (isSignedIn && user) {
+      fetch('/api/user/sync', { method: 'POST' })
+        .then(response => {
+          if (!response.ok) {
+            console.error('Failed to sync user')
+          }
+        })
+        .catch(error => {
+          console.error('Error syncing user:', error)
+        })
     }
-  }
-
-  const syncUser = async () => {
-    try {
-      const response = await fetch('/api/user/sync', { method: 'POST' })
-      const data = await response.json()
-      
-      if (!response.ok) {
-        console.error('Sync error:', data)
-        alert(`Sync failed: ${data.error}\n\n${data.details}\n\n${data.solution || ''}`)
-        return
-      }
-      
-      alert(data.message || 'Sync complete!')
-      checkUser() // Refresh user info
-    } catch (error) {
-      console.error('Error syncing user:', error)
-      alert('Sync failed! Check console for details.')
-    }
-  }
+  }, [isSignedIn, user])
 
   return (
     <div className="bg-gray-800 rounded-lg p-8 max-w-2xl mx-auto">
       {isSignedIn ? (
         <>
           <h2 className="text-2xl font-semibold mb-4">Welcome back!</h2>
-          <p className="text-gray-300 mb-2">
+          <p className="text-gray-300 mb-6">
             Hello {user.firstName || user.emailAddresses?.[0]?.emailAddress}
           </p>
-          <p className="text-sm text-gray-400 mb-6">
-            Clerk ID: {user.id}
-          </p>
           
-          <div className="flex flex-wrap gap-4 mb-6">
-            <button
-              onClick={checkUser}
-              className="px-6 py-3 bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors"
+          <div className="space-y-4">
+            <Link 
+              href="/professional-mirror"
+              className="block w-full px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all text-lg font-semibold text-center"
             >
-              Check User API
-            </button>
+              Begin Your Quest Journey →
+            </Link>
             
-            <button
-              onClick={syncUser}
-              className="px-6 py-3 bg-green-500 rounded-lg hover:bg-green-600 transition-colors"
-            >
-              Sync to Database
-            </button>
-            
-            <button
-              onClick={async () => {
-                const res = await fetch('/api/health')
-                const data = await res.json()
-                console.log('Health check:', data)
-                alert(`Database: ${data.database.connected ? 'Connected' : 'Not Connected'}\n${data.database.error || ''}`)
-              }}
-              className="px-6 py-3 bg-yellow-500 rounded-lg hover:bg-yellow-600 transition-colors"
-            >
-              Check Database
-            </button>
-            
-            <SignOutButton>
-              <button className="px-6 py-3 bg-red-500 rounded-lg hover:bg-red-600 transition-colors">
-                Sign Out
-              </button>
-            </SignOutButton>
+            <div className="text-center">
+              <SignOutButton>
+                <button className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors text-sm">
+                  Sign Out
+                </button>
+              </SignOutButton>
+            </div>
           </div>
-          
-          {userInfo?.databaseStatus === 'synced' && (
-            <div className="mt-8">
-              <Link 
-                href="/professional-mirror"
-                className="inline-block px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all text-lg font-semibold"
-              >
-                Begin Your Quest Journey →
-              </Link>
-            </div>
-          )}
-          
-          {userInfo && (
-            <div className="mt-6 p-4 bg-gray-900 rounded-lg">
-              <p className="text-sm font-mono">API Response:</p>
-              <pre className="text-xs mt-2 overflow-auto">
-                {JSON.stringify(userInfo, null, 2)}
-              </pre>
-            </div>
-          )}
         </>
       ) : (
         <>
