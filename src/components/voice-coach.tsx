@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { CoachType } from '@prisma/client'
+import { HUME_COACHES, EVI_3_CONFIG } from '@/lib/hume-config'
 
 interface VoiceCoachProps {
   currentCoach: CoachType
@@ -10,9 +11,16 @@ interface VoiceCoachProps {
   currentField?: string
 }
 
-// Hume AI EVI configuration
+// Hume AI EVI 3 configuration
 const HUME_API_KEY = process.env.NEXT_PUBLIC_HUME_API_KEY
-const HUME_CONFIG_ID = process.env.NEXT_PUBLIC_HUME_CONFIG_ID
+const HUME_SECRET_KEY = process.env.NEXT_PUBLIC_HUME_SECRET_KEY
+
+// EVI 3 Voice IDs from Voice Library (these would be actual voice IDs)
+const VOICE_IDS = {
+  STORY_COACH: 'kora', // Female, warm voice
+  QUEST_COACH: 'dacher', // Male, energetic voice  
+  DELIVERY_COACH: 'ito' // Clear, authoritative voice
+}
 
 export function VoiceCoach({ currentCoach, onCoachMessage, isActive }: VoiceCoachProps) {
   const [isConnected, setIsConnected] = useState(false)
@@ -21,91 +29,100 @@ export function VoiceCoach({ currentCoach, onCoachMessage, isActive }: VoiceCoac
   const socketRef = useRef<WebSocket | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   
-  // Coach voice configurations
-  const coachConfigs = {
-    STORY_COACH: {
-      name: 'Story Coach',
-      voice: 'female-warm',
-      accent: 'british-gentle',
-      personality: 'empathetic biographer',
-      icon: '📖',
-      color: 'purple',
-      greeting: "Hello, I'm your Story Coach. I'm here to help you discover the authentic story behind your professional journey."
-    },
-    QUEST_COACH: {
-      name: 'Quest Coach',
-      voice: 'male-energetic',
-      accent: 'california',
-      personality: 'insightful pattern-seeker',
-      icon: '🧭',
-      color: 'blue',
-      greeting: "Welcome! I'm your Quest Coach. I see patterns emerging in your story. Let's uncover your Trinity together."
-    },
-    DELIVERY_COACH: {
-      name: 'Delivery Coach',
-      voice: 'neutral-firm',
-      accent: 'clear-authoritative',
-      personality: 'achievement-focused',
-      icon: '🎯',
-      color: 'green',
-      greeting: "I'm your Delivery Coach. Let's turn your insights into action. Are you ready to make this real?"
-    }
+  // Get current coach configuration
+  const currentConfig = HUME_COACHES[currentCoach]
+  const coachVisuals = {
+    STORY_COACH: { icon: '📖', color: 'purple' },
+    QUEST_COACH: { icon: '🧭', color: 'blue' },
+    DELIVERY_COACH: { icon: '🎯', color: 'green' }
   }
-  
-  const currentConfig = coachConfigs[currentCoach]
+  const currentVisual = coachVisuals[currentCoach]
   
   useEffect(() => {
     if (!isActive || !HUME_API_KEY) return
     
-    // Initialize Hume AI WebSocket connection
+    // Initialize Hume AI EVI 3 WebSocket connection
     const connectToHume = async () => {
       try {
-        // Create WebSocket connection to Hume AI
+        // First, get an access token
+        const tokenResponse = await fetch('https://api.hume.ai/oauth2-cc/token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            grant_type: 'client_credentials',
+            client_id: HUME_API_KEY || '',
+            client_secret: HUME_SECRET_KEY || '',
+          }),
+        })
+        
+        const { access_token } = await tokenResponse.json()
+        
+        // Create WebSocket connection to Hume AI EVI 3
         const ws = new WebSocket(
-          `wss://api.hume.ai/v0/stream/models?api_key=${HUME_API_KEY}`
+          `wss://api.hume.ai/v0/evi/chat?access_token=${access_token}`
         )
         
         ws.onopen = () => {
-          console.log('Connected to Hume AI')
+          console.log('Connected to Hume AI EVI 3')
           setIsConnected(true)
           
-          // Send initial configuration
+          // Send session settings for EVI 3
           ws.send(JSON.stringify({
-            models: {
-              prosody: {},
-              language: {},
-              // Configure voice based on coach type
-              voice: {
-                config_id: HUME_CONFIG_ID,
-                voice_settings: {
-                  coach_type: currentCoach,
-                  personality: currentConfig.personality
-                }
-              }
+            type: 'session_settings',
+            ...EVI_3_CONFIG,
+            voice: {
+              provider: 'hume_ai',
+              voice_id: currentConfig.voice_id
             },
-            raw_text: false
+            language_model: {
+              ...currentConfig.language_model,
+              system_prompt: currentConfig.system_prompt
+            },
+            tools: []
           }))
-          
-          // Send greeting
-          if (onCoachMessage) {
-            onCoachMessage(currentConfig.greeting)
-          }
         }
         
         ws.onmessage = (event) => {
           const data = JSON.parse(event.data)
           
-          // Handle emotion detection
-          if (data.prosody?.emotions) {
-            const topEmotion = Object.entries(data.prosody.emotions)
-              .sort(([, a], [, b]) => (b as number) - (a as number))[0]
-            setEmotion(topEmotion[0])
-          }
-          
-          // Handle transcription
-          if (data.language?.words && onCoachMessage) {
-            const transcript = data.language.words.map((w: { word: string }) => w.word).join(' ')
-            onCoachMessage(transcript)
+          // Handle different EVI 3 message types
+          switch (data.type) {
+            case 'chat_metadata':
+              console.log('Chat metadata:', data)
+              break
+              
+            case 'user_message':
+              // User's transcribed speech
+              if (data.message?.content) {
+                console.log('User said:', data.message.content)
+              }
+              break
+              
+            case 'assistant_message':
+              // Assistant's response
+              if (data.message?.content && onCoachMessage) {
+                onCoachMessage(data.message.content)
+              }
+              break
+              
+            case 'assistant_prosody':
+              // EVI 3 sends prosody separately
+              if (data.prosody?.emotions) {
+                const topEmotion = Object.entries(data.prosody.emotions)
+                  .sort(([, a], [, b]) => (b as number) - (a as number))[0]
+                setEmotion(topEmotion[0])
+              }
+              break
+              
+            case 'audio_output':
+              // Handle audio playback if needed
+              break
+              
+            case 'error':
+              console.error('Hume AI error:', data)
+              break
           }
         }
         
@@ -149,24 +166,30 @@ export function VoiceCoach({ currentCoach, onCoachMessage, isActive }: VoiceCoac
         // Request microphone access
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
         
-        // Create audio processing pipeline
-        const source = audioContextRef.current.createMediaStreamSource(stream)
-        const processor = audioContextRef.current.createScriptProcessor(4096, 1, 1)
+        // For EVI 3, we need to send audio in base64 format
+        const mediaRecorder = new MediaRecorder(stream, {
+          mimeType: 'audio/webm;codecs=opus'
+        })
         
-        processor.onaudioprocess = (e) => {
-          if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-            const inputData = e.inputBuffer.getChannelData(0)
-            // Convert to appropriate format and send to Hume
-            const audioData = Array.from(inputData)
-            socketRef.current.send(JSON.stringify({
-              audio: audioData,
-              sample_rate: audioContextRef.current!.sampleRate
-            }))
+        mediaRecorder.ondataavailable = async (event) => {
+          if (event.data.size > 0 && socketRef.current?.readyState === WebSocket.OPEN) {
+            // Convert audio blob to base64
+            const reader = new FileReader()
+            reader.onloadend = () => {
+              const base64Audio = reader.result?.toString().split(',')[1]
+              if (base64Audio) {
+                socketRef.current!.send(JSON.stringify({
+                  type: 'audio_input',
+                  data: base64Audio
+                }))
+              }
+            }
+            reader.readAsDataURL(event.data)
           }
         }
         
-        source.connect(processor)
-        processor.connect(audioContextRef.current.destination)
+        // Start recording in chunks
+        mediaRecorder.start(100) // 100ms chunks
         
         setIsListening(true)
       } catch (error) {
@@ -182,18 +205,18 @@ export function VoiceCoach({ currentCoach, onCoachMessage, isActive }: VoiceCoac
       isConnected ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
     }`}>
       <div className={`bg-gray-900 rounded-2xl shadow-2xl p-6 border-2 ${
-        currentConfig.color === 'purple' ? 'border-purple-500' :
-        currentConfig.color === 'blue' ? 'border-blue-500' :
+        currentVisual.color === 'purple' ? 'border-purple-500' :
+        currentVisual.color === 'blue' ? 'border-blue-500' :
         'border-green-500'
       }`}>
         {/* Coach Avatar */}
         <div className="flex items-center mb-4">
           <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl ${
-            currentConfig.color === 'purple' ? 'bg-purple-500' :
-            currentConfig.color === 'blue' ? 'bg-blue-500' :
+            currentVisual.color === 'purple' ? 'bg-purple-500' :
+            currentVisual.color === 'blue' ? 'bg-blue-500' :
             'bg-green-500'
           }`}>
-            {currentConfig.icon}
+            {currentVisual.icon}
           </div>
           <div className="ml-4">
             <h3 className="text-lg font-semibold">{currentConfig.name}</h3>
@@ -216,9 +239,9 @@ export function VoiceCoach({ currentCoach, onCoachMessage, isActive }: VoiceCoac
           className={`w-full py-3 rounded-lg font-semibold transition-all ${
             isListening
               ? 'bg-red-500 hover:bg-red-600 animate-pulse'
-              : currentConfig.color === 'purple'
+              : currentVisual.color === 'purple'
               ? 'bg-purple-500 hover:bg-purple-600'
-              : currentConfig.color === 'blue'
+              : currentVisual.color === 'blue'
               ? 'bg-blue-500 hover:bg-blue-600'
               : 'bg-green-500 hover:bg-green-600'
           }`}
