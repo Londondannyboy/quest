@@ -21,6 +21,7 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 import { ClerkProvider } from '@clerk/nextjs'
+import { MonitoringProvider } from './providers'
 
 export default function RootLayout({
   children,
@@ -33,7 +34,9 @@ export default function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
-          {children}
+          <MonitoringProvider>
+            {children}
+          </MonitoringProvider>
         </body>
       </html>
     </ClerkProvider>

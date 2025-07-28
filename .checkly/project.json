@@ -1,0 +1,21 @@
+{
+  "name": "Quest Core V2",
+  "repoUrl": "https://github.com/Londondannyboy/quest.git",
+  "checks": {
+    "activated": true,
+    "muted": false,
+    "runtimeId": "2024.02",
+    "frequency": 10,
+    "frequencyOffset": 0,
+    "locations": ["us-east-1", "eu-west-1"],
+    "privateLocations": [],
+    "alertChannels": [],
+    "checkMatch": "**/__checks__/**/*.check.{js,ts}",
+    "browserChecks": {
+      "testMatch": "**/__checks__/**/*.spec.{js,ts}"
+    }
+  },
+  "cli": {
+    "runLocation": "us-east-1"
+  }
+}
