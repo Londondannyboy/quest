@@ -5,7 +5,7 @@ import { useState } from 'react'
 export default function TestScraperPage() {
   const [companyUrl, setCompanyUrl] = useState('')
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<Record<string, unknown> | null>(null)
   const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,19 +73,19 @@ export default function TestScraperPage() {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-gray-400">Company:</span>
-                <p>{result.company?.name} ({result.company?.domain})</p>
+                <p>{(result.company as Record<string, unknown>)?.name as string} ({(result.company as Record<string, unknown>)?.domain as string})</p>
               </div>
               <div>
                 <span className="text-gray-400">Total Employees Found:</span>
-                <p>{result.totalEmployees}</p>
+                <p>{result.totalEmployees as number}</p>
               </div>
               <div>
                 <span className="text-gray-400">Scraped Count:</span>
-                <p>{result.scrapedCount}</p>
+                <p>{result.scrapedCount as number}</p>
               </div>
               <div>
                 <span className="text-gray-400">Saved to Database:</span>
-                <p>{result.savedCount}</p>
+                <p>{result.savedCount as number}</p>
               </div>
             </div>
 
