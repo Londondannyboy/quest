@@ -4,13 +4,42 @@ import { useState, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { CoachType } from '@prisma/client'
+import { VoiceCoach } from '@/components/voice-coach'
 
 interface UserProfile {
   databaseUser?: {
     professionalMirror?: Record<string, unknown>
+    trinity?: TrinityData | null
     [key: string]: unknown
   }
   [key: string]: unknown
+}
+
+interface TrinityData {
+  pastQuest?: string
+  pastService?: string
+  pastPledge?: string
+  presentQuest?: string
+  presentService?: string
+  presentPledge?: string
+  futureQuest?: string
+  futureService?: string
+  futurePledge?: string
+  clarityScore?: number
+}
+
+// Coach assignments for each Trinity phase
+const fieldCoachMap: Record<keyof TrinityData, CoachType> = {
+  pastQuest: CoachType.STORY_COACH,
+  pastService: CoachType.STORY_COACH,
+  pastPledge: CoachType.STORY_COACH,
+  presentQuest: CoachType.QUEST_COACH,
+  presentService: CoachType.QUEST_COACH,
+  presentPledge: CoachType.QUEST_COACH,
+  futureQuest: CoachType.QUEST_COACH,
+  futureService: CoachType.DELIVERY_COACH,
+  futurePledge: CoachType.DELIVERY_COACH,
 }
 
 export default function TrinityPage() {
@@ -18,6 +47,24 @@ export default function TrinityPage() {
   const router = useRouter()
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [currentCoach, setCurrentCoach] = useState<CoachType>(CoachType.STORY_COACH)
+  const [voiceCoachActive, setVoiceCoachActive] = useState(false)
+  const [currentFocusField, setCurrentFocusField] = useState<string | undefined>()
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  
+  // Trinity form state
+  const [trinity, setTrinity] = useState<TrinityData>({
+    pastQuest: '',
+    pastService: '',
+    pastPledge: '',
+    presentQuest: '',
+    presentService: '',
+    presentPledge: '',
+    futureQuest: '',
+    futureService: '',
+    futurePledge: ''
+  })
 
   const fetchUserProfile = useCallback(async () => {
     try {
@@ -28,6 +75,22 @@ export default function TrinityPage() {
       // If they don't have a professional mirror yet, redirect back
       if (!data.databaseUser?.professionalMirror) {
         router.push('/professional-mirror')
+        return
+      }
+      
+      // Load existing Trinity data if available
+      if (data.databaseUser?.trinity) {
+        setTrinity({
+          pastQuest: data.databaseUser.trinity.pastQuest || '',
+          pastService: data.databaseUser.trinity.pastService || '',
+          pastPledge: data.databaseUser.trinity.pastPledge || '',
+          presentQuest: data.databaseUser.trinity.presentQuest || '',
+          presentService: data.databaseUser.trinity.presentService || '',
+          presentPledge: data.databaseUser.trinity.presentPledge || '',
+          futureQuest: data.databaseUser.trinity.futureQuest || '',
+          futureService: data.databaseUser.trinity.futureService || '',
+          futurePledge: data.databaseUser.trinity.futurePledge || ''
+        })
       }
       
       setLoading(false)
@@ -36,6 +99,97 @@ export default function TrinityPage() {
       setLoading(false)
     }
   }, [router])
+  
+  // Field change handler
+  const handleFieldChange = (field: keyof TrinityData, value: string) => {
+    setTrinity(prev => ({ ...prev, [field]: value }))
+    
+    // Clear error for this field
+    setFieldErrors(prev => ({ ...prev, [field]: '' }))
+  }
+  
+  // Handle field focus to activate appropriate coach
+  const handleFieldFocus = (field: keyof TrinityData) => {
+    const coach = fieldCoachMap[field]
+    if (coach !== currentCoach) {
+      setCurrentCoach(coach)
+      // Play transition sound effect when coach changes
+      playCoachTransition()
+    }
+    setCurrentFocusField(field)
+    setVoiceCoachActive(true)
+  }
+  
+  // Play coach transition sound
+  const playCoachTransition = () => {
+    // This would play the signature sound effect for coach transitions
+    const audio = new Audio('/sounds/coach-transition.mp3')
+    audio.play().catch(console.error)
+  }
+  
+  // Validate field
+  const validateField = (field: keyof TrinityData): boolean => {
+    const value = trinity[field] || ''
+    const wordCount = value.trim().split(/\s+/).filter(word => word.length > 0).length
+    
+    if (wordCount < 10) {
+      setFieldErrors(prev => ({
+        ...prev,
+        [field]: `Please write at least 10 words (currently ${wordCount})`
+      }))
+      return false
+    }
+    
+    return true
+  }
+  
+  // Save Trinity
+  const saveTrinity = async () => {
+    // Validate all fields
+    const fields = Object.keys(trinity) as Array<keyof TrinityData>
+    let hasErrors = false
+    
+    fields.forEach(field => {
+      if (!validateField(field)) {
+        hasErrors = true
+      }
+    })
+    
+    if (hasErrors) {
+      setCoachMessage({
+        coach: 'delivery',
+        message: "Some fields need more detail. Each response should be at least 10 words to capture your true Trinity."
+      })
+      return
+    }
+    
+    setSaving(true)
+    
+    try {
+      const response = await fetch('/api/trinity', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(trinity),
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        // Redirect to quest readiness after saving
+        setTimeout(() => {
+          router.push('/quest-readiness')
+        }, 1000)
+      } else {
+        console.error('Trinity save error:', data.error)
+      }
+    } catch (error) {
+      console.error('Error saving Trinity:', error)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   useEffect(() => {
     if (!isSignedIn) {
@@ -109,6 +263,22 @@ export default function TrinityPage() {
             </div>
           )}
 
+          {/* Voice Coach Activation Banner */}
+          <div className="mb-8 p-6 bg-gray-800 rounded-lg border border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Voice Coaching Available</h3>
+                <p className="text-gray-400">
+                  Click on any field to activate your AI coach. They&apos;ll guide you through discovering your Trinity.
+                </p>
+              </div>
+              <div className="text-4xl">
+                {currentCoach === CoachType.STORY_COACH ? '📖' :
+                 currentCoach === CoachType.QUEST_COACH ? '🧭' : '🎯'}
+              </div>
+            </div>
+          </div>
+
           {/* Trinity Questions */}
           <div className="space-y-8">
             {/* Past */}
@@ -127,7 +297,14 @@ export default function TrinityPage() {
                   <textarea 
                     className="w-full px-4 py-3 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 h-24"
                     placeholder="I wanted to..."
+                    value={trinity.pastQuest}
+                    onChange={(e) => handleFieldChange('pastQuest', e.target.value)}
+                    onFocus={() => handleFieldFocus('pastQuest')}
+                    onBlur={() => validateField('pastQuest')}
                   />
+                  {fieldErrors.pastQuest && (
+                    <p className="text-red-400 text-sm mt-2">{fieldErrors.pastQuest}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -138,7 +315,14 @@ export default function TrinityPage() {
                   <textarea 
                     className="w-full px-4 py-3 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 h-24"
                     placeholder="I helped..."
+                    value={trinity.pastService}
+                    onChange={(e) => handleFieldChange('pastService', e.target.value)}
+                    onFocus={() => handleFieldFocus('pastService')}
+                    onBlur={() => validateField('pastService')}
                   />
+                  {fieldErrors.pastService && (
+                    <p className="text-red-400 text-sm mt-2">{fieldErrors.pastService}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -149,7 +333,14 @@ export default function TrinityPage() {
                   <textarea 
                     className="w-full px-4 py-3 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 h-24"
                     placeholder="I pledged to..."
+                    value={trinity.pastPledge}
+                    onChange={(e) => handleFieldChange('pastPledge', e.target.value)}
+                    onFocus={() => handleFieldFocus('pastPledge')}
+                    onBlur={() => validateField('pastPledge')}
                   />
+                  {fieldErrors.pastPledge && (
+                    <p className="text-red-400 text-sm mt-2">{fieldErrors.pastPledge}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -170,7 +361,14 @@ export default function TrinityPage() {
                   <textarea 
                     className="w-full px-4 py-3 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
                     placeholder="I am working to..."
+                    value={trinity.presentQuest}
+                    onChange={(e) => handleFieldChange('presentQuest', e.target.value)}
+                    onFocus={() => handleFieldFocus('presentQuest')}
+                    onBlur={() => validateField('presentQuest')}
                   />
+                  {fieldErrors.presentQuest && (
+                    <p className="text-red-400 text-sm mt-2">{fieldErrors.presentQuest}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -181,7 +379,14 @@ export default function TrinityPage() {
                   <textarea 
                     className="w-full px-4 py-3 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
                     placeholder="I currently help..."
+                    value={trinity.presentService}
+                    onChange={(e) => handleFieldChange('presentService', e.target.value)}
+                    onFocus={() => handleFieldFocus('presentService')}
+                    onBlur={() => validateField('presentService')}
                   />
+                  {fieldErrors.presentService && (
+                    <p className="text-red-400 text-sm mt-2">{fieldErrors.presentService}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -192,7 +397,14 @@ export default function TrinityPage() {
                   <textarea 
                     className="w-full px-4 py-3 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
                     placeholder="I deliver..."
+                    value={trinity.presentPledge}
+                    onChange={(e) => handleFieldChange('presentPledge', e.target.value)}
+                    onFocus={() => handleFieldFocus('presentPledge')}
+                    onBlur={() => validateField('presentPledge')}
                   />
+                  {fieldErrors.presentPledge && (
+                    <p className="text-red-400 text-sm mt-2">{fieldErrors.presentPledge}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -213,7 +425,14 @@ export default function TrinityPage() {
                   <textarea 
                     className="w-full px-4 py-3 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 h-24"
                     placeholder="I will..."
+                    value={trinity.futureQuest}
+                    onChange={(e) => handleFieldChange('futureQuest', e.target.value)}
+                    onFocus={() => handleFieldFocus('futureQuest')}
+                    onBlur={() => validateField('futureQuest')}
                   />
+                  {fieldErrors.futureQuest && (
+                    <p className="text-red-400 text-sm mt-2">{fieldErrors.futureQuest}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -224,7 +443,14 @@ export default function TrinityPage() {
                   <textarea 
                     className="w-full px-4 py-3 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 h-24"
                     placeholder="I will help..."
+                    value={trinity.futureService}
+                    onChange={(e) => handleFieldChange('futureService', e.target.value)}
+                    onFocus={() => handleFieldFocus('futureService')}
+                    onBlur={() => validateField('futureService')}
                   />
+                  {fieldErrors.futureService && (
+                    <p className="text-red-400 text-sm mt-2">{fieldErrors.futureService}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -235,7 +461,14 @@ export default function TrinityPage() {
                   <textarea 
                     className="w-full px-4 py-3 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 h-24"
                     placeholder="I pledge to..."
+                    value={trinity.futurePledge}
+                    onChange={(e) => handleFieldChange('futurePledge', e.target.value)}
+                    onFocus={() => handleFieldFocus('futurePledge')}
+                    onBlur={() => validateField('futurePledge')}
                   />
+                  {fieldErrors.futurePledge && (
+                    <p className="text-red-400 text-sm mt-2">{fieldErrors.futurePledge}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -243,9 +476,11 @@ export default function TrinityPage() {
             {/* Save Button */}
             <div className="flex justify-center">
               <button
-                className="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all text-lg font-semibold"
+                onClick={saveTrinity}
+                disabled={saving}
+                className="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all text-lg font-semibold disabled:opacity-50"
               >
-                Save Trinity & Continue →
+                {saving ? 'Saving...' : 'Save Trinity & Continue →'}
               </button>
             </div>
           </div>
@@ -267,6 +502,16 @@ export default function TrinityPage() {
           </div>
         </div>
       </div>
+      
+      {/* Voice Coach Component */}
+      <VoiceCoach 
+        currentCoach={currentCoach}
+        isActive={voiceCoachActive}
+        currentField={currentFocusField}
+        onCoachMessage={(message) => {
+          console.log(`Coach ${currentCoach}:`, message)
+        }}
+      />
     </main>
   )
 }
