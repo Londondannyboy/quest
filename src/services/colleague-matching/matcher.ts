@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { LinkedInEmployeeData } from '@/services/scraping'
-import { Colleague, Company, User } from '@prisma/client'
+import { Colleague, User } from '@prisma/client'
 
 interface MatchResult {
   isUserMatch: boolean

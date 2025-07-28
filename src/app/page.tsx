@@ -3,11 +3,8 @@
 import { useEffect } from 'react'
 import { SignInButton, SignOutButton, useUser } from '@clerk/nextjs'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-
 function AuthContent() {
   const { isSignedIn, user } = useUser()
-  const router = useRouter()
 
   useEffect(() => {
     // Auto-sync user on sign in

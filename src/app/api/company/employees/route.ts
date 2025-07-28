@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
-import { scrapeCompanyEmployees } from '@/lib/apify'
+import { scrapeCompanyEmployees, type LinkedInEmployeeData } from '@/lib/apify'
 
 export const dynamic = 'force-dynamic'
 
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
     
     // Create colleague records
     const colleagues = await Promise.all(
-      employees.slice(0, 50).map(async (employee) => { // Limit to 50 for now
+      employees.slice(0, 50).map(async (employee: LinkedInEmployeeData) => { // Limit to 50 for now
         // Check if this colleague is actually the user themselves
         if (userLinkedInUrl && employee.url === userLinkedInUrl) {
           // Skip creating a colleague record for the user themselves
