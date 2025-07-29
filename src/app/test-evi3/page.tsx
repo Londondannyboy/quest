@@ -42,8 +42,8 @@ export default function TestEVI3Page() {
       audioContextRef.current = new AudioContext()
       log('Audio context created')
 
-      // Your specific config ID
-      const configId = '671d99bc-1358-4aa7-b92a-d6b762cb18b5'
+      // Get config ID from environment
+      const configId = process.env.NEXT_PUBLIC_HUME_CONFIG_ID
       const wsUrl = `wss://api.hume.ai/v0/evi/chat?access_token=${accessToken}&config_id=${configId}`
       
       log('Connecting to Hume...')

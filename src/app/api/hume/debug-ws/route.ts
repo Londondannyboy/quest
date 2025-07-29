@@ -8,7 +8,7 @@ export async function GET() {
     // Check environment variables
     const apiKey = process.env.NEXT_PUBLIC_HUME_API_KEY
     const secretKey = process.env.NEXT_PUBLIC_HUME_SECRET_KEY
-    const configId = process.env.NEXT_PUBLIC_HUME_CONFIG_ID || '671d99bc-1358-4aa7-b92a-d6b762cb18b5'
+    const configId = process.env.NEXT_PUBLIC_HUME_CONFIG_ID
 
     logs.push('=== Environment Check ===')
     logs.push(`API Key exists: ${!!apiKey}`)

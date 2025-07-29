@@ -63,7 +63,7 @@ export default function TrinityPage() {
       audioContextRef.current = new AudioContext()
       
       // Connect to WebSocket with EVI 3 format and config ID
-      const configId = process.env.NEXT_PUBLIC_HUME_CONFIG_ID || '671d99bc-1358-4aa7-b92a-d6b762cb18b5'
+      const configId = process.env.NEXT_PUBLIC_HUME_CONFIG_ID
       const ws = new WebSocket(
         `wss://api.hume.ai/v0/evi/chat?access_token=${accessToken}&config_id=${configId}`
       )
