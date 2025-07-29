@@ -19,7 +19,11 @@ export async function GET(req: NextRequest) {
       include: {
         trinity: true,
         professionalMirror: true,
-        colleagues: true
+        colleagues: {
+          include: {
+            company: true
+          }
+        }
       }
     })
 
@@ -49,8 +53,10 @@ export async function GET(req: NextRequest) {
         type: 'user',
         isQuestReady: (user.trinity?.clarityScore || 0) >= 30,
         clarityScore: user.trinity?.clarityScore || 0,
-        company: user.professionalMirror?.enrichmentData?.company || undefined,
-        title: user.professionalMirror?.enrichmentData?.title || undefined
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        company: (user.professionalMirror?.enrichmentData as any)?.company || undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        title: (user.professionalMirror?.enrichmentData as any)?.title || undefined
       })
 
       // Add colleagues from database

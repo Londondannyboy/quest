@@ -62,7 +62,7 @@ Trinity Summary:
           })
           
           // Store the conversation in memory
-          if (lastUserMessage) {
+          if (lastUserMessage && session.sessionId) {
             await addMessage(session.sessionId, 'user', lastUserMessage)
           }
         }
@@ -99,10 +99,12 @@ Trinity Summary:
           // Store assistant response in memory if user is authenticated
           if (userId && user) {
             const session = await getOrCreateSession(user.id, 'trinity')
-            await addMessage(session.sessionId, 'assistant', response, {
-              coachType: coachPrompt.includes('Story Coach') ? 'STORY_COACH' : 
-                        coachPrompt.includes('Quest Coach') ? 'QUEST_COACH' : 'DELIVERY_COACH'
-            })
+            if (session.sessionId) {
+              await addMessage(session.sessionId, 'assistant', response, {
+                coachType: coachPrompt.includes('Story Coach') ? 'STORY_COACH' : 
+                          coachPrompt.includes('Quest Coach') ? 'QUEST_COACH' : 'DELIVERY_COACH'
+              })
+            }
           }
           
           // Stream the response in chunks

@@ -42,9 +42,10 @@ export default function QuestNetworkGraph({
   onNodeClick,
   onNodeHover
 }: QuestNetworkGraphProps) {
-  const graphRef = useRef<typeof ForceGraph3D>()
-  const [highlightNodes, setHighlightNodes] = useState(new Set())
-  const [highlightLinks, setHighlightLinks] = useState(new Set())
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const graphRef = useRef<any>(null)
+  const [highlightNodes, setHighlightNodes] = useState<Set<string>>(new Set())
+  const [highlightLinks, setHighlightLinks] = useState<Set<string>>(new Set())
   const [hoverNode, setHoverNode] = useState<GraphNode | null>(null)
 
   // Configure node appearance
@@ -94,12 +95,12 @@ export default function QuestNetworkGraph({
     }
 
     // Highlight connected nodes and links
-    const connectedNodes = new Set()
-    const connectedLinks = new Set()
+    const connectedNodes = new Set<string>()
+    const connectedLinks = new Set<string>()
     
     links.forEach(link => {
       if (link.source === node.id || link.target === node.id) {
-        connectedLinks.add(link)
+        connectedLinks.add(`${link.source}-${link.target}`)
         connectedNodes.add(link.source === node.id ? link.target : link.source)
       }
     })
@@ -194,7 +195,8 @@ export default function QuestNetworkGraph({
         nodeThreeObjectExtend={true}
         linkColor={getLinkColor}
         linkWidth={getLinkWidth}
-        linkDirectionalParticles={link => highlightLinks.has(link) ? 2 : 0}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        linkDirectionalParticles={(link: any) => highlightLinks.has(`${link.source.id || link.source}-${link.target.id || link.target}`) ? 2 : 0}
         linkDirectionalParticleSpeed={0.005}
         onNodeHover={handleNodeHover}
         onNodeClick={handleNodeClick}

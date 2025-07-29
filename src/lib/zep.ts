@@ -1,19 +1,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Zep } from '@getzep/zep-js'
+import { ZepClient } from '@getzep/zep-js'
 import { Message, Memory, Session } from '@getzep/zep-js/api'
 
 // Initialize Zep client
 const ZEP_API_KEY = process.env.ZEP_API_KEY || ''
 const ZEP_BASE_URL = process.env.ZEP_BASE_URL || 'https://api.getzep.com'
 
-let zepClient: Zep | null = null
+let zepClient: ZepClient | null = null
 
-function getZepClient(): Zep {
+function getZepClient(): ZepClient {
   if (!zepClient) {
     if (!ZEP_API_KEY) {
       throw new Error('ZEP_API_KEY not configured')
     }
-    zepClient = new Zep({
+    zepClient = new ZepClient({
       apiKey: ZEP_API_KEY,
       baseUrl: ZEP_BASE_URL
     })
@@ -34,7 +34,7 @@ export async function getOrCreateSession(
   
   try {
     // Try to get existing session
-    const session = await client.memory.getSession({ sessionId })
+    const session = await client.memory.getSession(sessionId)
     return session
   } catch {
     // Create new session if doesn't exist
@@ -69,8 +69,7 @@ export async function addMessage(
     metadata
   }
   
-  await client.memory.add({
-    sessionId,
+  await client.memory.add(sessionId, {
     messages: [message]
   })
 }
@@ -82,7 +81,7 @@ export async function getMemory(sessionId: string): Promise<Memory | null> {
   const client = getZepClient()
   
   try {
-    const memory = await client.memory.get({ sessionId })
+    const memory = await client.memory.get(sessionId)
     return memory
   } catch (error) {
     console.error('Failed to get memory:', error)
@@ -106,7 +105,7 @@ export async function searchMemories(
       userId,
       limit
     })
-    return results
+    return results.results || []
   } catch (error) {
     console.error('Failed to search memories:', error)
     return []
@@ -123,8 +122,7 @@ export async function updateSessionMetadata(
   const client = getZepClient()
   
   try {
-    await client.memory.updateSession({
-      sessionId,
+    await client.memory.updateSession(sessionId, {
       metadata
     })
   } catch (error) {
@@ -143,12 +141,12 @@ export async function extractInsights(sessionId: string): Promise<{
   const client = getZepClient()
   
   try {
-    const memory = await client.memory.get({ sessionId })
+    const memory = await client.memory.get(sessionId)
     
     // Zep automatically extracts facts and summaries
     return {
       facts: memory.facts || [],
-      summary: memory.summary || '',
+      summary: typeof memory.summary === 'string' ? memory.summary : (memory.summary as any)?.content || '',
       metadata: memory.metadata || {}
     }
   } catch (error) {
@@ -202,8 +200,8 @@ export async function getUserJourneyContext(userId: string): Promise<string> {
   let context = 'User Journey Context:\n'
   
   if (trinitySession?.metadata?.trinityData) {
-    const trinity = trinitySession.metadata.trinityData
-    context += `\nCurrent Trinity (${trinity.clarityScore}% clarity):\n`
+    const trinity = trinitySession.metadata.trinityData as any
+    context += `\nCurrent Trinity (${trinity.clarityScore || 0}% clarity):\n`
     context += `- Quest: ${trinity.present?.quest || 'Exploring'}\n`
     context += `- Service: ${trinity.present?.service || 'Discovering'}\n`
     context += `- Pledge: ${trinity.present?.pledge || 'Forming'}\n`
