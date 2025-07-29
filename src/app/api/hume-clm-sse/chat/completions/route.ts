@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 import { getOrCreateSession, addMessage, getUserJourneyContext } from '@/lib/zep'
+import { User, Trinity, ProfessionalMirror } from '@prisma/client'
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +18,10 @@ export async function POST(req: NextRequest) {
 
     // Get user context if authenticated
     let userContext = ''
-    let user: Awaited<ReturnType<typeof prisma.user.findUnique>> = null
+    let user: (User & {
+      trinity: Trinity | null
+      professionalMirror: ProfessionalMirror | null
+    }) | null = null
     
     if (userId) {
       try {
