@@ -11,14 +11,14 @@ export default function TrinityPage() {
   const [isConnected, setIsConnected] = useState(false)
   const [isListening, setIsListening] = useState(false)
   const [currentCoach, setCurrentCoach] = useState<'STORY_COACH' | 'QUEST_COACH' | 'DELIVERY_COACH'>('STORY_COACH')
-  const [emotion, setEmotion] = useState<string>('neutral')
+  // const [emotion, setEmotion] = useState<string>('neutral') // TODO: Implement emotion tracking
   const [phase, setPhase] = useState<'welcome' | 'exploring' | 'complete'>('welcome')
-  const socketRef = useRef<WebSocket | null>(null)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const [accessToken, setAccessToken] = useState<string>('')
   
-  // Hume AI configuration
-  const HUME_API_KEY = process.env.NEXT_PUBLIC_HUME_API_KEY
-  const HUME_SECRET_KEY = process.env.NEXT_PUBLIC_HUME_SECRET_KEY
+  const socketRef = useRef<WebSocket | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const audioQueueRef = useRef<AudioBufferSourceNode[]>([])
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
 
   useEffect(() => {
     if (!isSignedIn) {
@@ -26,85 +26,103 @@ export default function TrinityPage() {
     }
   }, [isSignedIn, router])
 
-  // Connect to Hume AI when component mounts
+  // Get access token on mount
   useEffect(() => {
-    connectToHume()
+    getAccessToken()
+  }, [])
+
+  // Connect when we have access token
+  useEffect(() => {
+    if (accessToken) {
+      connectToHume()
+    }
     
     return () => {
       if (socketRef.current) {
         socketRef.current.close()
       }
     }
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken])
+
+  const getAccessToken = async () => {
+    try {
+      const response = await fetch('/api/hume/token')
+      const data = await response.json()
+      if (data.accessToken) {
+        setAccessToken(data.accessToken)
+      }
+    } catch (error) {
+      console.error('Failed to get access token:', error)
+    }
+  }
 
   const connectToHume = async () => {
     try {
-      // Get access token
-      const tokenResponse = await fetch('https://api.hume.ai/oauth2-cc/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: HUME_API_KEY || '',
-          client_secret: HUME_SECRET_KEY || '',
-        }),
-      })
+      // Initialize audio context
+      audioContextRef.current = new AudioContext()
       
-      const { access_token } = await tokenResponse.json()
-      
-      // Connect to WebSocket
+      // Connect to WebSocket with EVI 3 format
       const ws = new WebSocket(
-        `wss://api.hume.ai/v0/evi/chat?access_token=${access_token}`
+        `wss://api.hume.ai/v0/evi/chat?access_token=${accessToken}`
       )
       
       ws.onopen = () => {
-        console.log('Connected to Hume AI')
+        console.log('Connected to Hume AI EVI 3')
         setIsConnected(true)
         
-        // Send initial configuration
+        // Send initial configuration for EVI 3
         const coach = HUME_COACHES[currentCoach]
         ws.send(JSON.stringify({
           type: 'session_settings',
-          evi_version: '3',
-          voice: {
-            provider: 'hume_ai',
-            voice_id: coach.voice_id
-          },
-          language_model: {
-            ...coach.language_model,
-            system_prompt: coach.system_prompt
-          },
-          tools: []
+          session_settings: {
+            type: 'session_settings',
+            system_prompt: coach.system_prompt,
+            voice: {
+              provider: 'hume_ai',
+              voice_id: coach.voice_id
+            }
+          }
         }))
       }
       
-      ws.onmessage = (event) => {
+      ws.onmessage = async (event) => {
         const data = JSON.parse(event.data)
+        console.log('Received:', data.type)
         
         switch (data.type) {
+          case 'audio_output':
+            // Handle audio output
+            if (data.data) {
+              await playAudioChunk(data.data)
+            }
+            break
+            
           case 'assistant_message':
             // Coach is speaking
             if (data.message?.content) {
               console.log('Coach:', data.message.content)
-              // Check for phase transitions
               checkPhaseTransition(data.message.content)
             }
             break
             
-          case 'assistant_prosody':
-            // Update emotion display
-            if (data.prosody?.emotions) {
-              const topEmotion = Object.entries(data.prosody.emotions)
-                .sort(([, a], [, b]) => (b as number) - (a as number))[0]
-              setEmotion(topEmotion[0])
-            }
+          case 'assistant_end':
+            // Assistant finished speaking
+            console.log('Assistant finished')
             break
             
           case 'user_message':
             // User's speech was transcribed
             console.log('User:', data.message?.content)
+            break
+            
+          case 'user_interruption':
+            // User interrupted, stop audio
+            stopAllAudio()
+            break
+            
+          case 'error':
+            console.error('Hume error:', data.error)
             break
         }
       }
@@ -114,14 +132,62 @@ export default function TrinityPage() {
         setIsConnected(false)
       }
       
+      ws.onclose = () => {
+        console.log('Disconnected from Hume')
+        setIsConnected(false)
+      }
+      
       socketRef.current = ws
     } catch (error) {
       console.error('Failed to connect to Hume:', error)
     }
   }
 
+  const playAudioChunk = async (base64Audio: string) => {
+    if (!audioContextRef.current) return
+    
+    try {
+      // Decode base64 to ArrayBuffer
+      const binaryString = atob(base64Audio)
+      const bytes = new Uint8Array(binaryString.length)
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i)
+      }
+      
+      // Decode audio data
+      const audioBuffer = await audioContextRef.current.decodeAudioData(bytes.buffer)
+      
+      // Create and play audio source
+      const source = audioContextRef.current.createBufferSource()
+      source.buffer = audioBuffer
+      source.connect(audioContextRef.current.destination)
+      source.start()
+      
+      // Track for cleanup
+      audioQueueRef.current.push(source)
+      
+      // Remove from queue when done
+      source.onended = () => {
+        audioQueueRef.current = audioQueueRef.current.filter(s => s !== source)
+      }
+    } catch (error) {
+      console.error('Error playing audio:', error)
+    }
+  }
+
+  const stopAllAudio = () => {
+    audioQueueRef.current.forEach(source => {
+      try {
+        source.stop()
+      } catch {
+        // Ignore if already stopped
+      }
+    })
+    audioQueueRef.current = []
+  }
+
   const checkPhaseTransition = (message: string) => {
-    // Simple phase detection - in production this would be more sophisticated
+    // Simple phase detection
     if (message.toLowerCase().includes('trinity') && currentCoach === 'STORY_COACH') {
       switchToQuestCoach()
     } else if (message.toLowerCase().includes('ready') && currentCoach === 'QUEST_COACH') {
@@ -132,38 +198,27 @@ export default function TrinityPage() {
   const switchToQuestCoach = () => {
     setCurrentCoach('QUEST_COACH')
     playTransitionSound()
-    // Update session with new coach
-    if (socketRef.current?.readyState === WebSocket.OPEN) {
-      const coach = HUME_COACHES.QUEST_COACH
-      socketRef.current.send(JSON.stringify({
-        type: 'session_update',
-        voice: {
-          provider: 'hume_ai',
-          voice_id: coach.voice_id
-        },
-        language_model: {
-          ...coach.language_model,
-          system_prompt: coach.system_prompt
-        }
-      }))
-    }
+    updateCoachSettings('QUEST_COACH')
   }
 
   const switchToDeliveryCoach = () => {
     setCurrentCoach('DELIVERY_COACH')
     playTransitionSound()
-    // Update session with new coach
+    updateCoachSettings('DELIVERY_COACH')
+  }
+
+  const updateCoachSettings = (coachType: typeof currentCoach) => {
     if (socketRef.current?.readyState === WebSocket.OPEN) {
-      const coach = HUME_COACHES.DELIVERY_COACH
+      const coach = HUME_COACHES[coachType]
       socketRef.current.send(JSON.stringify({
-        type: 'session_update',
-        voice: {
-          provider: 'hume_ai',
-          voice_id: coach.voice_id
-        },
-        language_model: {
-          ...coach.language_model,
-          system_prompt: coach.system_prompt
+        type: 'session_settings',
+        session_settings: {
+          type: 'session_settings',
+          system_prompt: coach.system_prompt,
+          voice: {
+            provider: 'hume_ai',
+            voice_id: coach.voice_id
+          }
         }
       }))
     }
@@ -190,23 +245,37 @@ export default function TrinityPage() {
           mimeType: 'audio/webm;codecs=opus'
         })
         
-        mediaRecorder.ondataavailable = async (event) => {
-          if (event.data.size > 0 && socketRef.current?.readyState === WebSocket.OPEN) {
-            // Convert to base64 and send
-            const reader = new FileReader()
-            reader.onloadend = () => {
-              const base64Audio = reader.result?.toString().split(',')[1]
-              if (base64Audio) {
-                socketRef.current!.send(JSON.stringify({
-                  type: 'audio_input',
-                  data: base64Audio
-                }))
-              }
-            }
-            reader.readAsDataURL(event.data)
+        let audioChunks: Blob[] = []
+        
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunks.push(event.data)
           }
         }
         
+        mediaRecorder.onstop = async () => {
+          // Send complete audio
+          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' })
+          audioChunks = []
+          
+          // Convert to base64
+          const reader = new FileReader()
+          reader.onloadend = () => {
+            const base64Audio = reader.result?.toString().split(',')[1]
+            if (base64Audio && socketRef.current?.readyState === WebSocket.OPEN) {
+              socketRef.current.send(JSON.stringify({
+                type: 'audio_input',
+                data: base64Audio
+              }))
+            }
+          }
+          reader.readAsDataURL(audioBlob)
+          
+          // Stop all tracks
+          stream.getTracks().forEach(track => track.stop())
+        }
+        
+        // Start recording with continuous chunks
         mediaRecorder.start(100) // 100ms chunks
         mediaRecorderRef.current = mediaRecorder
         setIsListening(true)
@@ -317,10 +386,12 @@ export default function TrinityPage() {
           </div>
         </div>
 
-        {/* Emotion indicator */}
-        {emotion !== 'neutral' && isListening && (
-          <div className="mt-4 text-sm text-gray-400">
-            Detecting: {emotion}
+        {/* Debug info */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-8 text-xs text-gray-600">
+            <p>Token: {accessToken ? 'Available' : 'Fetching...'}</p>
+            <p>Coach: {currentCoach}</p>
+            <p>Phase: {phase}</p>
           </div>
         )}
 

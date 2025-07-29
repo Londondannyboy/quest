@@ -17,6 +17,8 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.27.1",
+    "@humeai/voice": "^0.1.10",
+    "@humeai/voice-react": "^0.2.2",
     "@hyperdx/browser": "^0.21.2",
     "@hyperdx/node-opentelemetry": "^0.8.2",
     "@prisma/client": "^6.12.0",
