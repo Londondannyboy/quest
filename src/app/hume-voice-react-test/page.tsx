@@ -32,9 +32,11 @@ function VoiceComponent() {
         throw new Error(data.error || 'Failed to get access token')
       }
 
-      await connect()
-      // Note: We're not passing accessToken/configId here as they might 
-      // be handled differently in the VoiceProvider
+      // The connect function requires a config object
+      await connect({
+        // Empty config - auth is handled by VoiceProvider
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)
     } catch (error) {
       console.error('Connection error:', error)
       setLogs(prev => [...prev, `Error: ${error instanceof Error ? error.message : 'Unknown'}`])
