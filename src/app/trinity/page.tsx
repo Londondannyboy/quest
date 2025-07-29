@@ -19,6 +19,7 @@ export default function TrinityPage() {
   const socketRef = useRef<WebSocket | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const audioQueueRef = useRef<AudioBufferSourceNode[]>([])
+  const isConnectingRef = useRef(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
 
   useEffect(() => {
@@ -54,12 +55,19 @@ export default function TrinityPage() {
   }
 
   const connectToHume = async () => {
-    // Prevent duplicate connections
-    if (socketRef.current?.readyState === WebSocket.OPEN || 
-        socketRef.current?.readyState === WebSocket.CONNECTING) {
-      console.log('Already connected or connecting')
+    // Prevent duplicate connections with ref
+    if (isConnectingRef.current) {
+      console.log('Already attempting to connect')
       return
     }
+    
+    if (socketRef.current?.readyState === WebSocket.OPEN || 
+        socketRef.current?.readyState === WebSocket.CONNECTING) {
+      console.log('WebSocket already connected or connecting')
+      return
+    }
+    
+    isConnectingRef.current = true
     
     try {
       // Initialize audio context only if not already created
@@ -77,6 +85,7 @@ export default function TrinityPage() {
       ws.onopen = () => {
         console.log('Connected to Hume AI EVI 3 - Socket ID:', Date.now())
         setIsConnected(true)
+        isConnectingRef.current = false
         
         // No need to send session_settings when using config_id
         // The configuration is already set in Hume dashboard
@@ -126,16 +135,19 @@ export default function TrinityPage() {
       ws.onerror = (error) => {
         console.error('WebSocket error:', error)
         setIsConnected(false)
+        isConnectingRef.current = false
       }
       
       ws.onclose = () => {
         console.log('Disconnected from Hume')
         setIsConnected(false)
+        isConnectingRef.current = false
       }
       
       socketRef.current = ws
     } catch (error) {
       console.error('Failed to connect to Hume:', error)
+      isConnectingRef.current = false
     }
   }
 
@@ -215,13 +227,21 @@ export default function TrinityPage() {
   }
 
   const startSession = async () => {
+    // Re-fetch token if needed
     if (!accessToken) {
-      console.log('No access token available')
-      return
+      console.log('No access token, fetching...')
+      await getAccessToken()
+      // Wait a bit for state to update
+      setTimeout(async () => {
+        if (accessToken) {
+          setSessionStarted(true)
+          await connectToHume()
+        }
+      }, 100)
+    } else {
+      setSessionStarted(true)
+      await connectToHume()
     }
-    
-    setSessionStarted(true)
-    await connectToHume()
   }
 
   const disconnectChat = () => {
@@ -375,7 +395,8 @@ export default function TrinityPage() {
             <div className="flex flex-col items-center justify-center h-full">
               <span className="text-6xl mb-4">{getCoachInfo().icon}</span>
               <span className="text-xl font-semibold">
-                {!isConnected ? 'Connecting...' :
+                {!sessionStarted ? 'Start Session First' :
+                 !isConnected ? 'Connecting...' :
                  isListening ? 'Listening...' : 'Click to Speak'}
               </span>
             </div>
@@ -411,17 +432,17 @@ export default function TrinityPage() {
             </div>
           )}
           
-          {/* Start/Stop Toggle Button */}
+          {/* Start/Pause Toggle Button */}
           <button
             onClick={sessionStarted ? disconnectChat : startSession}
-            disabled={!accessToken}
+            disabled={!accessToken && sessionStarted}
             className={`px-8 py-3 rounded-full transition-all duration-300 text-white font-medium ${
               sessionStarted 
-                ? 'bg-red-600 hover:bg-red-700' 
+                ? 'bg-orange-600 hover:bg-orange-700' 
                 : 'bg-green-600 hover:bg-green-700 transform hover:scale-105'
-            } ${!accessToken ? 'opacity-50 cursor-not-allowed' : ''}`}
+            }`}
           >
-            {sessionStarted ? 'End Session' : 'Start Session'}
+            {sessionStarted ? 'Pause Session' : 'Start Session'}
           </button>
         </div>
 

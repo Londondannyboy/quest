@@ -7,14 +7,34 @@ import { User, Trinity, ProfessionalMirror } from '@prisma/client'
 export async function POST(req: NextRequest) {
   try {
     // Get the current user
-    const { userId } = await auth()
+    // Try to get userId from multiple sources
+    let userId = null
+    
+    // First try from auth (won't work for Hume server-to-server calls)
+    const authResult = await auth()
+    userId = authResult?.userId
     
     // Parse the request from Hume
     const body = await req.json()
     const messages = body.messages || []
     const lastUserMessage = messages.findLast((m: { role: string; content?: string }) => m.role === 'user')?.content || ''
     
-    console.log('Hume CLM request:', { userId, messageCount: messages.length })
+    // Try to get userId from headers if not from auth
+    if (!userId) {
+      userId = req.headers.get('x-hume-user-id') || req.headers.get('x-user-id')
+      
+      // TEMPORARY: For testing, use the first user in the system
+      // TODO: Pass user ID from Hume configuration
+      if (!userId) {
+        console.log('No userId found, using first user for testing')
+        const firstUser = await prisma.user.findFirst({
+          orderBy: { createdAt: 'desc' }
+        })
+        userId = firstUser?.clerkId || null
+      }
+    }
+    
+    console.log('Hume CLM request:', { userId, messageCount: messages.length, headers: Object.fromEntries(req.headers.entries()) })
 
     // Get user context if authenticated
     let userContext = ''
