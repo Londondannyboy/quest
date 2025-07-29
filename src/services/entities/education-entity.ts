@@ -231,7 +231,7 @@ export async function getAlumniNetwork(educationId: string) {
               enrichmentData: true
             }
           },
-          quest: {
+          trinity: {
             select: {
               clarityScore: true
             }
