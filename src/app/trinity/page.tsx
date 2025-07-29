@@ -29,6 +29,12 @@ export default function TrinityPage() {
   // Get access token on mount
   useEffect(() => {
     getAccessToken()
+    
+    // Cleanup on unmount
+    return () => {
+      disconnectChat()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Connect when we have access token
@@ -58,6 +64,13 @@ export default function TrinityPage() {
   }
 
   const connectToHume = async () => {
+    // Prevent duplicate connections
+    if (socketRef.current?.readyState === WebSocket.OPEN || 
+        socketRef.current?.readyState === WebSocket.CONNECTING) {
+      console.log('Already connected or connecting')
+      return
+    }
+    
     try {
       // Initialize audio context
       audioContextRef.current = new AudioContext()
@@ -208,6 +221,30 @@ export default function TrinityPage() {
     audio.play().catch(console.error)
   }
 
+  const disconnectChat = () => {
+    // Stop recording if active
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop()
+      mediaRecorderRef.current = null
+    }
+    
+    // Stop all audio
+    stopAllAudio()
+    
+    // Close WebSocket
+    if (socketRef.current) {
+      socketRef.current.close()
+      socketRef.current = null
+    }
+    
+    // Reset states
+    setIsConnected(false)
+    setIsListening(false)
+    setPhase('welcome')
+    
+    console.log('Disconnected from Hume')
+  }
+
   const toggleListening = async () => {
     if (isListening) {
       // Stop recording
@@ -346,8 +383,8 @@ export default function TrinityPage() {
           )}
         </div>
 
-        {/* Connection Status */}
-        <div className="mt-8">
+        {/* Connection Status and Controls */}
+        <div className="mt-8 flex flex-col items-center gap-4">
           <div className={`inline-flex items-center text-sm ${
             isConnected ? 'text-green-400' : 'text-gray-400'
           }`}>
@@ -356,6 +393,16 @@ export default function TrinityPage() {
             }`} />
             {isConnected ? 'Connected' : 'Connecting to coach...'}
           </div>
+          
+          {/* Stop Button */}
+          {isConnected && (
+            <button
+              onClick={disconnectChat}
+              className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors text-sm font-medium"
+            >
+              End Session
+            </button>
+          )}
         </div>
 
         {/* Debug info */}
