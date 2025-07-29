@@ -51,7 +51,7 @@ export default function HumeSimplePage() {
         addMessage('WebSocket opened (unexpected)')
       }
       
-      testWs.onerror = (error) => {
+      testWs.onerror = () => {
         addMessage('WebSocket error (expected without auth)')
       }
       

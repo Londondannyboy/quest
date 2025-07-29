@@ -16,6 +16,7 @@ model User {
   id        String   @id @default(cuid())
   clerkId   String   @unique
   email     String   @unique
+  name      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
@@ -346,4 +347,26 @@ model Colleague {
   
   @@index([userId])
   @@index([companyId])
+}
+
+// Coach Voice Prompts - Configurable prompts for Hume AI coaches
+model CoachPrompt {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  
+  // Core prompt components
+  role                    String   @db.Text
+  personality             String   @db.Text
+  conversationGuidelines  String   @db.Text
+  examples                String   @db.Text
+  backchanneling          String   @db.Text
+  emotionalResponses      String   @db.Text
+  voiceCharacteristics    String   @db.Text
+  
+  // Configuration
+  active    Boolean  @default(true)
+  coachType CoachType?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
