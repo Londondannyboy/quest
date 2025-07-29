@@ -21,7 +21,6 @@ export default function TrinityPage() {
   const audioQueueRef = useRef<AudioBufferSourceNode[]>([])
   const isConnectingRef = useRef(false)
   const processedAudioIds = useRef<Set<string>>(new Set())
-  const lastAudioSequence = useRef<number>(0)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
 
   useEffect(() => {
@@ -99,18 +98,22 @@ export default function TrinityPage() {
         
         switch (data.type) {
           case 'audio_output':
-            // Handle audio output with sequence checking
-            if (data.data && data.sequence_number) {
-              // Only play if this is a new sequence
-              if (data.sequence_number > lastAudioSequence.current) {
-                lastAudioSequence.current = data.sequence_number
+            // Handle audio output with duplicate prevention
+            if (data.data) {
+              // Create unique ID for this audio chunk
+              const audioId = `${data.type}_${Date.now()}_${data.data.substring(0, 20)}`
+              
+              if (!processedAudioIds.current.has(audioId)) {
+                processedAudioIds.current.add(audioId)
                 await playAudioChunk(data.data)
+                
+                // Clean up old IDs after 10 seconds
+                setTimeout(() => {
+                  processedAudioIds.current.delete(audioId)
+                }, 10000)
               } else {
-                console.log('Skipping out-of-order audio chunk')
+                console.log('Skipping duplicate audio chunk')
               }
-            } else if (data.data) {
-              // Fallback for audio without sequence numbers
-              await playAudioChunk(data.data)
             }
             break
             
@@ -237,53 +240,6 @@ export default function TrinityPage() {
     audio.play().catch(console.error)
   }
 
-  const startContinuousListening = async () => {
-    if (!isConnected || mediaRecorderRef.current) {
-      console.log('Not ready for continuous listening')
-      return
-    }
-
-    try {
-      console.log('Starting continuous listening...')
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      })
-      
-      mediaRecorder.ondataavailable = async (event) => {
-        if (event.data.size > 0 && socketRef.current?.readyState === WebSocket.OPEN) {
-          // Send audio continuously
-          const reader = new FileReader()
-          reader.onloadend = () => {
-            const base64Audio = reader.result?.toString().split(',')[1]
-            if (base64Audio) {
-              socketRef.current?.send(JSON.stringify({
-                type: 'audio_input',
-                data: base64Audio
-              }))
-            }
-          }
-          reader.readAsDataURL(event.data)
-        }
-      }
-      
-      // Start recording with 100ms chunks for real-time
-      mediaRecorder.start(100)
-      mediaRecorderRef.current = mediaRecorder
-      setIsListening(true)
-      
-      // Update phase
-      if (phase === 'welcome') {
-        setPhase('exploring')
-      }
-      
-      console.log('Continuous listening started')
-      
-    } catch (error) {
-      console.error('Failed to start continuous listening:', error)
-    }
-  }
-
   const startSession = async () => {
     // Re-fetch token if needed
     if (!accessToken) {
@@ -294,15 +250,11 @@ export default function TrinityPage() {
         if (accessToken) {
           setSessionStarted(true)
           await connectToHume()
-          // Start continuous listening after connection
-          setTimeout(() => startContinuousListening(), 1000)
         }
       }, 100)
     } else {
       setSessionStarted(true)
       await connectToHume()
-      // Start continuous listening after connection
-      setTimeout(() => startContinuousListening(), 1000)
     }
   }
 
@@ -336,14 +288,64 @@ export default function TrinityPage() {
     setPhase('welcome')
     setSessionStarted(false)
     
-    // Clear processed audio IDs and sequence
+    // Clear processed audio IDs
     processedAudioIds.current.clear()
-    lastAudioSequence.current = 0
     
     console.log('Disconnected from Hume')
   }
 
-  // Remove toggleListening - we use continuous listening now
+  const toggleListening = async () => {
+    if (isListening) {
+      // Stop recording
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop()
+        mediaRecorderRef.current = null
+      }
+      setIsListening(false)
+    } else {
+      try {
+        // Start recording
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        const mediaRecorder = new MediaRecorder(stream, {
+          mimeType: 'audio/webm;codecs=opus'
+        })
+        
+        mediaRecorder.ondataavailable = async (event) => {
+          if (event.data.size > 0) {
+            // Send audio chunk immediately for real-time processing
+            const reader = new FileReader()
+            reader.onloadend = () => {
+              const base64Audio = reader.result?.toString().split(',')[1]
+              if (base64Audio && socketRef.current?.readyState === WebSocket.OPEN) {
+                console.log('Sending audio chunk, size:', base64Audio.length)
+                socketRef.current.send(JSON.stringify({
+                  type: 'audio_input',
+                  data: base64Audio
+                }))
+              }
+            }
+            reader.readAsDataURL(event.data)
+          }
+        }
+        
+        mediaRecorder.onstop = () => {
+          // Stop all tracks
+          stream.getTracks().forEach(track => track.stop())
+        }
+        
+        // Start recording with continuous chunks
+        mediaRecorder.start(100) // 100ms chunks
+        mediaRecorderRef.current = mediaRecorder
+        setIsListening(true)
+        
+        if (phase === 'welcome') {
+          setPhase('exploring')
+        }
+      } catch (error) {
+        console.error('Failed to access microphone:', error)
+      }
+    }
+  }
 
   const getCoachColor = () => {
     switch (currentCoach) {
@@ -391,16 +393,20 @@ export default function TrinityPage() {
             'bg-green-500'
           }`} />
           
-          {/* Main circle indicator - no longer a button */}
-          <div
+          {/* Main circle button */}
+          <button
+            onClick={toggleListening}
+            disabled={!isConnected || !sessionStarted}
             className={`relative w-64 h-64 rounded-full transition-all duration-300 ${
-              isListening ? 'scale-110 animate-pulse' : 'scale-100'
+              isListening ? 'scale-110' : 'scale-100 hover:scale-105'
             } ${
-              getCoachColor() === 'purple' ? 'bg-purple-500' :
-              getCoachColor() === 'blue' ? 'bg-blue-500' :
-              'bg-green-500'
+              getCoachColor() === 'purple' ? 'bg-purple-500 hover:bg-purple-600' :
+              getCoachColor() === 'blue' ? 'bg-blue-500 hover:bg-blue-600' :
+              'bg-green-500 hover:bg-green-600'
             } ${
-              (!isConnected || !sessionStarted) ? 'opacity-50' : ''
+              isListening ? 'animate-pulse' : ''
+            } ${
+              (!isConnected || !sessionStarted) ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
             <div className="flex flex-col items-center justify-center h-full">
@@ -408,10 +414,10 @@ export default function TrinityPage() {
               <span className="text-xl font-semibold">
                 {!sessionStarted ? 'Start Session First' :
                  !isConnected ? 'Connecting...' :
-                 isListening ? 'Listening...' : 'Setting up...'}
+                 isListening ? 'Listening...' : 'Click to Speak'}
               </span>
             </div>
-          </div>
+          </button>
           
           {/* Ripple effect when listening */}
           {isListening && (
