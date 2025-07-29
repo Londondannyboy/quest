@@ -23,14 +23,26 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       userId = req.headers.get('x-hume-user-id') || req.headers.get('x-user-id')
       
-      // TEMPORARY: For testing, use the first user in the system
+      // TEMPORARY: For testing, use the most recent user in the system
       // TODO: Pass user ID from Hume configuration
       if (!userId) {
-        console.log('No userId found, using first user for testing')
-        const firstUser = await prisma.user.findFirst({
-          orderBy: { createdAt: 'desc' }
+        console.log('No userId found, using most recent user for testing')
+        
+        // Get the most recent user with trinity data
+        const recentUser = await prisma.user.findFirst({
+          where: {
+            trinity: {
+              isNot: null
+            }
+          },
+          orderBy: { updatedAt: 'desc' },
+          include: {
+            professionalMirror: true
+          }
         })
-        userId = firstUser?.clerkId || null
+        
+        userId = recentUser?.clerkId || null
+        console.log('Found recent user:', recentUser?.name || 'Unknown')
       }
     }
     
@@ -63,6 +75,34 @@ User Context:
 - Has Trinity: ${user.trinity ? 'Yes' : 'No'}
 - Has Professional Mirror: ${user.professionalMirror ? 'Yes' : 'No'}
 `
+          
+          // Add professional mirror data if available
+          if (user.professionalMirror) {
+            const pmData = user.professionalMirror
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const linkedinData = pmData.rawLinkedinData as any
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const enrichmentData = pmData.enrichmentData as any
+            
+            userContext += `
+Professional Background:
+- LinkedIn: ${pmData.linkedinUrl || 'Not connected'}
+- Last scraped: ${pmData.lastScraped ? new Date(pmData.lastScraped).toLocaleDateString() : 'Never'}
+`
+            
+            if (linkedinData) {
+              userContext += `- Current Role: ${linkedinData.headline || 'Unknown'}
+- Location: ${linkedinData.location || 'Unknown'}
+- Experience: ${linkedinData.experience?.length || 0} positions
+`
+            }
+            
+            if (enrichmentData) {
+              userContext += `- Company: ${enrichmentData.company || 'Unknown'}
+- Industry: ${enrichmentData.industry || 'Unknown'}
+`
+            }
+          }
           if (user.trinity) {
             userContext += `
 Trinity Summary:

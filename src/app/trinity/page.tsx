@@ -20,6 +20,7 @@ export default function TrinityPage() {
   const audioContextRef = useRef<AudioContext | null>(null)
   const audioQueueRef = useRef<AudioBufferSourceNode[]>([])
   const isConnectingRef = useRef(false)
+  const processedAudioIds = useRef<Set<string>>(new Set())
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
 
   useEffect(() => {
@@ -97,9 +98,22 @@ export default function TrinityPage() {
         
         switch (data.type) {
           case 'audio_output':
-            // Handle audio output
+            // Handle audio output with duplicate prevention
             if (data.data) {
-              await playAudioChunk(data.data)
+              // Create unique ID for this audio chunk
+              const audioId = `${data.type}_${Date.now()}_${data.data.substring(0, 20)}`
+              
+              if (!processedAudioIds.current.has(audioId)) {
+                processedAudioIds.current.add(audioId)
+                await playAudioChunk(data.data)
+                
+                // Clean up old IDs after 10 seconds
+                setTimeout(() => {
+                  processedAudioIds.current.delete(audioId)
+                }, 10000)
+              } else {
+                console.log('Skipping duplicate audio chunk')
+              }
             }
             break
             
@@ -273,6 +287,9 @@ export default function TrinityPage() {
     setIsListening(false)
     setPhase('welcome')
     setSessionStarted(false)
+    
+    // Clear processed audio IDs
+    processedAudioIds.current.clear()
     
     console.log('Disconnected from Hume')
   }
