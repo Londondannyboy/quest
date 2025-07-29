@@ -14,6 +14,7 @@ export default function TrinityPage() {
   // const [emotion, setEmotion] = useState<string>('neutral') // TODO: Implement emotion tracking
   const [phase, setPhase] = useState<'welcome' | 'exploring' | 'complete'>('welcome')
   const [accessToken, setAccessToken] = useState<string>('')
+  const [sessionStarted, setSessionStarted] = useState(false)
   
   const socketRef = useRef<WebSocket | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -37,19 +38,8 @@ export default function TrinityPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Connect when we have access token
-  useEffect(() => {
-    if (accessToken) {
-      connectToHume()
-    }
-    
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.close()
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accessToken])
+  // Remove auto-connect - user must click start button
+  // This prevents duplicate connections
 
   const getAccessToken = async () => {
     try {
@@ -72,8 +62,11 @@ export default function TrinityPage() {
     }
     
     try {
-      // Initialize audio context
-      audioContextRef.current = new AudioContext()
+      // Initialize audio context only if not already created
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext()
+        console.log('Created new AudioContext')
+      }
       
       // Connect to WebSocket with EVI 3 format and config ID
       const configId = process.env.NEXT_PUBLIC_HUME_CONFIG_ID
@@ -82,7 +75,7 @@ export default function TrinityPage() {
       )
       
       ws.onopen = () => {
-        console.log('Connected to Hume AI EVI 3')
+        console.log('Connected to Hume AI EVI 3 - Socket ID:', Date.now())
         setIsConnected(true)
         
         // No need to send session_settings when using config_id
@@ -221,6 +214,16 @@ export default function TrinityPage() {
     audio.play().catch(console.error)
   }
 
+  const startSession = async () => {
+    if (!accessToken) {
+      console.log('No access token available')
+      return
+    }
+    
+    setSessionStarted(true)
+    await connectToHume()
+  }
+
   const disconnectChat = () => {
     // Stop recording if active
     if (mediaRecorderRef.current) {
@@ -233,14 +236,23 @@ export default function TrinityPage() {
     
     // Close WebSocket
     if (socketRef.current) {
+      console.log('Closing WebSocket connection')
       socketRef.current.close()
       socketRef.current = null
+    }
+    
+    // Close audio context
+    if (audioContextRef.current) {
+      console.log('Closing AudioContext')
+      audioContextRef.current.close()
+      audioContextRef.current = null
     }
     
     // Reset states
     setIsConnected(false)
     setIsListening(false)
     setPhase('welcome')
+    setSessionStarted(false)
     
     console.log('Disconnected from Hume')
   }
@@ -326,7 +338,10 @@ export default function TrinityPage() {
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">Trinity Discovery</h1>
           <p className="text-xl text-gray-400">
-            {phase === 'welcome' ? 'Click the circle to begin your journey' : `Speaking with ${getCoachInfo().name}`}
+            {!sessionStarted ? 'Click Start Session to begin' :
+             !isConnected ? 'Connecting to your coach...' :
+             phase === 'welcome' ? 'Click the circle to speak' : 
+             `Speaking with ${getCoachInfo().name}`}
           </p>
         </div>
 
@@ -344,7 +359,7 @@ export default function TrinityPage() {
           {/* Main circle button */}
           <button
             onClick={toggleListening}
-            disabled={!isConnected}
+            disabled={!isConnected || !sessionStarted}
             className={`relative w-64 h-64 rounded-full transition-all duration-300 ${
               isListening ? 'scale-110' : 'scale-100 hover:scale-105'
             } ${
@@ -354,7 +369,7 @@ export default function TrinityPage() {
             } ${
               isListening ? 'animate-pulse' : ''
             } ${
-              !isConnected ? 'opacity-50 cursor-not-allowed' : ''
+              (!isConnected || !sessionStarted) ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
             <div className="flex flex-col items-center justify-center h-full">
@@ -385,24 +400,29 @@ export default function TrinityPage() {
 
         {/* Connection Status and Controls */}
         <div className="mt-8 flex flex-col items-center gap-4">
-          <div className={`inline-flex items-center text-sm ${
-            isConnected ? 'text-green-400' : 'text-gray-400'
-          }`}>
-            <div className={`w-2 h-2 rounded-full mr-2 ${
-              isConnected ? 'bg-green-400' : 'bg-gray-400'
-            }`} />
-            {isConnected ? 'Connected' : 'Connecting to coach...'}
-          </div>
-          
-          {/* Stop Button */}
-          {isConnected && (
-            <button
-              onClick={disconnectChat}
-              className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors text-sm font-medium"
-            >
-              End Session
-            </button>
+          {sessionStarted && (
+            <div className={`inline-flex items-center text-sm ${
+              isConnected ? 'text-green-400' : 'text-yellow-400'
+            }`}>
+              <div className={`w-2 h-2 rounded-full mr-2 ${
+                isConnected ? 'bg-green-400' : 'bg-yellow-400 animate-pulse'
+              }`} />
+              {isConnected ? 'Connected' : 'Connecting...'}
+            </div>
           )}
+          
+          {/* Start/Stop Toggle Button */}
+          <button
+            onClick={sessionStarted ? disconnectChat : startSession}
+            disabled={!accessToken}
+            className={`px-8 py-3 rounded-full transition-all duration-300 text-white font-medium ${
+              sessionStarted 
+                ? 'bg-red-600 hover:bg-red-700' 
+                : 'bg-green-600 hover:bg-green-700 transform hover:scale-105'
+            } ${!accessToken ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {sessionStarted ? 'End Session' : 'Start Session'}
+          </button>
         </div>
 
         {/* Debug info */}
