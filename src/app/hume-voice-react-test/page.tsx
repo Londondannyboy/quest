@@ -151,7 +151,7 @@ export default function HumeVoiceReactTest() {
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">
       <VoiceProvider
-        auth={{ type: 'accessToken', value: apiKey }}
+        accessToken={apiKey}
         configId={configId}
         onError={(error) => {
           console.error('VoiceProvider error:', error)
