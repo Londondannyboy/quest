@@ -236,13 +236,13 @@ export default function TrinityV2Page() {
             break
             
           case 'assistant_message':
-            if (data.message?.content) {
+            if (data.message && data.message.content) {
               setTranscript(prev => [...prev, `Coach: ${data.message.content}`])
             }
             break
             
           case 'user_message':
-            if (data.message?.content) {
+            if (data.message && data.message.content) {
               setTranscript(prev => [...prev, `You: ${data.message.content}`])
             }
             break

@@ -5,7 +5,7 @@
  * for complex tasks like Trinity discovery, code review, and debugging.
  */
 
-import { ChatCompletionMessageParam } from 'openai/resources/index'
+// Types will be imported when needed for actual OpenRouter integration
 
 // Zen MCP Server configuration
 const ZEN_MCP_BASE_URL = process.env.ZEN_MCP_BASE_URL || 'http://localhost:3000'
