@@ -78,7 +78,7 @@ export default function TrinityPage() {
       
       ws.onmessage = async (event) => {
         const data = JSON.parse(event.data)
-        console.log('Received:', data.type)
+        console.log('Received:', data.type, data)
         
         switch (data.type) {
           case 'audio_output':
@@ -224,32 +224,25 @@ export default function TrinityPage() {
           mimeType: 'audio/webm;codecs=opus'
         })
         
-        let audioChunks: Blob[] = []
-        
-        mediaRecorder.ondataavailable = (event) => {
+        mediaRecorder.ondataavailable = async (event) => {
           if (event.data.size > 0) {
-            audioChunks.push(event.data)
+            // Send audio chunk immediately for real-time processing
+            const reader = new FileReader()
+            reader.onloadend = () => {
+              const base64Audio = reader.result?.toString().split(',')[1]
+              if (base64Audio && socketRef.current?.readyState === WebSocket.OPEN) {
+                console.log('Sending audio chunk, size:', base64Audio.length)
+                socketRef.current.send(JSON.stringify({
+                  type: 'audio_input',
+                  data: base64Audio
+                }))
+              }
+            }
+            reader.readAsDataURL(event.data)
           }
         }
         
-        mediaRecorder.onstop = async () => {
-          // Send complete audio
-          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' })
-          audioChunks = []
-          
-          // Convert to base64
-          const reader = new FileReader()
-          reader.onloadend = () => {
-            const base64Audio = reader.result?.toString().split(',')[1]
-            if (base64Audio && socketRef.current?.readyState === WebSocket.OPEN) {
-              socketRef.current.send(JSON.stringify({
-                type: 'audio_input',
-                data: base64Audio
-              }))
-            }
-          }
-          reader.readAsDataURL(audioBlob)
-          
+        mediaRecorder.onstop = () => {
           // Stop all tracks
           stream.getTracks().forEach(track => track.stop())
         }
