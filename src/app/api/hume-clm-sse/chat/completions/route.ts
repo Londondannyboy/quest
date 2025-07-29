@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
+import { getOrCreateSession, addMessage, getUserJourneyContext } from '@/lib/zep'
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,9 +17,11 @@ export async function POST(req: NextRequest) {
 
     // Get user context if authenticated
     let userContext = ''
+    let user: Awaited<ReturnType<typeof prisma.user.findUnique>> = null
+    
     if (userId) {
       try {
-        const user = await prisma.user.findUnique({
+        user = await prisma.user.findUnique({
           where: { clerkId: userId },
           include: {
             trinity: true,
@@ -27,6 +30,9 @@ export async function POST(req: NextRequest) {
         })
 
         if (user) {
+          // Get memory context from Zep
+          const journeyContext = await getUserJourneyContext(user.id)
+          
           userContext = `
 User Context:
 - Name: ${user.name || 'Unknown'}
@@ -41,6 +47,19 @@ Trinity Summary:
 - Future Quest: ${user.trinity.futureQuest?.substring(0, 50)}...
 - Clarity Score: ${user.trinity.clarityScore}%
 `
+          }
+          
+          // Add journey context from memory
+          userContext += `\n${journeyContext}`
+          
+          // Create/update Zep session
+          const session = await getOrCreateSession(user.id, 'trinity', {
+            trinityClarity: user.trinity?.clarityScore || 0
+          })
+          
+          // Store the conversation in memory
+          if (lastUserMessage) {
+            await addMessage(session.sessionId, 'user', lastUserMessage)
           }
         }
       } catch (error) {
@@ -70,8 +89,17 @@ Trinity Summary:
           }
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(initialChunk)}\n\n`))
 
-          // Generate response based on coach personality
-          const response = await generateCoachResponse(lastUserMessage, coachPrompt)
+          // Generate response based on coach personality with context
+          const response = await generateCoachResponse(lastUserMessage, coachPrompt, userContext)
+          
+          // Store assistant response in memory if user is authenticated
+          if (userId && user) {
+            const session = await getOrCreateSession(user.id, 'trinity')
+            await addMessage(session.sessionId, 'assistant', response, {
+              coachType: coachPrompt.includes('Story Coach') ? 'STORY_COACH' : 
+                        coachPrompt.includes('Quest Coach') ? 'QUEST_COACH' : 'DELIVERY_COACH'
+            })
+          }
           
           // Stream the response in chunks
           const words = response.split(' ')
@@ -151,7 +179,8 @@ function determineCoachPrompt(messages: { role: string; content: string }[], use
   }
 }
 
-async function generateCoachResponse(userMessage: string, coachPrompt: string): Promise<string> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function generateCoachResponse(userMessage: string, coachPrompt: string, _userContext: string): Promise<string> {
   // For now, return coach-appropriate responses
   // In production, this would call OpenRouter or another LLM
   
