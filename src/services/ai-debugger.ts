@@ -1,5 +1,6 @@
 import { chat } from '@/lib/openrouter'
 import { getMemory } from '@/lib/zep'
+import { debugVoiceCoachWithZen, initializeZenMCP } from '@/lib/mcp/zen-mcp-client'
 import type { ChatCompletionMessageParam } from 'openai/resources/index'
 
 interface DebugContext {
@@ -32,6 +33,34 @@ export async function debugVoiceCoachSession(context: DebugContext): Promise<Deb
       m.metadata?.type?.includes('audio_') || 
       m.metadata?.type === 'connection_event'
     ) || []
+    
+    // Check if Zen MCP is available
+    const zenAvailable = await initializeZenMCP()
+    
+    if (zenAvailable) {
+      // Use Zen MCP for multi-model debugging
+      console.log('Using Zen MCP for collaborative debugging')
+      
+      const zenResult = await debugVoiceCoachWithZen({
+        events: audioEvents.map(e => ({
+          type: String(e.metadata?.type || 'unknown'),
+          timestamp: String(e.metadata?.timestamp || ''),
+          data: e.metadata
+        })),
+        errorLogs: context.errorLogs || [],
+        codeContext: context.codeSnippets?.join('\n\n') || ''
+      })
+      
+      return {
+        analysis: zenResult.analysis,
+        suggestions: zenResult.solutions,
+        codeChanges: [], // Extract from model insights if needed
+        confidence: 0.9 // Higher confidence with multi-model consensus
+      }
+    }
+    
+    // Fallback to single model if Zen MCP not available
+    console.log('Zen MCP not available, using OpenRouter')
     
     // Build context for debugging
     const messages: ChatCompletionMessageParam[] = [
