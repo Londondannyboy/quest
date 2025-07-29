@@ -4,9 +4,10 @@ import { useState, useEffect, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { HUME_COACHES } from '@/lib/hume-config'
+import { getOrCreateSession, addMessage, updateSessionMetadata } from '@/lib/zep'
 
 export default function TrinityPage() {
-  const { isSignedIn } = useUser()
+  const { isSignedIn, user } = useUser()
   const router = useRouter()
   const [isConnected, setIsConnected] = useState(false)
   const [isListening, setIsListening] = useState(false)
@@ -22,6 +23,8 @@ export default function TrinityPage() {
   const isConnectingRef = useRef(false)
   const processedAudioIds = useRef<Set<string>>(new Set())
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const zepSessionIdRef = useRef<string | null>(null)
+  const audioSessionIdRef = useRef<string>(Date.now().toString())
 
   useEffect(() => {
     if (!isSignedIn) {
@@ -32,6 +35,7 @@ export default function TrinityPage() {
   // Get access token on mount
   useEffect(() => {
     getAccessToken()
+    initializeZepSession()
     
     // Cleanup on unmount
     return () => {
@@ -55,6 +59,27 @@ export default function TrinityPage() {
     }
   }
 
+  const initializeZepSession = async () => {
+    if (!user?.id) return
+    
+    try {
+      // Fetch the database user ID
+      const response = await fetch('/api/user/profile')
+      const userData = await response.json()
+      
+      if (userData.id) {
+        const session = await getOrCreateSession(userData.id, 'trinity', {
+          audioSessionId: audioSessionIdRef.current,
+          startTime: new Date().toISOString()
+        })
+        zepSessionIdRef.current = session.sessionId
+        console.log('Zep session initialized:', session.sessionId)
+      }
+    } catch (error) {
+      console.error('Failed to initialize Zep session:', error)
+    }
+  }
+
   const connectToHume = async () => {
     // Prevent duplicate connections with ref
     if (isConnectingRef.current) {
@@ -67,6 +92,10 @@ export default function TrinityPage() {
       console.log('WebSocket already connected or connecting')
       return
     }
+    
+    // Clear any existing audio before new connection
+    stopAllAudio()
+    processedAudioIds.current.clear()
     
     isConnectingRef.current = true
     
@@ -83,29 +112,72 @@ export default function TrinityPage() {
         `wss://api.hume.ai/v0/evi/chat?access_token=${accessToken}&config_id=${configId}`
       )
       
-      ws.onopen = () => {
-        console.log('Connected to Hume AI EVI 3 - Socket ID:', Date.now())
+      // Track connection in Zep
+      if (zepSessionIdRef.current) {
+        await addMessage(zepSessionIdRef.current, 'assistant', `[SYSTEM] WebSocket connection initiated - Session: ${audioSessionIdRef.current}`, {
+          type: 'connection_event',
+          audioSessionId: audioSessionIdRef.current,
+          timestamp: new Date().toISOString()
+        })
+      }
+      
+      ws.onopen = async () => {
+        console.log('Connected to Hume AI EVI 3 - Socket ID:', audioSessionIdRef.current)
         setIsConnected(true)
         isConnectingRef.current = false
         
-        // No need to send session_settings when using config_id
-        // The configuration is already set in Hume dashboard
+        // Send initial configuration to set user context
+        if (user?.id) {
+          const configMessage = {
+            type: 'session_settings',
+            session_settings: {
+              custom_session_id: audioSessionIdRef.current,
+              context: {
+                user_id: user.id,
+                user_name: user.fullName || user.firstName || 'User'
+              }
+            }
+          }
+          ws.send(JSON.stringify(configMessage))
+          console.log('Sent user context to Hume:', configMessage)
+        }
       }
       
       ws.onmessage = async (event) => {
         const data = JSON.parse(event.data)
         console.log('Received:', data.type, data)
         
+        // Track all events in Zep for debugging
+        if (zepSessionIdRef.current) {
+          await addMessage(zepSessionIdRef.current, 'assistant', `[AUDIO_EVENT] ${data.type}`, {
+            type: 'audio_event',
+            eventType: data.type,
+            audioSessionId: audioSessionIdRef.current,
+            timestamp: new Date().toISOString(),
+            hasData: !!data.data
+          })
+        }
+        
         switch (data.type) {
           case 'audio_output':
             // Handle audio output with duplicate prevention
             if (data.data) {
               // Create unique ID for this audio chunk
-              const audioId = `${data.type}_${Date.now()}_${data.data.substring(0, 20)}`
+              const audioId = `${audioSessionIdRef.current}_${Date.now()}_${data.data.substring(0, 20)}`
               
               if (!processedAudioIds.current.has(audioId)) {
                 processedAudioIds.current.add(audioId)
                 await playAudioChunk(data.data)
+                
+                // Track successful audio play
+                if (zepSessionIdRef.current) {
+                  await addMessage(zepSessionIdRef.current, 'assistant', `[AUDIO_PLAYED] Chunk processed`, {
+                    type: 'audio_played',
+                    audioId,
+                    audioSessionId: audioSessionIdRef.current,
+                    timestamp: new Date().toISOString()
+                  })
+                }
                 
                 // Clean up old IDs after 10 seconds
                 setTimeout(() => {
@@ -113,6 +185,14 @@ export default function TrinityPage() {
                 }, 10000)
               } else {
                 console.log('Skipping duplicate audio chunk')
+                if (zepSessionIdRef.current) {
+                  await addMessage(zepSessionIdRef.current, 'assistant', `[AUDIO_DUPLICATE] Skipped duplicate chunk`, {
+                    type: 'audio_duplicate',
+                    audioId,
+                    audioSessionId: audioSessionIdRef.current,
+                    timestamp: new Date().toISOString()
+                  })
+                }
               }
             }
             break
@@ -258,7 +338,26 @@ export default function TrinityPage() {
     }
   }
 
-  const disconnectChat = () => {
+  const disconnectChat = async () => {
+    // Track disconnection in Zep
+    if (zepSessionIdRef.current) {
+      await addMessage(zepSessionIdRef.current, 'assistant', `[SYSTEM] Disconnecting - Session: ${audioSessionIdRef.current}`, {
+        type: 'disconnection_event',
+        audioSessionId: audioSessionIdRef.current,
+        timestamp: new Date().toISOString(),
+        processedAudioCount: processedAudioIds.current.size
+      })
+      
+      // Update session metadata with summary
+      await updateSessionMetadata(zepSessionIdRef.current, {
+        endTime: new Date().toISOString(),
+        audioSessionId: audioSessionIdRef.current,
+        finalCoach: currentCoach,
+        finalPhase: phase,
+        processedAudioCount: processedAudioIds.current.size
+      })
+    }
+    
     // Stop recording if active
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop()
@@ -290,6 +389,9 @@ export default function TrinityPage() {
     
     // Clear processed audio IDs
     processedAudioIds.current.clear()
+    
+    // Generate new session ID for next connection
+    audioSessionIdRef.current = Date.now().toString()
     
     console.log('Disconnected from Hume')
   }
