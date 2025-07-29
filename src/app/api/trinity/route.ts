@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { onTrinityUpdate } from '@/services/entities/extraction-hook'
 
 // Trinity validation schema
 const trinitySchema = z.object({
@@ -137,6 +138,12 @@ export async function POST(req: NextRequest) {
         clarityScore,
         evolutionData,
       },
+    })
+    
+    // Extract entities from Trinity data
+    await onTrinityUpdate(user, trinity).catch(error => {
+      console.error('Entity extraction failed:', error)
+      // Don't fail the request if entity extraction fails
     })
     
     // Update story session if exists
