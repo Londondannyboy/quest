@@ -62,28 +62,18 @@ export default function TrinityPage() {
       // Initialize audio context
       audioContextRef.current = new AudioContext()
       
-      // Connect to WebSocket with EVI 3 format
+      // Connect to WebSocket with EVI 3 format and config ID
+      const configId = process.env.NEXT_PUBLIC_HUME_CONFIG_ID || '671d99bc-1358-4aa7-b92a-d6b762cb18b5'
       const ws = new WebSocket(
-        `wss://api.hume.ai/v0/evi/chat?access_token=${accessToken}`
+        `wss://api.hume.ai/v0/evi/chat?access_token=${accessToken}&config_id=${configId}`
       )
       
       ws.onopen = () => {
         console.log('Connected to Hume AI EVI 3')
         setIsConnected(true)
         
-        // Send initial configuration for EVI 3
-        const coach = HUME_COACHES[currentCoach]
-        ws.send(JSON.stringify({
-          type: 'session_settings',
-          session_settings: {
-            type: 'session_settings',
-            system_prompt: coach.system_prompt,
-            voice: {
-              provider: 'hume_ai',
-              voice_id: coach.voice_id
-            }
-          }
-        }))
+        // No need to send session_settings when using config_id
+        // The configuration is already set in Hume dashboard
       }
       
       ws.onmessage = async (event) => {
@@ -208,20 +198,9 @@ export default function TrinityPage() {
   }
 
   const updateCoachSettings = (coachType: typeof currentCoach) => {
-    if (socketRef.current?.readyState === WebSocket.OPEN) {
-      const coach = HUME_COACHES[coachType]
-      socketRef.current.send(JSON.stringify({
-        type: 'session_settings',
-        session_settings: {
-          type: 'session_settings',
-          system_prompt: coach.system_prompt,
-          voice: {
-            provider: 'hume_ai',
-            voice_id: coach.voice_id
-          }
-        }
-      }))
-    }
+    // Coach personality is now handled by the CLM endpoint
+    // No need to update settings when using config_id
+    console.log(`Switched to ${coachType}`)
   }
 
   const playTransitionSound = () => {
