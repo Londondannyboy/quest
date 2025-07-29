@@ -374,8 +374,14 @@ export default function TrinityPage() {
           </div>
         )}
 
-        {/* Skip to form (temporary) */}
-        <div className="mt-12">
+        {/* Navigation options */}
+        <div className="mt-12 flex flex-col items-center gap-3">
+          <button
+            onClick={() => router.push('/trinity-visualization')}
+            className="text-sm text-blue-400 hover:text-blue-300"
+          >
+            View Trinity Visualization →
+          </button>
           <button
             onClick={() => router.push('/quest-readiness')}
             className="text-sm text-gray-500 hover:text-gray-400"

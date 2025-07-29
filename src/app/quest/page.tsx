@@ -139,7 +139,15 @@ export default function QuestPage() {
 
         {/* Trinity Summary */}
         <div className="bg-gray-800 p-6 rounded-lg mb-8">
-          <h2 className="text-2xl font-semibold mb-4">Your Trinity Evolution</h2>
+          <div className="flex justify-between items-start mb-4">
+            <h2 className="text-2xl font-semibold">Your Trinity Evolution</h2>
+            <a 
+              href="/trinity-visualization"
+              className="text-blue-400 hover:text-blue-300 text-sm"
+            >
+              View 3D Visualization →
+            </a>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Past */}
             <div>

@@ -31,6 +31,7 @@
     "axios": "^1.11.0",
     "dotenv": "^17.2.1",
     "jsonwebtoken": "^9.0.2",
+    "lucide-react": "^0.533.0",
     "neo4j-driver": "^5.28.1",
     "next": "15.4.4",
     "openai": "^5.10.2",
