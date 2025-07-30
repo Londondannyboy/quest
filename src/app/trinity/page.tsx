@@ -8,6 +8,7 @@ import { getOrCreateSession, addMessage, updateSessionMetadata } from '@/lib/zep
 import { globalAudioFingerprinter } from '@/lib/audio-fingerprint'
 import { logger } from '@/lib/logger'
 import { wsManager } from '@/lib/websocket-manager'
+import { HumeAudioProcessor } from '@/lib/hume-audio-processor'
 
 export default function TrinityPage() {
   const { isSignedIn, user } = useUser()
@@ -27,6 +28,7 @@ export default function TrinityPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const zepSessionIdRef = useRef<string | null>(null)
   const audioSessionIdRef = useRef<string>(Date.now().toString())
+  const audioProcessorRef = useRef<HumeAudioProcessor | null>(null)
 
   useEffect(() => {
     if (!isSignedIn) {
@@ -36,6 +38,12 @@ export default function TrinityPage() {
 
   // Get access token on mount
   useEffect(() => {
+    // Initialize audio processor
+    audioProcessorRef.current = new HumeAudioProcessor()
+    audioProcessorRef.current.setOnComplete(() => {
+      console.log('[Trinity] Audio playback complete')
+    })
+    
     getAccessToken()
     initializeZepSession()
     
@@ -188,10 +196,10 @@ export default function TrinityPage() {
             
             switch (data.type) {
               case 'audio_output':
-                // Play audio chunks immediately as they arrive
-                if (data.data) {
-                  console.log(`[Trinity] Playing audio chunk immediately`)
-                  await playAudioChunk(data.data)
+                // Buffer audio chunks
+                if (data.data && audioProcessorRef.current) {
+                  await audioProcessorRef.current.addChunk(data.data)
+                  console.log(`[Trinity] Buffered chunk ${audioProcessorRef.current.getChunkCount()}`)
                 }
                 break
                 
@@ -200,12 +208,23 @@ export default function TrinityPage() {
                 if (data.message?.content) {
                   console.log('Coach:', data.message.content)
                   checkPhaseTransition(data.message.content)
+                  
+                  // Play buffered audio when assistant message arrives
+                  if (audioProcessorRef.current && audioProcessorRef.current.getChunkCount() > 0) {
+                    console.log('[Trinity] Playing buffered audio')
+                    await audioProcessorRef.current.playAll()
+                  }
                 }
                 break
                 
               case 'assistant_end':
                 // Assistant finished speaking
                 console.log('[Trinity] Assistant finished speaking')
+                // Play any remaining buffered audio
+                if (audioProcessorRef.current && audioProcessorRef.current.getChunkCount() > 0) {
+                  console.log('[Trinity] Playing remaining audio')
+                  await audioProcessorRef.current.playAll()
+                }
                 break
                 
               case 'user_message':
@@ -216,6 +235,9 @@ export default function TrinityPage() {
               case 'user_interruption':
                 // User interrupted, stop audio
                 stopAllAudio()
+                if (audioProcessorRef.current) {
+                  audioProcessorRef.current.stop()
+                }
                 break
                 
               case 'error': {
@@ -423,6 +445,9 @@ export default function TrinityPage() {
     
     // Stop all audio
     stopAllAudio()
+    if (audioProcessorRef.current) {
+      audioProcessorRef.current.stop()
+    }
     
     // Disconnect via WebSocket manager
     wsManager.disconnect()
