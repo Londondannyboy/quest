@@ -5,28 +5,64 @@ import { getOrCreateSession, addMessage, getUserJourneyContext } from '@/lib/zep
 import { User, Trinity, ProfessionalMirror } from '@prisma/client'
 
 export async function POST(req: NextRequest) {
+  // Log CLM call details
+  const callId = `clm_${Date.now()}`
+  console.log(`[CLM ${callId}] ========== NEW CLM REQUEST ==========`)
+  
   try {
     // Get the current user
     // Try to get userId from multiple sources
     let userId = null
+    let userSource = 'none'
     
     // First try from auth (won't work for Hume server-to-server calls)
     const authResult = await auth()
-    userId = authResult?.userId
+    if (authResult?.userId) {
+      userId = authResult.userId
+      userSource = 'clerk_auth'
+    }
     
     // Parse the request from Hume
     const body = await req.json()
     const messages = body.messages || []
     const lastUserMessage = messages.findLast((m: { role: string; content?: string }) => m.role === 'user')?.content || ''
     
+    // Log request details
+    console.log(`[CLM ${callId}] Request body:`, {
+      messageCount: messages.length,
+      lastMessage: lastUserMessage?.substring(0, 50) + '...',
+      model: body.model,
+      stream: body.stream
+    })
+    
     // Try to get userId from headers if not from auth
     if (!userId) {
-      userId = req.headers.get('x-hume-user-id') || req.headers.get('x-user-id')
+      // Check various header formats
+      const headerChecks = [
+        'x-hume-user-id',
+        'x-user-id',
+        'x-forwarded-user',
+        'x-custom-user-id',
+        'hume-user-id',
+        'user-id'
+      ]
+      
+      for (const header of headerChecks) {
+        const value = req.headers.get(header)
+        if (value) {
+          userId = value
+          userSource = `header:${header}`
+          break
+        }
+      }
+      
+      // Log all headers for debugging
+      console.log(`[CLM ${callId}] Headers:`, Object.fromEntries(req.headers.entries()))
       
       // TEMPORARY: For testing, use the most recent user in the system
       // TODO: Pass user ID from Hume configuration
       if (!userId) {
-        console.log('No userId found, using most recent user for testing')
+        console.log(`[CLM ${callId}] No userId found in headers, using most recent user for testing`)
         
         // Get the most recent user with trinity data
         const recentUser = await prisma.user.findFirst({
@@ -42,11 +78,12 @@ export async function POST(req: NextRequest) {
         })
         
         userId = recentUser?.clerkId || null
-        console.log('Found recent user:', recentUser?.name || 'Unknown')
+        userSource = 'database_fallback'
+        console.log(`[CLM ${callId}] Found recent user:`, recentUser?.name || 'Unknown')
       }
     }
     
-    console.log('Hume CLM request:', { userId, messageCount: messages.length, headers: Object.fromEntries(req.headers.entries()) })
+    console.log(`[CLM ${callId}] User identification:`, { userId, userSource })
 
     // Get user context if authenticated
     let userContext = ''

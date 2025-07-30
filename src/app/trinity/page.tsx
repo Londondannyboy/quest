@@ -5,6 +5,7 @@ import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { HUME_COACHES } from '@/lib/hume-config'
 import { getOrCreateSession, addMessage, updateSessionMetadata } from '@/lib/zep'
+import { globalAudioFingerprinter } from '@/lib/audio-fingerprint'
 
 export default function TrinityPage() {
   const { isSignedIn, user } = useUser()
@@ -165,7 +166,10 @@ export default function TrinityPage() {
               // Create unique ID for this audio chunk
               const audioId = `${audioSessionIdRef.current}_${Date.now()}_${data.data.substring(0, 20)}`
               
-              if (!processedAudioIds.current.has(audioId)) {
+              // Check for duplicate using fingerprinting
+              const isDuplicate = globalAudioFingerprinter.isDuplicate(data.data)
+              
+              if (!processedAudioIds.current.has(audioId) && !isDuplicate) {
                 processedAudioIds.current.add(audioId)
                 await playAudioChunk(data.data)
                 
@@ -184,13 +188,14 @@ export default function TrinityPage() {
                   processedAudioIds.current.delete(audioId)
                 }, 10000)
               } else {
-                console.log('Skipping duplicate audio chunk')
+                console.log(`Skipping duplicate audio chunk (ID: ${processedAudioIds.current.has(audioId)}, Fingerprint: ${isDuplicate})`)
                 if (zepSessionIdRef.current) {
                   await addMessage(zepSessionIdRef.current, 'assistant', `[AUDIO_DUPLICATE] Skipped duplicate chunk`, {
                     type: 'audio_duplicate',
                     audioId,
                     audioSessionId: audioSessionIdRef.current,
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
+                    reason: isDuplicate ? 'fingerprint_match' : 'id_match'
                   })
                 }
               }
