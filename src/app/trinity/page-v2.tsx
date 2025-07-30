@@ -39,18 +39,19 @@ export default function TrinityPageV2() {
     sendMessage,
   } = useHumeConnection({
     onAudioOutput: playAudioChunk,
-    onMessage: (data) => {
-      switch (data.type) {
+    onMessage: (data: unknown) => {
+      const message = data as { type: string; message?: { content?: string } }
+      switch (message.type) {
         case 'assistant_message':
-          if (data.message?.content) {
-            setTranscript(prev => [...prev, `Coach: ${data.message.content}`])
-            checkPhaseTransition(data.message.content)
+          if (message.message?.content) {
+            setTranscript(prev => [...prev, `Coach: ${message.message.content}`])
+            checkPhaseTransition(message.message.content)
           }
           break
           
         case 'user_message':
-          if (data.message?.content) {
-            setTranscript(prev => [...prev, `You: ${data.message.content}`])
+          if (message.message?.content) {
+            setTranscript(prev => [...prev, `You: ${message.message.content}`])
           }
           break
           
