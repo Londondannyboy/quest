@@ -82,12 +82,34 @@ export async function POST(req: NextRequest) {
       }
       
       // Log all headers for debugging
-      console.log(`[CLM ${callId}] Headers:`, Object.fromEntries(req.headers.entries()))
+      const allHeaders = Object.fromEntries(req.headers.entries())
+      console.log(`[CLM ${callId}] Headers:`, allHeaders)
+      
+      // Check for Clerk session in cookies
+      const cookieHeader = req.headers.get('cookie')
+      if (cookieHeader && cookieHeader.includes('__session')) {
+        console.log(`[CLM ${callId}] Found Clerk session cookie`)
+      }
+      
+      // Try to extract from system message or any message containing ClerkID
+      if (!userId && body.messages) {
+        for (const msg of body.messages) {
+          if (msg.role === 'system' && msg.content) {
+            const systemClerkId = msg.content.match(/ClerkID:\s*([\w-]+)/)
+            if (systemClerkId) {
+              userId = systemClerkId[1]
+              userSource = 'system_message'
+              console.log(`[CLM ${callId}] Found ClerkID in system message:`, userId)
+              break
+            }
+          }
+        }
+      }
       
       // TEMPORARY: For testing, use the most recent user in the system
       // TODO: Pass user ID from Hume configuration
       if (!userId) {
-        console.log(`[CLM ${callId}] No userId found in headers, using most recent user for testing`)
+        console.log(`[CLM ${callId}] No userId found, checking database fallback`)
         
         // Get the most recent user with trinity data
         const recentUser = await prisma.user.findFirst({
@@ -109,6 +131,9 @@ export async function POST(req: NextRequest) {
     }
     
     console.log(`[CLM ${callId}] User identification:`, { userId, userSource })
+    
+    // Log the full request for debugging
+    console.log(`[CLM ${callId}] Full request body:`, JSON.stringify(body, null, 2))
 
     // Get user context if authenticated
     let userContext = ''
@@ -215,6 +240,13 @@ Trinity Summary:
           }
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(initialChunk)}\n\n`))
 
+          // Log what we're sending to the coach
+          console.log(`[CLM ${callId}] Generating response with context:`, {
+            hasUser: !!user,
+            userName: user?.name || 'Unknown',
+            contextLength: userContext.length
+          })
+
           // Generate response based on coach personality with context
           const response = await generateCoachResponse(lastUserMessage, coachPrompt, userContext)
           
@@ -245,8 +277,10 @@ Trinity Summary:
             }
             controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`))
             
-            // Small delay to simulate streaming
-            await new Promise(resolve => setTimeout(resolve, 10))
+            // Minimal delay for natural streaming
+            if (i % 3 === 0) { // Only delay every 3rd word
+              await new Promise(resolve => setTimeout(resolve, 5))
+            }
           }
 
           // Send completion
@@ -307,20 +341,42 @@ function determineCoachPrompt(messages: { role: string; content: string }[], use
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function generateCoachResponse(userMessage: string, coachPrompt: string, _userContext: string): Promise<string> {
-  // For now, return coach-appropriate responses
-  // In production, this would call OpenRouter or another LLM
+async function generateCoachResponse(userMessage: string, coachPrompt: string, userContext: string): Promise<string> {
+  // Enhanced responses with user context
+  // TODO: Use contextualPrompt with OpenRouter or Claude API
+  // const contextualPrompt = `${coachPrompt}\n\nUser Context:\n${userContext}\n\nUser says: ${userMessage}\n\nRespond naturally and personally, using their name if available.`
   
   const lowerMessage = userMessage.toLowerCase()
   
-  if (lowerMessage.includes('hello') || lowerMessage.includes('hi')) {
-    if (coachPrompt.includes('Story Coach')) {
-      return "Hello there! I'm so glad you're here. I'm your Story Coach, and I'm here to help you explore the deeper narrative of your professional journey. What brings you to this moment of reflection today?"
-    } else if (coachPrompt.includes('Quest Coach')) {
-      return "Welcome! I'm your Quest Coach, and I'm excited to help you discover your Trinity - your Quest, Service, and Pledge. Let's clarify what you're truly meant to do. What's calling to you right now?"
+  // Extract user name from context
+  const nameMatch = userContext.match(/Name:\s*([^\n]+)/);
+  const userName = nameMatch && nameMatch[1] !== 'Unknown' ? nameMatch[1] : null;
+  
+  if (lowerMessage.includes('who am i') || lowerMessage.includes('my name')) {
+    if (userName) {
+      return `You're ${userName}! ${userContext.includes('Has Trinity: Yes') ? "I can see you've already begun exploring your Trinity. " : "I'm here to help you discover your Trinity. "}How can I support you today?`;
     } else {
-      return "Let's get to work! I'm your Delivery Coach, and I'm here to help you turn that vision into reality. No more waiting - what's the first concrete step you need to take?"
+      return "I don't have your name yet, but I'm here to help you discover your Trinity. What should I call you?";
+    }
+  }
+  
+  if (lowerMessage.includes('hello') || lowerMessage.includes('hi')) {
+    const greeting = userName ? `Hello ${userName}!` : "Hello there!";
+    if (coachPrompt.includes('Story Coach')) {
+      return `${greeting} I'm your Story Coach, and I'm here to help you explore the deeper narrative of your professional journey. What brings you to this moment of reflection today?`
+    } else if (coachPrompt.includes('Quest Coach')) {
+      return `${greeting} I'm your Quest Coach, and I'm excited to help you discover your Trinity - your Quest, Service, and Pledge. What's calling to you right now?`
+    } else {
+      return `${greeting} I'm your Delivery Coach. Let's turn that vision into reality. What's the first concrete step you need to take?`
+    }
+  }
+  
+  // Context-aware responses
+  if (userContext.includes('Has Trinity: Yes') && userContext.includes('clarityScore')) {
+    const clarityMatch = userContext.match(/Clarity Score:\s*(\d+)/);
+    const clarity = clarityMatch ? parseInt(clarityMatch[1]) : 0;
+    if (clarity < 50) {
+      return "I see you've started exploring your Trinity, but there's more clarity to discover. What aspect feels most unclear to you right now?";
     }
   }
   
