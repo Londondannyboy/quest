@@ -202,10 +202,7 @@ export default function TrinityPage() {
                   await audioProcessorRef.current.addChunk(data.data)
                   console.log(`[Trinity] Buffered chunk ${audioProcessorRef.current.getChunkCount()}`)
                   
-                  // If we're already playing, the chunk will be queued
-                  if (audioProcessorRef.current.isPlaying) {
-                    console.log('[Trinity] Audio already playing, chunk will be queued')
-                  }
+                  // Audio chunks are automatically queued by the processor
                 }
                 break
                 
