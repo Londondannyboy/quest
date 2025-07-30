@@ -102,7 +102,11 @@ export async function debugVoiceCoachWithZen(
 
   // Extract solutions from responses
   const solutions = response.results
-    .flatMap(r => r.response.match(/Solution \d+:.*?(?=Solution \d+:|$)/gs) || [])
+    .flatMap(r => {
+      // Use a pattern that doesn't require the 's' flag
+      const matches = r.response.match(/Solution \d+:[^]*?(?=Solution \d+:|$)/g) || []
+      return matches
+    })
     .filter(Boolean)
 
   return {
@@ -183,7 +187,7 @@ export async function planTrinitySessionWithZen(
   // Extract questions from responses
   const questions: string[] = []
   response.results.forEach(result => {
-    const questionMatches = result.response.match(/Question \d+:.*?(?=Question \d+:|$)/gs) || []
+    const questionMatches = result.response.match(/Question \d+:[^]*?(?=Question \d+:|$)/g) || []
     questions.push(...questionMatches.map(q => q.replace(/Question \d+:\s*/, '')))
   })
 

@@ -29,10 +29,13 @@ export async function debugVoiceCoachSession(context: DebugContext): Promise<Deb
     const memory = await getMemory(context.sessionId)
     
     // Extract audio events from memory
-    const audioEvents = memory?.messages?.filter(m => 
-      m.metadata?.type?.includes('audio_') || 
-      m.metadata?.type === 'connection_event'
-    ) || []
+    const audioEvents = memory?.messages?.filter(m => {
+      const type = m.metadata?.type
+      return type && typeof type === 'string' && (
+        type.includes('audio_') || 
+        type === 'connection_event'
+      )
+    }) || []
     
     // Check if Zen MCP is available
     const zenAvailable = await initializeZenMCP()
@@ -228,7 +231,7 @@ export async function generateDebugReport(sessionId: string): Promise<string> {
   // Group events by type
   const eventGroups: Record<string, Array<{ content?: string, metadata?: Record<string, unknown> }>> = {}
   events.forEach(event => {
-    const type = event.metadata?.type || 'unknown'
+    const type = String(event.metadata?.type || 'unknown')
     if (!eventGroups[type]) eventGroups[type] = []
     eventGroups[type].push(event)
   })

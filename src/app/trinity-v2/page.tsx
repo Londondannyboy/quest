@@ -235,17 +235,21 @@ export default function TrinityV2Page() {
             }
             break
             
-          case 'assistant_message':
-            if (data.message && data.message.content) {
-              setTranscript(prev => [...prev, `Coach: ${data.message.content}`])
+          case 'assistant_message': {
+            const content = data.message?.content
+            if (content) {
+              setTranscript(prev => [...prev, `Coach: ${content}`])
             }
             break
+          }
             
-          case 'user_message':
-            if (data.message && data.message.content) {
-              setTranscript(prev => [...prev, `You: ${data.message.content}`])
+          case 'user_message': {
+            const content = data.message?.content
+            if (content) {
+              setTranscript(prev => [...prev, `You: ${content}`])
             }
             break
+          }
             
           case 'user_interruption':
             managerRef.current?.stopAudio()

@@ -72,7 +72,7 @@ export default function TrinityPage() {
           audioSessionId: audioSessionIdRef.current,
           startTime: new Date().toISOString()
         })
-        zepSessionIdRef.current = session.sessionId
+        zepSessionIdRef.current = session.sessionId || null
         console.log('Zep session initialized:', session.sessionId)
       }
     } catch (error) {
