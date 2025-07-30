@@ -28,6 +28,8 @@ export default function TrinityPage() {
   const zepSessionIdRef = useRef<string | null>(null)
   const audioSessionIdRef = useRef<string>(Date.now().toString())
   const lastAudioMessageRef = useRef<{ content: string; timestamp: number } | null>(null)
+  const audioChunkQueueRef = useRef<string[]>([])
+  const isProcessingAudioRef = useRef(false)
 
   useEffect(() => {
     if (!isSignedIn) {
@@ -189,56 +191,32 @@ export default function TrinityPage() {
             
             switch (data.type) {
               case 'audio_output':
-                // Handle audio output with duplicate prevention
+                // Handle audio output - queue all chunks for sequential playback
                 if (data.data) {
-                  // Create unique ID for this audio chunk
-                  const audioId = `${audioSessionIdRef.current}_${Date.now()}_${data.data.substring(0, 20)}`
                   const chunkInfo = {
-                    audioId,
                     sessionId: audioSessionIdRef.current,
                     chunkSize: data.data.length,
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
+                    queueLength: audioChunkQueueRef.current.length
                   }
                   
                   // Check if we recently received an assistant message
                   const recentMessage = lastAudioMessageRef.current && 
-                    (Date.now() - lastAudioMessageRef.current.timestamp) < 2000
+                    (Date.now() - lastAudioMessageRef.current.timestamp) < 3000
                   
-                  // Only play the first audio chunk after a message
-                  if (recentMessage && lastAudioMessageRef.current) {
-                    console.log(`[Trinity] Audio chunk for message: "${lastAudioMessageRef.current.content.substring(0, 50)}..."`)
+                  if (recentMessage) {
+                    // Add to queue
+                    audioChunkQueueRef.current.push(data.data)
+                    console.log(`[Trinity] Queued audio chunk ${audioChunkQueueRef.current.length} for message`)
+                    logger.debug('Trinity audio chunk queued', chunkInfo)
                     
-                    // Clear the message reference to prevent playing more chunks
-                    lastAudioMessageRef.current = null
-                    
-                    // Play this audio chunk
-                    processedAudioIds.current.add(audioId)
-                    await playAudioChunk(data.data)
-                    
-                    logger.info('Trinity audio chunk played', chunkInfo)
-                    
-                    // Track successful audio play
-                    if (zepSessionIdRef.current) {
-                      await addMessage(zepSessionIdRef.current, 'assistant', `[AUDIO_PLAYED] Chunk processed`, {
-                        type: 'audio_played',
-                        audioId,
-                        audioSessionId: audioSessionIdRef.current,
-                        timestamp: new Date().toISOString()
-                      })
+                    // Start processing queue if not already processing
+                    if (!isProcessingAudioRef.current) {
+                      processAudioQueue()
                     }
                   } else {
-                    // Skip subsequent audio chunks
-                    console.log(`[Trinity] Skipping audio chunk - no recent message or already played`)
-                    logger.debug('Trinity audio chunk skipped - no recent message', chunkInfo)
-                    
-                    if (zepSessionIdRef.current) {
-                      await addMessage(zepSessionIdRef.current, 'assistant', `[AUDIO_SKIPPED] No recent message`, {
-                        type: 'audio_skipped',
-                        audioId,
-                        audioSessionId: audioSessionIdRef.current,
-                        timestamp: new Date().toISOString()
-                      })
-                    }
+                    console.log(`[Trinity] Ignoring audio chunk - no recent message`)
+                    logger.debug('Trinity audio chunk ignored - no recent message', chunkInfo)
                   }
                 }
                 break
@@ -249,7 +227,11 @@ export default function TrinityPage() {
                   console.log('Coach:', data.message.content)
                   checkPhaseTransition(data.message.content)
                   
-                  // Track this message to prevent duplicate audio
+                  // Clear any existing audio queue
+                  audioChunkQueueRef.current = []
+                  isProcessingAudioRef.current = false
+                  
+                  // Track this message to collect its audio chunks
                   lastAudioMessageRef.current = {
                     content: data.message.content,
                     timestamp: Date.now()
@@ -258,8 +240,12 @@ export default function TrinityPage() {
                 break
                 
               case 'assistant_end':
-                // Assistant finished speaking
-                console.log('Assistant finished')
+                // Assistant finished speaking - all audio chunks should be received
+                console.log(`[Trinity] Assistant finished, audio queue has ${audioChunkQueueRef.current.length} chunks`)
+                // Clear the message reference after a delay to ensure all chunks are processed
+                setTimeout(() => {
+                  lastAudioMessageRef.current = null
+                }, 1000)
                 break
                 
               case 'user_message':
@@ -272,9 +258,21 @@ export default function TrinityPage() {
                 stopAllAudio()
                 break
                 
-              case 'error':
-                console.error('Hume error:', data.error)
+              case 'error': {
+                const errorData = data as { error?: unknown; code?: string; message?: string; type?: string }
+                console.error('[Trinity] Hume error:', errorData)
+                logger.error('Trinity Hume error received', {
+                  error: errorData.error,
+                  code: errorData.code,
+                  message: errorData.message,
+                  type: errorData.type,
+                  audioSessionId: audioSessionIdRef.current
+                })
+                
+                // Stop any ongoing audio processing on error
+                stopAllAudio()
                 break
+              }
             }
           },
           onerror: (error) => {
@@ -333,58 +331,104 @@ export default function TrinityPage() {
     }
   }
 
-  const playAudioChunk = async (base64Audio: string) => {
+  const processAudioQueue = async () => {
+    if (isProcessingAudioRef.current || audioChunkQueueRef.current.length === 0) {
+      return
+    }
+    
+    isProcessingAudioRef.current = true
+    console.log(`[Trinity] Starting to process audio queue with ${audioChunkQueueRef.current.length} chunks`)
+    
+    while (audioChunkQueueRef.current.length > 0) {
+      const audioData = audioChunkQueueRef.current.shift()
+      if (audioData) {
+        await playAudioChunk(audioData)
+        // Wait for audio to finish before playing next chunk
+        await waitForAudioToFinish()
+      }
+    }
+    
+    isProcessingAudioRef.current = false
+    console.log('[Trinity] Finished processing audio queue')
+  }
+  
+  const waitForAudioToFinish = (): Promise<void> => {
+    return new Promise((resolve) => {
+      const checkInterval = setInterval(() => {
+        if (audioQueueRef.current.length === 0) {
+          clearInterval(checkInterval)
+          resolve()
+        }
+      }, 100)
+      
+      // Timeout after 10 seconds to prevent hanging
+      setTimeout(() => {
+        clearInterval(checkInterval)
+        resolve()
+      }, 10000)
+    })
+  }
+
+  const playAudioChunk = async (base64Audio: string): Promise<void> => {
     if (!audioContextRef.current) {
       console.warn('[Trinity] No audio context available for playback')
       return
     }
     
     const playbackId = `${audioSessionIdRef.current}_${Date.now()}_${Math.random()}`
-    console.log(`[Trinity] Starting audio playback ${playbackId}, queue size: ${audioQueueRef.current.length}`)
+    console.log(`[Trinity] Starting audio playback ${playbackId}`)
     
-    try {
-      // Decode base64 to ArrayBuffer
-      const binaryString = atob(base64Audio)
-      const bytes = new Uint8Array(binaryString.length)
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i)
-      }
-      
-      // Create audio buffer
-      const audioBuffer = await audioContextRef.current.decodeAudioData(bytes.buffer)
-      console.log(`[Trinity] Audio decoded ${playbackId}, duration: ${audioBuffer.duration}s`)
-      
-      // Create and connect audio source
-      const source = audioContextRef.current.createBufferSource()
-      source.buffer = audioBuffer
-      source.connect(audioContextRef.current.destination)
-      
-      // Track in queue
-      audioQueueRef.current.push(source)
-      console.log(`[Trinity] Audio queued ${playbackId}, total in queue: ${audioQueueRef.current.length}`)
-      
-      // Remove from queue when done
-      source.onended = () => {
-        const index = audioQueueRef.current.indexOf(source)
-        if (index > -1) {
-          audioQueueRef.current.splice(index, 1)
+    return new Promise<void>((resolve) => {
+      try {
+        // Decode base64 to ArrayBuffer
+        const binaryString = atob(base64Audio)
+        const bytes = new Uint8Array(binaryString.length)
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i)
         }
-        console.log(`[Trinity] Audio ended ${playbackId}, remaining in queue: ${audioQueueRef.current.length}`)
+        
+        // Create audio buffer
+        audioContextRef.current!.decodeAudioData(bytes.buffer, (audioBuffer) => {
+          console.log(`[Trinity] Audio decoded ${playbackId}, duration: ${audioBuffer.duration}s`)
+          
+          // Create and connect audio source
+          const source = audioContextRef.current!.createBufferSource()
+          source.buffer = audioBuffer
+          source.connect(audioContextRef.current!.destination)
+          
+          // Track in queue
+          audioQueueRef.current.push(source)
+          
+          // Remove from queue when done and resolve promise
+          source.onended = () => {
+            const index = audioQueueRef.current.indexOf(source)
+            if (index > -1) {
+              audioQueueRef.current.splice(index, 1)
+            }
+            console.log(`[Trinity] Audio ended ${playbackId}`)
+            resolve()
+          }
+          
+          // Start playback
+          source.start()
+          console.log(`[Trinity] Audio started ${playbackId}`)
+        }, (error) => {
+          console.error(`[Trinity] Failed to decode audio ${playbackId}:`, error)
+          resolve() // Resolve anyway to continue with next chunk
+        })
+      } catch (error) {
+        console.error(`[Trinity] Failed to play audio chunk ${playbackId}:`, error)
+        logger.error('Trinity audio playback error', {
+          error: error instanceof Error ? error.message : String(error),
+          playbackId
+        })
+        resolve() // Resolve anyway to continue with next chunk
       }
-      
-      // Start playback
-      source.start()
-      console.log(`[Trinity] Audio started ${playbackId}`)
-    } catch (error) {
-      console.error(`[Trinity] Failed to play audio chunk ${playbackId}:`, error)
-      logger.error('Trinity audio playback error', {
-        error: error instanceof Error ? error.message : String(error),
-        playbackId
-      })
-    }
+    })
   }
 
   const stopAllAudio = () => {
+    // Stop all playing audio
     audioQueueRef.current.forEach(source => {
       try {
         source.stop()
@@ -393,6 +437,11 @@ export default function TrinityPage() {
       }
     })
     audioQueueRef.current = []
+    
+    // Clear the chunk queue
+    audioChunkQueueRef.current = []
+    isProcessingAudioRef.current = false
+    console.log('[Trinity] Stopped all audio and cleared queue')
   }
 
   const checkPhaseTransition = (message: string) => {
