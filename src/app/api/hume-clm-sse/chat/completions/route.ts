@@ -56,6 +56,17 @@ export async function POST(req: NextRequest) {
         }
       }
       
+      // Check if user info is in the request body metadata
+      const messages = body.messages || []
+      if (!userId && messages.length > 0) {
+        const lastMessage = messages[messages.length - 1]
+        if (lastMessage.metadata?.user_id) {
+          userId = lastMessage.metadata.user_id
+          userSource = 'message_metadata'
+          console.log(`[CLM ${callId}] Found user from message metadata:`, userId)
+        }
+      }
+      
       // Log all headers for debugging
       console.log(`[CLM ${callId}] Headers:`, Object.fromEntries(req.headers.entries()))
       

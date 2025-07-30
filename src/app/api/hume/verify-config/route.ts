@@ -65,7 +65,7 @@ export async function GET() {
           })
         })
         clmStatus = clmResponse.ok ? 'reachable' : `error_${clmResponse.status}`
-      } catch (error) {
+      } catch {
         clmStatus = 'unreachable'
       }
     }

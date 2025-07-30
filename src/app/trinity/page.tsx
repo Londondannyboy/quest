@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { HUME_COACHES } from '@/lib/hume-config'
 import { getOrCreateSession, addMessage, updateSessionMetadata } from '@/lib/zep'
 import { globalAudioFingerprinter } from '@/lib/audio-fingerprint'
+// import { wsManager } from '@/lib/websocket-manager' // TODO: Implement WebSocket manager to prevent duplicates
 
 export default function TrinityPage() {
   const { isSignedIn, user } = useUser()
@@ -109,8 +110,17 @@ export default function TrinityPage() {
       
       // Connect to WebSocket with EVI 3 format and config ID
       const configId = process.env.NEXT_PUBLIC_HUME_CONFIG_ID
+      // Add user context to the connection
+      const params = new URLSearchParams({
+        access_token: accessToken,
+        config_id: configId || '',
+        // Add user identification
+        user_id: user?.id || 'anonymous',
+        user_name: user?.fullName || user?.firstName || 'User',
+        session_id: audioSessionIdRef.current
+      })
       const ws = new WebSocket(
-        `wss://api.hume.ai/v0/evi/chat?access_token=${accessToken}&config_id=${configId}`
+        `wss://api.hume.ai/v0/evi/chat?${params.toString()}`
       )
       
       // Track connection in Zep
@@ -124,6 +134,10 @@ export default function TrinityPage() {
       
       ws.onopen = async () => {
         console.log('Connected to Hume AI EVI 3 - Socket ID:', audioSessionIdRef.current)
+        console.log('User context sent:', {
+          userId: user?.id || 'anonymous',
+          userName: user?.fullName || user?.firstName || 'User'
+        })
         setIsConnected(true)
         isConnectingRef.current = false
         

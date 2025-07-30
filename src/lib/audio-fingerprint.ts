@@ -49,7 +49,7 @@ export class AudioFingerprinter {
    */
   getStats(): { totalFingerprints: number; duplicates: Array<{ fingerprint: string; count: number }> } {
     const duplicates = Array.from(this.fingerprints.entries())
-      .filter(([_, data]) => data.count > 1)
+      .filter(([, data]) => data.count > 1)
       .map(([fingerprint, data]) => ({ fingerprint: fingerprint.substring(0, 20) + '...', count: data.count }))
       .sort((a, b) => b.count - a.count)
     

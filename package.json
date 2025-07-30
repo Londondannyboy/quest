@@ -13,7 +13,11 @@
     "prepare": "husky",
     "checkly:test": "npx checkly test",
     "checkly:deploy": "npx checkly deploy",
-    "checkly:destroy": "npx checkly destroy"
+    "checkly:destroy": "npx checkly destroy",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:voice": "playwright test voice-coach.spec.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.27.1",
