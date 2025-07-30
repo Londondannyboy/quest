@@ -110,19 +110,23 @@ export default function TrinityCleanPage() {
             }
             break
             
-          case 'assistant_message':
-            if (message.message?.content) {
-              console.log('[Trinity Clean] Assistant:', message.message.content)
-              setTranscript(prev => [...prev, `Coach: ${message.message.content}`])
+          case 'assistant_message': {
+            const content = message.message?.content
+            if (content) {
+              console.log('[Trinity Clean] Assistant:', content)
+              setTranscript(prev => [...prev, `Coach: ${content}`])
             }
             break
+          }
             
-          case 'user_message':
-            if (message.message?.content) {
-              console.log('[Trinity Clean] User:', message.message.content)
-              setTranscript(prev => [...prev, `You: ${message.message.content}`])
+          case 'user_message': {
+            const content = message.message?.content
+            if (content) {
+              console.log('[Trinity Clean] User:', content)
+              setTranscript(prev => [...prev, `You: ${content}`])
             }
             break
+          }
             
           case 'user_interruption':
             console.log('[Trinity Clean] User interrupted')
