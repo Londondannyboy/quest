@@ -111,22 +111,32 @@ export async function POST(req: NextRequest) {
       if (!userId) {
         console.log(`[CLM ${callId}] No userId found, checking database fallback`)
         
-        // Get the most recent user with trinity data
-        const recentUser = await prisma.user.findFirst({
-          where: {
-            trinity: {
-              isNot: null
+        try {
+          // Get the most recent user with trinity data
+          const recentUser = await prisma.user.findFirst({
+            where: {
+              trinity: {
+                isNot: null
+              }
+            },
+            orderBy: { updatedAt: 'desc' },
+            include: {
+              professionalMirror: true
             }
-          },
-          orderBy: { updatedAt: 'desc' },
-          include: {
-            professionalMirror: true
+          })
+          
+          userId = recentUser?.clerkId || null
+          userSource = 'database_fallback'
+          console.log(`[CLM ${callId}] Found recent user:`, recentUser?.name || 'Unknown')
+        } catch (dbError) {
+          console.error(`[CLM ${callId}] Database error:`, dbError)
+          console.log(`[CLM ${callId}] Using hardcoded fallback for demo`)
+          // For demo purposes, use the auth userId if available
+          if (authResult?.userId) {
+            userId = authResult.userId
+            userSource = 'auth_fallback'
           }
-        })
-        
-        userId = recentUser?.clerkId || null
-        userSource = 'database_fallback'
-        console.log(`[CLM ${callId}] Found recent user:`, recentUser?.name || 'Unknown')
+        }
       }
     }
     
@@ -151,8 +161,22 @@ export async function POST(req: NextRequest) {
             professionalMirror: true,
           }
         })
+      } catch (dbError) {
+        console.error(`[CLM ${callId}] Database query error:`, dbError)
+        // Create mock user for demo
+        user = {
+          id: 'demo-user',
+          clerkId: userId,
+          email: 'demo@example.com',
+          name: 'Demo User',
+          trinity: null,
+          professionalMirror: null,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        } as any
+      }
 
-        if (user) {
+      if (user) {
           // Get memory context from Zep
           const journeyContext = await getUserJourneyContext(user.id)
           
@@ -212,9 +236,9 @@ Trinity Summary:
           if (lastUserMessage && session.sessionId) {
             await addMessage(session.sessionId, 'user', lastUserMessage)
           }
+        } catch (error) {
+          console.error('Error fetching user context:', error)
         }
-      } catch (error) {
-        console.error('Error fetching user context:', error)
       }
     }
 
@@ -352,9 +376,17 @@ async function generateCoachResponse(userMessage: string, coachPrompt: string, u
   const nameMatch = userContext.match(/Name:\s*([^\n]+)/);
   const userName = nameMatch && nameMatch[1] !== 'Unknown' ? nameMatch[1] : null;
   
+  // For demo mode when database is not available
+  const emailMatch = userContext.match(/email:\s*([^\n]+)/);
+  const userEmail = emailMatch ? emailMatch[1] : null;
+  
   if (lowerMessage.includes('who am i') || lowerMessage.includes('my name')) {
     if (userName) {
       return `You're ${userName}! ${userContext.includes('Has Trinity: Yes') ? "I can see you've already begun exploring your Trinity. " : "I'm here to help you discover your Trinity. "}How can I support you today?`;
+    } else if (userEmail) {
+      return `I can see your email is ${userEmail}, but I don't have your name yet. I'm here to help you discover your Trinity. What should I call you?`;
+    } else if (userContext.includes('Demo User')) {
+      return "I'm in demo mode right now, but I'm still here to help you explore your Trinity! I'm your Story Coach. What brings you to this moment of reflection?";
     } else {
       return "I don't have your name yet, but I'm here to help you discover your Trinity. What should I call you?";
     }
