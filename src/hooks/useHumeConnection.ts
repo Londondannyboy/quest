@@ -17,7 +17,7 @@ export function useHumeConnection(options: UseHumeConnectionOptions = {}) {
   const [isConnecting, setIsConnecting] = useState(false)
   const [accessToken, setAccessToken] = useState<string>('')
   const socketRef = useRef<WebSocket | null>(null)
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>()
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
   
   // Get access token
   const getAccessToken = useCallback(async () => {

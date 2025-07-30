@@ -42,26 +42,32 @@ export default function TrinityPageV2() {
     onMessage: (data: unknown) => {
       const message = data as { type: string; message?: { content?: string } }
       switch (message.type) {
-        case 'assistant_message':
-          if (message.message?.content) {
-            setTranscript(prev => [...prev, `Coach: ${message.message.content}`])
-            checkPhaseTransition(message.message.content)
+        case 'assistant_message': {
+          const content = message.message?.content
+          if (content) {
+            setTranscript(prev => [...prev, `Coach: ${content}`])
+            checkPhaseTransition(content)
           }
           break
+        }
           
-        case 'user_message':
-          if (message.message?.content) {
-            setTranscript(prev => [...prev, `You: ${message.message.content}`])
+        case 'user_message': {
+          const content = message.message?.content
+          if (content) {
+            setTranscript(prev => [...prev, `You: ${content}`])
           }
           break
+        }
           
         case 'user_interruption':
           stopAllAudio()
           break
           
-        case 'error':
-          logger.error('Hume error', data.error)
+        case 'error': {
+          const errorData = data as { error?: unknown }
+          logger.error('Hume error', errorData.error)
           break
+        }
       }
     },
   })
@@ -87,7 +93,7 @@ export default function TrinityPageV2() {
             coachType: 'trinity_discovery',
             startTime: new Date().toISOString(),
           })
-          setZepSessionId(session.sessionId)
+          setZepSessionId(session.sessionId || null)
         }
       } catch (error) {
         logger.error('Failed to initialize Zep session', error)
