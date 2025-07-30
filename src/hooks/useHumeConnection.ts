@@ -106,7 +106,7 @@ export function useHumeConnection(options: UseHumeConnectionOptions = {}) {
       setIsConnecting(false)
       options.onError?.(error as Error)
     }
-  }, [accessToken, user, options, getAccessToken])
+  }, [accessToken, user, options, getAccessToken, isConnecting])
   
   // Disconnect
   const disconnect = useCallback(() => {

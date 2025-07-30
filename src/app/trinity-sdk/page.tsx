@@ -158,8 +158,8 @@ export default function TrinitySdkPage() {
     setIsListening(false)
   }, [])
   
-  const handleClose = useCallback((e: CloseEvent) => {
-    console.log('[Trinity SDK] Socket closed:', e.code, e.reason)
+  const handleClose = useCallback((e: { code?: number; reason?: string } | CloseEvent) => {
+    console.log('[Trinity SDK] Socket closed:', 'code' in e ? e.code : undefined, 'reason' in e ? e.reason : undefined)
     setIsConnected(false)
     setIsListening(false)
     setAudioStatus('idle')
@@ -190,9 +190,19 @@ export default function TrinitySdkPage() {
         ws.onopen = () => handleOpen()
         ws.onmessage = (event) => handleMessage(JSON.parse(event.data))
         ws.onerror = (error) => handleError(error)
-        ws.onclose = (event) => handleClose(event as unknown as Parameters<typeof handleClose>[0])
+        ws.onclose = (event) => handleClose(event)
         
-        socketRef.current = ws as typeof socketRef.current
+        // Wrap WebSocket to match expected interface
+        socketRef.current = {
+          sendAudioInput: (data: { data: string }) => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'audio_input', ...data }))
+            }
+          },
+          readyState: ws.readyState,
+          close: () => ws.close(),
+          send: (data: string) => ws.send(data)
+        }
       } else if (clientRef.current) {
         // Use SDK client
         const socket = await clientRef.current.empathicVoice.chat.connect({
