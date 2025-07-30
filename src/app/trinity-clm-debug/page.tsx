@@ -9,6 +9,7 @@ export default function TrinityClmDebugPage() {
   const [clmTest, setClmTest] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(false)
   const [testMessage, setTestMessage] = useState("Hello, who am I?")
+  const [profileStatus, setProfileStatus] = useState<string>('')
 
   // Fetch debug info
   const fetchDebugInfo = async () => {
@@ -25,6 +26,33 @@ export default function TrinityClmDebugPage() {
     }
   }
 
+  // Create or update user profile
+  const createOrUpdateProfile = async () => {
+    setLoading(true)
+    setProfileStatus('Creating/updating profile...')
+    try {
+      const response = await fetch('/api/user/create-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setProfileStatus(`✅ ${data.message} - Name: ${data.user.name}`)
+        // Refresh debug info to show updated database status
+        await fetchDebugInfo()
+      } else {
+        setProfileStatus(`❌ Error: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Profile creation error:', error)
+      setProfileStatus(`❌ Error: ${String(error)}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+  
   // Test CLM endpoint
   const testClmEndpoint = async () => {
     setLoading(true)
@@ -108,14 +136,28 @@ export default function TrinityClmDebugPage() {
           )}
         </div>
 
+        {/* Profile Status */}
+        {profileStatus && (
+          <div className="bg-gray-800 p-4 rounded-lg mb-6">
+            <p className="text-sm">{profileStatus}</p>
+          </div>
+        )}
+
         {/* Actions */}
-        <div className="flex gap-4">
+        <div className="flex gap-4 flex-wrap">
           <button
             onClick={fetchDebugInfo}
             disabled={loading}
             className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded disabled:opacity-50"
           >
             Refresh Debug Info
+          </button>
+          <button
+            onClick={createOrUpdateProfile}
+            disabled={loading}
+            className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 rounded disabled:opacity-50"
+          >
+            Create/Update Profile
           </button>
           <a
             href="/trinity"

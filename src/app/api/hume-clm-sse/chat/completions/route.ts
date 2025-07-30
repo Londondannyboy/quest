@@ -8,6 +8,8 @@ export async function POST(req: NextRequest) {
   // Log CLM call details
   const callId = `clm_${Date.now()}`
   console.log(`[CLM ${callId}] ========== NEW CLM REQUEST ==========`)
+  console.log(`[CLM ${callId}] Request method:`, req.method)
+  console.log(`[CLM ${callId}] Request URL:`, req.url)
   
   try {
     // Get the current user
@@ -34,6 +36,13 @@ export async function POST(req: NextRequest) {
       model: body.model,
       stream: body.stream
     })
+    
+    // Log all messages to see if context is being passed
+    console.log(`[CLM ${callId}] All messages:`, messages.map((m: { role: string; content?: string; metadata?: unknown }) => ({
+      role: m.role,
+      content: m.content?.substring(0, 100) + '...',
+      hasMetadata: !!m.metadata
+    })))
     
     // Try to get userId from headers if not from auth
     if (!userId) {
@@ -154,6 +163,7 @@ export async function POST(req: NextRequest) {
     
     if (userId) {
       try {
+        console.log(`[CLM ${callId}] Looking up user with ClerkID:`, userId)
         user = await prisma.user.findUnique({
           where: { clerkId: userId },
           include: {
@@ -161,8 +171,16 @@ export async function POST(req: NextRequest) {
             professionalMirror: true,
           }
         })
+        console.log(`[CLM ${callId}] Database user found:`, {
+          id: user?.id,
+          name: user?.name,
+          email: user?.email,
+          hasTrinity: !!user?.trinity,
+          hasProfessionalMirror: !!user?.professionalMirror
+        })
       } catch (dbError) {
         console.error(`[CLM ${callId}] Database query error:`, dbError)
+        console.log(`[CLM ${callId}] Database unavailable, using mock user`)
         // Create mock user for demo
         user = {
           id: 'demo-user',
