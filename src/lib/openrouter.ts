@@ -7,20 +7,31 @@ const PREFER_COST = process.env.OPENROUTER_PREFER_COST === 'true'
 const FALLBACK_ENABLED = process.env.OPENROUTER_FALLBACK_ENABLED === 'true'
 
 // Model preferences for different use cases
+// These models are available via BYOK configuration in OpenRouter dashboard
 export const OPENROUTER_MODELS = {
   // Fast, cost-effective for simple tasks
   FAST: 'anthropic/claude-3-haiku',
+  FAST_ALTERNATIVE: 'google/gemini-flash-1.5',
   
   // Balanced performance and cost
   BALANCED: 'anthropic/claude-3-sonnet',
+  BALANCED_ALTERNATIVE: 'google/gemini-pro-1.5',
   
   // High quality for complex reasoning
   QUALITY: 'anthropic/claude-3-opus',
+  QUALITY_ALTERNATIVE: 'openai/gpt-4-turbo',
+  
+  // Large context window for analysis
+  LARGE_CONTEXT: 'google/gemini-pro-1.5', // 1M+ context window
+  
+  // Code-specific models
+  CODE_REVIEW: 'openai/gpt-4-turbo', // Good at code analysis
+  CODE_GENERATION: 'anthropic/claude-3-sonnet', // Good at code generation
   
   // Alternative models for fallback
   FALLBACK_FAST: 'openai/gpt-3.5-turbo',
-  FALLBACK_BALANCED: 'openai/gpt-4-turbo',
-  FALLBACK_QUALITY: 'openai/gpt-4',
+  FALLBACK_BALANCED: 'openai/gpt-4',
+  FALLBACK_QUALITY: 'google/gemini-pro-1.5',
 } as const
 
 export type ModelType = keyof typeof OPENROUTER_MODELS

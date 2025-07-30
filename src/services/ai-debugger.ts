@@ -74,9 +74,9 @@ export async function debugVoiceCoachSession(context: DebugContext): Promise<Deb
       }
     ]
     
-    // Use Gemini for large context window
+    // Use Gemini for large context window analysis
     const analysis = await chat(messages, {
-      model: 'QUALITY', // Will use Claude Opus for now, can switch to Gemini
+      model: 'LARGE_CONTEXT', // Uses Gemini Pro 1.5 with 1M+ context
       temperature: 0.3,
       max_tokens: 3000
     })
@@ -112,7 +112,7 @@ export async function analyzeCodeForIssues(
   ]
   
   const analysis = await chat(messages, {
-    model: 'QUALITY',
+    model: 'CODE_REVIEW', // Uses GPT-4 Turbo for code analysis
     temperature: 0.2,
     max_tokens: 4000
   })

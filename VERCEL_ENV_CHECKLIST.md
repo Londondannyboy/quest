@@ -38,6 +38,8 @@ In your new Quest (V2) Vercel project, add:
 - [ ] `OPENROUTER_PREFER_COST` = true
 - [ ] `OPENROUTER_FALLBACK_ENABLED` = true
 
+**Note**: Configure additional model providers (OpenAI, Google Gemini) directly in OpenRouter dashboard using BYOK (Bring Your Own Key). No need to add their API keys to Vercel.
+
 #### Hume AI Voice (3 required) - ALL NEW
 
 - [ ] `NEXT_PUBLIC_HUME_API_KEY` = (from Hume dashboard)

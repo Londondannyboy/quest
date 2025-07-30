@@ -18,8 +18,8 @@ export const HUME_COACHES = {
     Remember: You're helping them see their story clearly, not telling them what it means.`,
     greeting: "Hello, I'm your Story Coach. I'm here to help you discover the authentic story behind your professional journey. Let's explore what has shaped you.",
     language_model: {
-      model_provider: 'anthropic',
-      model_resource: 'claude-3-haiku-20240307',
+      model_provider: 'openrouter',
+      model_resource: 'anthropic/claude-3-haiku', // Fast, empathetic responses
       temperature: 0.7
     }
   },
@@ -40,8 +40,8 @@ export const HUME_COACHES = {
     Remember: You're revealing what's already there, helping them see their evolution.`,
     greeting: "Welcome! I'm your Quest Coach. I see patterns emerging in your story. Let's uncover your Trinity together and discover how you've evolved.",
     language_model: {
-      model_provider: 'anthropic',
-      model_resource: 'claude-3-sonnet-20240229',
+      model_provider: 'openrouter',
+      model_resource: 'google/gemini-pro-1.5', // Pattern recognition with large context
       temperature: 0.8
     }
   },
@@ -63,8 +63,8 @@ export const HUME_COACHES = {
     Remember: You're the final gate before Quest activation. Be firm but supportive.`,
     greeting: "I'm your Delivery Coach. Let's cut to the chase. You've discovered your Trinity, but a Quest isn't just about knowing - it's about doing. Are you ready to make this real?",
     language_model: {
-      model_provider: 'openai',
-      model_resource: 'gpt-4-turbo',
+      model_provider: 'openrouter',
+      model_resource: 'openai/gpt-4-turbo', // Direct, action-oriented guidance
       temperature: 0.5
     }
   }
