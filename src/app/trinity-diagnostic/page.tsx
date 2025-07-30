@@ -38,13 +38,14 @@ export default function TrinityDiagnosticPage() {
       } catch (error) {
         results.accessToken = {
           status: '❌ Error',
-          error: error.toString()
+          error: error instanceof Error ? error.message : String(error)
         }
       }
       
       // Test WebSocket connection
       try {
-        if (results.accessToken.hasToken) {
+        const accessTokenResult = results.accessToken as { hasToken?: boolean, status: string, error?: string }
+        if (accessTokenResult.hasToken) {
           const tokenResponse = await fetch('/api/hume/token')
           const { accessToken } = await tokenResponse.json()
           const configId = process.env.NEXT_PUBLIC_HUME_CONFIG_ID
@@ -64,7 +65,7 @@ export default function TrinityDiagnosticPage() {
                 resolve(true)
               }
               ws.onerror = (error) => {
-                results.webSocket = { status: '❌ Connection failed', error: error.toString() }
+                results.webSocket = { status: '❌ Connection failed', error: String(error) }
                 reject(error)
               }
               setTimeout(() => {
@@ -82,7 +83,7 @@ export default function TrinityDiagnosticPage() {
       } catch (error) {
         results.webSocket = { 
           status: '❌ Error',
-          error: error.toString()
+          error: error instanceof Error ? error.message : String(error)
         }
       }
       
@@ -90,7 +91,7 @@ export default function TrinityDiagnosticPage() {
       results.browser = {
         audioContext: typeof AudioContext !== 'undefined' ? '✅ Supported' : '❌ Not supported',
         mediaDevices: navigator.mediaDevices ? '✅ Available' : '❌ Not available',
-        getUserMedia: navigator.mediaDevices?.getUserMedia ? '✅ Available' : '❌ Not available',
+        getUserMedia: typeof navigator.mediaDevices?.getUserMedia === 'function' ? '✅ Available' : '❌ Not available',
         webSocket: typeof WebSocket !== 'undefined' ? '✅ Supported' : '❌ Not supported'
       }
       

@@ -5,7 +5,6 @@ import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { HumeClient } from 'hume'
 import type { SubscribeEvent } from 'hume/api/resources/empathicVoice/resources/chat'
-import type { CloseEvent } from 'hume/core/websocket/events'
 import {
   convertBlobToBase64,
   ensureSingleValidAudioTrack,
@@ -191,7 +190,7 @@ export default function TrinitySdkPage() {
         ws.onopen = () => handleOpen()
         ws.onmessage = (event) => handleMessage(JSON.parse(event.data))
         ws.onerror = (error) => handleError(error)
-        ws.onclose = (event) => handleClose({ code: event.code, reason: event.reason })
+        ws.onclose = (event) => handleClose(event as unknown as Parameters<typeof handleClose>[0])
         
         socketRef.current = ws as typeof socketRef.current
       } else if (clientRef.current) {
