@@ -64,10 +64,22 @@ export default function TrinityDebugPublicPage() {
     }
   }
 
-  // Simple fingerprint function for demo
+  // Improved fingerprint function that skips WAV header
   const generateFingerprint = (audioData: string): string => {
-    // Take first 100 chars as a simple fingerprint
-    return audioData.substring(0, 100)
+    // Skip WAV header (first 44 chars in base64 ≈ 33 bytes) to get to actual audio data
+    const skipHeader = 60
+    
+    // Take samples from different parts of the actual audio data
+    const samples = [
+      audioData.substring(skipHeader, skipHeader + 40),
+      audioData.substring(audioData.length / 4, audioData.length / 4 + 40),
+      audioData.substring(audioData.length / 2 - 20, audioData.length / 2 + 20),
+      audioData.substring(audioData.length * 3 / 4, audioData.length * 3 / 4 + 40),
+      audioData.substring(audioData.length - 40)
+    ]
+    
+    // Create a more unique fingerprint by combining samples
+    return samples.join('|')
   }
 
   const connectWebSocket = () => {

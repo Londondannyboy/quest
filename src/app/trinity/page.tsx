@@ -27,6 +27,7 @@ export default function TrinityPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const zepSessionIdRef = useRef<string | null>(null)
   const audioSessionIdRef = useRef<string>(Date.now().toString())
+  const lastAudioMessageRef = useRef<{ content: string; timestamp: number } | null>(null)
 
   useEffect(() => {
     if (!isSignedIn) {
@@ -199,20 +200,18 @@ export default function TrinityPage() {
                     timestamp: Date.now()
                   }
                   
-                  // Check for duplicate using fingerprinting
-                  const fingerprintDuplicate = globalAudioFingerprinter.isDuplicate(data.data)
-                  const idDuplicate = processedAudioIds.current.has(audioId)
-                  const isDuplicate = fingerprintDuplicate || idDuplicate
+                  // Check if we recently received an assistant message
+                  const recentMessage = lastAudioMessageRef.current && 
+                    (Date.now() - lastAudioMessageRef.current.timestamp) < 2000
                   
-                  logger.debug('Trinity audio chunk received', {
-                    ...chunkInfo,
-                    fingerprintDuplicate,
-                    idDuplicate,
-                    isDuplicate,
-                    fingerprintStats: globalAudioFingerprinter.getStats()
-                  })
-                  
-                  if (!isDuplicate) {
+                  // Only play the first audio chunk after a message
+                  if (recentMessage && lastAudioMessageRef.current) {
+                    console.log(`[Trinity] Audio chunk for message: "${lastAudioMessageRef.current.content.substring(0, 50)}..."`)
+                    
+                    // Clear the message reference to prevent playing more chunks
+                    lastAudioMessageRef.current = null
+                    
+                    // Play this audio chunk
                     processedAudioIds.current.add(audioId)
                     await playAudioChunk(data.data)
                     
@@ -227,28 +226,17 @@ export default function TrinityPage() {
                         timestamp: new Date().toISOString()
                       })
                     }
-                    
-                    // Clean up old IDs after 10 seconds
-                    setTimeout(() => {
-                      processedAudioIds.current.delete(audioId)
-                    }, 10000)
                   } else {
-                    const reason = fingerprintDuplicate ? 'fingerprint_match' : 'id_match'
-                    console.log(`[Trinity] Skipping duplicate audio chunk - ${reason}`)
-                    logger.warn('Trinity duplicate audio skipped', {
-                      ...chunkInfo,
-                      reason,
-                      fingerprintDuplicate,
-                      idDuplicate
-                    })
+                    // Skip subsequent audio chunks
+                    console.log(`[Trinity] Skipping audio chunk - no recent message or already played`)
+                    logger.debug('Trinity audio chunk skipped - no recent message', chunkInfo)
                     
                     if (zepSessionIdRef.current) {
-                      await addMessage(zepSessionIdRef.current, 'assistant', `[AUDIO_DUPLICATE] Skipped duplicate chunk`, {
-                        type: 'audio_duplicate',
+                      await addMessage(zepSessionIdRef.current, 'assistant', `[AUDIO_SKIPPED] No recent message`, {
+                        type: 'audio_skipped',
                         audioId,
                         audioSessionId: audioSessionIdRef.current,
-                        timestamp: new Date().toISOString(),
-                        reason
+                        timestamp: new Date().toISOString()
                       })
                     }
                   }
@@ -260,6 +248,12 @@ export default function TrinityPage() {
                 if (data.message?.content) {
                   console.log('Coach:', data.message.content)
                   checkPhaseTransition(data.message.content)
+                  
+                  // Track this message to prevent duplicate audio
+                  lastAudioMessageRef.current = {
+                    content: data.message.content,
+                    timestamp: Date.now()
+                  }
                 }
                 break
                 
@@ -340,7 +334,13 @@ export default function TrinityPage() {
   }
 
   const playAudioChunk = async (base64Audio: string) => {
-    if (!audioContextRef.current) return
+    if (!audioContextRef.current) {
+      console.warn('[Trinity] No audio context available for playback')
+      return
+    }
+    
+    const playbackId = `${audioSessionIdRef.current}_${Date.now()}_${Math.random()}`
+    console.log(`[Trinity] Starting audio playback ${playbackId}, queue size: ${audioQueueRef.current.length}`)
     
     try {
       // Decode base64 to ArrayBuffer
@@ -352,6 +352,7 @@ export default function TrinityPage() {
       
       // Create audio buffer
       const audioBuffer = await audioContextRef.current.decodeAudioData(bytes.buffer)
+      console.log(`[Trinity] Audio decoded ${playbackId}, duration: ${audioBuffer.duration}s`)
       
       // Create and connect audio source
       const source = audioContextRef.current.createBufferSource()
@@ -360,6 +361,7 @@ export default function TrinityPage() {
       
       // Track in queue
       audioQueueRef.current.push(source)
+      console.log(`[Trinity] Audio queued ${playbackId}, total in queue: ${audioQueueRef.current.length}`)
       
       // Remove from queue when done
       source.onended = () => {
@@ -367,14 +369,17 @@ export default function TrinityPage() {
         if (index > -1) {
           audioQueueRef.current.splice(index, 1)
         }
+        console.log(`[Trinity] Audio ended ${playbackId}, remaining in queue: ${audioQueueRef.current.length}`)
       }
       
       // Start playback
       source.start()
+      console.log(`[Trinity] Audio started ${playbackId}`)
     } catch (error) {
-      console.error('Failed to play audio chunk:', error)
+      console.error(`[Trinity] Failed to play audio chunk ${playbackId}:`, error)
       logger.error('Trinity audio playback error', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
+        playbackId
       })
     }
   }

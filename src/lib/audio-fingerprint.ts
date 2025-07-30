@@ -10,14 +10,19 @@ export class AudioFingerprinter {
    * Generate a simple fingerprint from base64 audio data
    */
   generateFingerprint(base64Audio: string): string {
-    // Take samples from different parts of the audio
+    // Skip WAV header (first 44 chars in base64 ≈ 33 bytes) to get to actual audio data
+    const skipHeader = 60
+    
+    // Take samples from different parts of the actual audio data
     const samples = [
-      base64Audio.substring(0, 20),
-      base64Audio.substring(base64Audio.length / 2 - 10, base64Audio.length / 2 + 10),
-      base64Audio.substring(base64Audio.length - 20)
+      base64Audio.substring(skipHeader, skipHeader + 40),
+      base64Audio.substring(base64Audio.length / 4, base64Audio.length / 4 + 40),
+      base64Audio.substring(base64Audio.length / 2 - 20, base64Audio.length / 2 + 20),
+      base64Audio.substring(base64Audio.length * 3 / 4, base64Audio.length * 3 / 4 + 40),
+      base64Audio.substring(base64Audio.length - 40)
     ]
     
-    // Create a simple hash
+    // Create a more unique fingerprint by combining samples
     return samples.join('|')
   }
   
