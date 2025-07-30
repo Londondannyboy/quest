@@ -11,6 +11,7 @@ export default function TrinityClmDebugPage() {
   const [testMessage, setTestMessage] = useState("Hello, who am I?")
   const [profileStatus, setProfileStatus] = useState<string>('')
   const [userName, setUserName] = useState<string>('')
+  const [linkedinData, setLinkedinData] = useState<Record<string, unknown> | null>(null)
 
   // Fetch debug info
   const fetchDebugInfo = async () => {
@@ -27,6 +28,34 @@ export default function TrinityClmDebugPage() {
     }
   }
 
+  // Populate from LinkedIn
+  const populateFromLinkedIn = async () => {
+    setLoading(true)
+    setProfileStatus('Loading LinkedIn data...')
+    try {
+      const response = await fetch('/api/user/populate-from-linkedin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setProfileStatus(`✅ Profile populated! Name: ${data.user.name}`)
+        setLinkedinData(data)
+        // Refresh debug info
+        await fetchDebugInfo()
+      } else {
+        setProfileStatus(`❌ Error: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('LinkedIn populate error:', error)
+      setProfileStatus(`❌ Error: ${String(error)}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+  
   // Update user name
   const updateUserName = async () => {
     if (!userName.trim()) {
@@ -198,6 +227,16 @@ export default function TrinityClmDebugPage() {
             <p className="text-sm">{profileStatus}</p>
           </div>
         )}
+        
+        {/* LinkedIn Data */}
+        {linkedinData && (
+          <div className="bg-gray-800 p-6 rounded-lg mb-6">
+            <h2 className="text-xl font-semibold mb-4">LinkedIn Data Found</h2>
+            <pre className="text-sm overflow-x-auto">
+              {JSON.stringify(linkedinData, null, 2)}
+            </pre>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex gap-4 flex-wrap">
@@ -214,6 +253,13 @@ export default function TrinityClmDebugPage() {
             className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 rounded disabled:opacity-50"
           >
             Create/Update Profile
+          </button>
+          <button
+            onClick={populateFromLinkedIn}
+            disabled={loading}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded disabled:opacity-50"
+          >
+            Populate from LinkedIn
           </button>
           <a
             href="/trinity"
