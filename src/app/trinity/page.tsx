@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { HUME_COACHES } from '@/lib/hume-config'
 import { getOrCreateSession, addMessage, updateSessionMetadata } from '@/lib/zep'
 import { globalAudioFingerprinter } from '@/lib/audio-fingerprint'
+import { logger } from '@/lib/logger'
 // import { wsManager } from '@/lib/websocket-manager' // TODO: Implement WebSocket manager to prevent duplicates
 
 export default function TrinityPage() {
