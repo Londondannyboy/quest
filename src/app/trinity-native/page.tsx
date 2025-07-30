@@ -65,16 +65,26 @@ function TrinityVoiceInterface() {
         {status.value !== 'connected' ? (
           <button
             onClick={async () => {
-              const apiKey = process.env.NEXT_PUBLIC_HUME_API_KEY
-              const configId = process.env.NEXT_PUBLIC_HUME_CONFIG_ID
-              if (!apiKey) {
-                console.error('Hume API key not configured')
-                return
+              try {
+                // Get access token from API
+                const response = await fetch('/api/hume/token')
+                const data = await response.json()
+                
+                if (!data.accessToken) {
+                  console.error('[Trinity Native] No access token received')
+                  return
+                }
+                
+                const configId = process.env.NEXT_PUBLIC_HUME_CONFIG_ID
+                console.log('[Trinity Native] Connecting with access token...')
+                
+                await connect({
+                  auth: { type: 'accessToken', value: data.accessToken },
+                  configId: configId || undefined
+                })
+              } catch (error) {
+                console.error('[Trinity Native] Connection failed:', error)
               }
-              await connect({
-                auth: { type: 'apiKey', value: apiKey },
-                configId: configId || undefined
-              })
             }}
             disabled={status.value === 'connecting'}
             className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"

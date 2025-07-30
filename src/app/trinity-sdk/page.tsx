@@ -31,9 +31,10 @@ export default function TrinitySdkPage() {
   
   // Refs
   const clientRef = useRef<HumeClient | null>(null)
-  const socketRef = useRef<{ sendAudioInput: (data: { data: string }) => void, readyState: number, close: () => void } | null>(null)
+  const socketRef = useRef<{ sendAudioInput: (data: { data: string }) => void, readyState: number, close: () => void, send?: (data: string) => void } | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const playerRef = useRef<{ init: () => Promise<void>, enqueue: (msg: SubscribeEvent) => Promise<void>, stop: () => void } | null>(null)
+  const [accessToken, setAccessToken] = useState<string>('')
   
   // Redirect if not signed in
   useEffect(() => {
@@ -44,20 +45,41 @@ export default function TrinitySdkPage() {
   
   // Initialize Hume client
   useEffect(() => {
-    const apiKey = process.env.NEXT_PUBLIC_HUME_API_KEY
-    if (!apiKey) {
-      setError('Hume API key not configured')
-      return
+    const initializeClient = async () => {
+      try {
+        // First try to get access token
+        const response = await fetch('/api/hume/token')
+        const data = await response.json()
+        
+        if (data.accessToken) {
+          console.log('[Trinity SDK] Using access token from API')
+          // Access token approach - preferred
+          setAccessToken(data.accessToken)
+        } else {
+          // Fallback to API key
+          const apiKey = process.env.NEXT_PUBLIC_HUME_API_KEY
+          if (!apiKey || apiKey === '...') {
+            setError('Hume API key not configured - please set NEXT_PUBLIC_HUME_API_KEY in Vercel')
+            return
+          }
+          
+          clientRef.current = new HumeClient({
+            apiKey,
+          })
+        }
+        
+        // Initialize audio player
+        import('hume').then(({ EVIWebAudioPlayer }) => {
+          playerRef.current = new EVIWebAudioPlayer()
+          console.log('[Trinity SDK] Audio player initialized')
+        })
+      } catch (error) {
+        console.error('[Trinity SDK] Initialization error:', error)
+        setError(`Initialization failed: ${error}`)
+      }
     }
     
-    clientRef.current = new HumeClient({
-      apiKey,
-    })
-    
-    // Initialize audio player
-    import('hume').then(({ EVIWebAudioPlayer }) => {
-      playerRef.current = new EVIWebAudioPlayer()
-    })
+    initializeClient()
     
     return () => {
       disconnect()
@@ -145,29 +167,48 @@ export default function TrinitySdkPage() {
   }, [])
   
   const connect = async () => {
-    if (!clientRef.current) {
-      setError('Hume client not initialized')
-      return
-    }
-    
     try {
       console.log('[Trinity SDK] Connecting to Hume...')
       
       // Get config ID from environment
       const configId = process.env.NEXT_PUBLIC_HUME_CONFIG_ID
+      if (!configId || configId === '...') {
+        setError('Hume config ID not set - please set NEXT_PUBLIC_HUME_CONFIG_ID in Vercel')
+        return
+      }
       
-      // Connect using the SDK
-      const socket = await clientRef.current.empathicVoice.chat.connect({
-        configId: configId || undefined,
-      })
-      
-      // Set up event handlers
-      socket.on('open', handleOpen)
-      socket.on('message', handleMessage)
-      socket.on('error', handleError)
-      socket.on('close', handleClose)
-      
-      socketRef.current = socket
+      // If we have access token, use it directly
+      if (accessToken) {
+        console.log('[Trinity SDK] Using access token for connection')
+        // For access token, we need to use the WebSocket directly
+        const params = new URLSearchParams({
+          access_token: accessToken,
+          config_id: configId
+        })
+        
+        const ws = new WebSocket(`wss://api.hume.ai/v0/evi/chat?${params}`)
+        
+        ws.onopen = () => handleOpen()
+        ws.onmessage = (event) => handleMessage(JSON.parse(event.data))
+        ws.onerror = (error) => handleError(error)
+        ws.onclose = (event) => handleClose({ code: event.code, reason: event.reason })
+        
+        socketRef.current = ws as typeof socketRef.current
+      } else if (clientRef.current) {
+        // Use SDK client
+        const socket = await clientRef.current.empathicVoice.chat.connect({
+          configId: configId,
+        })
+        
+        socket.on('open', handleOpen)
+        socket.on('message', handleMessage)
+        socket.on('error', handleError)
+        socket.on('close', handleClose)
+        
+        socketRef.current = socket
+      } else {
+        setError('No authentication method available')
+      }
     } catch (error) {
       console.error('[Trinity SDK] Connection error:', error)
       setError(`Failed to connect: ${error}`)

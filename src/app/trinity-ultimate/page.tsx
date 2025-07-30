@@ -105,26 +105,36 @@ function TrinityVoiceInterface() {
   
   // Enhanced connection with user context
   const handleConnect = useCallback(async () => {
-    const apiKey = process.env.NEXT_PUBLIC_HUME_API_KEY
-    const configId = process.env.NEXT_PUBLIC_HUME_CONFIG_ID
-    
-    if (!apiKey) {
-      console.error('Hume API key not configured')
-      return
-    }
-    
-    await connect({
-      auth: { type: 'apiKey', value: apiKey },
-      configId: configId || undefined
-    })
-    
-    // Send user context when connected
-    if (status.value === 'connected' && user) {
-      await sendSessionSettings({
-        context: {
-          text: `User: ${user.fullName || user.firstName || 'User'}, Session: ${session.sessionId}`
-        }
+    try {
+      // Get access token from API
+      const response = await fetch('/api/hume/token')
+      const data = await response.json()
+      
+      if (!data.accessToken) {
+        console.error('[Trinity Ultimate] No access token received')
+        setSession(prev => ({ ...prev, insights: [...prev.insights, 'Failed to get access token'] }))
+        return
+      }
+      
+      const configId = process.env.NEXT_PUBLIC_HUME_CONFIG_ID
+      console.log('[Trinity Ultimate] Connecting with access token and config:', configId)
+      
+      await connect({
+        auth: { type: 'accessToken', value: data.accessToken },
+        configId: configId || undefined
       })
+      
+      // Send user context when connected
+      if (status.value === 'connected' && user) {
+        await sendSessionSettings({
+          context: {
+            text: `User: ${user.fullName || user.firstName || 'User'}, Session: ${session.sessionId}`
+          }
+        })
+      }
+    } catch (error) {
+      console.error('[Trinity Ultimate] Connection failed:', error)
+      setSession(prev => ({ ...prev, insights: [...prev.insights, `Connection error: ${error}`] }))
     }
   }, [connect, sendSessionSettings, status.value, user, session.sessionId])
   
