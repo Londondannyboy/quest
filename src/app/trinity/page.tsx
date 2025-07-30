@@ -314,45 +314,7 @@ export default function TrinityPage() {
     }
   }
   
-  const playAudioChunk = async (base64Audio: string): Promise<void> => {
-    if (!audioContextRef.current) {
-      console.warn('[Trinity] No audio context available')
-      return
-    }
-    
-    try {
-      // Decode base64 to ArrayBuffer
-      const binaryString = atob(base64Audio)
-      const bytes = new Uint8Array(binaryString.length)
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i)
-      }
-      
-      // Decode audio data
-      const audioBuffer = await audioContextRef.current.decodeAudioData(bytes.buffer)
-      
-      // Create and play source
-      const source = audioContextRef.current.createBufferSource()
-      source.buffer = audioBuffer
-      source.connect(audioContextRef.current.destination)
-      
-      // Track in queue
-      audioQueueRef.current.push(source)
-      
-      source.onended = () => {
-        const index = audioQueueRef.current.indexOf(source)
-        if (index > -1) {
-          audioQueueRef.current.splice(index, 1)
-        }
-      }
-      
-      // Play immediately
-      source.start()
-      console.log(`[Trinity] Audio chunk playing, duration: ${audioBuffer.duration}s`)
-    } catch (error) {
-      console.error('[Trinity] Audio playback error:', error)
-    }
-  }
+  // Note: playAudioChunk is replaced by HumeAudioProcessor
 
   const stopAllAudio = () => {
     // Stop all playing audio

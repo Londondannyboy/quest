@@ -8,6 +8,7 @@ import { HUME_COACHES } from '@/lib/hume-config'
 
 function TrinityVoiceInterface() {
   const { connect, disconnect, status, messages } = useVoice()
+  const { user } = useUser()
   const [currentCoach] = useState<'STORY_COACH' | 'QUEST_COACH' | 'DELIVERY_COACH'>('STORY_COACH')
   
   // Extract conversation from messages
@@ -64,7 +65,7 @@ function TrinityVoiceInterface() {
       <div className="flex justify-center gap-4 mb-8">
         {status.value !== 'connected' ? (
           <button
-            onClick={() => connect()}
+            onClick={() => connect({})}
             disabled={status.value === 'connecting'}
             className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
           >
@@ -118,7 +119,7 @@ function TrinityVoiceInterface() {
 }
 
 export default function TrinityNativePage() {
-  const { isSignedIn, user } = useUser()
+  const { isSignedIn } = useUser()
   const router = useRouter()
   const [accessToken, setAccessToken] = useState<string>('')
   

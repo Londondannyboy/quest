@@ -14,7 +14,6 @@ import {
   MimeType,
   ChatSocket
 } from 'hume'
-import dynamic from 'next/dynamic'
 import { HUME_COACHES } from '@/lib/hume-config'
 
 // Note: EVIWebAudioPlayer is imported dynamically when needed to avoid SSR issues

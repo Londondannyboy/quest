@@ -3,9 +3,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
-import { VoiceProvider, useVoice, VoiceReadyState } from '@humeai/voice-react'
+import { VoiceProvider, useVoice } from '@humeai/voice-react'
 import { HUME_COACHES } from '@/lib/hume-config'
-import { getOrCreateSession, addMessage, updateSessionMetadata } from '@/lib/zep'
+import { getOrCreateSession, addMessage } from '@/lib/zep'
 import { debugVoiceCoachWithZen, planTrinitySessionWithZen } from '@/lib/mcp/zen-mcp-client'
 
 interface TrinitySession {
@@ -18,7 +18,7 @@ interface TrinitySession {
 }
 
 function TrinityVoiceInterface() {
-  const { connect, disconnect, status, messages, sendSessionSettings, sendUserInput } = useVoice()
+  const { connect, disconnect, status, messages, sendSessionSettings } = useVoice()
   const { user } = useUser()
   const [session, setSession] = useState<TrinitySession>({
     sessionId: Date.now().toString(),
