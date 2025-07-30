@@ -173,10 +173,14 @@ export async function POST(req: NextRequest) {
           professionalMirror: null,
           createdAt: new Date(),
           updatedAt: new Date()
-        } as any
+        } as User & {
+          trinity: Trinity | null
+          professionalMirror: ProfessionalMirror | null
+        }
       }
 
       if (user) {
+        try {
           // Get memory context from Zep
           const journeyContext = await getUserJourneyContext(user.id)
           
