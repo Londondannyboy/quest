@@ -10,6 +10,7 @@ export default function TrinityClmDebugPage() {
   const [loading, setLoading] = useState(false)
   const [testMessage, setTestMessage] = useState("Hello, who am I?")
   const [profileStatus, setProfileStatus] = useState<string>('')
+  const [userName, setUserName] = useState<string>('')
 
   // Fetch debug info
   const fetchDebugInfo = async () => {
@@ -26,6 +27,40 @@ export default function TrinityClmDebugPage() {
     }
   }
 
+  // Update user name
+  const updateUserName = async () => {
+    if (!userName.trim()) {
+      setProfileStatus('❌ Please enter a name')
+      return
+    }
+    
+    setLoading(true)
+    setProfileStatus('Updating name...')
+    try {
+      const response = await fetch('/api/user/update-name', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name: userName })
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setProfileStatus(`✅ Name updated to: ${data.user.name}`)
+        setUserName('')
+        // Refresh debug info to show updated name
+        await fetchDebugInfo()
+      } else {
+        setProfileStatus(`❌ Error: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Name update error:', error)
+      setProfileStatus(`❌ Error: ${String(error)}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+  
   // Create or update user profile
   const createOrUpdateProfile = async () => {
     setLoading(true)
@@ -134,6 +169,27 @@ export default function TrinityClmDebugPage() {
               {JSON.stringify(clmTest, null, 2)}
             </pre>
           )}
+        </div>
+
+        {/* Update Name Section */}
+        <div className="bg-gray-800 p-6 rounded-lg mb-6">
+          <h2 className="text-xl font-semibold mb-4">Update Your Name</h2>
+          <div className="flex gap-4">
+            <input
+              type="text"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+              placeholder="Enter your name..."
+              className="flex-1 px-4 py-2 bg-gray-700 rounded text-white"
+            />
+            <button
+              onClick={updateUserName}
+              disabled={loading || !userName.trim()}
+              className="px-6 py-2 bg-purple-600 hover:bg-purple-700 rounded disabled:opacity-50"
+            >
+              Update Name
+            </button>
+          </div>
         </div>
 
         {/* Profile Status */}
