@@ -41,7 +41,7 @@ function TrinityVoiceInterface() {
         const userData = await response.json()
         
         if (userData.id) {
-          const zepSession = await getOrCreateSession(userData.id, 'trinity-ultimate', {
+          const zepSession = await getOrCreateSession(userData.id, 'trinity', {
             sessionId: session.sessionId,
             startTime: session.startTime.toISOString(),
             sdkVersion: 'ultimate'
@@ -105,17 +105,27 @@ function TrinityVoiceInterface() {
   
   // Enhanced connection with user context
   const handleConnect = useCallback(async () => {
-    await connect()
+    const apiKey = process.env.NEXT_PUBLIC_HUME_API_KEY
+    const configId = process.env.NEXT_PUBLIC_HUME_CONFIG_ID
+    
+    if (!apiKey) {
+      console.error('Hume API key not configured')
+      return
+    }
+    
+    await connect({
+      auth: { type: 'apiKey', value: apiKey },
+      configId: configId || undefined
+    })
     
     // Send user context when connected
     if (status.value === 'connected' && user) {
       await sendSessionSettings({
         context: {
-          user_id: user.id,
-          user_name: user.fullName || user.firstName || 'User',
-          session_id: session.sessionId,
-          sdk_version: 'ultimate'
-        }
+          // Context can be any key-value pairs
+          username: user.fullName || user.firstName || 'User',
+          sessionId: session.sessionId
+        } as Record<string, unknown>
       })
     }
   }, [connect, sendSessionSettings, status.value, user, session.sessionId])

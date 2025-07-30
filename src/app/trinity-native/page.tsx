@@ -8,7 +8,6 @@ import { HUME_COACHES } from '@/lib/hume-config'
 
 function TrinityVoiceInterface() {
   const { connect, disconnect, status, messages } = useVoice()
-  const { user } = useUser()
   const [currentCoach] = useState<'STORY_COACH' | 'QUEST_COACH' | 'DELIVERY_COACH'>('STORY_COACH')
   
   // Extract conversation from messages
@@ -65,7 +64,18 @@ function TrinityVoiceInterface() {
       <div className="flex justify-center gap-4 mb-8">
         {status.value !== 'connected' ? (
           <button
-            onClick={() => connect({})}
+            onClick={async () => {
+              const apiKey = process.env.NEXT_PUBLIC_HUME_API_KEY
+              const configId = process.env.NEXT_PUBLIC_HUME_CONFIG_ID
+              if (!apiKey) {
+                console.error('Hume API key not configured')
+                return
+              }
+              await connect({
+                auth: { type: 'apiKey', value: apiKey },
+                configId: configId || undefined
+              })
+            }}
             disabled={status.value === 'connecting'}
             className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
           >
@@ -84,7 +94,7 @@ function TrinityVoiceInterface() {
       {/* Error Display */}
       {status.value === 'error' && (
         <div className="bg-red-900/50 border border-red-600 text-red-200 p-4 rounded mb-6">
-          {status.message || 'Connection error occurred'}
+          {status.reason || 'Connection error occurred'}
         </div>
       )}
       
@@ -157,14 +167,9 @@ export default function TrinityNativePage() {
     )
   }
   
-  // VoiceProvider configuration
-  const configId = process.env.NEXT_PUBLIC_HUME_CONFIG_ID
-  
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white p-8">
       <VoiceProvider
-        auth={{ type: 'accessToken', value: accessToken }}
-        configId={configId}
         onMessage={(message) => {
           console.log('[Trinity Native] Message:', message)
         }}

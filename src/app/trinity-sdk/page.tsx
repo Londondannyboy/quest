@@ -11,8 +11,7 @@ import {
   ensureSingleValidAudioTrack,
   getAudioStream,
   getBrowserSupportedMimeType,
-  MimeType,
-  ChatSocket
+  MimeType
 } from 'hume'
 import { HUME_COACHES } from '@/lib/hume-config'
 
@@ -32,7 +31,7 @@ export default function TrinitySdkPage() {
   
   // Refs
   const clientRef = useRef<HumeClient | null>(null)
-  const socketRef = useRef<ChatSocket | null>(null)
+  const socketRef = useRef<{ sendAudioInput: (data: { data: string }) => void, readyState: number, close: () => void } | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const playerRef = useRef<{ init: () => Promise<void>, enqueue: (msg: SubscribeEvent) => Promise<void>, stop: () => void } | null>(null)
   
