@@ -122,10 +122,8 @@ function TrinityVoiceInterface() {
     if (status.value === 'connected' && user) {
       await sendSessionSettings({
         context: {
-          // Context can be any key-value pairs
-          username: user.fullName || user.firstName || 'User',
-          sessionId: session.sessionId
-        } as Record<string, unknown>
+          text: `User: ${user.fullName || user.firstName || 'User'}, Session: ${session.sessionId}`
+        }
       })
     }
   }, [connect, sendSessionSettings, status.value, user, session.sessionId])
@@ -263,7 +261,7 @@ function TrinityVoiceInterface() {
       {/* Error Display */}
       {status.value === 'error' && (
         <div className="bg-red-900/50 border border-red-600 text-red-200 p-4 rounded mb-6">
-          {status.message || 'Connection error occurred'}
+          {status.reason || 'Connection error occurred'}
         </div>
       )}
       
@@ -308,8 +306,8 @@ function TrinityVoiceInterface() {
             <p>Messages: {messages.length}</p>
             <p>Status: {JSON.stringify(status)}</p>
             <p>Zep Session: {session.zepSessionId || 'Not initialized'}</p>
-            <p>Audio Events: {messages.filter(m => m.type === 'audio_output').length}</p>
-            <p>Errors: {messages.filter(m => m.type === 'error').length}</p>
+            <p>Assistant Messages: {messages.filter(m => m.type === 'assistant_message').length}</p>
+            <p>User Messages: {messages.filter(m => m.type === 'user_message').length}</p>
           </div>
         </div>
       )}
@@ -368,25 +366,17 @@ export default function TrinityUltimatePage() {
     )
   }
   
-  // VoiceProvider configuration with all features
-  const configId = process.env.NEXT_PUBLIC_HUME_CONFIG_ID
-  
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white p-8">
       <VoiceProvider
-        auth={{ type: 'accessToken', value: accessToken }}
-        configId={configId}
         onMessage={(message) => {
           console.log('[Trinity Ultimate] Message:', message)
         }}
         onError={(error) => {
           console.error('[Trinity Ultimate] Error:', error)
         }}
-        onClose={(event) => {
-          console.log('[Trinity Ultimate] Connection closed:', event)
-        }}
-        onOpen={() => {
-          console.log('[Trinity Ultimate] Connection opened')
+        onClose={() => {
+          console.log('[Trinity Ultimate] Connection closed')
         }}
       >
         <TrinityVoiceInterface />
