@@ -17,7 +17,7 @@ import { HUME_COACHES } from '@/lib/hume-config'
 // Note: EVIWebAudioPlayer is imported dynamically when needed to avoid SSR issues
 
 export default function TrinitySdkPage() {
-  const { isSignedIn, user } = useUser()
+  const { isSignedIn, user, isLoaded } = useUser()
   const router = useRouter()
   
   // State
@@ -37,10 +37,10 @@ export default function TrinitySdkPage() {
   
   // Redirect if not signed in
   useEffect(() => {
-    if (!isSignedIn) {
+    if (isLoaded && !isSignedIn) {
       router.push('/')
     }
-  }, [isSignedIn, router])
+  }, [isLoaded, isSignedIn, router])
   
   // Initialize Hume client
   useEffect(() => {
@@ -97,9 +97,21 @@ export default function TrinitySdkPage() {
     
     // Send user context if available
     if (socketRef.current && user) {
-      // Note: The SDK may handle this differently than raw WebSocket
-      // Check SDK documentation for proper context passing
-      console.log('[Trinity SDK] Connected with user:', user.id)
+      const contextMessage = {
+        type: 'session_settings',
+        session_settings: {
+          context: {
+            text: `User: ${user.fullName || user.firstName || 'User'}, ClerkID: ${user.id}`
+          }
+        }
+      }
+      
+      if (socketRef.current.send) {
+        socketRef.current.send(JSON.stringify(contextMessage))
+        console.log('[Trinity SDK] Sent user context:', user.id)
+      } else {
+        console.log('[Trinity SDK] Connected with user:', user.id)
+      }
     }
   }, [user])
   
@@ -306,6 +318,18 @@ export default function TrinitySdkPage() {
   }
   
   const coachInfo = getCoachInfo()
+  
+  // Show loading state while Clerk is loading
+  if (!isLoaded) {
+    return (
+      <main className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white p-8 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Loading...</h1>
+          <p className="text-gray-400">Initializing Trinity SDK...</p>
+        </div>
+      </main>
+    )
+  }
   
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white p-8">

@@ -128,7 +128,7 @@ function TrinityVoiceInterface() {
       if (status.value === 'connected' && user) {
         await sendSessionSettings({
           context: {
-            text: `User: ${user.fullName || user.firstName || 'User'}, Session: ${session.sessionId}`
+            text: `User: ${user.fullName || user.firstName || 'User'}, Session: ${session.sessionId}, ClerkID: ${user.id}`
           }
         })
       }
@@ -335,17 +335,17 @@ function TrinityVoiceInterface() {
 }
 
 export default function TrinityUltimatePage() {
-  const { isSignedIn } = useUser()
+  const { isSignedIn, isLoaded } = useUser()
   const router = useRouter()
   const [accessToken, setAccessToken] = useState<string>('')
   const [loading, setLoading] = useState(true)
   
   // Redirect if not signed in
   useEffect(() => {
-    if (!isSignedIn) {
+    if (isLoaded && !isSignedIn) {
       router.push('/')
     }
-  }, [isSignedIn, router])
+  }, [isLoaded, isSignedIn, router])
   
   // Get access token
   useEffect(() => {
@@ -365,7 +365,7 @@ export default function TrinityUltimatePage() {
     getToken()
   }, [])
   
-  if (loading || !accessToken) {
+  if (!isLoaded || loading || !accessToken) {
     return (
       <main className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white p-8 flex items-center justify-center">
         <div className="text-center">

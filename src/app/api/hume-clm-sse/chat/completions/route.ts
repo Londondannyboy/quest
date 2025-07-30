@@ -59,8 +59,22 @@ export async function POST(req: NextRequest) {
       // Check if user info is in the request body metadata
       const messages = body.messages || []
       if (!userId && messages.length > 0) {
+        // Check for ClerkID in context messages
+        for (const msg of messages) {
+          if (msg.content && typeof msg.content === 'string') {
+            const clerkIdMatch = msg.content.match(/ClerkID:\s*([\w-]+)/)
+            if (clerkIdMatch) {
+              userId = clerkIdMatch[1]
+              userSource = 'context_clerkid'
+              console.log(`[CLM ${callId}] Found ClerkID from context:`, userId)
+              break
+            }
+          }
+        }
+        
+        // Also check metadata
         const lastMessage = messages[messages.length - 1]
-        if (lastMessage.metadata?.user_id) {
+        if (!userId && lastMessage.metadata?.user_id) {
           userId = lastMessage.metadata.user_id
           userSource = 'message_metadata'
           console.log(`[CLM ${callId}] Found user from message metadata:`, userId)
@@ -232,7 +246,7 @@ Trinity Summary:
             controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`))
             
             // Small delay to simulate streaming
-            await new Promise(resolve => setTimeout(resolve, 50))
+            await new Promise(resolve => setTimeout(resolve, 10))
           }
 
           // Send completion

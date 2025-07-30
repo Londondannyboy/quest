@@ -1,14 +1,27 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { VoiceProvider, useVoice } from '@humeai/voice-react'
 import { HUME_COACHES } from '@/lib/hume-config'
 
 function TrinityVoiceInterface() {
-  const { connect, disconnect, status, messages } = useVoice()
+  const { connect, disconnect, status, messages, sendSessionSettings } = useVoice()
+  const { user } = useUser()
   const [currentCoach] = useState<'STORY_COACH' | 'QUEST_COACH' | 'DELIVERY_COACH'>('STORY_COACH')
+  
+  // Send user context when connected
+  useEffect(() => {
+    if (status.value === 'connected' && user && sendSessionSettings) {
+      sendSessionSettings({
+        context: {
+          text: `User: ${user.fullName || user.firstName || 'User'}, ClerkID: ${user.id}`
+        }
+      })
+      console.log('[Trinity Native] Sent user context')
+    }
+  }, [status.value, user, sendSessionSettings])
   
   // Extract conversation from messages
   const conversation = messages.filter(msg => 
@@ -139,16 +152,16 @@ function TrinityVoiceInterface() {
 }
 
 export default function TrinityNativePage() {
-  const { isSignedIn } = useUser()
+  const { isSignedIn, isLoaded } = useUser()
   const router = useRouter()
   const [accessToken, setAccessToken] = useState<string>('')
   
   // Redirect if not signed in
   useEffect(() => {
-    if (!isSignedIn) {
+    if (isLoaded && !isSignedIn) {
       router.push('/')
     }
-  }, [isSignedIn, router])
+  }, [isLoaded, isSignedIn, router])
   
   // Get access token
   useEffect(() => {
@@ -166,7 +179,7 @@ export default function TrinityNativePage() {
     getToken()
   }, [])
   
-  if (!accessToken) {
+  if (!isLoaded || !accessToken) {
     return (
       <main className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white p-8 flex items-center justify-center">
         <div className="text-center">

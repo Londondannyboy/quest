@@ -171,7 +171,8 @@ export default function TrinityPage() {
                   custom_session_id: audioSessionIdRef.current,
                   context: {
                     user_id: user.id,
-                    user_name: user.fullName || user.firstName || 'User'
+                    user_name: user.fullName || user.firstName || 'User',
+                    text: `User: ${user.fullName || user.firstName || 'User'}, ClerkID: ${user.id}`
                   }
                 }
               }
@@ -200,6 +201,11 @@ export default function TrinityPage() {
                 if (data.data && audioProcessorRef.current) {
                   await audioProcessorRef.current.addChunk(data.data)
                   console.log(`[Trinity] Buffered chunk ${audioProcessorRef.current.getChunkCount()}`)
+                  
+                  // If we're already playing, the chunk will be queued
+                  if (audioProcessorRef.current.isPlaying) {
+                    console.log('[Trinity] Audio already playing, chunk will be queued')
+                  }
                 }
                 break
                 
@@ -448,6 +454,14 @@ export default function TrinityPage() {
       setIsListening(false)
     } else {
       try {
+        // Check microphone permission first
+        const permissionResult = await navigator.permissions.query({ name: 'microphone' as PermissionName }).catch(() => null)
+        if (permissionResult && permissionResult.state === 'denied') {
+          console.error('[Trinity] Microphone permission denied')
+          alert('Microphone permission is required to use Trinity. Please allow microphone access and refresh the page.')
+          return
+        }
+        
         // Start recording
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
         const mediaRecorder = new MediaRecorder(stream, {
