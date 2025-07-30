@@ -8,7 +8,6 @@ import { getOrCreateSession, addMessage, updateSessionMetadata } from '@/lib/zep
 import { globalAudioFingerprinter } from '@/lib/audio-fingerprint'
 import { logger } from '@/lib/logger'
 import { wsManager } from '@/lib/websocket-manager'
-import { HumeAudioProcessor } from '@/lib/hume-audio-processor'
 
 export default function TrinityPage() {
   const { isSignedIn, user } = useUser()
@@ -28,8 +27,6 @@ export default function TrinityPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const zepSessionIdRef = useRef<string | null>(null)
   const audioSessionIdRef = useRef<string>(Date.now().toString())
-  const lastAudioMessageRef = useRef<{ content: string; timestamp: number } | null>(null)
-  const audioProcessorRef = useRef<HumeAudioProcessor | null>(null)
 
   useEffect(() => {
     if (!isSignedIn) {
@@ -42,13 +39,9 @@ export default function TrinityPage() {
     getAccessToken()
     initializeZepSession()
     
-    // Initialize audio processor
-    audioProcessorRef.current = new HumeAudioProcessor()
-    
     // Cleanup on unmount
     return () => {
       disconnectChat()
-      audioProcessorRef.current?.stop()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -195,28 +188,10 @@ export default function TrinityPage() {
             
             switch (data.type) {
               case 'audio_output':
-                // Handle audio output - add chunks to processor
-                if (data.data && audioProcessorRef.current) {
-                  const chunkInfo = {
-                    sessionId: audioSessionIdRef.current,
-                    chunkSize: data.data.length,
-                    timestamp: Date.now(),
-                    chunkCount: audioProcessorRef.current.getChunkCount()
-                  }
-                  
-                  // Check if we recently received an assistant message
-                  const recentMessage = lastAudioMessageRef.current && 
-                    (Date.now() - lastAudioMessageRef.current.timestamp) < 3000
-                  
-                  if (recentMessage) {
-                    // Add chunk to processor
-                    await audioProcessorRef.current.addChunk(data.data)
-                    console.log(`[Trinity] Added audio chunk ${audioProcessorRef.current.getChunkCount()} for message`)
-                    logger.debug('Trinity audio chunk added', chunkInfo)
-                  } else {
-                    console.log(`[Trinity] Ignoring audio chunk - no recent message`)
-                    logger.debug('Trinity audio chunk ignored - no recent message', chunkInfo)
-                  }
+                // Play audio chunks immediately as they arrive
+                if (data.data) {
+                  console.log(`[Trinity] Playing audio chunk immediately`)
+                  await playAudioChunk(data.data)
                 }
                 break
                 
@@ -225,35 +200,12 @@ export default function TrinityPage() {
                 if (data.message?.content) {
                   console.log('Coach:', data.message.content)
                   checkPhaseTransition(data.message.content)
-                  
-                  // Clear any existing audio and prepare for new chunks
-                  audioProcessorRef.current?.stop()
-                  audioProcessorRef.current?.clear()
-                  
-                  // Track this message to collect its audio chunks
-                  lastAudioMessageRef.current = {
-                    content: data.message.content,
-                    timestamp: Date.now()
-                  }
                 }
                 break
                 
               case 'assistant_end':
-                // Assistant finished speaking - play all audio chunks
-                if (audioProcessorRef.current) {
-                  const chunkCount = audioProcessorRef.current.getChunkCount()
-                  console.log(`[Trinity] Assistant finished, playing ${chunkCount} audio chunks`)
-                  
-                  if (chunkCount > 0) {
-                    // Play all accumulated chunks
-                    audioProcessorRef.current.playAll()
-                  }
-                  
-                  // Clear the message reference after a delay
-                  setTimeout(() => {
-                    lastAudioMessageRef.current = null
-                  }, 1000)
-                }
+                // Assistant finished speaking
+                console.log('[Trinity] Assistant finished speaking')
                 break
                 
               case 'user_message':
@@ -274,8 +226,7 @@ export default function TrinityPage() {
                   code: errorData.code,
                   message: errorData.message,
                   type: errorData.type,
-                  audioSessionId: audioSessionIdRef.current,
-                  audioChunks: audioProcessorRef.current?.getChunkCount() || 0
+                  audioSessionId: audioSessionIdRef.current
                 })
                 
                 // Don't stop audio on error - let it complete
@@ -340,7 +291,46 @@ export default function TrinityPage() {
       isConnectingRef.current = false
     }
   }
-
+  
+  const playAudioChunk = async (base64Audio: string): Promise<void> => {
+    if (!audioContextRef.current) {
+      console.warn('[Trinity] No audio context available')
+      return
+    }
+    
+    try {
+      // Decode base64 to ArrayBuffer
+      const binaryString = atob(base64Audio)
+      const bytes = new Uint8Array(binaryString.length)
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i)
+      }
+      
+      // Decode audio data
+      const audioBuffer = await audioContextRef.current.decodeAudioData(bytes.buffer)
+      
+      // Create and play source
+      const source = audioContextRef.current.createBufferSource()
+      source.buffer = audioBuffer
+      source.connect(audioContextRef.current.destination)
+      
+      // Track in queue
+      audioQueueRef.current.push(source)
+      
+      source.onended = () => {
+        const index = audioQueueRef.current.indexOf(source)
+        if (index > -1) {
+          audioQueueRef.current.splice(index, 1)
+        }
+      }
+      
+      // Play immediately
+      source.start()
+      console.log(`[Trinity] Audio chunk playing, duration: ${audioBuffer.duration}s`)
+    } catch (error) {
+      console.error('[Trinity] Audio playback error:', error)
+    }
+  }
 
   const stopAllAudio = () => {
     // Stop all playing audio
@@ -352,9 +342,6 @@ export default function TrinityPage() {
       }
     })
     audioQueueRef.current = []
-    
-    // Stop audio processor
-    audioProcessorRef.current?.stop()
     console.log('[Trinity] Stopped all audio')
   }
 
