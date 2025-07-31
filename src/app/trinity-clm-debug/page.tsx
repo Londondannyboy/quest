@@ -15,6 +15,7 @@ export default function TrinityClmDebugPage() {
   const [linkedinStructure, setLinkedinStructure] = useState<Record<string, unknown> | null>(null)
   const [dbTestResult, setDbTestResult] = useState<Record<string, unknown> | null>(null)
   const [zepStatus, setZepStatus] = useState<string>('')
+  const [humeConfig, setHumeConfig] = useState<Record<string, unknown> | null>(null)
 
   // Fetch debug info
   const fetchDebugInfo = async () => {
@@ -186,6 +187,27 @@ export default function TrinityClmDebugPage() {
     }
   }
   
+  // Check Hume configuration
+  const checkHumeConfig = async () => {
+    setLoading(true)
+    setProfileStatus('Checking Hume configuration...')
+    try {
+      const response = await fetch('/api/hume/check-config')
+      const data = await response.json()
+      setHumeConfig(data)
+      if (data.success) {
+        setProfileStatus(`✅ Hume config loaded - Custom LLM: ${data.analysis.hasCustomLLM}`)
+      } else {
+        setProfileStatus(`❌ Error: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Hume config error:', error)
+      setProfileStatus(`❌ Error: ${String(error)}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+  
   // Test CLM endpoint
   const testClmEndpoint = async () => {
     setLoading(true)
@@ -333,6 +355,16 @@ export default function TrinityClmDebugPage() {
             </pre>
           </div>
         )}
+        
+        {/* Hume Configuration */}
+        {humeConfig && (
+          <div className="bg-gray-800 p-6 rounded-lg mb-6">
+            <h2 className="text-xl font-semibold mb-4">Hume Configuration</h2>
+            <pre className="text-sm overflow-x-auto">
+              {JSON.stringify(humeConfig, null, 2)}
+            </pre>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex gap-4 flex-wrap">
@@ -377,6 +409,13 @@ export default function TrinityClmDebugPage() {
             className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded disabled:opacity-50"
           >
             Initialize Zep
+          </button>
+          <button
+            onClick={checkHumeConfig}
+            disabled={loading}
+            className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 rounded disabled:opacity-50"
+          >
+            Check Hume Config
           </button>
           <a
             href="/trinity"
