@@ -32,7 +32,7 @@ export async function GET() {
           hasPassword: !!parsed.password,
           hasUsername: !!parsed.username
         }
-      } catch (error) {
+      } catch {
         dbUrlAnalysis = {
           error: 'Invalid URL format',
           startsWithProtocol: url.startsWith('postgres://') || url.startsWith('postgresql://'),

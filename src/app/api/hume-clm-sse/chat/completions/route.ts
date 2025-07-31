@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 import { getOrCreateSession, addMessage, getUserJourneyContext } from '@/lib/zep'
+import { syncUserToZep, getUserFromZep, UserProfile } from '@/lib/zep-user-sync'
 import { User, Trinity, ProfessionalMirror } from '@prisma/client'
 
 export async function POST(req: NextRequest) {
@@ -156,33 +157,78 @@ export async function POST(req: NextRequest) {
 
     // Get user context if authenticated
     let userContext = ''
+    let userProfile: UserProfile | null = null
     let user: (User & {
       trinity: Trinity | null
       professionalMirror: ProfessionalMirror | null
     }) | null = null
     
     if (userId) {
-      try {
-        console.log(`[CLM ${callId}] Looking up user with ClerkID:`, userId)
-        user = await prisma.user.findUnique({
-          where: { clerkId: userId },
-          include: {
-            trinity: true,
-            professionalMirror: true,
-          }
+      // First, try to sync from database to Zep
+      console.log(`[CLM ${callId}] Syncing user data for ClerkID:`, userId)
+      userProfile = await syncUserToZep(userId)
+      
+      if (!userProfile) {
+        console.log(`[CLM ${callId}] No user profile found, trying Zep directly`)
+        userProfile = await getUserFromZep(userId)
+      }
+      
+      if (userProfile) {
+        console.log(`[CLM ${callId}] User profile from Zep:`, {
+          name: userProfile.name,
+          email: userProfile.email,
+          hasTrinity: !!userProfile.trinity,
+          hasProfessionalMirror: !!userProfile.professionalMirror
         })
-        console.log(`[CLM ${callId}] Database user found:`, {
-          id: user?.id,
-          name: user?.name,
-          email: user?.email,
-          hasTrinity: !!user?.trinity,
-          hasProfessionalMirror: !!user?.professionalMirror
-        })
-      } catch (dbError) {
-        console.error(`[CLM ${callId}] Database query error:`, dbError)
-        console.log(`[CLM ${callId}] Database unavailable, using fallback user`)
-        // Create fallback user for when database is down
-        // Check if this is the known user based on ClerkID
+        
+        // Convert UserProfile to User format for compatibility
+        user = {
+          id: userProfile.userId,
+          clerkId: userProfile.clerkId,
+          email: userProfile.email,
+          name: userProfile.name,
+          trinity: userProfile.trinity ? {
+            id: 'zep-trinity',
+            userId: userProfile.userId,
+            pastQuest: userProfile.trinity.pastQuest || null,
+            presentQuest: userProfile.trinity.presentQuest || null,
+            futureQuest: userProfile.trinity.futureQuest || null,
+            pastService: null,
+            presentService: null,
+            futureService: null,
+            pastPledge: null,
+            presentPledge: null,
+            futurePledge: null,
+            clarityScore: userProfile.trinity.clarityScore,
+            evolutionData: null,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          } : null,
+          professionalMirror: userProfile.professionalMirror ? {
+            id: 'zep-pm',
+            userId: userProfile.userId,
+            linkedinUrl: userProfile.professionalMirror.linkedinUrl || null,
+            lastScraped: null,
+            rawLinkedinData: {
+              headline: userProfile.professionalMirror.headline,
+              company: userProfile.professionalMirror.company,
+              location: userProfile.professionalMirror.location
+            },
+            enrichmentData: null,
+            companyScraped: false,
+            employeesScrapedAt: null,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          } : null,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        } as User & {
+          trinity: Trinity | null
+          professionalMirror: ProfessionalMirror | null
+        }
+      } else {
+        // Ultimate fallback for known users
+        console.log(`[CLM ${callId}] No profile in Zep, using hardcoded fallback`)
         const isKnownUser = userId === 'user_30WYPgDczAxAn5M24tqNcfd0w1E'
         user = {
           id: isKnownUser ? 'dan-keegan' : 'demo-user',
@@ -190,18 +236,7 @@ export async function POST(req: NextRequest) {
           email: isKnownUser ? 'keegan.dan@gmail.com' : 'demo@example.com',
           name: isKnownUser ? 'Dan' : 'Demo User',
           trinity: null,
-          professionalMirror: isKnownUser ? {
-            id: 'pm-fallback',
-            userId: 'dan-keegan',
-            linkedinUrl: 'https://linkedin.com/in/dankeegan',
-            lastScraped: new Date(),
-            rawLinkedinData: { headline: 'Professional' },
-            enrichmentData: null,
-            companyScraped: false,
-            employeesScrapedAt: null,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          } : null,
+          professionalMirror: null,
           createdAt: new Date(),
           updatedAt: new Date()
         } as User & {

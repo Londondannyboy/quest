@@ -14,6 +14,7 @@ export default function TrinityClmDebugPage() {
   const [linkedinData, setLinkedinData] = useState<Record<string, unknown> | null>(null)
   const [linkedinStructure, setLinkedinStructure] = useState<Record<string, unknown> | null>(null)
   const [dbTestResult, setDbTestResult] = useState<Record<string, unknown> | null>(null)
+  const [zepStatus, setZepStatus] = useState<string>('')
 
   // Fetch debug info
   const fetchDebugInfo = async () => {
@@ -161,6 +162,30 @@ export default function TrinityClmDebugPage() {
     }
   }
   
+  // Initialize user in Zep
+  const initializeZep = async () => {
+    setLoading(true)
+    setZepStatus('Initializing user in Zep...')
+    try {
+      const response = await fetch('/api/user/init-zep', {
+        method: 'POST'
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setZepStatus(`✅ ${data.message}`)
+        // Refresh debug info to see updated status
+        await fetchDebugInfo()
+      } else {
+        setZepStatus(`❌ Error: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Zep init error:', error)
+      setZepStatus(`❌ Error: ${String(error)}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+  
   // Test CLM endpoint
   const testClmEndpoint = async () => {
     setLoading(true)
@@ -272,6 +297,13 @@ export default function TrinityClmDebugPage() {
           </div>
         )}
         
+        {/* Zep Status */}
+        {zepStatus && (
+          <div className="bg-gray-800 p-4 rounded-lg mb-6">
+            <p className="text-sm font-mono">{zepStatus}</p>
+          </div>
+        )}
+        
         {/* LinkedIn Data */}
         {linkedinData && (
           <div className="bg-gray-800 p-6 rounded-lg mb-6">
@@ -338,6 +370,13 @@ export default function TrinityClmDebugPage() {
             className="px-6 py-3 bg-red-600 hover:bg-red-700 rounded disabled:opacity-50"
           >
             Test Database
+          </button>
+          <button
+            onClick={initializeZep}
+            disabled={loading}
+            className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded disabled:opacity-50"
+          >
+            Initialize Zep
           </button>
           <a
             href="/trinity"
