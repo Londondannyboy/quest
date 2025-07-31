@@ -2,9 +2,15 @@ import { ZepClient } from '@getzep/zep-js'
 import { prisma } from '@/lib/prisma'
 import { User, Trinity, ProfessionalMirror } from '@prisma/client'
 
-const zepClient = new ZepClient({
-  apiKey: process.env.ZEP_API_KEY!,
-})
+// Initialize Zep client only if API key is available
+let zepClient: ZepClient | null = null
+
+if (process.env.ZEP_API_KEY) {
+  zepClient = new ZepClient({
+    apiKey: process.env.ZEP_API_KEY,
+    baseUrl: process.env.ZEP_BASE_URL || 'https://api.getzep.com',
+  })
+}
 
 export interface UserProfile {
   userId: string
@@ -85,17 +91,19 @@ export async function syncUserToZep(clerkId: string): Promise<UserProfile | null
       }
     }
     
-    // Store in Zep user metadata
-    try {
-      await zepClient.user.add({
-        user_id: clerkId,
-        metadata: profile,
-      })
-    } catch {
-      // Update if user already exists
-      await zepClient.user.update(clerkId, {
-        metadata: profile,
-      })
+    // Store in Zep user metadata if client is available
+    if (zepClient) {
+      try {
+        await zepClient.user.add({
+          userId: clerkId,
+          metadata: profile as unknown as Record<string, unknown>,
+        })
+      } catch {
+        // Update if user already exists
+        await zepClient.user.update(clerkId, {
+          metadata: profile as unknown as Record<string, unknown>,
+        })
+      }
     }
     
     return profile
@@ -110,10 +118,14 @@ export async function syncUserToZep(clerkId: string): Promise<UserProfile | null
  * This is the fallback when database is unavailable
  */
 export async function getUserFromZep(clerkId: string): Promise<UserProfile | null> {
+  if (!zepClient) {
+    return null
+  }
+  
   try {
     const zepUser = await zepClient.user.get(clerkId)
     if (zepUser && zepUser.metadata) {
-      return zepUser.metadata as UserProfile
+      return zepUser.metadata as unknown as UserProfile
     }
     return null
   } catch (error) {
@@ -145,10 +157,12 @@ export async function updateUserProfile(
       ...updates,
     }
     
-    // Update Zep first (source of truth)
-    await zepClient.user.update(clerkId, {
-      metadata: updatedProfile,
-    })
+    // Update Zep first (source of truth) if available
+    if (zepClient) {
+      await zepClient.user.update(clerkId, {
+        metadata: updatedProfile as unknown as Record<string, unknown>,
+      })
+    }
     
     // Try to update database
     try {
@@ -199,16 +213,18 @@ export async function initializeUserInZep(
     email,
   }
   
-  try {
-    await zepClient.user.add({
-      user_id: clerkId,
-      metadata: profile,
-    })
-  } catch {
-    // Update if already exists
-    await zepClient.user.update(clerkId, {
-      metadata: profile,
-    })
+  if (zepClient) {
+    try {
+      await zepClient.user.add({
+        userId: clerkId,
+        metadata: profile as unknown as Record<string, unknown>,
+      })
+    } catch {
+      // Update if already exists
+      await zepClient.user.update(clerkId, {
+        metadata: profile as unknown as Record<string, unknown>,
+      })
+    }
   }
   
   return profile
