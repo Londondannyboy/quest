@@ -10,6 +10,14 @@ export async function POST() {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
     
+    // Check if Zep is configured
+    if (!process.env.ZEP_API_KEY) {
+      return NextResponse.json({ 
+        error: 'Zep is not configured',
+        details: 'ZEP_API_KEY environment variable is not set'
+      }, { status: 503 })
+    }
+    
     // Initialize user in Zep with known data
     // This is specifically for Dan's account
     if (userId === 'user_30WYPgDczAxAn5M24tqNcfd0w1E') {

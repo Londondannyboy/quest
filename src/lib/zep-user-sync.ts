@@ -6,10 +6,20 @@ import { User, Trinity, ProfessionalMirror } from '@prisma/client'
 let zepClient: ZepClient | null = null
 
 if (process.env.ZEP_API_KEY) {
-  zepClient = new ZepClient({
-    apiKey: process.env.ZEP_API_KEY,
-    baseUrl: process.env.ZEP_BASE_URL || 'https://api.getzep.com',
-  })
+  // Default to Zep cloud URL if not specified
+  // Some environments have issues with https:// in env vars
+  const baseUrl = process.env.ZEP_BASE_URL || 'api.getzep.com'
+  const fullUrl = baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`
+  
+  try {
+    zepClient = new ZepClient({
+      apiKey: process.env.ZEP_API_KEY,
+      baseUrl: fullUrl,
+    })
+    console.log('Zep client initialized with URL:', fullUrl)
+  } catch (error) {
+    console.error('Failed to initialize Zep client:', error)
+  }
 }
 
 export interface UserProfile {
