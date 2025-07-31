@@ -16,6 +16,7 @@ export default function TrinityClmDebugPage() {
   const [dbTestResult, setDbTestResult] = useState<Record<string, unknown> | null>(null)
   const [zepStatus, setZepStatus] = useState<string>('')
   const [humeConfig, setHumeConfig] = useState<Record<string, unknown> | null>(null)
+  const [newConfigResult, setNewConfigResult] = useState<Record<string, unknown> | null>(null)
 
   // Fetch debug info
   const fetchDebugInfo = async () => {
@@ -208,6 +209,29 @@ export default function TrinityClmDebugPage() {
     }
   }
   
+  // Create new Hume config
+  const createHumeConfig = async () => {
+    setLoading(true)
+    setProfileStatus('Creating new Hume config with custom LLM...')
+    try {
+      const response = await fetch('/api/hume/create-custom-config', {
+        method: 'POST'
+      })
+      const data = await response.json()
+      setNewConfigResult(data)
+      if (data.success) {
+        setProfileStatus(`✅ New config created! ID: ${data.config.id}`)
+      } else {
+        setProfileStatus(`❌ Error: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Create config error:', error)
+      setProfileStatus(`❌ Error: ${String(error)}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+  
   // Test CLM endpoint
   const testClmEndpoint = async () => {
     setLoading(true)
@@ -365,6 +389,16 @@ export default function TrinityClmDebugPage() {
             </pre>
           </div>
         )}
+        
+        {/* New Config Result */}
+        {newConfigResult && (
+          <div className="bg-gray-800 p-6 rounded-lg mb-6">
+            <h2 className="text-xl font-semibold mb-4">New Config Created</h2>
+            <pre className="text-sm overflow-x-auto">
+              {JSON.stringify(newConfigResult, null, 2)}
+            </pre>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex gap-4 flex-wrap">
@@ -416,6 +450,13 @@ export default function TrinityClmDebugPage() {
             className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 rounded disabled:opacity-50"
           >
             Check Hume Config
+          </button>
+          <button
+            onClick={createHumeConfig}
+            disabled={loading}
+            className="px-6 py-3 bg-orange-600 hover:bg-orange-700 rounded disabled:opacity-50"
+          >
+            Create New Config
           </button>
           <a
             href="/trinity"
