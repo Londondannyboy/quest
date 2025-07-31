@@ -180,15 +180,28 @@ export async function POST(req: NextRequest) {
         })
       } catch (dbError) {
         console.error(`[CLM ${callId}] Database query error:`, dbError)
-        console.log(`[CLM ${callId}] Database unavailable, using mock user`)
-        // Create mock user for demo
+        console.log(`[CLM ${callId}] Database unavailable, using fallback user`)
+        // Create fallback user for when database is down
+        // Check if this is the known user based on ClerkID
+        const isKnownUser = userId === 'user_30WYPgDczAxAn5M24tqNcfd0w1E'
         user = {
-          id: 'demo-user',
+          id: isKnownUser ? 'dan-keegan' : 'demo-user',
           clerkId: userId,
-          email: 'demo@example.com',
-          name: 'Demo User',
+          email: isKnownUser ? 'keegan.dan@gmail.com' : 'demo@example.com',
+          name: isKnownUser ? 'Dan' : 'Demo User',
           trinity: null,
-          professionalMirror: null,
+          professionalMirror: isKnownUser ? {
+            id: 'pm-fallback',
+            userId: 'dan-keegan',
+            linkedinUrl: 'https://linkedin.com/in/dankeegan',
+            lastScraped: new Date(),
+            rawLinkedinData: { headline: 'Professional' },
+            enrichmentData: null,
+            companyScraped: false,
+            employeesScrapedAt: null,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          } : null,
           createdAt: new Date(),
           updatedAt: new Date()
         } as User & {
@@ -200,11 +213,18 @@ export async function POST(req: NextRequest) {
       if (user) {
         try {
           // Get memory context from Zep
-          const journeyContext = await getUserJourneyContext(user.id)
+          let journeyContext = ''
+          try {
+            journeyContext = await getUserJourneyContext(user.id)
+          } catch (error) {
+            console.error(`[CLM ${callId}] Error getting journey context:`, error)
+          }
           
           userContext = `
 User Context:
 - Name: ${user.name || 'Unknown'}
+- Email: ${user.email || 'Unknown'}
+- Clerk ID: ${user.clerkId}
 - Has Trinity: ${user.trinity ? 'Yes' : 'No'}
 - Has Professional Mirror: ${user.professionalMirror ? 'Yes' : 'No'}
 `

@@ -12,6 +12,8 @@ export default function TrinityClmDebugPage() {
   const [profileStatus, setProfileStatus] = useState<string>('')
   const [userName, setUserName] = useState<string>('')
   const [linkedinData, setLinkedinData] = useState<Record<string, unknown> | null>(null)
+  const [linkedinStructure, setLinkedinStructure] = useState<Record<string, unknown> | null>(null)
+  const [dbTestResult, setDbTestResult] = useState<Record<string, unknown> | null>(null)
 
   // Fetch debug info
   const fetchDebugInfo = async () => {
@@ -111,6 +113,48 @@ export default function TrinityClmDebugPage() {
       }
     } catch (error) {
       console.error('Profile creation error:', error)
+      setProfileStatus(`❌ Error: ${String(error)}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  // Show LinkedIn data structure
+  const showLinkedInStructure = async () => {
+    setLoading(true)
+    setProfileStatus('Fetching LinkedIn data structure...')
+    try {
+      const response = await fetch('/api/user/show-linkedin-data')
+      const data = await response.json()
+      if (response.ok) {
+        setLinkedinStructure(data)
+        setProfileStatus('✅ LinkedIn data structure loaded')
+      } else {
+        setProfileStatus(`❌ Error: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('LinkedIn structure error:', error)
+      setProfileStatus(`❌ Error: ${String(error)}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  // Test database connection
+  const testDatabase = async () => {
+    setLoading(true)
+    setProfileStatus('Testing database connection...')
+    try {
+      const response = await fetch('/api/test-db')
+      const data = await response.json()
+      setDbTestResult(data)
+      if (data.database?.status === 'Connected') {
+        setProfileStatus('✅ Database connected successfully')
+      } else {
+        setProfileStatus(`❌ Database connection failed: ${data.database?.error}`)
+      }
+    } catch (error) {
+      console.error('Database test error:', error)
       setProfileStatus(`❌ Error: ${String(error)}`)
     } finally {
       setLoading(false)
@@ -237,6 +281,26 @@ export default function TrinityClmDebugPage() {
             </pre>
           </div>
         )}
+        
+        {/* LinkedIn Structure Analysis */}
+        {linkedinStructure && (
+          <div className="bg-gray-800 p-6 rounded-lg mb-6">
+            <h2 className="text-xl font-semibold mb-4">LinkedIn Data Structure Analysis</h2>
+            <pre className="text-sm overflow-x-auto">
+              {JSON.stringify(linkedinStructure, null, 2)}
+            </pre>
+          </div>
+        )}
+        
+        {/* Database Test Results */}
+        {dbTestResult && (
+          <div className="bg-gray-800 p-6 rounded-lg mb-6">
+            <h2 className="text-xl font-semibold mb-4">Database Test Results</h2>
+            <pre className="text-sm overflow-x-auto">
+              {JSON.stringify(dbTestResult, null, 2)}
+            </pre>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex gap-4 flex-wrap">
@@ -260,6 +324,20 @@ export default function TrinityClmDebugPage() {
             className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded disabled:opacity-50"
           >
             Populate from LinkedIn
+          </button>
+          <button
+            onClick={showLinkedInStructure}
+            disabled={loading}
+            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 rounded disabled:opacity-50"
+          >
+            Show LinkedIn Structure
+          </button>
+          <button
+            onClick={testDatabase}
+            disabled={loading}
+            className="px-6 py-3 bg-red-600 hover:bg-red-700 rounded disabled:opacity-50"
+          >
+            Test Database
           </button>
           <a
             href="/trinity"

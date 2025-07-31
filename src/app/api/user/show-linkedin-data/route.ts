@@ -23,6 +23,49 @@ export async function GET() {
     }
     
     // Return the raw LinkedIn data so we can see its structure
+    const rawData = user.professionalMirror.rawLinkedinData as Record<string, unknown>
+    
+    // Extract possible name fields
+    const possibleNames: Record<string, unknown> = {}
+    if (rawData) {
+      // Check top level
+      possibleNames.topLevel = {
+        name: rawData.name,
+        fullName: rawData.fullName,
+        displayName: rawData.displayName,
+        firstName: rawData.firstName,
+        lastName: rawData.lastName,
+        headline: rawData.headline,
+        title: rawData.title
+      }
+      
+      // Check if data is nested
+      if (rawData.data && typeof rawData.data === 'object') {
+        const nestedData = rawData.data as Record<string, unknown>
+        possibleNames.nested = {
+          name: nestedData.name,
+          fullName: nestedData.fullName,
+          displayName: nestedData.displayName,
+          firstName: nestedData.firstName,
+          lastName: nestedData.lastName,
+          headline: nestedData.headline,
+          title: nestedData.title
+        }
+      }
+      
+      // Check for profile object
+      if (rawData.profile && typeof rawData.profile === 'object') {
+        const profile = rawData.profile as Record<string, unknown>
+        possibleNames.profile = {
+          name: profile.name,
+          fullName: profile.fullName,
+          displayName: profile.displayName,
+          firstName: profile.firstName,
+          lastName: profile.lastName
+        }
+      }
+    }
+    
     return NextResponse.json({
       user: {
         id: user.id,
@@ -35,6 +78,11 @@ export async function GET() {
         lastScraped: user.professionalMirror.lastScraped,
         rawLinkedinData: user.professionalMirror.rawLinkedinData,
         enrichmentData: user.professionalMirror.enrichmentData
+      },
+      nameExtraction: {
+        currentUserName: user.name,
+        possibleNameFields: possibleNames,
+        dataKeys: rawData ? Object.keys(rawData) : []
       }
     })
   } catch (error) {

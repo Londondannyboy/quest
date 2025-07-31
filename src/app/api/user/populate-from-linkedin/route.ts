@@ -31,14 +31,34 @@ export async function POST() {
     const linkedinData = user.professionalMirror.rawLinkedinData as Record<string, unknown>
     let extractedName = user.name // Keep existing if we can't extract
     
+    // Debug: Log the actual structure
+    console.log('LinkedIn data structure:', JSON.stringify(linkedinData, null, 2))
+    
     if (linkedinData) {
+      // Check if data is nested under a 'data' property
+      const actualData = (linkedinData.data as Record<string, unknown>) || linkedinData
+      
       // Try different fields where name might be stored
-      extractedName = (linkedinData.name as string) || 
-                     (linkedinData.fullName as string) ||
-                     (linkedinData.firstName && linkedinData.lastName 
-                       ? `${linkedinData.firstName} ${linkedinData.lastName}`.trim()
-                       : (linkedinData.headline as string)?.split(' at ')[0]) || // Sometimes name is in headline
-                         user.name
+      extractedName = (actualData.name as string) || 
+                     (actualData.fullName as string) ||
+                     (actualData.displayName as string) ||
+                     (actualData.firstName && actualData.lastName 
+                       ? `${actualData.firstName} ${actualData.lastName}`.trim()
+                       : null) ||
+                     (actualData.headline as string)?.split(' at ')[0] ||
+                     (actualData.title as string) ||
+                     user.name
+      
+      // If still no name, check for nested profile object
+      if (extractedName === user.name && actualData.profile) {
+        const profile = actualData.profile as Record<string, unknown>
+        extractedName = (profile.name as string) || 
+                       (profile.fullName as string) ||
+                       (profile.firstName && profile.lastName 
+                         ? `${profile.firstName} ${profile.lastName}`.trim()
+                         : null) ||
+                       extractedName
+      }
     }
     
     // Update user with extracted name
