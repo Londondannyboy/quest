@@ -36,7 +36,8 @@ export async function GET() {
     // Check config details
     const configResponse = await fetch(`https://api.hume.ai/v0/evi/configs/${configId}`, {
       headers: {
-        'Authorization': `Bearer ${access_token}`
+        'Authorization': `Bearer ${access_token}`,
+        'X-Hume-AI-Id': apiKey // Add the required header
       }
     })
     

@@ -11,14 +11,17 @@ export async function POST() {
       }, { status: 400 })
     }
     
-    // Get access token
+    // Get access token using form-encoded body (same as working token endpoint)
     const tokenResponse = await fetch('https://api.hume.ai/oauth2-cc/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${Buffer.from(`${apiKey}:${secretKey}`).toString('base64')}`
       },
-      body: 'grant_type=client_credentials'
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: apiKey,
+        client_secret: secretKey,
+      }),
     })
     
     if (!tokenResponse.ok) {
@@ -62,7 +65,8 @@ export async function POST() {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${access_token}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-Hume-AI-Id': apiKey // Add the required header
       },
       body: JSON.stringify(configData)
     })
