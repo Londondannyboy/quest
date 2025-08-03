@@ -222,6 +222,29 @@ Last Updated: 2025-07-26
 - **Status**: Phase 3 after product-market fit
 - **Related Files**: `V2_WEB_SEARCH_INTEGRATION.md`
 
+### Arcade.dev
+- **Purpose**: AI agent authentication and tool-calling platform for user actions
+- **Website**: https://arcade.dev/
+- **Documentation**: https://docs.arcade.dev/home
+- **Key Features**:
+  - OAuth 2.0 authentication for user services
+  - Pre-built integrations (Gmail, LinkedIn, GitHub, Calendar, etc.)
+  - Just-in-time authorization flows
+  - User-specific token management
+  - LangGraph integration for workflows
+- **Use Cases**:
+  - Automated job applications via Gmail
+  - LinkedIn networking and outreach
+  - Calendar scheduling for interviews
+  - GitHub project creation for portfolios
+  - Cross-platform workflow orchestration
+- **Pricing**: 
+  - Free tier: 10 MAU, 1,000 calls/month
+  - Starter: $50/month (200 MAU, 20K calls)
+  - Growth: $200/month (800 MAU, 100K calls)
+- **Status**: Priority integration for V2
+- **Related Files**: `ARCADE_INTEGRATION_ANALYSIS.md`, `ARCADE_IMPLEMENTATION_GUIDE.md`, `QUEST_CORE_ARCADE_WORKFLOWS.md`
+
 ---
 
 ## 🕷️ Primary Scraping
