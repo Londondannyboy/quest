@@ -558,7 +558,180 @@ export default {
 }
 ```
 
-### 6. Article Schema (SEO Content)
+### 6. News Article Schema
+
+```javascript
+// schemas/newsArticle.js
+export default {
+  name: 'newsArticle',
+  type: 'document',
+  title: 'News Article',
+  fields: [
+    {
+      name: 'headline',
+      type: 'string',
+      title: 'Headline',
+      validation: Rule => Rule.required().max(120)
+    },
+    {
+      name: 'slug',
+      type: 'slug',
+      options: {
+        source: 'headline',
+        maxLength: 96
+      }
+    },
+    {
+      name: 'subheading',
+      type: 'string',
+      title: 'Subheading',
+      validation: Rule => Rule.max(200)
+    },
+    {
+      name: 'category',
+      type: 'string',
+      title: 'News Category',
+      options: {
+        list: [
+          {title: 'Funding News', value: 'funding'},
+          {title: 'Market Moves', value: 'market-moves'},
+          {title: 'People & Leadership', value: 'people'},
+          {title: 'Product Launches', value: 'products'},
+          {title: 'Industry Analysis', value: 'analysis'},
+          {title: 'Deals & Exits', value: 'deals'},
+          {title: 'Innovation & Tech', value: 'tech'}
+        ]
+      }
+    },
+    {
+      name: 'content',
+      type: 'array',
+      title: 'Article Content',
+      of: [
+        {type: 'block'},
+        {
+          type: 'image',
+          fields: [
+            {name: 'caption', type: 'string'},
+            {name: 'alt', type: 'string'}
+          ]
+        }
+      ]
+    },
+    {
+      name: 'excerpt',
+      type: 'text',
+      title: 'Excerpt',
+      rows: 3,
+      validation: Rule => Rule.required().max(300)
+    },
+    {
+      name: 'featuredImage',
+      type: 'image',
+      title: 'Featured Image',
+      options: {
+        hotspot: true
+      }
+    },
+    {
+      name: 'relatedEntities',
+      type: 'object',
+      title: 'Related Entities',
+      fields: [
+        {
+          name: 'organizations',
+          type: 'array',
+          of: [{type: 'reference', to: [{type: 'organization'}]}]
+        },
+        {
+          name: 'investors',
+          type: 'array',
+          of: [{type: 'reference', to: [{type: 'investor'}]}]
+        },
+        {
+          name: 'people',
+          type: 'array',
+          of: [{type: 'reference', to: [{type: 'user'}]}]
+        }
+      ]
+    },
+    {
+      name: 'source',
+      type: 'object',
+      title: 'Source Information',
+      fields: [
+        {name: 'type', type: 'string', options: {list: ['original', 'curated', 'syndicated']}},
+        {name: 'author', type: 'reference', to: [{type: 'user'}, {type: 'journalist'}]},
+        {name: 'publication', type: 'string'},
+        {name: 'originalUrl', type: 'url'}
+      ]
+    },
+    {
+      name: 'publishedAt',
+      type: 'datetime',
+      title: 'Published Date',
+      validation: Rule => Rule.required()
+    },
+    {
+      name: 'status',
+      type: 'string',
+      title: 'Publication Status',
+      options: {
+        list: [
+          {title: 'Draft', value: 'draft'},
+          {title: 'Review', value: 'review'},
+          {title: 'Published', value: 'published'},
+          {title: 'Archived', value: 'archived'}
+        ]
+      },
+      initialValue: 'draft'
+    },
+    {
+      name: 'seo',
+      type: 'object',
+      title: 'SEO Settings',
+      fields: [
+        {name: 'metaTitle', type: 'string'},
+        {name: 'metaDescription', type: 'string', validation: Rule => Rule.max(160)},
+        {name: 'focusKeywords', type: 'array', of: [{type: 'string'}]}
+      ]
+    },
+    {
+      name: 'metrics',
+      type: 'object',
+      title: 'Article Metrics',
+      fields: [
+        {name: 'views', type: 'number', readOnly: true},
+        {name: 'shares', type: 'number', readOnly: true},
+        {name: 'readTime', type: 'number', title: 'Est. Read Time (minutes)'}
+      ]
+    },
+    {
+      name: 'embedding',
+      type: 'array',
+      of: [{type: 'number'}],
+      hidden: true
+    }
+  ],
+  preview: {
+    select: {
+      title: 'headline',
+      subtitle: 'category',
+      media: 'featuredImage',
+      status: 'status'
+    },
+    prepare({title, subtitle, media, status}) {
+      return {
+        title,
+        subtitle: `${subtitle} • ${status}`,
+        media
+      }
+    }
+  }
+}
+```
+
+### 7. Article Schema (SEO Content)
 
 ```javascript
 // schemas/article.js
@@ -718,10 +891,49 @@ export default () =>
       
       // Content Management
       S.listItem()
-        .title('Articles')
-        .schemaType('article')
+        .title('News & Content')
+        .icon(() => '📰')
         .child(
-          S.documentTypeList('article')
+          S.list()
+            .title('Content Management')
+            .items([
+              S.listItem()
+                .title('News Articles')
+                .child(
+                  S.list()
+                    .title('News')
+                    .items([
+                      S.listItem()
+                        .title('Draft News')
+                        .child(
+                          S.documentList()
+                            .title('Drafts')
+                            .filter('_type == "newsArticle" && status == "draft"')
+                        ),
+                      S.listItem()
+                        .title('News in Review')
+                        .child(
+                          S.documentList()
+                            .title('Pending Review')
+                            .filter('_type == "newsArticle" && status == "review"')
+                        ),
+                      S.listItem()
+                        .title('Published News')
+                        .child(
+                          S.documentList()
+                            .title('Live Articles')
+                            .filter('_type == "newsArticle" && status == "published"')
+                            .defaultOrdering([{field: 'publishedAt', direction: 'desc'}])
+                        ),
+                      S.listItem()
+                        .title('All News')
+                        .child(S.documentTypeList('newsArticle'))
+                    ])
+                ),
+              S.listItem()
+                .title('SEO Articles')
+                .child(S.documentTypeList('article'))
+            ])
         ),
       
       S.divider(),

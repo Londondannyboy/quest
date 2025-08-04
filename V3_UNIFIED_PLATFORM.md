@@ -7,10 +7,11 @@
 **One Platform, Multiple Perspectives**
 
 Quest V3 serves the entire startup ecosystem through a single, unified platform that adapts based on who you are:
-- **Founders** see funding opportunities and talent
-- **Investors** see qualified deal flow
-- **Professionals** see purpose-driven jobs
-- **Journalists** see authentic stories
+- **Founders** see funding opportunities, talent, and relevant news
+- **Investors** see qualified deal flow and market intelligence
+- **Professionals** see purpose-driven jobs and industry insights
+- **Journalists** see authentic stories and trending topics
+- **Everyone** gets curated news with AI-powered understanding
 
 ## Why Unified?
 
@@ -110,11 +111,12 @@ interface UnifiedUser {
 graph LR
     A[Join Quest] --> B[Discover Trinity]
     B --> C[Identify as Founder]
-    C --> D[Match with Investors]
-    D --> E[Get Funded]
-    E --> F[Post Jobs]
-    F --> G[Find PR]
-    G --> H[Give Back as Angel]
+    C --> D[Read Funding News]
+    D --> E[Match with Investors]
+    E --> F[Get Funded]
+    F --> G[Post Jobs]
+    G --> H[Get PR Coverage]
+    H --> I[Give Back as Angel]
 ```
 
 ### The Professional Path
@@ -155,6 +157,10 @@ app/
 │   └── onboarding/page.tsx   // Trinity discovery
 ├── (app)/
 │   ├── dashboard/page.tsx    // Adaptive by role
+│   ├── news/
+│   │   ├── page.tsx          // News home
+│   │   ├── [category]/page.tsx
+│   │   └── [slug]/page.tsx   // Article view
 │   ├── discover/
 │   │   ├── investors/page.tsx
 │   │   ├── jobs/page.tsx
@@ -235,24 +241,32 @@ export function UnifiedSearch() {
 - Talent that shares their mission
 - Media coverage for their story
 - Network of fellow founders
+- Curated news relevant to their stage
+- AI-powered insights on market trends
 
 ### Investors Get
 - Pre-qualified deal flow
 - Founders with clear vision (Trinity)
 - Portfolio talent pipeline
 - Co-investment opportunities
+- Market intelligence and analysis
+- Industry news with AI summaries
 
 ### Professionals Get
 - Purpose-driven opportunities
 - Direct founder access
 - Career growth in startups
 - Equity opportunities
+- Industry news and skill trends
+- Voice-powered career coaching
 
 ### Journalists Get
 - Authentic founder stories
 - Verified startups
 - Easy expert access
 - Story leads
+- Trending topics in startup ecosystem
+- AI-assisted research and fact-checking
 
 ## Revenue Model Aligned with Unity
 
@@ -278,15 +292,17 @@ export function UnifiedSearch() {
 ### One Brand, Multiple Messages
 
 **Landing Pages:**
-- quest.com → General value prop
+- quest.com → General value prop + news
 - quest.com/founders → Founder-specific
 - quest.com/investors → Investor-specific
 - quest.com/talent → Professional-specific
+- quest.com/news → Curated startup ecosystem news
 
 **SEO Domains (redirect to main):**
 - placement.quest → quest.com/investors
 - join.quest → quest.com/talent
 - pr.quest → quest.com/media
+- news.quest → quest.com/news
 
 ### Content Strategy
 - Unified blog with category filters
