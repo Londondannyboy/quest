@@ -810,6 +810,417 @@ export default {
 }
 ```
 
+### 8. Page Template Schema (Publishing Guide)
+
+```javascript
+// schemas/pageTemplate.js
+export default {
+  name: 'pageTemplate',
+  type: 'document',
+  title: 'Page Template',
+  fields: [
+    {
+      name: 'pageName',
+      type: 'string',
+      title: 'Page Name',
+      validation: Rule => Rule.required()
+    },
+    {
+      name: 'url',
+      type: 'slug',
+      title: 'URL Path',
+      options: {
+        source: 'pageName',
+        maxLength: 200
+      },
+      validation: Rule => Rule.required()
+    },
+    {
+      name: 'pageType',
+      type: 'string',
+      title: 'Page Type',
+      options: {
+        list: [
+          {title: 'Landing Page', value: 'landing'},
+          {title: 'Article', value: 'article'},
+          {title: 'Profile', value: 'profile'},
+          {title: 'Directory', value: 'directory'},
+          {title: 'Search/Browse', value: 'search'},
+          {title: 'Static', value: 'static'}
+        ]
+      }
+    },
+    {
+      name: 'seoRequirements',
+      type: 'object',
+      title: 'SEO Requirements',
+      fields: [
+        {
+          name: 'targetKeyword',
+          type: 'string',
+          title: 'Primary Target Keyword',
+          validation: Rule => Rule.required()
+        },
+        {
+          name: 'secondaryKeywords',
+          type: 'array',
+          title: 'Secondary Keywords',
+          of: [{type: 'string'}]
+        },
+        {
+          name: 'wordCountMin',
+          type: 'number',
+          title: 'Minimum Word Count',
+          validation: Rule => Rule.min(300)
+        },
+        {
+          name: 'wordCountMax',
+          type: 'number',
+          title: 'Maximum Word Count'
+        },
+        {
+          name: 'internalLinksMin',
+          type: 'number',
+          title: 'Minimum Internal Links',
+          initialValue: 5
+        },
+        {
+          name: 'externalLinksMax',
+          type: 'number',
+          title: 'Maximum External Links',
+          initialValue: 5
+        }
+      ]
+    },
+    {
+      name: 'contentStructure',
+      type: 'array',
+      title: 'Required Content Sections',
+      of: [{
+        type: 'object',
+        fields: [
+          {name: 'sectionName', type: 'string'},
+          {name: 'description', type: 'text'},
+          {name: 'wordCount', type: 'number'}
+        ]
+      }]
+    },
+    {
+      name: 'status',
+      type: 'string',
+      title: 'Implementation Status',
+      options: {
+        list: [
+          {title: 'Planned', value: 'planned'},
+          {title: 'In Development', value: 'in-development'},
+          {title: 'Review', value: 'review'},
+          {title: 'Published', value: 'published'},
+          {title: 'Needs Update', value: 'needs-update'}
+        ]
+      },
+      initialValue: 'planned'
+    },
+    {
+      name: 'priority',
+      type: 'string',
+      title: 'Priority',
+      options: {
+        list: [
+          {title: 'High', value: 'high'},
+          {title: 'Medium', value: 'medium'},
+          {title: 'Low', value: 'low'}
+        ]
+      }
+    },
+    {
+      name: 'assignedTo',
+      type: 'reference',
+      to: [{type: 'user'}],
+      title: 'Assigned To'
+    },
+    {
+      name: 'notes',
+      type: 'text',
+      title: 'Implementation Notes'
+    }
+  ],
+  preview: {
+    select: {
+      title: 'pageName',
+      subtitle: 'url.current',
+      status: 'status'
+    },
+    prepare({title, subtitle, status}) {
+      const emoji = {
+        'planned': '📋',
+        'in-development': '🔨',
+        'review': '👀',
+        'published': '✅',
+        'needs-update': '🔄'
+      }
+      return {
+        title: `${emoji[status] || '📄'} ${title}`,
+        subtitle
+      }
+    }
+  }
+}
+```
+
+### 9. Publishing Calendar Schema
+
+```javascript
+// schemas/publishingCalendar.js
+export default {
+  name: 'publishingCalendar',
+  type: 'document',
+  title: 'Publishing Calendar',
+  fields: [
+    {
+      name: 'title',
+      type: 'string',
+      title: 'Content Title',
+      validation: Rule => Rule.required()
+    },
+    {
+      name: 'contentType',
+      type: 'string',
+      title: 'Content Type',
+      options: {
+        list: [
+          {title: 'News Article', value: 'news'},
+          {title: 'Blog Post', value: 'blog'},
+          {title: 'Guide', value: 'guide'},
+          {title: 'Profile', value: 'profile'},
+          {title: 'Landing Page', value: 'landing'}
+        ]
+      }
+    },
+    {
+      name: 'contentReference',
+      type: 'reference',
+      title: 'Content Item',
+      to: [
+        {type: 'newsArticle'},
+        {type: 'article'},
+        {type: 'investor'},
+        {type: 'pageTemplate'}
+      ]
+    },
+    {
+      name: 'publishDate',
+      type: 'datetime',
+      title: 'Scheduled Publish Date',
+      validation: Rule => Rule.required()
+    },
+    {
+      name: 'author',
+      type: 'reference',
+      to: [{type: 'user'}, {type: 'journalist'}],
+      title: 'Author/Creator'
+    },
+    {
+      name: 'campaign',
+      type: 'string',
+      title: 'Marketing Campaign',
+      options: {
+        list: [
+          {title: 'Organic Growth', value: 'organic'},
+          {title: 'Product Launch', value: 'launch'},
+          {title: 'Thought Leadership', value: 'thought-leadership'},
+          {title: 'SEO Sprint', value: 'seo-sprint'},
+          {title: 'User Education', value: 'education'}
+        ]
+      }
+    },
+    {
+      name: 'targetAudience',
+      type: 'string',
+      title: 'Target Audience',
+      options: {
+        list: [
+          {title: 'Founders', value: 'founders'},
+          {title: 'Investors', value: 'investors'},
+          {title: 'Professionals', value: 'professionals'},
+          {title: 'Journalists', value: 'journalists'},
+          {title: 'All Users', value: 'all'}
+        ]
+      }
+    },
+    {
+      name: 'distribution',
+      type: 'array',
+      title: 'Distribution Channels',
+      of: [{type: 'string'}],
+      options: {
+        list: [
+          {title: 'Website', value: 'website'},
+          {title: 'Newsletter', value: 'newsletter'},
+          {title: 'Social Media', value: 'social'},
+          {title: 'Partner Sites', value: 'partners'},
+          {title: 'PR Outreach', value: 'pr'}
+        ]
+      }
+    },
+    {
+      name: 'status',
+      type: 'string',
+      title: 'Status',
+      options: {
+        list: [
+          {title: 'Idea', value: 'idea'},
+          {title: 'Assigned', value: 'assigned'},
+          {title: 'Writing', value: 'writing'},
+          {title: 'Editing', value: 'editing'},
+          {title: 'Scheduled', value: 'scheduled'},
+          {title: 'Published', value: 'published'}
+        ]
+      },
+      initialValue: 'idea'
+    },
+    {
+      name: 'performance',
+      type: 'object',
+      title: 'Performance Metrics',
+      fields: [
+        {name: 'views', type: 'number', readOnly: true},
+        {name: 'shares', type: 'number', readOnly: true},
+        {name: 'conversions', type: 'number', readOnly: true},
+        {name: 'avgTimeOnPage', type: 'number', readOnly: true}
+      ]
+    }
+  ],
+  preview: {
+    select: {
+      title: 'title',
+      date: 'publishDate',
+      status: 'status'
+    },
+    prepare({title, date, status}) {
+      const dateStr = new Date(date).toLocaleDateString()
+      return {
+        title,
+        subtitle: `${dateStr} • ${status}`
+      }
+    }
+  }
+}
+```
+
+### 10. SEO Guidelines Schema
+
+```javascript
+// schemas/seoGuideline.js
+export default {
+  name: 'seoGuideline',
+  type: 'document',
+  title: 'SEO Guideline',
+  fields: [
+    {
+      name: 'contentType',
+      type: 'string',
+      title: 'Content Type',
+      validation: Rule => Rule.required(),
+      options: {
+        list: [
+          {title: 'Landing Page', value: 'landing'},
+          {title: 'Article', value: 'article'},
+          {title: 'Profile Page', value: 'profile'},
+          {title: 'Directory Page', value: 'directory'},
+          {title: 'News Article', value: 'news'}
+        ]
+      }
+    },
+    {
+      name: 'guidelines',
+      type: 'object',
+      title: 'SEO Requirements',
+      fields: [
+        {
+          name: 'titleFormat',
+          type: 'string',
+          title: 'Title Tag Format',
+          description: 'Use {keyword} as placeholder'
+        },
+        {
+          name: 'titleLength',
+          type: 'object',
+          fields: [
+            {name: 'min', type: 'number', initialValue: 30},
+            {name: 'max', type: 'number', initialValue: 60}
+          ]
+        },
+        {
+          name: 'metaDescriptionLength',
+          type: 'object',
+          fields: [
+            {name: 'min', type: 'number', initialValue: 120},
+            {name: 'max', type: 'number', initialValue: 160}
+          ]
+        },
+        {
+          name: 'wordCount',
+          type: 'object',
+          fields: [
+            {name: 'min', type: 'number'},
+            {name: 'ideal', type: 'number'},
+            {name: 'max', type: 'number'}
+          ]
+        },
+        {
+          name: 'internalLinks',
+          type: 'object',
+          fields: [
+            {name: 'min', type: 'number'},
+            {name: 'ideal', type: 'number'}
+          ]
+        },
+        {
+          name: 'headingStructure',
+          type: 'array',
+          of: [{
+            type: 'object',
+            fields: [
+              {name: 'level', type: 'string'},
+              {name: 'purpose', type: 'string'},
+              {name: 'includeKeyword', type: 'boolean'}
+            ]
+          }]
+        }
+      ]
+    },
+    {
+      name: 'schemaMarkup',
+      type: 'array',
+      title: 'Required Schema Markup',
+      of: [{type: 'string'}],
+      options: {
+        list: [
+          {title: 'Article', value: 'article'},
+          {title: 'Organization', value: 'organization'},
+          {title: 'Person', value: 'person'},
+          {title: 'JobPosting', value: 'jobPosting'},
+          {title: 'BreadcrumbList', value: 'breadcrumb'},
+          {title: 'FAQ', value: 'faq'}
+        ]
+      }
+    },
+    {
+      name: 'examples',
+      type: 'array',
+      title: 'Good Examples',
+      of: [{
+        type: 'object',
+        fields: [
+          {name: 'url', type: 'url'},
+          {name: 'description', type: 'text'}
+        ]
+      }]
+    }
+  ]
+}
+```
+
 ## Custom Desk Structure
 
 ```javascript
@@ -938,9 +1349,85 @@ export default () =>
       
       S.divider(),
       
+      // Publishing Management
+      S.listItem()
+        .title('Publishing Management')
+        .icon(() => '📝')
+        .child(
+          S.list()
+            .title('Publishing Tools')
+            .items([
+              S.listItem()
+                .title('Page Templates')
+                .child(
+                  S.list()
+                    .title('Page Status')
+                    .items([
+                      S.listItem()
+                        .title('⏳ Planned Pages')
+                        .child(
+                          S.documentList()
+                            .title('Planned')
+                            .filter('_type == "pageTemplate" && status == "planned"')
+                            .defaultOrdering([{field: 'priority', direction: 'desc'}])
+                        ),
+                      S.listItem()
+                        .title('🔨 In Development')
+                        .child(
+                          S.documentList()
+                            .title('Being Built')
+                            .filter('_type == "pageTemplate" && status == "in-development"')
+                        ),
+                      S.listItem()
+                        .title('✅ Published Pages')
+                        .child(
+                          S.documentList()
+                            .title('Live')
+                            .filter('_type == "pageTemplate" && status == "published"')
+                        ),
+                      S.listItem()
+                        .title('All Page Templates')
+                        .child(S.documentTypeList('pageTemplate'))
+                    ])
+                ),
+              S.listItem()
+                .title('Publishing Calendar')
+                .child(
+                  S.list()
+                    .title('Calendar Views')
+                    .items([
+                      S.listItem()
+                        .title('📅 This Week')
+                        .child(
+                          S.documentList()
+                            .title('Publishing This Week')
+                            .filter('_type == "publishingCalendar" && publishDate > now() - 60*60*24*7 && publishDate < now() + 60*60*24*7')
+                            .defaultOrdering([{field: 'publishDate', direction: 'asc'}])
+                        ),
+                      S.listItem()
+                        .title('📆 This Month')
+                        .child(
+                          S.documentList()
+                            .title('Publishing This Month')
+                            .filter('_type == "publishingCalendar" && publishDate > now() - 60*60*24*30 && publishDate < now() + 60*60*24*30')
+                            .defaultOrdering([{field: 'publishDate', direction: 'asc'}])
+                        ),
+                      S.listItem()
+                        .title('All Calendar Items')
+                        .child(S.documentTypeList('publishingCalendar'))
+                    ])
+                ),
+              S.listItem()
+                .title('SEO Guidelines')
+                .child(S.documentTypeList('seoGuideline'))
+            ])
+        ),
+      
+      S.divider(),
+      
       // All Document Types
       ...S.documentTypeListItems().filter(listItem => 
-        !['investor', 'job', 'journalist', 'organization', 'article'].includes(listItem.getId())
+        !['investor', 'job', 'journalist', 'organization', 'article', 'newsArticle', 'pageTemplate', 'publishingCalendar', 'seoGuideline'].includes(listItem.getId())
       )
     ])
 ```
