@@ -24,6 +24,51 @@ graph LR
 
 ## Key MCP Integrations
 
+### 0. Serena MCP - Semantic Code Understanding
+
+**NEW: Enhanced Code Navigation and Analysis**
+
+Based on Cole Medin's recommendation, Serena MCP provides semantic code understanding that dramatically improves Claude Code's ability to work with existing codebases.
+
+**Traditional Approach (Manual Navigation):**
+```typescript
+// Manually searching through files
+// grep -r "function handlePayment" .
+// Opening multiple files to understand relationships
+// Getting lost in large codebases
+```
+
+**Serena MCP Approach:**
+```typescript
+// Semantic understanding of code structure
+await mcp.serena.find_symbol('handlePayment')
+// Returns: All implementations, usages, and relationships
+
+await mcp.serena.get_references('PaymentProcessor')
+// Returns: Every place this class is used
+
+await mcp.serena.navigate_to_definition('processTransaction')
+// Jumps directly to implementation with full context
+```
+
+**Key Benefits for Quest V3:**
+- Navigate Sanity schemas with semantic understanding
+- Find all GROQ queries using specific document types
+- Understand component relationships in Next.js
+- Refactor with confidence using symbol-aware operations
+
+**Installation:**
+```json
+{
+  "mcpServers": {
+    "serena": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/oraios/serena", "serena-mcp-server"]
+    }
+  }
+}
+```
+
 ### 1. Apify MCP - Data Collection
 
 **Traditional Approach (100+ lines):**
@@ -409,6 +454,53 @@ try {
     // Handle validation
   }
 }
+```
+
+### 4. Context Engineering with MCP
+
+**Based on Cole Medin's PRP Framework:**
+
+Create comprehensive prompts for MCP operations:
+```typescript
+// Define PRP for complex MCP workflows
+const investorIngestionPRP = {
+  goal: "Ingest and enrich investor profiles",
+  context: {
+    sources: ["LinkedIn", "Crunchbase", "Company websites"],
+    schema: investorSanitySchema,
+    validationRules: investorValidation
+  },
+  steps: [
+    "1. Scrape profile with Apify MCP",
+    "2. Enrich with Firecrawl MCP if website exists",
+    "3. Validate data completeness",
+    "4. Create in Sanity with verified: false",
+    "5. Log for human review"
+  ],
+  errorHandling: {
+    "RATE_LIMIT": "Queue for retry in 1 hour",
+    "INVALID_DATA": "Log and skip, notify reviewer",
+    "API_ERROR": "Retry 3x with exponential backoff"
+  }
+}
+
+// Execute with comprehensive context
+await executeMCPWorkflow(investorIngestionPRP)
+```
+
+### 5. Semantic-Aware Development
+
+**Leverage Serena for MCP Development:**
+```typescript
+// Use Serena to understand existing MCP patterns
+const existingPatterns = await mcp.serena.find_pattern('mcp.*scrape')
+
+// Refactor MCP calls across codebase
+await mcp.serena.refactor({
+  from: 'mcp.apify.scrape',
+  to: 'mcp.apify.scrapeWithRetry',
+  preserveSemantics: true
+})
 ```
 
 ## Conclusion
