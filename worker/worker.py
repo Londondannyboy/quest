@@ -123,8 +123,6 @@ async def main():
     print("🚀 Quest Worker Started Successfully!")
     print("=" * 60)
     print(f"   Task Queue: {task_queue}")
-    print(f"   Workflows: {len(worker.workflows)} registered")
-    print(f"   Activities: {len(worker.activities)} registered")
     print("=" * 60)
     print("\n📋 Registered Workflows:")
     print("   - NewsroomWorkflow")
