@@ -10,6 +10,7 @@ from typing import List, Dict, Any
 from temporalio import activity
 import psycopg
 from psycopg.rows import dict_row
+from psycopg.types.json import Json
 
 
 def calculate_metadata(content: str, excerpt: str = None) -> dict:
@@ -84,16 +85,19 @@ async def save_to_neon(article: Dict[str, Any], brief: Dict[str, Any]) -> bool:
                 activity.logger.info(f"   Status from article data: {article.get('status', 'NOT SET')}")
                 activity.logger.info(f"   Zep graph ID: {zep_graph_id}")
 
-                # Insert article with all required fields
+                # Get images if present
+                images = article.get("images", {})
+
+                # Insert article with all required fields including images
                 await cur.execute("""
                     INSERT INTO articles (
                         id, title, slug, content, excerpt,
                         word_count, citation_count,
-                        status, published_at, app, zep_graph_id
+                        status, published_at, app, zep_graph_id, images
                     ) VALUES (
                         %(id)s, %(title)s, %(slug)s, %(content)s, %(excerpt)s,
                         %(word_count)s, %(citation_count)s,
-                        'published', NOW(), %(app)s, %(zep_graph_id)s
+                        'published', NOW(), %(app)s, %(zep_graph_id)s, %(images)s
                     )
                     ON CONFLICT (id) DO UPDATE SET
                         title = EXCLUDED.title,
@@ -105,6 +109,7 @@ async def save_to_neon(article: Dict[str, Any], brief: Dict[str, Any]) -> bool:
                         published_at = COALESCE(articles.published_at, NOW()),
                         app = EXCLUDED.app,
                         zep_graph_id = COALESCE(EXCLUDED.zep_graph_id, articles.zep_graph_id),
+                        images = EXCLUDED.images,
                         updated_at = NOW()
                     RETURNING id, slug
                 """, {
@@ -116,7 +121,8 @@ async def save_to_neon(article: Dict[str, Any], brief: Dict[str, Any]) -> bool:
                     "word_count": metadata["word_count"],
                     "citation_count": metadata["citation_count"],
                     "app": app,
-                    "zep_graph_id": zep_graph_id
+                    "zep_graph_id": zep_graph_id,
+                    "images": Json(images) if images else Json({})
                 })
 
                 result = await cur.fetchone()
