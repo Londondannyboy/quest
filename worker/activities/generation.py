@@ -31,6 +31,48 @@ def create_slug(title: str) -> str:
     return slug[:50]
 
 
+def extract_and_parse_json(text: str) -> dict:
+    """
+    Robustly extract and parse JSON from LLM response.
+
+    Tries multiple extraction methods and fixes common JSON errors.
+    """
+    # Method 1: Try to find JSON between code blocks
+    if "```json" in text:
+        match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
+        if match:
+            json_text = match.group(1).strip()
+        else:
+            json_text = text.split("```json")[1].split("```")[0].strip()
+    elif "```" in text:
+        match = re.search(r'```\s*(.*?)\s*```', text, re.DOTALL)
+        if match:
+            json_text = match.group(1).strip()
+        else:
+            json_text = text.split("```")[1].split("```")[0].strip()
+    else:
+        # Method 2: Try to find JSON by looking for { ... }
+        match = re.search(r'\{.*\}', text, re.DOTALL)
+        if match:
+            json_text = match.group(0)
+        else:
+            json_text = text.strip()
+
+    # Fix common JSON errors
+    # Remove trailing commas before } or ]
+    json_text = re.sub(r',\s*}', '}', json_text)
+    json_text = re.sub(r',\s*]', ']', json_text)
+
+    # Try parsing
+    try:
+        return json.loads(json_text)
+    except json.JSONDecodeError as e:
+        # Log the problematic JSON for debugging
+        activity.logger.error(f"JSON parse error at position {e.pos}: {e.msg}")
+        activity.logger.error(f"Problematic JSON (first 500 chars): {json_text[:500]}")
+        raise
+
+
 @activity.defn(name="generate_article")
 async def generate_article(
     brief: Dict[str, Any],
@@ -136,7 +178,7 @@ SEO REQUIREMENTS:
 - SEO Focus: {app_config.seo_focus}
 - Excerpt: 150-160 characters, compelling summary
 
-Return ONLY a JSON object:
+Return ONLY a valid JSON object (no markdown formatting, no explanations):
 {{
   "title": "Article Title (max 60 chars, use action verbs)",
   "slug": "url-friendly-slug",
@@ -146,12 +188,25 @@ Return ONLY a JSON object:
   "word_count": {target_words}
 }}
 
-CRITICAL:
+CRITICAL JSON REQUIREMENTS:
+- Output MUST be valid, parseable JSON
+- NO trailing commas in arrays or objects
+- Escape all quotes inside strings with backslash
 - content must be a single markdown string
 - Include ALL required JSON fields
 - Meet minimum citation requirement ({app_config.min_citations})
 - Match the specified tone and brand voice
-- Target {target_words} words (±10% acceptable)"""
+- Target {target_words} words (±10% acceptable)
+
+EXAMPLE OF VALID JSON:
+{{
+  "title": "Example Title",
+  "slug": "example-title",
+  "content": "# Example\\n\\nThis is content with \\"quotes\\" escaped.",
+  "excerpt": "Brief summary here",
+  "keywords": ["key1", "key2"],
+  "word_count": 1500
+}}"""
 
         # Generate with Gemini Pro (better quality than Flash for long content)
         model = genai.GenerativeModel("gemini-2.0-flash-exp")
@@ -165,13 +220,8 @@ CRITICAL:
 
         content = response.text
 
-        # Extract JSON from response
-        if "```json" in content:
-            content = content.split("```json")[1].split("```")[0].strip()
-        elif "```" in content:
-            content = content.split("```")[1].split("```")[0].strip()
-
-        article_data = json.loads(content)
+        # Extract and parse JSON robustly
+        article_data = extract_and_parse_json(content)
 
         # Generate article ID (UUID v4)
         article_id = str(uuid.uuid4())
