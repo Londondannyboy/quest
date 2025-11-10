@@ -1,0 +1,27 @@
+# Temporal & Workflow
+temporalio>=1.7.0
+
+# AI/ML
+pydantic-ai>=0.1.0
+google-generativeai>=0.8.0
+anthropic>=0.40.0
+
+# Database
+psycopg[binary]>=3.1.0
+
+# Memory & Knowledge
+zep-cloud>=2.0.0
+
+# Image Generation
+replicate>=0.25.0
+cloudinary>=1.40.0
+
+# Research & Scraping
+httpx>=0.27.0
+python-dotenv>=1.0.0
+
+# Logging
+structlog>=24.1.0
+
+# Utilities
+ulid-py>=1.1.0

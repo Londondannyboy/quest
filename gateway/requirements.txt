@@ -1,0 +1,13 @@
+# FastAPI & Web
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+
+# Temporal Client
+temporalio>=1.7.0
+
+# Utilities
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+
+# Logging
+structlog>=24.1.0
