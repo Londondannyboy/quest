@@ -7,6 +7,7 @@ AI-powered article writing using Gemini.
 import os
 import json
 import re
+from datetime import datetime
 from typing import Dict, Any
 from temporalio import activity
 import google.generativeai as genai
@@ -125,6 +126,7 @@ CRITICAL:
         article_data["created_at"] = None  # Will be set by database
         article_data["published_at"] = None
         article_data["status"] = "published"
+        article_data["metadata"] = {}  # Initialize metadata dict for Pydantic validation
 
         # Calculate word count if not provided
         if "word_count" not in article_data or article_data["word_count"] == 0:
