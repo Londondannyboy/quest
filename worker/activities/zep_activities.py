@@ -198,9 +198,11 @@ async def sync_article_to_zep(article: Dict[str, Any]) -> str:
         return episode_uuid or f"zep-{article_id}"
 
     except Exception as e:
-        activity.logger.error(f"❌ Zep sync failed: {e}")
-        # Return placeholder on error
-        return f"zep-error-{article.get('id', 'unknown')}"
+        activity.logger.error(f"❌ Zep sync failed: {type(e).__name__}: {str(e)}")
+        activity.logger.error(f"   Article ID: {article.get('id')}")
+        activity.logger.error(f"   App: {article.get('app')}")
+        # Return placeholder on error (don't include error details in ID)
+        return f"zep-fallback-{article.get('id', 'unknown')}"
 
 
 @activity.defn(name="extract_facts_to_zep")
