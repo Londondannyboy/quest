@@ -6,18 +6,19 @@ Checks for duplicate coverage and creates semantic graph structures.
 """
 
 import os
+import asyncio
 from typing import Dict, Any, Optional, List
 from temporalio import activity
-from zep_cloud.client import AsyncZep
+from zep_cloud.client import Zep
 
 
-async def get_zep_client() -> AsyncZep:
-    """Get configured Zep client"""
+def get_zep_client() -> Zep:
+    """Get configured Zep client (sync client, we'll wrap calls in asyncio)"""
     api_key = os.getenv("ZEP_API_KEY")
     if not api_key:
         raise ValueError("ZEP_API_KEY not set")
 
-    return AsyncZep(api_key=api_key)
+    return Zep(api_key=api_key)
 
 
 def get_graph_id(app: str) -> str:
@@ -69,13 +70,14 @@ async def check_zep_coverage(
     activity.logger.info(f"🔍 Checking Zep coverage for: {topic} (app: {app})")
 
     try:
-        client = await get_zep_client()
+        client = get_zep_client()
 
         # Get graph ID for this app (finance-knowledge or relocation-knowledge)
         graph_id = get_graph_id(app)
 
-        # Search for similar content in graph
-        search_results = await client.graph.search(
+        # Search for similar content in graph (sync client, wrap in asyncio)
+        search_results = await asyncio.to_thread(
+            client.graph.search,
             graph_id=graph_id,
             query=topic,
             limit=5
@@ -164,7 +166,7 @@ async def sync_article_to_zep(article: Dict[str, Any]) -> str:
     activity.logger.info(f"🔗 Syncing article to Zep: {article.get('title', 'Unknown')[:50]}")
 
     try:
-        client = await get_zep_client()
+        client = get_zep_client()
 
         app = article.get("app", "placement")
         article_id = article.get("id", "unknown")
@@ -196,14 +198,21 @@ async def sync_article_to_zep(article: Dict[str, Any]) -> str:
         # Get graph ID for this app (finance-knowledge or relocation-knowledge)
         graph_id = get_graph_id(app)
 
-        # Prepare condensed content for graph
+        # Prepare condensed content for graph (keep it under 10K chars to be safe)
         condensed_content = f"# {title}\n\n{summary}\n\n"
         if "metadata" in article:
-            condensed_content += f"Keywords: {', '.join(article.get('keywords', []))}\n"
+            keywords = article.get('keywords', [])
+            if keywords:
+                condensed_content += f"Keywords: {', '.join(keywords[:10])}\n"
             condensed_content += f"Word Count: {article.get('word_count', 0)}\n"
 
-        # Add to Zep Graph (not memory/session)
-        episode = await client.graph.add(
+        # Ensure content is under 10K characters
+        if len(condensed_content) > 10000:
+            condensed_content = condensed_content[:9900] + "\n...[truncated]"
+
+        # Add to Zep Graph using sync client (wrap in asyncio)
+        episode = await asyncio.to_thread(
+            client.graph.add,
             graph_id=graph_id,
             type="text",
             data=condensed_content
