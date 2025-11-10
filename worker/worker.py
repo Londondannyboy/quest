@@ -15,8 +15,10 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Import workflow (relative imports for Railway deployment)
+# Import workflows (relative imports for Railway deployment)
 from workflows.newsroom import NewsroomWorkflow
+from workflows.placement import PlacementWorkflow
+from workflows.relocation import RelocationWorkflow
 
 # Import all activities
 from activities import (
@@ -39,9 +41,13 @@ from activities import (
     # Generation
     generate_article,
 
-    # Images
+    # Images - Original (multi-app with config)
     generate_article_images,
 )
+
+# Import new dedicated image activities
+from activities.images_placement import generate_placement_images
+from activities.images_relocation import generate_relocation_images
 
 
 async def main():
@@ -103,7 +109,7 @@ async def main():
     worker = Worker(
         client,
         task_queue=task_queue,
-        workflows=[NewsroomWorkflow],
+        workflows=[NewsroomWorkflow, PlacementWorkflow, RelocationWorkflow],
         activities=[
             # Database
             save_to_neon,
@@ -124,8 +130,12 @@ async def main():
             # Generation
             generate_article,
 
-            # Images
+            # Images - Original (multi-app with config)
             generate_article_images,
+
+            # Images - Dedicated per app (simple, no config)
+            generate_placement_images,
+            generate_relocation_images,
         ],
     )
 
@@ -135,7 +145,9 @@ async def main():
     print(f"   Task Queue: {task_queue}")
     print("=" * 60)
     print("\n📋 Registered Workflows:")
-    print("   - NewsroomWorkflow")
+    print("   - NewsroomWorkflow (multi-app)")
+    print("   - PlacementWorkflow (dedicated)")
+    print("   - RelocationWorkflow (dedicated)")
     print("\n📋 Registered Activities:")
     print("   Database:")
     print("     - save_to_neon")
@@ -152,7 +164,9 @@ async def main():
     print("   Generation:")
     print("     - generate_article")
     print("   Images:")
-    print("     - generate_article_images")
+    print("     - generate_article_images (original multi-app)")
+    print("     - generate_placement_images (dedicated, no config)")
+    print("     - generate_relocation_images (dedicated, no config)")
     print("\n✅ Worker is ready to process workflows...")
     print("   Press Ctrl+C to stop\n")
 
