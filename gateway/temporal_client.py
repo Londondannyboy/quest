@@ -33,14 +33,15 @@ class TemporalClientManager:
 
         # Connect to Temporal Cloud
         if temporal_api_key:
-            # Cloud connection with API key
+            # Cloud connection with API key and TLS
             cls._instance = await Client.connect(
                 temporal_address,
                 namespace=temporal_namespace,
                 api_key=temporal_api_key,
+                tls=True,  # Enable TLS for Temporal Cloud
             )
         else:
-            # Local Temporal server
+            # Local Temporal server (no TLS)
             cls._instance = await Client.connect(
                 temporal_address,
                 namespace=temporal_namespace,

@@ -74,14 +74,15 @@ async def main():
 
     try:
         if temporal_api_key:
-            # Connect to Temporal Cloud with API key
+            # Connect to Temporal Cloud with API key and TLS
             client = await Client.connect(
                 temporal_address,
                 namespace=temporal_namespace,
                 api_key=temporal_api_key,
+                tls=True,  # Enable TLS for Temporal Cloud
             )
         else:
-            # Connect to local Temporal (no API key)
+            # Connect to local Temporal (no API key, no TLS)
             client = await Client.connect(
                 temporal_address,
                 namespace=temporal_namespace,
