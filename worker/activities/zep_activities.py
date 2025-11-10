@@ -20,6 +20,31 @@ async def get_zep_client() -> AsyncZep:
     return AsyncZep(api_key=api_key)
 
 
+def get_graph_id(app: str) -> str:
+    """
+    Get the Zep Graph ID for an app.
+
+    Uses hybrid domain architecture (like legacy newsroom):
+    - finance-knowledge: placement, rainmaker, pvc, gtm (all finance apps share one graph)
+    - relocation-knowledge: relocation
+
+    Args:
+        app: App name (e.g., "placement", "rainmaker", "relocation")
+
+    Returns:
+        Graph ID (e.g., "finance-knowledge")
+    """
+    DOMAIN_GRAPHS = {
+        "placement": "finance-knowledge",
+        "rainmaker": "finance-knowledge",
+        "pvc": "finance-knowledge",
+        "gtm": "finance-knowledge",
+        "relocation": "relocation-knowledge",
+    }
+
+    return DOMAIN_GRAPHS.get(app, "finance-knowledge")
+
+
 @activity.defn(name="check_zep_coverage")
 async def check_zep_coverage(
     topic: str,
@@ -46,10 +71,10 @@ async def check_zep_coverage(
     try:
         client = await get_zep_client()
 
-        # Get graph ID for this app (quest-placement, quest-relocation, etc.)
-        graph_id = f"quest-{app}"
+        # Get graph ID for this app (finance-knowledge or relocation-knowledge)
+        graph_id = get_graph_id(app)
 
-        # Search for similar content in app's graph
+        # Search for similar content in graph
         search_results = await client.graph.search(
             graph_id=graph_id,
             query=topic,
@@ -168,8 +193,8 @@ async def sync_article_to_zep(article: Dict[str, Any]) -> str:
         if "metadata" in article and "primary_topics" in article["metadata"]:
             metadata["topics"] = article["metadata"]["primary_topics"]
 
-        # Get graph ID for this app
-        graph_id = f"quest-{app}"
+        # Get graph ID for this app (finance-knowledge or relocation-knowledge)
+        graph_id = get_graph_id(app)
 
         # Prepare condensed content for graph
         condensed_content = f"# {title}\n\n{summary}\n\n"
