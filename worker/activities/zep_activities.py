@@ -10,6 +10,7 @@ import asyncio
 from typing import Dict, Any, Optional, List
 from temporalio import activity
 from zep_cloud.client import Zep
+import httpx
 
 
 def get_zep_client() -> Zep:
@@ -152,7 +153,7 @@ async def check_zep_coverage(
 @activity.defn(name="sync_article_to_zep")
 async def sync_article_to_zep(article: Dict[str, Any]) -> str:
     """
-    Sync article to Zep knowledge graph
+    Sync article to Zep knowledge graph using direct HTTP API
 
     Creates an Episode with the article content structured as:
     - Main message: Article title + summary
@@ -168,7 +169,9 @@ async def sync_article_to_zep(article: Dict[str, Any]) -> str:
     activity.logger.info(f"🔗 Syncing article to Zep: {article.get('title', 'Unknown')[:50]}")
 
     try:
-        client = get_zep_client()
+        api_key = os.getenv("ZEP_API_KEY")
+        if not api_key:
+            raise ValueError("ZEP_API_KEY not set")
 
         app = article.get("app", "placement")
         article_id = article.get("id", "unknown")
@@ -178,29 +181,10 @@ async def sync_article_to_zep(article: Dict[str, Any]) -> str:
         # Extract first 500 chars for summary
         summary = content[:500] + "..." if len(content) > 500 else content
 
-        # Prepare metadata
-        metadata = {
-            "article_id": article_id,
-            "app": app,
-            "title": title,
-            "word_count": article.get("word_count", 0),
-            "quality_score": article.get("metadata", {}).get("quality_score", 0),
-            "published_at": article.get("published_at"),
-            "url": f"https://{app}.quest/{article.get('slug', article_id)}"
-        }
-
-        # Add entities if present
-        if "metadata" in article and "entities_mentioned" in article["metadata"]:
-            metadata["entities"] = article["metadata"]["entities_mentioned"]
-
-        # Add topics if present
-        if "metadata" in article and "primary_topics" in article["metadata"]:
-            metadata["topics"] = article["metadata"]["primary_topics"]
-
         # Get graph ID for this app (finance-knowledge or relocation-knowledge)
         graph_id = get_graph_id(app)
 
-        # Prepare condensed content for graph (keep it under 10K chars to be safe)
+        # Prepare condensed content for graph (keep it under 8K chars to be safe)
         condensed_content = f"# {title}\n\n{summary}\n\n"
         if "metadata" in article:
             keywords = article.get('keywords', [])
@@ -208,22 +192,32 @@ async def sync_article_to_zep(article: Dict[str, Any]) -> str:
                 condensed_content += f"Keywords: {', '.join(keywords[:10])}\n"
             condensed_content += f"Word Count: {article.get('word_count', 0)}\n"
 
-        # Ensure content is under 10K characters
-        if len(condensed_content) > 10000:
-            condensed_content = condensed_content[:9900] + "\n...[truncated]"
+        # Ensure content is under 8K characters for safety margin
+        if len(condensed_content) > 8000:
+            condensed_content = condensed_content[:7900] + "\n...[truncated]"
 
-        # Add to Zep Graph using sync client (wrap in asyncio)
-        # Note: Using graph_id parameter as per Zep docs
-        episode = await asyncio.to_thread(
-            lambda: client.graph.add(
-                graph_id=graph_id,
-                type="text",
-                data=condensed_content
+        activity.logger.info(f"   Content length: {len(condensed_content)} chars")
+
+        # Call Zep Graph API directly via HTTP (bypassing broken SDK)
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"https://api.getzep.com/api/v2/graphs/{graph_id}/data",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "type": "text",
+                    "data": condensed_content
+                },
+                timeout=30.0
             )
-        )
 
-        # Extract episode UUID
-        episode_uuid = episode.uuid_ if hasattr(episode, 'uuid_') else str(episode)
+            response.raise_for_status()
+            result = response.json()
+
+        # Extract episode UUID from response
+        episode_uuid = result.get("uuid", result.get("episode_uuid", str(result)))
 
         activity.logger.info(f"✅ Article synced to Zep Graph")
         activity.logger.info(f"   Graph ID: {graph_id}")
@@ -232,11 +226,15 @@ async def sync_article_to_zep(article: Dict[str, Any]) -> str:
 
         return episode_uuid
 
+    except httpx.HTTPStatusError as e:
+        activity.logger.error(f"❌ Zep API error: {e.response.status_code}")
+        activity.logger.error(f"   Response: {e.response.text}")
+        activity.logger.error(f"   Article ID: {article.get('id')}")
+        return f"zep-fallback-{article.get('id', 'unknown')}"
     except Exception as e:
         activity.logger.error(f"❌ Zep sync failed: {type(e).__name__}: {str(e)}")
         activity.logger.error(f"   Article ID: {article.get('id')}")
         activity.logger.error(f"   App: {article.get('app')}")
-        # Return placeholder on error (don't include error details in ID)
         return f"zep-fallback-{article.get('id', 'unknown')}"
 
 
