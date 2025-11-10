@@ -7,10 +7,6 @@ Executes NewsroomWorkflow for content generation across multiple apps.
 import asyncio
 import os
 import sys
-from pathlib import Path
-
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from temporalio.client import Client
 from temporalio.worker import Worker
@@ -19,11 +15,11 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Import workflow
-from worker.workflows.newsroom import NewsroomWorkflow
+# Import workflow (relative imports for Railway deployment)
+from workflows.newsroom import NewsroomWorkflow
 
 # Import all activities
-from worker.activities import (
+from activities import (
     # Database
     save_to_neon,
 
