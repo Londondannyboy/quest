@@ -3,15 +3,21 @@ Image Generation Activities
 
 Real Replicate + Cloudinary image generation with responsive variants.
 Generates 3 distinct images and uploads to Cloudinary with transformations.
+Uses app-specific image templates from config.
 """
 
 import os
+import sys
 import asyncio
 from temporalio import activity
 from typing import Dict, Any, List
 import replicate
 import cloudinary
 import cloudinary.uploader
+
+# Import app config
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import get_app_config
 
 
 # Configure Cloudinary
@@ -26,25 +32,29 @@ cloudinary.config(
 async def generate_article_images(
     article_id: str,
     article_title: str,
-    article_angle: str
+    article_angle: str,
+    app: str = "placement"
 ) -> Dict[str, str]:
     """
     Generate 3 distinct images using Replicate + upload to Cloudinary
+    Uses app-specific image templates from config.
 
     Pipeline:
-    1. Generate image prompts from article context
-    2. Generate images in parallel via Replicate Ideogram V3 Turbo
-    3. Upload to Cloudinary with responsive transformations
+    1. Load app config and get image templates
+    2. Generate prompts from templates with article context
+    3. Generate images in parallel via Replicate Ideogram V3 Turbo
+    4. Upload to Cloudinary with responsive transformations
 
     Args:
         article_id: Article ID for linking
         article_title: Article title for context
         article_angle: Article angle for image generation
+        app: App name (placement, relocation) for config
 
     Returns:
         Dict with Cloudinary URLs for hero, content, featured images
     """
-    activity.logger.info(f"🎨 Generating images for: {article_title[:50]}")
+    activity.logger.info(f"🎨 Generating images for {app}: {article_title[:50]}")
 
     # Check API keys
     if not os.getenv("REPLICATE_API_TOKEN"):
@@ -56,22 +66,38 @@ async def generate_article_images(
         return {"hero": None, "content": None, "featured": None}
 
     try:
-        # Generate image prompts
+        # Load app config
+        app_config = get_app_config(app)
+        activity.logger.info(f"📋 Using {app_config.display_name} image style: {app_config.image_style[:50]}...")
+
+        # Generate image prompts from app-specific templates
         prompts = [
             {
                 "purpose": "hero",
                 "aspect_ratio": "16:9",
-                "description": f"Professional hero image for article about: {article_title}. {article_angle}. Modern, clean, business-focused."
+                "description": app_config.hero_image_prompt_template.format(
+                    theme=article_title,
+                    topic=article_title,
+                    metric=article_angle
+                )
             },
             {
                 "purpose": "featured",
                 "aspect_ratio": "3:2",
-                "description": f"Featured image for article about: {article_title}. Focus on key concept: {article_angle}."
+                "description": app_config.featured_image_prompt_template.format(
+                    theme=article_title,
+                    topic=article_title,
+                    metric=article_angle
+                )
             },
             {
                 "purpose": "content",
                 "aspect_ratio": "4:3",
-                "description": f"Supporting content image for: {article_title}. Illustrate: {article_angle}."
+                "description": app_config.content_image_prompt_template.format(
+                    theme=article_title,
+                    topic=article_title,
+                    metric=article_angle
+                )
             }
         ]
 
