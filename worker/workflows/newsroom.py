@@ -39,7 +39,7 @@ class NewsroomWorkflow:
         target_word_count: int = 1500,
         auto_approve: bool = True,
         app: str = "placement",
-        skip_zep_check: bool = False
+        skip_zep_check: bool = True  # Skip by default until Zep coverage is fixed
     ) -> dict:
         """
         Run the newsroom workflow

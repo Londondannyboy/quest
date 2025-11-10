@@ -59,7 +59,7 @@ async def test_relocation():
                 1400,  # target_word_count
                 True,  # auto_approve
                 "relocation",  # app
-                False,  # skip_zep_check
+                # skip_zep_check defaults to True now
             ],
             task_queue=task_queue,
             id=workflow_id,

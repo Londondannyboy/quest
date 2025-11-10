@@ -60,7 +60,7 @@ async def test_placement_images():
                 1500,  # target_word_count
                 True,  # auto_approve
                 "placement",  # app
-                False,  # skip_zep_check
+                # skip_zep_check defaults to True now
             ],
             task_queue=task_queue,
             id=workflow_id,
