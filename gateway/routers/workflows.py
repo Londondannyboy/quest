@@ -11,8 +11,8 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from gateway.auth import validate_api_key
-from gateway.temporal_client import TemporalClientManager
+from auth import validate_api_key
+from temporal_client import TemporalClientManager
 
 
 router = APIRouter(prefix="/v1/workflows", tags=["workflows"])

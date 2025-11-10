@@ -14,15 +14,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 # Load environment variables
 load_dotenv()
 
-# Import routers
-from gateway.routers import health, workflows
-from gateway.temporal_client import TemporalClientManager
+# Import routers (relative imports for Railway deployment)
+from routers import health, workflows
+from temporal_client import TemporalClientManager
 
 
 # ============================================================================

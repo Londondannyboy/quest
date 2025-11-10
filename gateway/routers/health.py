@@ -9,7 +9,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from gateway.temporal_client import TemporalClientManager
+from temporal_client import TemporalClientManager
 
 
 router = APIRouter(tags=["health"])
