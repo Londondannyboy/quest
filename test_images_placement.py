@@ -56,7 +56,7 @@ async def test_placement_images():
         handle = await client.start_workflow(
             "NewsroomWorkflow",
             args=[
-                "Morgan Stanley wealth management division sees unprecedented growth in assets under management",
+                "Barclays announces major expansion of investment banking division in Asia Pacific region",
                 1500,  # target_word_count
                 True,  # auto_approve
                 "placement",  # app
