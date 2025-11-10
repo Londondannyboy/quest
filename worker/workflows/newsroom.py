@@ -240,6 +240,31 @@ class NewsroomWorkflow:
         workflow.logger.info(f"✅ Quality score: {quality_score:.1f}/10")
 
         # =====================================================================
+        # STAGE 7.5: GENERATE IMAGES
+        # =====================================================================
+        workflow.logger.info("=" * 60)
+        workflow.logger.info("🎨 STAGE 7.5: IMAGE GENERATION")
+        workflow.logger.info("=" * 60)
+
+        image_urls = await workflow.execute_activity(
+            "generate_article_images",
+            args=[
+                article_data.get("id"),
+                article_data.get("title", "Untitled"),
+                brief.get("angle", "")
+            ],
+            start_to_close_timeout=timedelta(minutes=5),
+            retry_policy=retry_policy,
+        )
+
+        # Add images to article data
+        article_data['images'] = image_urls
+        if image_urls.get('hero'):
+            workflow.logger.info(f"✅ Generated images: hero, featured, content")
+        else:
+            workflow.logger.info(f"⚠️  Image generation skipped (API keys not set)")
+
+        # =====================================================================
         # STAGE 8: SAVE TO DATABASE
         # =====================================================================
         workflow.logger.info("=" * 60)

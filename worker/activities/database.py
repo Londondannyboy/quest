@@ -77,16 +77,19 @@ async def save_to_neon(article: Dict[str, Any], brief: Dict[str, Any]) -> bool:
                 # Get app from article or default to placement
                 app = article.get("app", "placement")
 
+                # Get Zep graph ID if present
+                zep_graph_id = article.get("zep_graph_id") or article.get("zep_episode_id")
+
                 # Insert article with all required fields
                 await cur.execute("""
                     INSERT INTO articles (
                         id, title, slug, content, excerpt,
                         word_count, citation_count,
-                        status, published_at, app
+                        status, published_at, app, zep_graph_id
                     ) VALUES (
                         %(id)s, %(title)s, %(slug)s, %(content)s, %(excerpt)s,
                         %(word_count)s, %(citation_count)s,
-                        'published', NOW(), %(app)s
+                        'published', NOW(), %(app)s, %(zep_graph_id)s
                     )
                     ON CONFLICT (id) DO UPDATE SET
                         title = EXCLUDED.title,
@@ -97,6 +100,7 @@ async def save_to_neon(article: Dict[str, Any], brief: Dict[str, Any]) -> bool:
                         status = 'published',
                         published_at = COALESCE(articles.published_at, NOW()),
                         app = EXCLUDED.app,
+                        zep_graph_id = COALESCE(EXCLUDED.zep_graph_id, articles.zep_graph_id),
                         updated_at = NOW()
                     RETURNING id, slug
                 """, {
@@ -107,7 +111,8 @@ async def save_to_neon(article: Dict[str, Any], brief: Dict[str, Any]) -> bool:
                     "excerpt": metadata["excerpt"],
                     "word_count": metadata["word_count"],
                     "citation_count": metadata["citation_count"],
-                    "app": app
+                    "app": app,
+                    "zep_graph_id": zep_graph_id
                 })
 
                 result = await cur.fetchone()
