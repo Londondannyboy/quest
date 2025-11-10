@@ -9,7 +9,6 @@ import os
 from typing import Dict, Any, Optional, List
 from temporalio import activity
 from zep_cloud.client import AsyncZep
-from zep_cloud import Episode, Message
 
 
 async def get_zep_client() -> AsyncZep:
@@ -47,16 +46,18 @@ async def check_zep_coverage(
     try:
         client = await get_zep_client()
 
-        # Search for similar content in user's graph
-        # Using app as user_id to separate by application
-        search_results = await client.memory.search(
-            user_id=f"app-{app}",
-            text=topic,
+        # Get graph ID for this app (quest-placement, quest-relocation, etc.)
+        graph_id = f"quest-{app}"
+
+        # Search for similar content in app's graph
+        search_results = await client.graph.search(
+            graph_id=graph_id,
+            query=topic,
             limit=5
         )
 
-        if not search_results or not search_results.results:
-            activity.logger.info("✅ Topic is novel - no similar content found")
+        if not search_results or not hasattr(search_results, 'edges') or not search_results.edges:
+            activity.logger.info("✅ Topic is novel - no similar content found in knowledge graph")
             return {
                 "covered": False,
                 "similar_articles": [],
@@ -65,19 +66,20 @@ async def check_zep_coverage(
                 "reasoning": "No similar content found in knowledge base"
             }
 
-        # Analyze similarity scores
+        # Analyze similarity scores from graph edges
         similar_articles = []
         max_similarity = 0.0
 
-        for result in search_results.results:
-            if result.score and result.score > max_similarity:
-                max_similarity = result.score
+        for edge in search_results.edges:
+            score = edge.score if hasattr(edge, 'score') else 0.0
+            if score > max_similarity:
+                max_similarity = score
 
-            if result.score and result.score >= similarity_threshold:
+            if score >= similarity_threshold:
                 similar_articles.append({
-                    "title": result.message.content if result.message else "Unknown",
-                    "similarity": result.score,
-                    "created_at": result.message.created_at if result.message else None
+                    "title": edge.fact if hasattr(edge, 'fact') else "Unknown",
+                    "similarity": score,
+                    "created_at": edge.created_at if hasattr(edge, 'created_at') else None
                 })
 
         # Calculate novelty (inverse of similarity)
@@ -166,36 +168,31 @@ async def sync_article_to_zep(article: Dict[str, Any]) -> str:
         if "metadata" in article and "primary_topics" in article["metadata"]:
             metadata["topics"] = article["metadata"]["primary_topics"]
 
-        # Create episode message
-        message = Message(
-            role="assistant",
-            content=f"# {title}\n\n{summary}",
-            metadata=metadata
+        # Get graph ID for this app
+        graph_id = f"quest-{app}"
+
+        # Prepare condensed content for graph
+        condensed_content = f"# {title}\n\n{summary}\n\n"
+        if "metadata" in article:
+            condensed_content += f"Keywords: {', '.join(article.get('keywords', []))}\n"
+            condensed_content += f"Word Count: {article.get('word_count', 0)}\n"
+
+        # Add to Zep Graph (not memory/session)
+        episode = await client.graph.add(
+            graph_id=graph_id,
+            type="text",
+            data=condensed_content
         )
 
-        # Create episode in Zep
-        episode = Episode(
-            session_id=f"articles-{app}",
-            messages=[message]
-        )
+        # Extract episode UUID
+        episode_uuid = episode.uuid_ if hasattr(episode, 'uuid_') else str(episode)
 
-        # Add episode to user's memory
-        result = await client.memory.add(
-            user_id=f"app-{app}",
-            episodes=[episode]
-        )
-
-        # Get episode UUID from result
-        episode_uuid = None
-        if result and hasattr(result, 'episode_ids') and result.episode_ids:
-            episode_uuid = result.episode_ids[0]
-
-        activity.logger.info(f"✅ Article synced to Zep")
+        activity.logger.info(f"✅ Article synced to Zep Graph")
+        activity.logger.info(f"   Graph ID: {graph_id}")
         activity.logger.info(f"   Episode UUID: {episode_uuid}")
         activity.logger.info(f"   App: {app}")
-        activity.logger.info(f"   Session: articles-{app}")
 
-        return episode_uuid or f"zep-{article_id}"
+        return episode_uuid
 
     except Exception as e:
         activity.logger.error(f"❌ Zep sync failed: {type(e).__name__}: {str(e)}")

@@ -10,7 +10,7 @@ import re
 from typing import Dict, Any
 from temporalio import activity
 import google.generativeai as genai
-from ulid import ULID
+import ulid
 
 # Configure Gemini
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
@@ -117,7 +117,7 @@ CRITICAL:
         article_data = json.loads(content)
 
         # Generate article ID (ULID - time-sortable)
-        article_id = str(ULID())
+        article_id = str(ulid.new())
 
         # Ensure required fields
         article_data["id"] = article_id
@@ -161,7 +161,7 @@ CRITICAL:
 
         # Return minimal fallback article
         return {
-            "id": str(ULID()),
+            "id": str(ulid.new()),
             "title": brief.get('title', 'Article Generation Failed')[:60],
             "slug": create_slug(brief.get('title', 'failed')),
             "content": f"# {brief.get('title')}\n\nArticle generation failed: {str(e)}",
