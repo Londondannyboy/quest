@@ -80,6 +80,10 @@ async def save_to_neon(article: Dict[str, Any], brief: Dict[str, Any]) -> bool:
                 # Get Zep graph ID if present
                 zep_graph_id = article.get("zep_graph_id") or article.get("zep_episode_id")
 
+                # Log what we're about to save
+                activity.logger.info(f"   Status from article data: {article.get('status', 'NOT SET')}")
+                activity.logger.info(f"   Zep graph ID: {zep_graph_id}")
+
                 # Insert article with all required fields
                 await cur.execute("""
                     INSERT INTO articles (
