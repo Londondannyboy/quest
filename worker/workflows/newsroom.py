@@ -251,7 +251,8 @@ class NewsroomWorkflow:
             args=[
                 article_data.get("id"),
                 article_data.get("title", "Untitled"),
-                brief.get("angle", "")
+                brief.get("angle", ""),
+                app  # Pass app parameter for app-specific image templates
             ],
             start_to_close_timeout=timedelta(minutes=5),
             retry_policy=retry_policy,
