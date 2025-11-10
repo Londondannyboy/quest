@@ -103,15 +103,20 @@ async def generate_article_images(
 
         # Generate images with Replicate (parallel)
         replicate_urls = await _generate_with_replicate(prompts)
+        activity.logger.info(f"🔍 Replicate URLs generated: {replicate_urls}")
 
         # Upload to Cloudinary with transformations (parallel)
         cloudinary_urls = await _upload_to_cloudinary(replicate_urls, article_id)
+        activity.logger.info(f"🔍 Cloudinary URLs after upload: {cloudinary_urls}")
 
         activity.logger.info(f"✅ Generated {len(cloudinary_urls)} images successfully")
         return cloudinary_urls
 
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
         activity.logger.error(f"❌ Image generation failed: {e}")
+        activity.logger.error(f"Full traceback:\n{error_trace}")
         return {"hero": None, "content": None, "featured": None}
 
 
