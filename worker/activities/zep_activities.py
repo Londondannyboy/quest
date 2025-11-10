@@ -76,11 +76,13 @@ async def check_zep_coverage(
         graph_id = get_graph_id(app)
 
         # Search for similar content in graph (sync client, wrap in asyncio)
+        # Note: Using graph_id parameter as per Zep docs
         search_results = await asyncio.to_thread(
-            client.graph.search,
-            graph_id=graph_id,
-            query=topic,
-            limit=5
+            lambda: client.graph.search(
+                graph_id=graph_id,
+                query=topic,
+                limit=5
+            )
         )
 
         if not search_results or not hasattr(search_results, 'edges') or not search_results.edges:
@@ -211,11 +213,13 @@ async def sync_article_to_zep(article: Dict[str, Any]) -> str:
             condensed_content = condensed_content[:9900] + "\n...[truncated]"
 
         # Add to Zep Graph using sync client (wrap in asyncio)
+        # Note: Using graph_id parameter as per Zep docs
         episode = await asyncio.to_thread(
-            client.graph.add,
-            graph_id=graph_id,
-            type="text",
-            data=condensed_content
+            lambda: client.graph.add(
+                graph_id=graph_id,
+                type="text",
+                data=condensed_content
+            )
         )
 
         # Extract episode UUID
