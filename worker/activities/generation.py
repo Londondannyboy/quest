@@ -12,7 +12,11 @@ from datetime import datetime
 from typing import Dict, Any
 from temporalio import activity
 import google.generativeai as genai
-from worker.config import get_app_config
+
+# Import config - using relative import to avoid circular dependency
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import get_app_config
 
 # Configure Gemini
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
