@@ -121,41 +121,46 @@ async def generate_article_images(
 
 
 async def _generate_with_replicate(prompts: List[Dict]) -> Dict[str, str]:
-    """Generate images in parallel using Replicate Ideogram V3 Turbo"""
+    """Generate images using Replicate Ideogram V3 Turbo"""
     activity.logger.info(f"🎨 Generating {len(prompts)} images with Replicate...")
 
-    async def generate_single(prompt: Dict) -> tuple[str, str]:
-        """Generate single image"""
+    results = {}
+    for prompt in prompts:
         purpose = prompt["purpose"]
         activity.logger.info(f"   Generating {purpose} image ({prompt['aspect_ratio']})...")
 
-        output = await asyncio.to_thread(
-            replicate.run,
-            "ideogram-ai/ideogram-v3-turbo",
-            input={
-                "prompt": prompt["description"],
-                "aspect_ratio": prompt["aspect_ratio"],
-                "magic_prompt_option": "Auto",
-                "style_type": "General"
-            }
-        )
+        try:
+            # Direct call to replicate.run without asyncio.to_thread
+            output = replicate.run(
+                "ideogram-ai/ideogram-v3-turbo",
+                input={
+                    "prompt": prompt["description"],
+                    "aspect_ratio": prompt["aspect_ratio"],
+                    "magic_prompt_option": "Auto",
+                    "style_type": "General"
+                }
+            )
 
-        # Handle different output formats
-        if isinstance(output, str):
-            url = output
-        elif isinstance(output, list) and len(output) > 0:
-            url = str(output[0])
-        elif hasattr(output, 'url'):
-            url = output.url
-        else:
-            url = str(output)
+            # Handle different output formats
+            if isinstance(output, str):
+                url = output
+            elif isinstance(output, list) and len(output) > 0:
+                url = str(output[0])
+            elif hasattr(output, 'url'):
+                url = output.url
+            else:
+                url = str(output)
 
-        activity.logger.info(f"   ✅ Generated {purpose}: {url[:60]}...")
-        return (purpose, url)
+            activity.logger.info(f"   ✅ Generated {purpose}: {url[:60]}...")
+            results[purpose] = url
 
-    # Generate all in parallel
-    results = await asyncio.gather(*[generate_single(p) for p in prompts])
-    return dict(results)
+        except Exception as e:
+            activity.logger.error(f"   ❌ Failed to generate {purpose}: {e}")
+            import traceback
+            activity.logger.error(f"   Traceback: {traceback.format_exc()}")
+            results[purpose] = None
+
+    return results
 
 
 async def _upload_to_cloudinary(image_urls: Dict[str, str], article_id: str) -> Dict[str, str]:

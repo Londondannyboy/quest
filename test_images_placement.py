@@ -56,7 +56,7 @@ async def test_placement_images():
         handle = await client.start_workflow(
             "NewsroomWorkflow",
             args=[
-                "Goldman Sachs M&A advisory revenue hits record $2.1 billion in Q4 2024",
+                "Morgan Stanley wealth management division sees unprecedented growth in assets under management",
                 1500,  # target_word_count
                 True,  # auto_approve
                 "placement",  # app
