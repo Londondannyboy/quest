@@ -161,6 +161,7 @@ async def _generate_with_replicate(prompts: List[Dict]) -> Dict[str, str]:
 async def _upload_to_cloudinary(image_urls: Dict[str, str], article_id: str) -> Dict[str, str]:
     """Upload images to Cloudinary with responsive transformations"""
     activity.logger.info(f"☁️  Uploading {len(image_urls)} images to Cloudinary...")
+    activity.logger.info(f"   Image URLs to upload: {image_urls}")
 
     # Define responsive transformations
     responsive_transformations = [
@@ -171,29 +172,43 @@ async def _upload_to_cloudinary(image_urls: Dict[str, str], article_id: str) -> 
 
     async def upload_single(purpose: str, replicate_url: str) -> tuple[str, str]:
         """Upload single image"""
-        activity.logger.info(f"   Uploading {purpose} to Cloudinary...")
+        try:
+            activity.logger.info(f"   Uploading {purpose} to Cloudinary from: {replicate_url[:100]}...")
 
-        result = await asyncio.to_thread(
-            cloudinary.uploader.upload,
-            replicate_url,
-            folder="quest-articles",
-            public_id=f"article_{purpose}_{article_id}",
-            overwrite=True,
-            resource_type="image",
-            eager=responsive_transformations,
-            eager_async=False,  # Wait for transformations
-        )
+            result = await asyncio.to_thread(
+                cloudinary.uploader.upload,
+                replicate_url,
+                folder="quest-articles",
+                public_id=f"article_{purpose}_{article_id}",
+                overwrite=True,
+                resource_type="image",
+                eager=responsive_transformations,
+                eager_async=False,  # Wait for transformations
+            )
 
-        cdn_url = result["secure_url"]
-        eager_count = len(result.get("eager", []))
+            cdn_url = result["secure_url"]
+            eager_count = len(result.get("eager", []))
 
-        activity.logger.info(f"   ✅ Uploaded {purpose}: {cdn_url[:60]}... ({eager_count} variants)")
-        return (purpose, cdn_url)
+            activity.logger.info(f"   ✅ Uploaded {purpose}: {cdn_url[:60]}... ({eager_count} variants)")
+            return (purpose, cdn_url)
+        except Exception as e:
+            activity.logger.error(f"   ❌ Failed to upload {purpose} to Cloudinary: {e}")
+            import traceback
+            activity.logger.error(f"   Traceback: {traceback.format_exc()}")
+            return (purpose, None)
 
     # Upload all in parallel
-    results = await asyncio.gather(*[
-        upload_single(purpose, url)
-        for purpose, url in image_urls.items()
-    ])
+    try:
+        results = await asyncio.gather(*[
+            upload_single(purpose, url)
+            for purpose, url in image_urls.items()
+        ])
 
-    return dict(results)
+        # Filter out None values
+        successful_uploads = {k: v for k, v in dict(results) if v is not None}
+        activity.logger.info(f"   Cloudinary upload complete: {len(successful_uploads)}/{len(image_urls)} successful")
+
+        return successful_uploads if successful_uploads else {"hero": None, "content": None, "featured": None}
+    except Exception as e:
+        activity.logger.error(f"   ❌ Cloudinary upload gather failed: {e}")
+        return {"hero": None, "content": None, "featured": None}
