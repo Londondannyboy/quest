@@ -38,7 +38,8 @@ class NewsroomWorkflow:
         topic: str,
         target_word_count: int = 1500,
         auto_approve: bool = True,
-        app: str = "placement"
+        app: str = "placement",
+        skip_zep_check: bool = False
     ) -> dict:
         """
         Run the newsroom workflow
@@ -48,6 +49,7 @@ class NewsroomWorkflow:
             target_word_count: Target word count for article
             auto_approve: If True, skip manual approval
             app: Application identifier (placement, relocation, etc.)
+            skip_zep_check: If True, skip Zep coverage check (for testing)
 
         Returns:
             Complete Article dict
@@ -64,6 +66,36 @@ class NewsroomWorkflow:
             maximum_attempts=3,
             backoff_coefficient=2.0,
         )
+
+        # =====================================================================
+        # STAGE 0: ZEP COVERAGE CHECK
+        # =====================================================================
+        if not skip_zep_check:
+            workflow.logger.info("=" * 60)
+            workflow.logger.info("🔍 STAGE 0: ZEP COVERAGE CHECK")
+            workflow.logger.info("=" * 60)
+
+            coverage_result = await workflow.execute_activity(
+                "check_zep_coverage",
+                args=[topic, app, 0.85],  # 85% similarity threshold
+                start_to_close_timeout=timedelta(minutes=1),
+                retry_policy=retry_policy,
+            )
+
+            workflow.logger.info(f"   Novelty score: {coverage_result.get('novelty_score', 0):.2f}")
+            workflow.logger.info(f"   Recommendation: {coverage_result.get('recommendation', 'unknown')}")
+
+            # If already covered, log and optionally skip
+            if coverage_result.get('recommendation') == 'skip':
+                workflow.logger.warning(f"⚠️  Topic already covered!")
+                workflow.logger.warning(f"   Reason: {coverage_result.get('reasoning', 'Unknown')}")
+                workflow.logger.warning(f"   Similar articles: {len(coverage_result.get('similar_articles', []))}")
+
+                # For now, continue anyway (can be changed to return early)
+                workflow.logger.info("   → Continuing anyway (duplicate detection enabled)")
+            elif coverage_result.get('recommendation') == 'update':
+                workflow.logger.info(f"💡 Similar content exists - suggesting new angle")
+                workflow.logger.info(f"   Reason: {coverage_result.get('reasoning', 'Unknown')}")
 
         # =====================================================================
         # STAGE 1: SEARCH NEWS
@@ -233,17 +265,35 @@ class NewsroomWorkflow:
         workflow.logger.info("🔗 STAGE 9: KNOWLEDGE BASE SYNC")
         workflow.logger.info("=" * 60)
 
-        zep_graph_id = await workflow.execute_activity(
-            "sync_to_zep",
+        # Sync article to Zep Graph
+        zep_episode_id = await workflow.execute_activity(
+            "sync_article_to_zep",
             article_data,
             start_to_close_timeout=timedelta(minutes=2),
             retry_policy=retry_policy,
         )
 
-        article_data['zep_graph_id'] = zep_graph_id
+        workflow.logger.info(f"✅ Article synced to Zep: {zep_episode_id}")
+
+        # Extract facts (entities + themes) to Zep
+        facts_result = await workflow.execute_activity(
+            "extract_facts_to_zep",
+            args=[
+                article_data,
+                entity_data.get("entities", []),
+                entity_data.get("themes", [])
+            ],
+            start_to_close_timeout=timedelta(minutes=1),
+            retry_policy=retry_policy,
+        )
+
+        workflow.logger.info(f"✅ Extracted {facts_result.get('fact_count', 0)} facts to Zep")
+
+        article_data['zep_graph_id'] = zep_episode_id
+        article_data['zep_episode_id'] = zep_episode_id
         article_data['neon_saved'] = saved
 
-        workflow.logger.info(f"✅ Synced to Zep: {zep_graph_id}")
+        workflow.logger.info(f"✅ Knowledge base sync complete")
 
         # =====================================================================
         # WORKFLOW COMPLETE

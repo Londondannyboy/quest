@@ -29,7 +29,12 @@ from activities import (
     extract_entities_from_news,
     extract_entities_citations,
     calculate_quality_score,
-    sync_to_zep,
+    sync_to_zep,  # Legacy
+
+    # Zep Graph
+    check_zep_coverage,
+    sync_article_to_zep,
+    extract_facts_to_zep,
 
     # Generation
     generate_article,
@@ -109,7 +114,12 @@ async def main():
             extract_entities_from_news,
             extract_entities_citations,
             calculate_quality_score,
-            sync_to_zep,
+            sync_to_zep,  # Legacy
+
+            # Zep Graph
+            check_zep_coverage,
+            sync_article_to_zep,
+            extract_facts_to_zep,
 
             # Generation
             generate_article,
@@ -135,7 +145,10 @@ async def main():
     print("     - extract_entities_from_news")
     print("     - extract_entities_citations")
     print("     - calculate_quality_score")
-    print("     - sync_to_zep")
+    print("   Zep Graph:")
+    print("     - check_zep_coverage")
+    print("     - sync_article_to_zep")
+    print("     - extract_facts_to_zep")
     print("   Generation:")
     print("     - generate_article")
     print("   Images:")

@@ -11,10 +11,15 @@ from .research import (
     extract_entities_from_news,
     extract_entities_citations,
     calculate_quality_score,
-    sync_to_zep,
+    sync_to_zep,  # Legacy placeholder - use zep_activities instead
 )
 from .generation import generate_article
 from .images import generate_article_images
+from .zep_activities import (
+    check_zep_coverage,
+    sync_article_to_zep,
+    extract_facts_to_zep,
+)
 
 __all__ = [
     # Database
@@ -27,7 +32,12 @@ __all__ = [
     "extract_entities_from_news",
     "extract_entities_citations",
     "calculate_quality_score",
-    "sync_to_zep",
+    "sync_to_zep",  # Legacy
+
+    # Zep Graph
+    "check_zep_coverage",
+    "sync_article_to_zep",
+    "extract_facts_to_zep",
 
     # Generation
     "generate_article",
