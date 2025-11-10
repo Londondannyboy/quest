@@ -77,7 +77,7 @@ class NewsroomWorkflow:
 
             coverage_result = await workflow.execute_activity(
                 "check_zep_coverage",
-                topic, app, 0.85,  # 85% similarity threshold
+                [topic, app, 0.85],  # 85% similarity threshold
                 start_to_close_timeout=timedelta(minutes=1),
                 retry_policy=retry_policy,
             )
@@ -197,7 +197,7 @@ class NewsroomWorkflow:
 
         research_brief = await workflow.execute_activity(
             "extract_entities_citations",
-            brief, scraped_sources,
+            [brief, scraped_sources],
             start_to_close_timeout=timedelta(minutes=3),
             retry_policy=retry_policy,
         )
@@ -213,7 +213,7 @@ class NewsroomWorkflow:
 
         article_data = await workflow.execute_activity(
             "generate_article",
-            brief, research_brief, app,
+            [brief, research_brief, app],
             start_to_close_timeout=timedelta(minutes=10),
             retry_policy=retry_policy,
         )
@@ -248,10 +248,10 @@ class NewsroomWorkflow:
 
         image_urls = await workflow.execute_activity(
             "generate_article_images",
-            article_data.get("id"),
-            article_data.get("title", "Untitled"),
-            brief.get("angle", ""),
-            app,  # Pass app parameter for app-specific image templates
+            [article_data.get("id"),
+             article_data.get("title", "Untitled"),
+             brief.get("angle", ""),
+             app],  # Pass app parameter for app-specific image templates
             start_to_close_timeout=timedelta(minutes=5),
             retry_policy=retry_policy,
         )
@@ -272,7 +272,7 @@ class NewsroomWorkflow:
 
         saved = await workflow.execute_activity(
             "save_to_neon",
-            article_data, brief,
+            [article_data, brief],
             start_to_close_timeout=timedelta(minutes=2),
             retry_policy=retry_policy,
         )
@@ -302,9 +302,9 @@ class NewsroomWorkflow:
         # Extract facts (entities + themes) to Zep
         facts_result = await workflow.execute_activity(
             "extract_facts_to_zep",
-            article_data,
-            entity_data.get("entities", []),
-            entity_data.get("themes", []),
+            [article_data,
+             entity_data.get("entities", []),
+             entity_data.get("themes", [])],
             start_to_close_timeout=timedelta(minutes=1),
             retry_policy=retry_policy,
         )
