@@ -53,6 +53,7 @@ from activities import (
 )
 
 from activities.database import save_company_profile
+from activities.duplicate_check import check_for_duplicates
 
 # Import new dedicated image activities
 from activities.images_placement import generate_placement_images
@@ -157,6 +158,7 @@ async def main():
             # Database
             save_to_neon,
             save_company_profile,
+            check_for_duplicates,
 
             # Research
             search_news_serper,

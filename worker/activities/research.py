@@ -103,11 +103,14 @@ async def deep_scrape_sources(sources: List[Dict[str, Any]]) -> List[Dict[str, A
                 response.raise_for_status()
                 data = response.json()
 
-                # Update source with scraped content
+                # Update source with scraped content and images
                 content = data.get("content") or data.get("raw_content", "")
+                images = data.get("images", [])  # Tavily returns image URLs
+
                 if content:
                     source["content"] = content
-                    activity.logger.info(f"✅ Scraped: {url[:60]}...")
+                    source["images"] = images  # Store article images
+                    activity.logger.info(f"✅ Scraped: {url[:60]}... ({len(images)} images)")
                 else:
                     activity.logger.warning(f"⚠️  No content: {url[:60]}...")
 

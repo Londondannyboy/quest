@@ -62,7 +62,35 @@ class ChiefOfStaffWorkflow:
         )
 
         # =====================================================================
-        # STAGE 0: ZEP COVERAGE CHECK
+        # STAGE 0: DUPLICATE CHECK (SIMPLE NEON CHECK)
+        # =====================================================================
+        workflow.logger.info("=" * 60)
+        workflow.logger.info("🔍 STAGE 0: DUPLICATE CHECK")
+        workflow.logger.info("=" * 60)
+
+        duplicate_check = await workflow.execute_activity(
+            "check_for_duplicates",
+            args=[topic, app, 7],  # Check last 7 days
+            start_to_close_timeout=timedelta(minutes=1),
+            retry_policy=retry_policy,
+        )
+
+        if duplicate_check.get('is_duplicate'):
+            workflow.logger.warning(f"⚠️  Similar article already exists, skipping generation")
+            existing = duplicate_check.get('existing_articles', [])
+            if existing:
+                workflow.logger.warning(f"   Existing: {existing[0].get('title', 'Unknown')}")
+            # Return early without generating article
+            return {
+                "skipped": True,
+                "reason": "duplicate",
+                "existing_articles": existing
+            }
+
+        workflow.logger.info(f"✅ No duplicates found, proceeding with generation")
+
+        # =====================================================================
+        # STAGE 0.5: ZEP COVERAGE CHECK (OPTIONAL)
         # =====================================================================
         if not skip_zep_check:
             workflow.logger.info("=" * 60)
