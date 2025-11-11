@@ -42,14 +42,11 @@ async def exa_research_topic(research_input: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         # Exa search with full content retrieval
+        # Note: Using basic parameters - Exa API has changed
         search_response = exa.search_and_contents(
             topic,
             num_results=num_results,
-            use_autoprompt=use_autoprompt,
-            category=category,
             text=True,  # Get full text content
-            highlights=True,  # Get highlights/snippets
-            summary=True  # Get AI-generated summaries
         )
 
         research_results = []
@@ -58,11 +55,11 @@ async def exa_research_topic(research_input: Dict[str, Any]) -> Dict[str, Any]:
                 "title": result.title,
                 "url": result.url,
                 "content": result.text or "",
-                "summary": result.summary or "",
-                "highlights": result.highlights or [],
-                "published_date": result.published_date if hasattr(result, 'published_date') else None,
-                "author": result.author if hasattr(result, 'author') else None,
-                "score": result.score if hasattr(result, 'score') else None
+                "summary": getattr(result, 'summary', '') or "",
+                "highlights": getattr(result, 'highlights', []) or [],
+                "published_date": getattr(result, 'published_date', None),
+                "author": getattr(result, 'author', None),
+                "score": getattr(result, 'score', None)
             })
 
         activity.logger.info(f"✅ Found {len(research_results)} high-quality sources via Exa")
@@ -70,7 +67,7 @@ async def exa_research_topic(research_input: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "research_results": research_results,
             "total_results": len(research_results),
-            "autoprompt_string": search_response.autoprompt_string if use_autoprompt else None
+            "autoprompt_string": None  # Autoprompt not currently supported
         }
 
     except Exception as e:
@@ -102,8 +99,7 @@ async def exa_find_similar(reference_url: str, num_results: int = 3) -> List[Dic
         similar_response = exa.find_similar_and_contents(
             reference_url,
             num_results=num_results,
-            text=True,
-            summary=True
+            text=True
         )
 
         similar_results = []
@@ -112,7 +108,7 @@ async def exa_find_similar(reference_url: str, num_results: int = 3) -> List[Dic
                 "title": result.title,
                 "url": result.url,
                 "content": result.text or "",
-                "summary": result.summary or ""
+                "summary": getattr(result, 'summary', '') or ""
             })
 
         activity.logger.info(f"✅ Found {len(similar_results)} similar sources")
