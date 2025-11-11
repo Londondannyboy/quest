@@ -126,12 +126,91 @@ async def save_to_neon(article: Dict[str, Any], brief: Dict[str, Any]) -> bool:
                 })
 
                 result = await cur.fetchone()
-                article_id = result[1] if result else article.get("slug", "")
+                article_uuid = result[0] if result else article.get("id")
+                article_slug = result[1] if result else article.get("slug", "")
+
+                # Save images to images table and link via article_image_usage
+                if images:
+                    activity.logger.info(f"   Saving {len(images)} images to database...")
+
+                    for role, cloudinary_url in images.items():
+                        if cloudinary_url:
+                            try:
+                                # Extract public_id from Cloudinary URL
+                                # URL format: https://res.cloudinary.com/{cloud}/image/upload/{version}/{public_id}.{format}
+                                url_parts = cloudinary_url.split('/upload/')
+                                if len(url_parts) == 2:
+                                    # Remove version prefix (e.g., "v1762817386/")
+                                    path_parts = url_parts[1].split('/', 1)
+                                    if len(path_parts) == 2:
+                                        public_id_with_ext = path_parts[1]
+                                        # Remove file extension
+                                        public_id = public_id_with_ext.rsplit('.', 1)[0]
+                                    else:
+                                        public_id = url_parts[1].rsplit('.', 1)[0]
+                                else:
+                                    public_id = f"quest-articles/{role}_{article_uuid}"
+
+                                # Insert into images table
+                                await cur.execute("""
+                                    INSERT INTO images (
+                                        cloudinary_url,
+                                        cloudinary_public_id,
+                                        tags,
+                                        created_at,
+                                        updated_at
+                                    ) VALUES (
+                                        %(cloudinary_url)s,
+                                        %(cloudinary_public_id)s,
+                                        %(tags)s,
+                                        NOW(),
+                                        NOW()
+                                    )
+                                    RETURNING id
+                                """, {
+                                    "cloudinary_url": cloudinary_url,
+                                    "cloudinary_public_id": public_id,
+                                    "tags": [str(article_uuid), article.get("title", "")[:100], role, "auto-generated"]
+                                })
+
+                                image_result = await cur.fetchone()
+                                image_id = image_result[0] if image_result else None
+
+                                if image_id:
+                                    # Insert into article_image_usage table
+                                    await cur.execute("""
+                                        INSERT INTO article_image_usage (
+                                            article_id,
+                                            image_id,
+                                            role,
+                                            alt_text,
+                                            created_at
+                                        ) VALUES (
+                                            %(article_id)s,
+                                            %(image_id)s,
+                                            %(role)s,
+                                            %(alt_text)s,
+                                            NOW()
+                                        )
+                                    """, {
+                                        "article_id": article_uuid,
+                                        "image_id": image_id,
+                                        "role": role,
+                                        "alt_text": f"{article.get('title', 'Article')} - {role} image"
+                                    })
+
+                                    activity.logger.info(f"      ✅ Saved {role} image (id={image_id})")
+                                else:
+                                    activity.logger.warning(f"      ⚠️  Failed to get image_id for {role}")
+
+                            except Exception as e:
+                                activity.logger.error(f"      ❌ Failed to save {role} image: {e}")
+                                # Continue with other images even if one fails
 
                 # Commit transaction
                 await conn.commit()
 
-                activity.logger.info(f"✅ Article saved: {article_id}")
+                activity.logger.info(f"✅ Article saved: {article_slug}")
                 activity.logger.info(f"   Words: {metadata['word_count']}, Citations: {metadata['citation_count']}, App: {app}")
 
                 return True
@@ -139,3 +218,107 @@ async def save_to_neon(article: Dict[str, Any], brief: Dict[str, Any]) -> bool:
     except Exception as e:
         activity.logger.error(f"❌ Failed to save article: {e}")
         raise
+
+
+@activity.defn(name="save_company_profile")
+async def save_company_profile(company_profile: Dict[str, Any]) -> bool:
+    """
+    Save company profile to database
+
+    Args:
+        company_profile: Company profile dict from workflow
+
+    Returns:
+        True if saved successfully
+    """
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        raise ValueError("DATABASE_URL not set")
+
+    activity.logger.info(f"💾 Saving company profile: {company_profile.get('company_name', 'Unknown')}")
+
+    try:
+        async with await psycopg.AsyncConnection.connect(database_url) as conn:
+            async with conn.cursor() as cur:
+                # Get data from profile
+                company_id = company_profile.get("id")
+                company_name = company_profile.get("company_name", "Unknown")
+                company_type = company_profile.get("company_type", "placement_company")
+
+                # Get logo data
+                logo_data = company_profile.get("logo", {})
+                logo_url = logo_data.get("original_logo_url") or logo_data.get("fallback_image_url")
+
+                # Get validation data
+                validation = company_profile.get("validation", {})
+                completeness_score = validation.get("overall_score", 0.0)
+
+                # Create companies table if it doesn't exist
+                await cur.execute("""
+                    CREATE TABLE IF NOT EXISTS companies (
+                        id TEXT PRIMARY KEY,
+                        company_name TEXT NOT NULL,
+                        company_type TEXT NOT NULL,
+                        website TEXT,
+                        description TEXT,
+                        industry TEXT,
+                        headquarters_location TEXT,
+                        logo_url TEXT,
+                        profile_data JSONB,
+                        completeness_score FLOAT,
+                        status TEXT DEFAULT 'published',
+                        created_at TIMESTAMP DEFAULT NOW(),
+                        updated_at TIMESTAMP DEFAULT NOW()
+                    )
+                """)
+
+                # Insert or update company profile
+                await cur.execute("""
+                    INSERT INTO companies (
+                        id, company_name, company_type, website, description,
+                        industry, headquarters_location, logo_url,
+                        profile_data, completeness_score, status
+                    ) VALUES (
+                        %(id)s, %(company_name)s, %(company_type)s, %(website)s, %(description)s,
+                        %(industry)s, %(headquarters_location)s, %(logo_url)s,
+                        %(profile_data)s, %(completeness_score)s, 'published'
+                    )
+                    ON CONFLICT (id) DO UPDATE SET
+                        company_name = EXCLUDED.company_name,
+                        website = EXCLUDED.website,
+                        description = EXCLUDED.description,
+                        industry = EXCLUDED.industry,
+                        headquarters_location = EXCLUDED.headquarters_location,
+                        logo_url = EXCLUDED.logo_url,
+                        profile_data = EXCLUDED.profile_data,
+                        completeness_score = EXCLUDED.completeness_score,
+                        updated_at = NOW()
+                    RETURNING id
+                """, {
+                    "id": company_id,
+                    "company_name": company_name,
+                    "company_type": company_type,
+                    "website": company_profile.get("website", ""),
+                    "description": company_profile.get("description", ""),
+                    "industry": company_profile.get("industry", ""),
+                    "headquarters_location": company_profile.get("headquarters_location", ""),
+                    "logo_url": logo_url,
+                    "profile_data": Json(company_profile),
+                    "completeness_score": completeness_score
+                })
+
+                result = await cur.fetchone()
+                saved_id = result[0] if result else company_id
+
+                # Commit transaction
+                await conn.commit()
+
+                activity.logger.info(f"✅ Company profile saved: {company_name} (id={saved_id})")
+                activity.logger.info(f"   Type: {company_type}, Completeness: {completeness_score:.1%}")
+
+                return True
+
+    except Exception as e:
+        activity.logger.error(f"❌ Failed to save company profile: {e}")
+        # Don't raise - return False to allow workflow to continue
+        return False
