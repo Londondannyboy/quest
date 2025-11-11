@@ -15,6 +15,7 @@ from .research import (
 )
 from .generation import generate_article
 from .images import generate_article_images
+from .insert_images import insert_images_into_content
 from .zep_activities import (
     check_zep_coverage,
     sync_article_to_zep,
@@ -44,4 +45,5 @@ __all__ = [
 
     # Images
     "generate_article_images",
+    "insert_images_into_content",
 ]

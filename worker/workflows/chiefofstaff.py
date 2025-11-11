@@ -243,6 +243,24 @@ class ChiefOfStaffWorkflow:
             workflow.logger.info(f"⚠️  Image generation skipped (API keys not set)")
 
         # =====================================================================
+        # STAGE 7.75: INSERT IMAGES INTO CONTENT
+        # =====================================================================
+        if image_urls.get('content'):
+            workflow.logger.info("=" * 60)
+            workflow.logger.info("📝 STAGE 7.75: INSERT IMAGES INTO CONTENT")
+            workflow.logger.info("=" * 60)
+
+            updated_content = await workflow.execute_activity(
+                "insert_images_into_content",
+                args=[article_data.get('content', ''), image_urls],
+                start_to_close_timeout=timedelta(minutes=1),
+                retry_policy=retry_policy,
+            )
+
+            article_data['content'] = updated_content
+            workflow.logger.info(f"✅ Images inserted into article content")
+
+        # =====================================================================
         # STAGE 8: SAVE TO DATABASE
         # =====================================================================
         workflow.logger.info("=" * 60)

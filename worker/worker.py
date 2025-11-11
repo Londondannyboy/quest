@@ -24,6 +24,7 @@ from workflows.article_workflow import ArticleWorkflow
 from workflows.placement_company import PlacementCompanyWorkflow
 from workflows.relocation_company import RelocationCompanyWorkflow
 from workflows.recruiter_company import RecruiterCompanyWorkflow
+from workflows.smart_company import SmartCompanyWorkflow
 
 # Import all activities
 from activities import (
@@ -48,6 +49,7 @@ from activities import (
 
     # Images - Original (multi-app with config)
     generate_article_images,
+    insert_images_into_content,
 )
 
 from activities.database import save_company_profile
@@ -67,6 +69,9 @@ from activities.company import (
     extract_company_logo,
     process_company_logo,
 )
+
+# Import company classification activity
+from activities.classify_company import classify_company_type
 
 # Import Exa research activities
 from activities.exa_research import (
@@ -146,6 +151,7 @@ async def main():
             PlacementCompanyWorkflow,
             RelocationCompanyWorkflow,
             RecruiterCompanyWorkflow,
+            SmartCompanyWorkflow,
         ],
         activities=[
             # Database
@@ -176,6 +182,7 @@ async def main():
 
             # Images - Original (multi-app with config)
             generate_article_images,
+            insert_images_into_content,
 
             # Images - Dedicated per app (simple, no config)
             generate_placement_images,
@@ -190,6 +197,7 @@ async def main():
             format_company_profile,
             extract_company_logo,
             process_company_logo,
+            classify_company_type,
         ],
     )
 
@@ -208,6 +216,8 @@ async def main():
     print("   Companies:")
     print("     - PlacementCompanyWorkflow (company profiles)")
     print("     - RelocationCompanyWorkflow (company profiles)")
+    print("     - RecruiterCompanyWorkflow (company profiles)")
+    print("     - SmartCompanyWorkflow (auto-detect company type)")
     print("\n📋 Registered Activities:")
     print("   Database:")
     print("     - save_to_neon")
@@ -242,6 +252,7 @@ async def main():
     print("     - format_company_profile")
     print("     - extract_company_logo")
     print("     - process_company_logo")
+    print("     - classify_company_type (AI auto-detection)")
     print("\n✅ Worker is ready to process workflows...")
     print("   Press Ctrl+C to stop\n")
 
