@@ -137,6 +137,14 @@ async def trigger_article_workflow(
                 request.auto_approve,
                 True,  # skip_zep_check
             ]
+        elif request.app == "gtm":
+            workflow_name = "GTMWorkflow"
+            workflow_args = [
+                request.topic,
+                request.target_word_count,
+                request.auto_approve,
+                True,  # skip_zep_check
+            ]
 
         # Start workflow execution
         handle = await client.start_workflow(

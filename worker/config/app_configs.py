@@ -365,6 +365,100 @@ IMPORTANT: Include text 'Chief of Staff' in bottom left corner""",
 
 
 # ============================================================================
+# GTM APP CONFIGURATION
+# ============================================================================
+
+GTM_CONFIG = AppConfig(
+    # Basic Identity
+    name="gtm",
+    domain="gtm.quest",
+    display_name="GTM",
+
+    # Content Parameters
+    tone="Strategic, actionable, data-driven with a go-to-market focus",
+    target_audience="GTM professionals, sales leaders, marketing executives, revenue operations, growth strategists",
+    content_focus="Go-to-market strategy, sales enablement, market entry, product launches, revenue growth, GTM operations",
+    content_angle="Tactical and strategic, emphasizing actionable GTM frameworks, market insights, and growth execution",
+
+    # Article Structure
+    word_count_range=(1200, 1800),
+    min_sections=4,
+    section_style="strategic-tactical with actionable frameworks",
+
+    # Citation Requirements
+    min_citations=4,
+    preferred_sources=[
+        "Harvard Business Review",
+        "Gartner",
+        "Forrester",
+        "TechCrunch",
+        "VentureBeat",
+        "McKinsey Growth",
+        "SaaStr",
+        "First Round Review",
+        "Andreessen Horowitz",
+        "Industry analyst reports"
+    ],
+    citation_style="inline-links with authoritative source attribution",
+
+    # Image Generation
+    image_style="Professional GTM aesthetic, modern business themes, clean design with 'GTM' branding at bottom left",
+    hero_image_prompt_template="""Professional go-to-market concept illustration, {theme}, strategic business style,
+modern clean design with growth motifs, GTM aesthetic, high-quality business photography,
+dynamic color palette (navy, teal, orange accents), strategic visualization elements,
+minimalist sophisticated composition, modern business environment or growth visualization.
+IMPORTANT: Include elegant text 'GTM' in bottom left corner in refined sans-serif font""",
+
+    featured_image_prompt_template="""Strategic GTM visualization representing {metric}, clean modern professional design,
+growth and market strategy aesthetic, elegant charts or strategic diagrams, dynamic business color scheme,
+high-contrast strategic presentation style, go-to-market intelligence aesthetic.
+IMPORTANT: Include text 'GTM' in bottom left corner in professional font""",
+
+    content_image_prompt_template="""Professional GTM imagery for {topic}, strategic business photography,
+modern growth-focused environment or strategic workspace, refined lighting and composition,
+contemporary market strategy aesthetic, could include: strategy sessions, market analysis,
+or abstract growth concept visualization.
+IMPORTANT: Include text 'GTM' in bottom left corner""",
+
+    # Quality Thresholds
+    min_quality_score=0.65,
+    auto_publish_threshold=0.75,
+
+    # SEO & Keywords
+    target_keywords_count=5,
+    seo_focus="GTM strategy, go-to-market, sales enablement, market entry, revenue growth",
+
+    # Additional Guidelines
+    writing_guidelines=[
+        "Lead with market relevance: Why does this GTM insight matter now?",
+        "Focus on actionable frameworks and practical implementation",
+        "Include data points and market trends where relevant",
+        "Provide context: How does this impact market success?",
+        "Balance strategic thinking with tactical execution",
+        "Use clear GTM terminology (ICP, TAM, SAM, SOM, product-market fit)",
+        "Maintain authoritative voice - present expert insights and proven strategies",
+        "Include implications for revenue growth and market positioning"
+    ],
+
+    content_requirements=[
+        "Clear relevance to GTM strategy or market execution",
+        "Actionable frameworks or strategies teams can implement",
+        "Expert perspectives or data-backed approaches",
+        "Real-world examples or case studies from successful launches",
+        "Market context and competitive implications",
+        "Best practices from high-growth companies",
+        "Consideration of both strategy and execution dimensions",
+        "Forward-looking insights on GTM trends"
+    ],
+
+    brand_voice={
+        "do": "Strategic, actionable, growth-focused, data-driven, market-savvy, practical, insightful",
+        "dont": "Overly theoretical, generic marketing advice, jargon-heavy without clarity, sales-pitchy, unsubstantiated claims"
+    }
+)
+
+
+# ============================================================================
 # PLACEMENT COMPANY CONFIGURATION
 # ============================================================================
 
@@ -546,6 +640,7 @@ _APP_CONFIGS: Dict[str, AppConfig] = {
     "placement": PLACEMENT_CONFIG,
     "relocation": RELOCATION_CONFIG,
     "chief-of-staff": CHIEF_OF_STAFF_CONFIG,
+    "gtm": GTM_CONFIG,
 }
 
 _COMPANY_CONFIGS: Dict[str, CompanyConfig] = {
