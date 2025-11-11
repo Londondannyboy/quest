@@ -256,12 +256,21 @@ async def save_company_profile(company_profile: Dict[str, Any]) -> bool:
                 validation = company_profile.get("validation", {})
                 completeness_score = validation.get("overall_score", 0.0)
 
-                # Map to existing schema
+                # Map company_type to allowed database values
+                # For company_type column, use the exact workflow type
+                # For type column, use simplified category
                 type_mapping = {
                     "placement_company": "placement_agent",
-                    "relocation_company": "relocation_service"
+                    "relocation_company": "other"  # or add to constraint
                 }
                 db_type = type_mapping.get(company_type, "placement_agent")
+
+                # For company_type column, map to allowed constraint values
+                company_type_mapping = {
+                    "placement_company": "placement_agent",
+                    "relocation_company": "other"
+                }
+                db_company_type = company_type_mapping.get(company_type, "other")
 
                 # Prepare specializations array
                 specializations = company_profile.get("specializations", [])
@@ -311,7 +320,7 @@ async def save_company_profile(company_profile: Dict[str, Any]) -> bool:
                     "specializations": specializations,
                     "key_facts": Json(key_facts),
                     "overview": company_profile.get("profile_summary", ""),
-                    "company_type": company_type
+                    "company_type": db_company_type  # Use mapped value
                 })
 
                 result = await cur.fetchone()
