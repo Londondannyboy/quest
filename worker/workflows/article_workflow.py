@@ -232,13 +232,24 @@ class ArticleWorkflow:
         workflow.logger.info("🎨 STAGE 7: IMAGE GENERATION")
         workflow.logger.info("=" * 60)
 
-        # Use app-aware image generation
+        # Route to app-specific image generation (use simple activities that work)
+        image_activity_name = "generate_article_images"  # Default
+        if app == "placement":
+            image_activity_name = "generate_placement_images"
+        elif app == "relocation":
+            image_activity_name = "generate_relocation_images"
+        elif app == "chief-of-staff":
+            image_activity_name = "generate_chiefofstaff_images"
+        elif app == "gtm":
+            image_activity_name = "generate_gtm_images"
+
+        workflow.logger.info(f"   Using image activity: {image_activity_name}")
+
         image_urls = await workflow.execute_activity(
-            "generate_article_images",
+            image_activity_name,
             args=[article_data.get("id"),
                   article_data.get("title", "Untitled"),
-                  brief.get("angle", ""),
-                  app],
+                  brief.get("angle", "")],
             start_to_close_timeout=timedelta(minutes=5),
             retry_policy=retry_policy,
         )
