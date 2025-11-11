@@ -288,9 +288,12 @@ class ArticleWorkflow:
 
             workflow.logger.info(f"✅ Article synced to Zep: {zep_episode_id}")
 
+            # Extract entity names from entity dicts for Zep
+            entity_names = [e.get("name", e) if isinstance(e, dict) else e for e in entities]
+
             facts_result = await workflow.execute_activity(
                 "extract_facts_to_zep",
-                args=[article_data, entities, themes],
+                args=[article_data, entity_names, themes],
                 start_to_close_timeout=timedelta(minutes=1),
                 retry_policy=retry_policy,
             )
