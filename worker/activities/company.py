@@ -31,7 +31,7 @@ cloudinary.config(
 @activity.defn(name="scrape_company_website")
 async def scrape_company_website(company_url: str) -> Dict[str, Any]:
     """
-    Scrape a company website using Tavily to extract content
+    Scrape a company website with fallback methods
 
     Args:
         company_url: URL of the company website
@@ -39,44 +39,75 @@ async def scrape_company_website(company_url: str) -> Dict[str, Any]:
     Returns:
         Dict with scraped content and metadata
     """
-    tavily_key = os.getenv("TAVILY_API_KEY")
-    if not tavily_key:
-        activity.logger.error("TAVILY_API_KEY not set")
-        return {
-            "url": company_url,
-            "content": "",
-            "error": "TAVILY_API_KEY not configured"
-        }
-
     activity.logger.info(f"🌐 Scraping company website: {company_url}")
 
+    # Try Tavily first
+    tavily_key = os.getenv("TAVILY_API_KEY")
+    if tavily_key:
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    "https://api.tavily.com/crawl",
+                    json={
+                        "url": company_url,
+                        "api_key": tavily_key,
+                        "extract_depth": "advanced"
+                    },
+                    timeout=60.0
+                )
+                response.raise_for_status()
+                data = response.json()
+
+                content = data.get("content") or data.get("raw_content", "")
+
+                if content:
+                    activity.logger.info(f"✅ Scraped {len(content)} characters from {company_url} (Tavily)")
+                    return {
+                        "url": company_url,
+                        "content": content,
+                        "title": data.get("title", ""),
+                        "error": None
+                    }
+
+        except Exception as e:
+            activity.logger.warning(f"⚠️  Tavily failed ({e}), trying direct scrape...")
+
+    # Fallback: Direct HTML scraping
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                "https://api.tavily.com/crawl",
-                json={
-                    "url": company_url,
-                    "api_key": tavily_key,
-                    "extract_depth": "advanced"
-                },
-                timeout=60.0
-            )
+        from bs4 import BeautifulSoup
+
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+            response = await client.get(company_url, headers=headers)
             response.raise_for_status()
-            data = response.json()
 
-            content = data.get("content") or data.get("raw_content", "")
+            soup = BeautifulSoup(response.text, 'html.parser')
 
-            activity.logger.info(f"✅ Scraped {len(content)} characters from {company_url}")
+            # Remove script and style elements
+            for script in soup(["script", "style", "nav", "footer"]):
+                script.decompose()
+
+            # Get text content
+            text = soup.get_text()
+
+            # Clean up text
+            lines = (line.strip() for line in text.splitlines())
+            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+            text = ' '.join(chunk for chunk in chunks if chunk)
+
+            activity.logger.info(f"✅ Scraped {len(text)} characters from {company_url} (Direct)")
 
             return {
                 "url": company_url,
-                "content": content,
-                "title": data.get("title", ""),
+                "content": text,
+                "title": soup.title.string if soup.title else "",
                 "error": None
             }
 
     except Exception as e:
-        activity.logger.error(f"❌ Failed to scrape {company_url}: {e}")
+        activity.logger.error(f"❌ All scraping methods failed: {e}")
         return {
             "url": company_url,
             "content": "",
