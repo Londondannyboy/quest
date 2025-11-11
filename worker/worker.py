@@ -19,6 +19,7 @@ load_dotenv()
 from workflows.newsroom import NewsroomWorkflow
 from workflows.placement import PlacementWorkflow
 from workflows.relocation import RelocationWorkflow
+from workflows.article_workflow import ArticleWorkflow
 from workflows.placement_company import PlacementCompanyWorkflow
 from workflows.relocation_company import RelocationCompanyWorkflow
 from workflows.recruiter_company import RecruiterCompanyWorkflow
@@ -63,6 +64,14 @@ from activities.company import (
     format_company_profile,
     extract_company_logo,
     process_company_logo,
+)
+
+# Import Exa research activities
+from activities.exa_research import (
+    exa_research_topic,
+    exa_find_similar,
+    deep_research_with_firecrawl,
+    extract_research_insights,
 )
 
 
@@ -129,6 +138,7 @@ async def main():
             NewsroomWorkflow,
             PlacementWorkflow,
             RelocationWorkflow,
+            ArticleWorkflow,
             PlacementCompanyWorkflow,
             RelocationCompanyWorkflow,
             RecruiterCompanyWorkflow,
@@ -145,6 +155,12 @@ async def main():
             extract_entities_citations,
             calculate_quality_score,
             sync_to_zep,  # Legacy
+
+            # Exa Research
+            exa_research_topic,
+            exa_find_similar,
+            deep_research_with_firecrawl,
+            extract_research_insights,
 
             # Zep Graph
             check_zep_coverage,
@@ -179,7 +195,8 @@ async def main():
     print("=" * 60)
     print("\n📋 Registered Workflows:")
     print("   Articles:")
-    print("     - NewsroomWorkflow (multi-app)")
+    print("     - NewsroomWorkflow (multi-app news)")
+    print("     - ArticleWorkflow (direct research)")
     print("     - PlacementWorkflow (dedicated)")
     print("     - RelocationWorkflow (dedicated)")
     print("   Companies:")
@@ -195,6 +212,11 @@ async def main():
     print("     - extract_entities_from_news")
     print("     - extract_entities_citations")
     print("     - calculate_quality_score")
+    print("   Exa Research:")
+    print("     - exa_research_topic")
+    print("     - exa_find_similar")
+    print("     - deep_research_with_firecrawl")
+    print("     - extract_research_insights")
     print("   Zep Graph:")
     print("     - check_zep_coverage")
     print("     - sync_article_to_zep")

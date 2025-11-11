@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from temporalio.client import Client
 from workflows.placement_company import PlacementCompanyWorkflow
 from workflows.relocation_company import RelocationCompanyWorkflow
+from workflows.article_workflow import ArticleWorkflow
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -22,6 +23,15 @@ temporal_client = None
 class CompanyRequest(BaseModel):
     company_name: str
     company_url: str
+
+
+class ArticleRequest(BaseModel):
+    topic: str
+    app: str = "placement"
+    target_word_count: int = 1500
+    num_research_sources: int = 5
+    deep_crawl_enabled: bool = False
+    skip_zep_sync: bool = False
 
 
 @app.on_event("startup")
@@ -48,6 +58,51 @@ async def startup():
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "quest-workflow-api"}
+
+
+@app.post("/workflows/article")
+async def create_article(request: ArticleRequest):
+    """Trigger ArticleWorkflow for direct topic research"""
+    if not temporal_client:
+        raise HTTPException(status_code=500, detail="Temporal client not initialized")
+
+    try:
+        # Generate workflow ID from topic
+        workflow_id = f"article-{request.app}-{request.topic.lower().replace(' ', '-')[:30]}-{os.urandom(4).hex()}"
+
+        logger.info(f"Starting ArticleWorkflow: {workflow_id}")
+        logger.info(f"   Topic: {request.topic}")
+        logger.info(f"   App: {request.app}")
+
+        # Start workflow
+        handle = await temporal_client.start_workflow(
+            ArticleWorkflow.run,
+            args=[
+                request.topic,
+                request.app,
+                request.target_word_count,
+                request.num_research_sources,
+                request.deep_crawl_enabled,
+                request.skip_zep_sync,
+            ],
+            id=workflow_id,
+            task_queue="quest-content-queue",
+        )
+
+        logger.info(f"✅ Workflow started: {workflow_id}")
+
+        return {
+            "success": True,
+            "workflow_id": workflow_id,
+            "run_id": handle.id,
+            "topic": request.topic,
+            "app": request.app,
+            "message": "Article workflow started successfully"
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to start workflow: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/workflows/placement-company")
