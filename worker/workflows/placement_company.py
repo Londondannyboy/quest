@@ -47,7 +47,7 @@ class PlacementCompanyWorkflow:
             Complete company profile dict
         """
         company_type = "placement_company"
-        company_id = workflow.uuid4()[:8]
+        company_id = str(workflow.uuid4())[:8]
 
         workflow.logger.info(f"🚀 Placement Company workflow started")
         workflow.logger.info(f"   Company: {company_name}")
