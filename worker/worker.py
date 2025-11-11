@@ -20,6 +20,7 @@ from workflows.newsroom import NewsroomWorkflow
 from workflows.placement import PlacementWorkflow
 from workflows.relocation import RelocationWorkflow
 from workflows.chiefofstaff import ChiefOfStaffWorkflow
+from workflows.gtm import GTMWorkflow
 from workflows.article_workflow import ArticleWorkflow
 from workflows.placement_company import PlacementCompanyWorkflow
 from workflows.relocation_company import RelocationCompanyWorkflow
@@ -59,6 +60,7 @@ from activities.duplicate_check import check_for_duplicates
 from activities.images_placement import generate_placement_images
 from activities.images_relocation import generate_relocation_images
 from activities.images_chiefofstaff import generate_chiefofstaff_images
+from activities.images_gtm import generate_gtm_images
 
 # Import company profile activities
 from activities.company import (
@@ -148,6 +150,7 @@ async def main():
             PlacementWorkflow,
             RelocationWorkflow,
             ChiefOfStaffWorkflow,
+            GTMWorkflow,
             ArticleWorkflow,
             PlacementCompanyWorkflow,
             RelocationCompanyWorkflow,
@@ -190,6 +193,7 @@ async def main():
             generate_placement_images,
             generate_relocation_images,
             generate_chiefofstaff_images,
+            generate_gtm_images,
 
             # Company Profile Activities
             scrape_company_website,
