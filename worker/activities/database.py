@@ -223,7 +223,7 @@ async def save_to_neon(article: Dict[str, Any], brief: Dict[str, Any]) -> bool:
 @activity.defn(name="save_company_profile")
 async def save_company_profile(company_profile: Dict[str, Any]) -> bool:
     """
-    Save company profile to database
+    Save company profile to existing companies table
 
     Args:
         company_profile: Company profile dict from workflow
@@ -241,9 +241,12 @@ async def save_company_profile(company_profile: Dict[str, Any]) -> bool:
         async with await psycopg.AsyncConnection.connect(database_url) as conn:
             async with conn.cursor() as cur:
                 # Get data from profile
-                company_id = company_profile.get("id")
                 company_name = company_profile.get("company_name", "Unknown")
                 company_type = company_profile.get("company_type", "placement_company")
+
+                # Create slug from company name
+                import re
+                slug = re.sub(r'[^a-z0-9]+', '-', company_name.lower()).strip('-')
 
                 # Get logo data
                 logo_data = company_profile.get("logo", {})
@@ -253,72 +256,79 @@ async def save_company_profile(company_profile: Dict[str, Any]) -> bool:
                 validation = company_profile.get("validation", {})
                 completeness_score = validation.get("overall_score", 0.0)
 
-                # Create companies table if it doesn't exist
-                await cur.execute("""
-                    CREATE TABLE IF NOT EXISTS companies (
-                        id TEXT PRIMARY KEY,
-                        company_name TEXT NOT NULL,
-                        company_type TEXT NOT NULL,
-                        website TEXT,
-                        description TEXT,
-                        industry TEXT,
-                        headquarters_location TEXT,
-                        logo_url TEXT,
-                        profile_data JSONB,
-                        completeness_score FLOAT,
-                        status TEXT DEFAULT 'published',
-                        created_at TIMESTAMP DEFAULT NOW(),
-                        updated_at TIMESTAMP DEFAULT NOW()
-                    )
-                """)
+                # Map to existing schema
+                type_mapping = {
+                    "placement_company": "placement_agent",
+                    "relocation_company": "relocation_service"
+                }
+                db_type = type_mapping.get(company_type, "placement_agent")
 
-                # Insert or update company profile
+                # Prepare specializations array
+                specializations = company_profile.get("specializations", [])
+                if not specializations:
+                    specializations = company_profile.get("key_services", [])
+
+                # Prepare key_facts JSONB
+                key_facts = {
+                    "services": company_profile.get("key_services", []),
+                    "achievements": company_profile.get("notable_achievements", []),
+                    "people": company_profile.get("key_people", []),
+                }
+
+                # Insert or update company profile using existing schema
                 await cur.execute("""
                     INSERT INTO companies (
-                        id, company_name, company_type, website, description,
-                        industry, headquarters_location, logo_url,
-                        profile_data, completeness_score, status
+                        name, slug, type, description,
+                        headquarters, website_url, logo_url,
+                        specializations, key_facts, overview,
+                        status, company_type
                     ) VALUES (
-                        %(id)s, %(company_name)s, %(company_type)s, %(website)s, %(description)s,
-                        %(industry)s, %(headquarters_location)s, %(logo_url)s,
-                        %(profile_data)s, %(completeness_score)s, 'published'
+                        %(name)s, %(slug)s, %(type)s, %(description)s,
+                        %(headquarters)s, %(website_url)s, %(logo_url)s,
+                        %(specializations)s, %(key_facts)s, %(overview)s,
+                        'published', %(company_type)s
                     )
-                    ON CONFLICT (id) DO UPDATE SET
-                        company_name = EXCLUDED.company_name,
-                        website = EXCLUDED.website,
+                    ON CONFLICT (slug) DO UPDATE SET
+                        name = EXCLUDED.name,
                         description = EXCLUDED.description,
-                        industry = EXCLUDED.industry,
-                        headquarters_location = EXCLUDED.headquarters_location,
+                        headquarters = EXCLUDED.headquarters,
+                        website_url = EXCLUDED.website_url,
                         logo_url = EXCLUDED.logo_url,
-                        profile_data = EXCLUDED.profile_data,
-                        completeness_score = EXCLUDED.completeness_score,
+                        specializations = EXCLUDED.specializations,
+                        key_facts = EXCLUDED.key_facts,
+                        overview = EXCLUDED.overview,
+                        company_type = EXCLUDED.company_type,
                         updated_at = NOW()
-                    RETURNING id
+                    RETURNING id, slug
                 """, {
-                    "id": company_id,
-                    "company_name": company_name,
-                    "company_type": company_type,
-                    "website": company_profile.get("website", ""),
-                    "description": company_profile.get("description", ""),
-                    "industry": company_profile.get("industry", ""),
-                    "headquarters_location": company_profile.get("headquarters_location", ""),
+                    "name": company_name,
+                    "slug": slug,
+                    "type": db_type,
+                    "description": company_profile.get("description", "")[:500],  # Limit length
+                    "headquarters": company_profile.get("headquarters_location", ""),
+                    "website_url": company_profile.get("website", ""),
                     "logo_url": logo_url,
-                    "profile_data": Json(company_profile),
-                    "completeness_score": completeness_score
+                    "specializations": specializations,
+                    "key_facts": Json(key_facts),
+                    "overview": company_profile.get("profile_summary", ""),
+                    "company_type": company_type
                 })
 
                 result = await cur.fetchone()
-                saved_id = result[0] if result else company_id
+                saved_id = result[0] if result else None
+                saved_slug = result[1] if result else slug
 
                 # Commit transaction
                 await conn.commit()
 
-                activity.logger.info(f"✅ Company profile saved: {company_name} (id={saved_id})")
-                activity.logger.info(f"   Type: {company_type}, Completeness: {completeness_score:.1%}")
+                activity.logger.info(f"✅ Company profile saved: {company_name} (id={saved_id}, slug={saved_slug})")
+                activity.logger.info(f"   Type: {db_type}, Completeness: {completeness_score:.1%}")
 
                 return True
 
     except Exception as e:
         activity.logger.error(f"❌ Failed to save company profile: {e}")
+        import traceback
+        activity.logger.error(traceback.format_exc())
         # Don't raise - return False to allow workflow to continue
         return False
