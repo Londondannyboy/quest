@@ -31,7 +31,7 @@ cloudinary.config(
 @activity.defn(name="scrape_company_website")
 async def scrape_company_website(company_url: str) -> Dict[str, Any]:
     """
-    Scrape a company website with fallback methods
+    Scrape a company website using FireCrawl with Serper fallback
 
     Args:
         company_url: URL of the company website
@@ -41,38 +41,106 @@ async def scrape_company_website(company_url: str) -> Dict[str, Any]:
     """
     activity.logger.info(f"🌐 Scraping company website: {company_url}")
 
-    # Try Tavily first
-    tavily_key = os.getenv("TAVILY_API_KEY")
-    if tavily_key:
+    # Try FireCrawl first (best for structured content extraction)
+    firecrawl_key = os.getenv("FIRECRAWL_API_KEY")
+    if firecrawl_key:
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                response = await client.post(
+                    "https://api.firecrawl.dev/v0/scrape",
+                    json={
+                        "url": company_url,
+                        "pageOptions": {
+                            "onlyMainContent": True
+                        }
+                    },
+                    headers={
+                        "Authorization": f"Bearer {firecrawl_key}",
+                        "Content-Type": "application/json"
+                    },
+                    timeout=120.0
+                )
+                response.raise_for_status()
+                data = response.json()
+
+                # FireCrawl returns markdown or text content
+                content = data.get("data", {}).get("markdown") or data.get("data", {}).get("content", "")
+
+                if content:
+                    activity.logger.info(f"✅ Scraped {len(content)} characters from {company_url} (FireCrawl)")
+                    return {
+                        "url": company_url,
+                        "content": content,
+                        "title": data.get("data", {}).get("metadata", {}).get("title", ""),
+                        "error": None
+                    }
+
+        except Exception as e:
+            activity.logger.warning(f"⚠️  FireCrawl failed ({e}), trying Serper...")
+
+    # Fallback: Serper web scraper
+    serper_key = os.getenv("SERPER_API_KEY")
+    if serper_key:
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(
-                    "https://api.tavily.com/crawl",
+                    "https://google.serper.dev/search",
                     json={
-                        "url": company_url,
-                        "api_key": tavily_key,
-                        "extract_depth": "advanced"
+                        "q": f"site:{company_url.replace('https://', '').replace('http://', '').split('/')[0]}",
+                        "num": 1
+                    },
+                    headers={
+                        "X-API-KEY": serper_key,
+                        "Content-Type": "application/json"
                     },
                     timeout=60.0
                 )
                 response.raise_for_status()
                 data = response.json()
 
-                content = data.get("content") or data.get("raw_content", "")
+                # Get snippet from search results
+                organic = data.get("organic", [])
+                if organic:
+                    content = organic[0].get("snippet", "")
 
-                if content:
-                    activity.logger.info(f"✅ Scraped {len(content)} characters from {company_url} (Tavily)")
-                    return {
-                        "url": company_url,
-                        "content": content,
-                        "title": data.get("title", ""),
-                        "error": None
-                    }
+                    # Try to get more content by fetching the URL directly
+                    try:
+                        page_response = await client.get(
+                            company_url,
+                            headers={'User-Agent': 'Mozilla/5.0'},
+                            timeout=30.0,
+                            follow_redirects=True
+                        )
+                        if page_response.status_code == 200:
+                            from bs4 import BeautifulSoup
+                            soup = BeautifulSoup(page_response.text, 'html.parser')
+
+                            # Remove unwanted elements
+                            for element in soup(["script", "style", "nav", "footer", "header"]):
+                                element.decompose()
+
+                            # Get main content
+                            main = soup.find('main') or soup.find('article') or soup.find('body')
+                            if main:
+                                text = main.get_text(separator=' ', strip=True)
+                                # Clean up whitespace
+                                content = ' '.join(text.split())
+                    except:
+                        pass
+
+                    if content:
+                        activity.logger.info(f"✅ Scraped {len(content)} characters from {company_url} (Serper + Direct)")
+                        return {
+                            "url": company_url,
+                            "content": content,
+                            "title": organic[0].get("title", ""),
+                            "error": None
+                        }
 
         except Exception as e:
-            activity.logger.warning(f"⚠️  Tavily failed ({e}), trying direct scrape...")
+            activity.logger.warning(f"⚠️  Serper failed ({e})")
 
-    # Fallback: Direct HTML scraping
+    # Last resort: Direct BeautifulSoup scraping
     try:
         from bs4 import BeautifulSoup
 
@@ -85,17 +153,19 @@ async def scrape_company_website(company_url: str) -> Dict[str, Any]:
 
             soup = BeautifulSoup(response.text, 'html.parser')
 
+            # Try to find main content area
+            main = soup.find('main') or soup.find('article') or soup.find(class_=lambda x: x and ('content' in x.lower() or 'main' in x.lower()))
+
+            if not main:
+                main = soup.find('body')
+
             # Remove script and style elements
-            for script in soup(["script", "style", "nav", "footer"]):
+            for script in main.find_all(["script", "style", "nav", "footer", "header"]):
                 script.decompose()
 
             # Get text content
-            text = soup.get_text()
-
-            # Clean up text
-            lines = (line.strip() for line in text.splitlines())
-            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-            text = ' '.join(chunk for chunk in chunks if chunk)
+            text = main.get_text(separator=' ', strip=True)
+            text = ' '.join(text.split())
 
             activity.logger.info(f"✅ Scraped {len(text)} characters from {company_url} (Direct)")
 
