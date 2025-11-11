@@ -19,6 +19,7 @@ load_dotenv()
 from workflows.newsroom import NewsroomWorkflow
 from workflows.placement import PlacementWorkflow
 from workflows.relocation import RelocationWorkflow
+from workflows.chiefofstaff import ChiefOfStaffWorkflow
 from workflows.article_workflow import ArticleWorkflow
 from workflows.placement_company import PlacementCompanyWorkflow
 from workflows.relocation_company import RelocationCompanyWorkflow
@@ -54,6 +55,7 @@ from activities.database import save_company_profile
 # Import new dedicated image activities
 from activities.images_placement import generate_placement_images
 from activities.images_relocation import generate_relocation_images
+from activities.images_chiefofstaff import generate_chiefofstaff_images
 
 # Import company profile activities
 from activities.company import (
@@ -95,6 +97,7 @@ async def main():
         "DATABASE_URL",
         "GOOGLE_API_KEY",
         "SERPER_API_KEY",
+        "EXA_API_KEY",  # Required for ArticleWorkflow
     ]
 
     missing_vars = [var for var in required_vars if not os.getenv(var)]
@@ -138,6 +141,7 @@ async def main():
             NewsroomWorkflow,
             PlacementWorkflow,
             RelocationWorkflow,
+            ChiefOfStaffWorkflow,
             ArticleWorkflow,
             PlacementCompanyWorkflow,
             RelocationCompanyWorkflow,
@@ -176,6 +180,7 @@ async def main():
             # Images - Dedicated per app (simple, no config)
             generate_placement_images,
             generate_relocation_images,
+            generate_chiefofstaff_images,
 
             # Company Profile Activities
             scrape_company_website,
@@ -199,6 +204,7 @@ async def main():
     print("     - ArticleWorkflow (direct research)")
     print("     - PlacementWorkflow (dedicated)")
     print("     - RelocationWorkflow (dedicated)")
+    print("     - ChiefOfStaffWorkflow (dedicated)")
     print("   Companies:")
     print("     - PlacementCompanyWorkflow (company profiles)")
     print("     - RelocationCompanyWorkflow (company profiles)")
@@ -227,6 +233,7 @@ async def main():
     print("     - generate_article_images (original multi-app)")
     print("     - generate_placement_images (dedicated)")
     print("     - generate_relocation_images (dedicated)")
+    print("     - generate_chiefofstaff_images (dedicated)")
     print("   Company Profiles:")
     print("     - scrape_company_website")
     print("     - search_company_news")

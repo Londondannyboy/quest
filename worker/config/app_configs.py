@@ -270,6 +270,101 @@ diverse representation, helpful and realistic depiction""",
 
 
 # ============================================================================
+# CHIEF OF STAFF APP CONFIGURATION
+# ============================================================================
+
+CHIEF_OF_STAFF_CONFIG = AppConfig(
+    # Basic Identity
+    name="chiefofstaff",
+    domain="chiefofstaff.quest",
+    display_name="Chief of Staff",
+
+    # Content Parameters
+    tone="Executive-focused, strategic, authoritative with sophisticated C-suite aesthetic",
+    target_audience="Chiefs of Staff, Executive Assistants, C-suite executives, senior leadership, board members, organizational strategists",
+    content_focus="Executive management, C-suite operations, organizational leadership, strategic planning, board relations, executive communications, leadership effectiveness",
+    content_angle="Strategic and actionable, emphasizing executive decision-making, organizational dynamics, leadership best practices, and high-level operational insights",
+
+    # Article Structure
+    word_count_range=(1200, 1800),
+    min_sections=4,
+    section_style="strategic-analytical with actionable insights",
+
+    # Citation Requirements
+    min_citations=4,
+    preferred_sources=[
+        "Harvard Business Review",
+        "McKinsey Insights",
+        "Gartner",
+        "Fortune",
+        "Forbes Leadership",
+        "MIT Sloan Management Review",
+        "Chief Executive Magazine",
+        "Wall Street Journal Leadership",
+        "Financial Times Management",
+        "Executive research institutes"
+    ],
+    citation_style="inline-links with authoritative source attribution",
+
+    # Image Generation
+    image_style="Executive professional, sophisticated corporate aesthetic, modern leadership themes, clean design with 'Chief of Staff' branding at bottom left",
+    hero_image_prompt_template="""Professional executive concept illustration, {theme}, sophisticated C-suite style,
+modern clean design with leadership motifs, executive boardroom aesthetic, high-quality business photography,
+refined color palette (deep navy, charcoal, platinum, subtle gold accents), strategic visualization elements,
+minimalist sophisticated composition, executive office or modern boardroom background.
+IMPORTANT: Include elegant text 'Chief of Staff' in bottom left corner in refined sans-serif font""",
+
+    featured_image_prompt_template="""Strategic visualization representing {metric}, clean modern professional design,
+executive leadership aesthetic, elegant charts or conceptual diagrams, sophisticated corporate color scheme,
+high-contrast executive presentation style, C-suite intelligence aesthetic.
+IMPORTANT: Include text 'Chief of Staff' in bottom left corner in professional font""",
+
+    content_image_prompt_template="""Professional executive imagery for {topic}, sophisticated corporate photography,
+modern C-suite environment or executive workspace, refined lighting and composition,
+contemporary leadership aesthetic, could include: executives in strategic discussion,
+modern corporate headquarters, or abstract leadership concept visualization.
+IMPORTANT: Include text 'Chief of Staff' in bottom left corner""",
+
+    # Quality Thresholds
+    min_quality_score=0.65,
+    auto_publish_threshold=0.75,
+
+    # SEO & Keywords
+    target_keywords_count=5,
+    seo_focus="Executive titles, leadership terms, organizational strategy, C-suite operations, management practices",
+
+    # Additional Guidelines
+    writing_guidelines=[
+        "Lead with strategic significance: Why does this matter to C-suite executives?",
+        "Focus on high-level insights and actionable executive guidance",
+        "Include frameworks, models, or structured approaches where relevant",
+        "Provide context: How does this impact organizational effectiveness?",
+        "Balance thought leadership with practical implementation",
+        "Use sophisticated executive terminology (strategic alignment, organizational capacity, executive leverage)",
+        "Maintain authoritative voice - present expert insights and proven practices",
+        "Include implications for organizational strategy and leadership effectiveness",
+        "Address both Chiefs of Staff and Executive Assistants where relevant"
+    ],
+
+    content_requirements=[
+        "Clear strategic relevance to C-suite operations or executive effectiveness",
+        "Actionable insights or frameworks executives can implement",
+        "Expert perspectives or research-backed approaches",
+        "Real-world examples or case studies from leading organizations",
+        "Organizational context and leadership implications",
+        "Best practices from successful chiefs of staff or executive teams",
+        "Consideration of both strategic and operational dimensions",
+        "Forward-looking insights on executive leadership trends"
+    ],
+
+    brand_voice={
+        "do": "Strategic, sophisticated, authoritative, insight-driven, executive-level, actionable, refined",
+        "dont": "Tactical minutiae, generic business advice, overly academic, administrative task-focused, jargon-heavy without clarity"
+    }
+)
+
+
+# ============================================================================
 # PLACEMENT COMPANY CONFIGURATION
 # ============================================================================
 
@@ -450,6 +545,7 @@ professional service provider visual, trustworthy and helpful feel""",
 _APP_CONFIGS: Dict[str, AppConfig] = {
     "placement": PLACEMENT_CONFIG,
     "relocation": RELOCATION_CONFIG,
+    "chiefofstaff": CHIEF_OF_STAFF_CONFIG,
 }
 
 _COMPANY_CONFIGS: Dict[str, CompanyConfig] = {
