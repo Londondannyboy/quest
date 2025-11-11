@@ -7,7 +7,6 @@ Focused on relocation services, immigration consultants, visa services, and expa
 
 from datetime import timedelta
 from typing import Optional
-import uuid
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 
@@ -48,7 +47,7 @@ class RelocationCompanyWorkflow:
             Complete company profile dict
         """
         company_type = "relocation_company"
-        company_id = str(uuid.uuid4())[:8]
+        company_id = workflow.uuid4()[:8]
 
         workflow.logger.info(f"🚀 Relocation Company workflow started")
         workflow.logger.info(f"   Company: {company_name}")
