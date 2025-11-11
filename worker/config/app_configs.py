@@ -54,6 +54,40 @@ class AppConfig:
     brand_voice: Dict[str, str] = field(default_factory=dict)
 
 
+@dataclass
+class CompanyConfig:
+    """Configuration for company profile generation"""
+
+    # Basic Identity
+    name: str
+    domain: str
+    display_name: str
+
+    # Company Profile Parameters
+    tone: str
+    target_audience: str
+    content_focus: str
+    profile_sections: List[str]  # Sections to include in company profile
+
+    # Data Requirements
+    required_fields: List[str]  # Required company data fields
+    optional_fields: List[str]  # Optional company data fields
+    data_sources: List[str]  # Where to scrape company data from
+
+    # Logo/Image Handling
+    logo_style: str  # "original", "stylized", or "both"
+    logo_prompt_template: str  # Template for stylizing logos
+    fallback_image_prompt: str  # Fallback if no logo found
+
+    # Quality Thresholds
+    min_data_completeness: float  # 0.0 - 1.0 (% of required fields)
+    auto_publish_threshold: float  # 0.0 - 1.0
+
+    # Additional Guidelines
+    extraction_guidelines: List[str] = field(default_factory=list)
+    validation_rules: List[str] = field(default_factory=list)
+
+
 # ============================================================================
 # PLACEMENT APP CONFIGURATION
 # ============================================================================
@@ -236,6 +270,180 @@ diverse representation, helpful and realistic depiction""",
 
 
 # ============================================================================
+# PLACEMENT COMPANY CONFIGURATION
+# ============================================================================
+
+PLACEMENT_COMPANY_CONFIG = CompanyConfig(
+    # Basic Identity
+    name="placement_company",
+    domain="placement.news",
+    display_name="Placement Company Profiles",
+
+    # Company Profile Parameters
+    tone="Professional, authoritative, data-focused",
+    target_audience="Finance professionals, investors, deal-makers",
+    content_focus="Private equity firms, investment banks, M&A advisors, venture capital firms, financial services providers",
+    profile_sections=[
+        "Company Overview",
+        "Key Services & Specializations",
+        "Notable Deals & Transactions",
+        "Leadership Team",
+        "Market Position & Reputation",
+        "Contact Information"
+    ],
+
+    # Data Requirements
+    required_fields=[
+        "company_name",
+        "website",
+        "industry",
+        "description",
+        "headquarters_location"
+    ],
+    optional_fields=[
+        "founded_year",
+        "employee_count",
+        "aum",  # Assets Under Management
+        "notable_deals",
+        "key_people",
+        "specializations",
+        "regions_served",
+        "phone",
+        "email"
+    ],
+    data_sources=[
+        "Company website",
+        "LinkedIn company page",
+        "PitchBook",
+        "Crunchbase",
+        "Financial news sources",
+        "SEC filings"
+    ],
+
+    # Logo/Image Handling
+    logo_style="original",  # Use original logo for professional appearance
+    logo_prompt_template="""Professional stylized version of {company_name} logo,
+corporate financial aesthetic, clean modern design, suitable for Bloomberg-style publication,
+maintain brand recognition, sophisticated color treatment, high-quality vector-style rendering""",
+    fallback_image_prompt="""Professional corporate imagery for {company_name}, {industry} sector,
+modern office building or financial district, sophisticated business photography,
+corporate color palette, authoritative and trustworthy aesthetic""",
+
+    # Quality Thresholds
+    min_data_completeness=0.70,  # At least 70% of required fields
+    auto_publish_threshold=0.85,  # High threshold for auto-publishing
+
+    # Additional Guidelines
+    extraction_guidelines=[
+        "Focus on verifiable facts from official sources",
+        "Prioritize recent news and deal announcements",
+        "Extract key leadership team members and their backgrounds",
+        "Identify areas of specialization and competitive advantages",
+        "Look for AUM, deal volume, or other quantitative metrics",
+        "Note any regulatory filings or official announcements",
+        "Capture geographic presence and market focus"
+    ],
+    validation_rules=[
+        "Company name must be official registered name",
+        "Website must be live and accessible",
+        "Industry classification must be specific (not generic)",
+        "Description must be factual and non-promotional",
+        "All financial figures must include source attribution"
+    ]
+)
+
+
+# ============================================================================
+# RELOCATION COMPANY CONFIGURATION
+# ============================================================================
+
+RELOCATION_COMPANY_CONFIG = CompanyConfig(
+    # Basic Identity
+    name="relocation_company",
+    domain="relocation.guide",
+    display_name="Relocation Service Providers",
+
+    # Company Profile Parameters
+    tone="Professional yet approachable, trustworthy, service-oriented",
+    target_audience="Expatriates, HR managers, relocating professionals, international assignees",
+    content_focus="Relocation services, immigration consultants, visa services, expat housing providers, international moving companies",
+    profile_sections=[
+        "Company Overview",
+        "Services Offered",
+        "Countries & Regions Served",
+        "Specializations",
+        "Client Reviews & Reputation",
+        "Pricing & Packages",
+        "Contact Information"
+    ],
+
+    # Data Requirements
+    required_fields=[
+        "company_name",
+        "website",
+        "service_type",
+        "description",
+        "countries_served"
+    ],
+    optional_fields=[
+        "founded_year",
+        "employee_count",
+        "languages_supported",
+        "certifications",
+        "client_testimonials",
+        "pricing_range",
+        "response_time",
+        "success_rate",
+        "phone",
+        "email",
+        "office_locations"
+    ],
+    data_sources=[
+        "Company website",
+        "Trustpilot reviews",
+        "Google reviews",
+        "LinkedIn company page",
+        "Expat forums",
+        "Industry directories",
+        "Government registrations"
+    ],
+
+    # Logo/Image Handling
+    logo_style="original",  # Use original logo for brand recognition
+    logo_prompt_template="""Welcoming stylized version of {company_name} logo,
+friendly professional aesthetic, international/global feel, suitable for travel and lifestyle publication,
+warm and approachable, maintain brand identity, high-quality rendering""",
+    fallback_image_prompt="""Professional welcoming imagery for {company_name}, {service_type} provider,
+international travel theme, diverse people or global connectivity, warm inviting aesthetic,
+professional service provider visual, trustworthy and helpful feel""",
+
+    # Quality Thresholds
+    min_data_completeness=0.65,  # At least 65% of required fields
+    auto_publish_threshold=0.80,  # Moderate threshold for auto-publishing
+
+    # Additional Guidelines
+    extraction_guidelines=[
+        "Focus on practical service information that helps relocating individuals",
+        "Extract clear details about countries and regions served",
+        "Identify specific visa types or relocation scenarios they handle",
+        "Look for client reviews and success stories",
+        "Capture pricing information or package details if available",
+        "Note any certifications or industry memberships",
+        "Extract response times and service level commitments",
+        "Identify language capabilities and cultural specializations"
+    ],
+    validation_rules=[
+        "Company must be actively operating (check website accessibility)",
+        "Service type must be specific and clear",
+        "Countries served must be explicitly listed",
+        "Contact information must be verifiable",
+        "Reviews/testimonials must be from credible sources",
+        "Avoid overly promotional language in descriptions"
+    ]
+)
+
+
+# ============================================================================
 # CONFIG REGISTRY
 # ============================================================================
 
@@ -244,7 +452,13 @@ _APP_CONFIGS: Dict[str, AppConfig] = {
     "relocation": RELOCATION_CONFIG,
 }
 
+_COMPANY_CONFIGS: Dict[str, CompanyConfig] = {
+    "placement_company": PLACEMENT_COMPANY_CONFIG,
+    "relocation_company": RELOCATION_COMPANY_CONFIG,
+}
+
 AVAILABLE_APPS = list(_APP_CONFIGS.keys())
+AVAILABLE_COMPANY_TYPES = list(_COMPANY_CONFIGS.keys())
 
 
 def get_app_config(app_name: str) -> AppConfig:
@@ -268,6 +482,29 @@ def get_app_config(app_name: str) -> AppConfig:
         )
 
     return _APP_CONFIGS[app_name]
+
+
+def get_company_config(company_type: str) -> CompanyConfig:
+    """
+    Retrieve configuration for a specific company profile type.
+
+    Args:
+        company_type: Company type identifier (e.g., "placement_company", "relocation_company")
+
+    Returns:
+        CompanyConfig instance for the specified company type
+
+    Raises:
+        ValueError: If company_type is not recognized
+    """
+    company_type = company_type.lower().strip()
+
+    if company_type not in _COMPANY_CONFIGS:
+        raise ValueError(
+            f"Unknown company type: '{company_type}'. Available types: {', '.join(AVAILABLE_COMPANY_TYPES)}"
+        )
+
+    return _COMPANY_CONFIGS[company_type]
 
 
 def validate_app_config(config: AppConfig) -> List[str]:

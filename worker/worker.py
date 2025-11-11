@@ -19,6 +19,8 @@ load_dotenv()
 from workflows.newsroom import NewsroomWorkflow
 from workflows.placement import PlacementWorkflow
 from workflows.relocation import RelocationWorkflow
+from workflows.placement_company import PlacementCompanyWorkflow
+from workflows.relocation_company import RelocationCompanyWorkflow
 
 # Import all activities
 from activities import (
@@ -45,9 +47,22 @@ from activities import (
     generate_article_images,
 )
 
+from activities.database import save_company_profile
+
 # Import new dedicated image activities
 from activities.images_placement import generate_placement_images
 from activities.images_relocation import generate_relocation_images
+
+# Import company profile activities
+from activities.company import (
+    scrape_company_website,
+    search_company_news,
+    extract_company_info,
+    validate_company_data,
+    format_company_profile,
+    extract_company_logo,
+    process_company_logo,
+)
 
 
 async def main():
@@ -109,10 +124,17 @@ async def main():
     worker = Worker(
         client,
         task_queue=task_queue,
-        workflows=[NewsroomWorkflow, PlacementWorkflow, RelocationWorkflow],
+        workflows=[
+            NewsroomWorkflow,
+            PlacementWorkflow,
+            RelocationWorkflow,
+            PlacementCompanyWorkflow,
+            RelocationCompanyWorkflow,
+        ],
         activities=[
             # Database
             save_to_neon,
+            save_company_profile,
 
             # Research
             search_news_serper,
@@ -136,6 +158,15 @@ async def main():
             # Images - Dedicated per app (simple, no config)
             generate_placement_images,
             generate_relocation_images,
+
+            # Company Profile Activities
+            scrape_company_website,
+            search_company_news,
+            extract_company_info,
+            validate_company_data,
+            format_company_profile,
+            extract_company_logo,
+            process_company_logo,
         ],
     )
 
@@ -145,12 +176,17 @@ async def main():
     print(f"   Task Queue: {task_queue}")
     print("=" * 60)
     print("\n📋 Registered Workflows:")
-    print("   - NewsroomWorkflow (multi-app)")
-    print("   - PlacementWorkflow (dedicated)")
-    print("   - RelocationWorkflow (dedicated)")
+    print("   Articles:")
+    print("     - NewsroomWorkflow (multi-app)")
+    print("     - PlacementWorkflow (dedicated)")
+    print("     - RelocationWorkflow (dedicated)")
+    print("   Companies:")
+    print("     - PlacementCompanyWorkflow (company profiles)")
+    print("     - RelocationCompanyWorkflow (company profiles)")
     print("\n📋 Registered Activities:")
     print("   Database:")
     print("     - save_to_neon")
+    print("     - save_company_profile")
     print("   Research:")
     print("     - search_news_serper")
     print("     - deep_scrape_sources")
@@ -165,8 +201,16 @@ async def main():
     print("     - generate_article")
     print("   Images:")
     print("     - generate_article_images (original multi-app)")
-    print("     - generate_placement_images (dedicated, no config)")
-    print("     - generate_relocation_images (dedicated, no config)")
+    print("     - generate_placement_images (dedicated)")
+    print("     - generate_relocation_images (dedicated)")
+    print("   Company Profiles:")
+    print("     - scrape_company_website")
+    print("     - search_company_news")
+    print("     - extract_company_info")
+    print("     - validate_company_data")
+    print("     - format_company_profile")
+    print("     - extract_company_logo")
+    print("     - process_company_logo")
     print("\n✅ Worker is ready to process workflows...")
     print("   Press Ctrl+C to stop\n")
 
