@@ -30,6 +30,16 @@ class ArticleWorkflowRequest(BaseModel):
     auto_approve: bool = Field(default=True, description="Skip manual approval")
 
 
+class ArticleResearchRequest(BaseModel):
+    """Request to trigger Exa-based article research workflow"""
+    topic: str = Field(..., description="Topic to research and create article about", min_length=3)
+    app: str = Field(default="placement", description="App/site: placement, relocation, chief-of-staff, etc.")
+    target_word_count: int = Field(default=1500, ge=300, le=5000)
+    num_research_sources: int = Field(default=5, ge=3, le=10, description="Number of Exa sources to retrieve")
+    deep_crawl_enabled: bool = Field(default=False, description="Enable FireCrawl deep scraping")
+    skip_zep_sync: bool = Field(default=False, description="Skip Zep knowledge base sync")
+
+
 class CompanyWorkflowRequest(BaseModel):
     """Request to trigger company profile creation workflow"""
     company_name: str = Field(..., description="Name of the company", min_length=2)
@@ -143,6 +153,77 @@ async def trigger_article_workflow(
             topic=request.topic,
             app=request.app,
             message=f"Article generation workflow started. Use workflow_id to check status.",
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start workflow: {str(e)}",
+        )
+
+
+@router.post("/article-research", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED)
+async def trigger_article_research_workflow(
+    request: ArticleResearchRequest,
+    api_key: str = Depends(validate_api_key),
+) -> WorkflowResponse:
+    """
+    Trigger ArticleWorkflow for Exa-based research article generation
+
+    Uses Exa for comprehensive research instead of news search.
+    Perfect for evergreen content, guides, and topic-based articles.
+
+    Requires X-API-Key header for authentication.
+
+    Args:
+        request: Article research parameters
+        api_key: Validated API key from header
+
+    Returns:
+        Workflow execution details with workflow_id for status tracking
+    """
+    # Get Temporal client
+    try:
+        client = await TemporalClientManager.get_client()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Failed to connect to Temporal: {str(e)}",
+        )
+
+    # Generate workflow ID
+    workflow_id = f"article-research-{request.app}-{uuid4()}"
+
+    # Get task queue from environment
+    task_queue = os.getenv("TEMPORAL_TASK_QUEUE", "quest-content-queue")
+
+    try:
+        # Always use ArticleWorkflow for research-based articles
+        workflow_name = "ArticleWorkflow"
+        workflow_args = [
+            request.topic,
+            request.app,
+            request.target_word_count,
+            request.num_research_sources,
+            request.deep_crawl_enabled,
+            request.skip_zep_sync,
+        ]
+
+        # Start workflow execution
+        handle = await client.start_workflow(
+            workflow_name,
+            args=workflow_args,
+            id=workflow_id,
+            task_queue=task_queue,
+        )
+
+        return WorkflowResponse(
+            workflow_id=handle.id,
+            status="started",
+            started_at=datetime.utcnow(),
+            topic=request.topic,
+            app=request.app,
+            message=f"Article research workflow started with Exa. Use workflow_id to check status.",
         )
 
     except Exception as e:
