@@ -24,7 +24,7 @@ from workflows.article_workflow import ArticleWorkflow
 from workflows.placement_company import PlacementCompanyWorkflow
 from workflows.relocation_company import RelocationCompanyWorkflow
 from workflows.recruiter_company import RecruiterCompanyWorkflow
-from workflows.smart_company import SmartCompanyWorkflow
+# from workflows.smart_company import SmartCompanyWorkflow  # TODO: Add when file exists
 
 # Import all activities
 from activities import (
@@ -151,7 +151,7 @@ async def main():
             PlacementCompanyWorkflow,
             RelocationCompanyWorkflow,
             RecruiterCompanyWorkflow,
-            SmartCompanyWorkflow,
+            # SmartCompanyWorkflow,  # TODO: Add when file exists
         ],
         activities=[
             # Database
@@ -217,7 +217,7 @@ async def main():
     print("     - PlacementCompanyWorkflow (company profiles)")
     print("     - RelocationCompanyWorkflow (company profiles)")
     print("     - RecruiterCompanyWorkflow (company profiles)")
-    print("     - SmartCompanyWorkflow (auto-detect company type)")
+    # print("     - SmartCompanyWorkflow (auto-detect company type)")  # TODO: Add when file exists
     print("\n📋 Registered Activities:")
     print("   Database:")
     print("     - save_to_neon")
