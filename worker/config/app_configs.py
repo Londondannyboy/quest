@@ -275,7 +275,7 @@ diverse representation, helpful and realistic depiction""",
 
 CHIEF_OF_STAFF_CONFIG = AppConfig(
     # Basic Identity
-    name="chiefofstaff",
+    name="chief-of-staff",
     domain="chiefofstaff.quest",
     display_name="Chief of Staff",
 
@@ -545,7 +545,7 @@ professional service provider visual, trustworthy and helpful feel""",
 _APP_CONFIGS: Dict[str, AppConfig] = {
     "placement": PLACEMENT_CONFIG,
     "relocation": RELOCATION_CONFIG,
-    "chiefofstaff": CHIEF_OF_STAFF_CONFIG,
+    "chief-of-staff": CHIEF_OF_STAFF_CONFIG,
 }
 
 _COMPANY_CONFIGS: Dict[str, CompanyConfig] = {

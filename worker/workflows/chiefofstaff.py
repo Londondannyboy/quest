@@ -47,7 +47,7 @@ class ChiefOfStaffWorkflow:
         Returns:
             Complete Article dict
         """
-        app = "chiefofstaff"  # Hardcoded for this workflow
+        app = "chief-of-staff"  # Hardcoded for this workflow
 
         workflow.logger.info(f"🚀 Chief of Staff workflow started")
         workflow.logger.info(f"   Topic: {topic}")
