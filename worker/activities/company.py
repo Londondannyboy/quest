@@ -169,7 +169,8 @@ async def scrape_company_website(company_url: str) -> Dict[str, Any]:
     best_result = max(valid_results, key=lambda x: x['char_count'])
 
     activity.logger.info(f"📊 Using {best_result['source']} result ({best_result['char_count']} chars)")
-    activity.logger.info(f"   Other sources: {', '.join([f\"{r['source']}={r['char_count']} chars\" for r in valid_results if r != best_result])}")
+    other_sources = [f"{r['source']}={r['char_count']} chars" for r in valid_results if r != best_result]
+    activity.logger.info(f"   Other sources: {', '.join(other_sources)}")
 
     return {
         "url": company_url,
