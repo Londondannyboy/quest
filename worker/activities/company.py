@@ -149,7 +149,7 @@ async def extract_company_info(
     Returns:
         Structured company data dict
     """
-    from worker.config.app_configs import get_company_config
+    from config.app_configs import get_company_config
 
     activity.logger.info(f"🔍 Extracting company info for: {company_name}")
 
@@ -282,7 +282,7 @@ async def validate_company_data(
     Returns:
         Validation result with score and missing fields
     """
-    from worker.config.app_configs import get_company_config
+    from config.app_configs import get_company_config
 
     activity.logger.info("📊 Validating company data")
 
@@ -363,7 +363,7 @@ async def format_company_profile(
     Returns:
         Formatted company profile with sections
     """
-    from worker.config.app_configs import get_company_config
+    from config.app_configs import get_company_config
 
     activity.logger.info("📝 Formatting company profile")
 
@@ -513,7 +513,7 @@ async def process_company_logo(
     Returns:
         Dict with original_logo_url, stylized_logo_url, and fallback_image_url
     """
-    from worker.config.app_configs import get_company_config
+    from config.app_configs import get_company_config
 
     activity.logger.info(f"🎨 Processing logo for: {company_name}")
 
