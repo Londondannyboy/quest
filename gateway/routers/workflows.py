@@ -30,13 +30,27 @@ class ArticleWorkflowRequest(BaseModel):
     auto_approve: bool = Field(default=True, description="Skip manual approval")
 
 
+class CompanyWorkflowRequest(BaseModel):
+    """Request to trigger company profile creation workflow"""
+    company_name: str = Field(..., description="Name of the company", min_length=2)
+    company_website: str = Field(..., description="Company website URL")
+    company_type: str = Field(
+        ...,
+        description="Type of company workflow to run",
+        pattern="^(recruiter|placement|relocation)$"
+    )
+    auto_approve: bool = Field(default=True, description="Skip manual approval")
+
+
 class WorkflowResponse(BaseModel):
     """Response after triggering workflow"""
     workflow_id: str
     status: str
     started_at: datetime
-    topic: str
-    app: str
+    topic: Optional[str] = None
+    app: Optional[str] = None
+    company_name: Optional[str] = None
+    company_type: Optional[str] = None
     message: str
 
 
@@ -224,4 +238,87 @@ async def get_workflow_result(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Workflow execution failed: {error_msg}",
+        )
+
+
+@router.post("/company", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED)
+async def trigger_company_workflow(
+    request: CompanyWorkflowRequest,
+    api_key: str = Depends(validate_api_key),
+) -> WorkflowResponse:
+    """
+    Trigger company profile creation workflow
+
+    Creates a complete company profile by scraping website, extracting info,
+    processing logo, and saving to database.
+
+    Requires X-API-Key header for authentication.
+
+    Args:
+        request: Company creation parameters
+        api_key: Validated API key from header
+
+    Returns:
+        Workflow execution details with workflow_id for status tracking
+
+    Company Types:
+        - recruiter: Executive Assistant / Chief of Staff recruiters (executive_assistant_recruiters)
+        - placement: Placement agents for PE/VC (placement_agent)
+        - relocation: Relocation service providers
+    """
+    # Get Temporal client
+    try:
+        client = await TemporalClientManager.get_client()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Failed to connect to Temporal: {str(e)}",
+        )
+
+    # Map company_type to workflow name
+    workflow_map = {
+        "recruiter": "RecruiterCompanyWorkflow",
+        "placement": "PlacementCompanyWorkflow",
+        "relocation": "RelocationCompanyWorkflow",
+    }
+
+    workflow_name = workflow_map.get(request.company_type)
+    if not workflow_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid company_type: {request.company_type}. Must be: recruiter, placement, or relocation",
+        )
+
+    # Generate workflow ID
+    workflow_id = f"company-{request.company_type}-{uuid4()}"
+
+    # Get task queue from environment
+    task_queue = os.getenv("TEMPORAL_TASK_QUEUE", "quest-content-queue")
+
+    try:
+        # Start workflow execution
+        handle = await client.start_workflow(
+            workflow_name,
+            args=[
+                request.company_name,
+                request.company_website,
+                request.auto_approve,
+            ],
+            id=workflow_id,
+            task_queue=task_queue,
+        )
+
+        return WorkflowResponse(
+            workflow_id=handle.id,
+            status="started",
+            started_at=datetime.utcnow(),
+            company_name=request.company_name,
+            company_type=request.company_type,
+            message=f"Company profile creation workflow started. Use workflow_id to check status.",
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start workflow: {str(e)}",
         )
