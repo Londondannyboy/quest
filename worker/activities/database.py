@@ -268,9 +268,19 @@ async def save_company_profile(company_profile: Dict[str, Any]) -> bool:
                 # For company_type column, map to allowed constraint values
                 company_type_mapping = {
                     "placement_company": "placement_agent",
-                    "relocation_company": "other"
+                    "placement_agent": "placement_agent",
+                    "relocation_company": "relocation_company",
+                    "executive_assistant_recruiters": "executive_assistant_recruiters",
                 }
                 db_company_type = company_type_mapping.get(company_type, "other")
+
+                # Map company_type to app for database constraint
+                app_mapping = {
+                    "placement_agent": "placement",
+                    "executive_assistant_recruiters": "chief-of-staff",
+                    "relocation_company": "relocation",
+                }
+                db_app = app_mapping.get(db_company_type, "placement")
 
                 # Prepare specializations array
                 specializations = company_profile.get("specializations", [])
@@ -290,12 +300,12 @@ async def save_company_profile(company_profile: Dict[str, Any]) -> bool:
                         name, slug, type, description,
                         headquarters, website_url, logo_url,
                         specializations, key_facts, overview,
-                        status, company_type
+                        status, company_type, app
                     ) VALUES (
                         %(name)s, %(slug)s, %(type)s, %(description)s,
                         %(headquarters)s, %(website_url)s, %(logo_url)s,
                         %(specializations)s, %(key_facts)s, %(overview)s,
-                        'published', %(company_type)s
+                        'published', %(company_type)s, %(app)s
                     )
                     ON CONFLICT (slug) DO UPDATE SET
                         name = EXCLUDED.name,
@@ -307,6 +317,7 @@ async def save_company_profile(company_profile: Dict[str, Any]) -> bool:
                         key_facts = EXCLUDED.key_facts,
                         overview = EXCLUDED.overview,
                         company_type = EXCLUDED.company_type,
+                        app = EXCLUDED.app,
                         updated_at = NOW()
                     RETURNING id, slug
                 """, {
@@ -320,7 +331,8 @@ async def save_company_profile(company_profile: Dict[str, Any]) -> bool:
                     "specializations": specializations,
                     "key_facts": Json(key_facts),
                     "overview": company_profile.get("profile_summary", ""),
-                    "company_type": db_company_type  # Use mapped value
+                    "company_type": db_company_type,  # Use mapped value
+                    "app": db_app  # Use mapped app value
                 })
 
                 result = await cur.fetchone()
