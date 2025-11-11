@@ -21,6 +21,7 @@ from workflows.placement import PlacementWorkflow
 from workflows.relocation import RelocationWorkflow
 from workflows.placement_company import PlacementCompanyWorkflow
 from workflows.relocation_company import RelocationCompanyWorkflow
+from workflows.recruiter_company import RecruiterCompanyWorkflow
 
 # Import all activities
 from activities import (
@@ -130,6 +131,7 @@ async def main():
             RelocationWorkflow,
             PlacementCompanyWorkflow,
             RelocationCompanyWorkflow,
+            RecruiterCompanyWorkflow,
         ],
         activities=[
             # Database
