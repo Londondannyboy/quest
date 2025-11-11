@@ -29,7 +29,7 @@ async def generate_relocation_images(
     article_angle: str
 ) -> Dict[str, str]:
     """
-    Generate 3 travel/lifestyle images for Relocation articles
+    Generate 4 travel/lifestyle images for Relocation articles
 
     Simple, hardcoded prompts - no config loading.
     This is the simple approach that worked before.
@@ -40,25 +40,26 @@ async def generate_relocation_images(
         article_angle: Article angle for image generation
 
     Returns:
-        Dict with Cloudinary URLs for hero, content, featured images
+        Dict with Cloudinary URLs for hero, featured, content, content2 images
     """
     activity.logger.info(f"🎨 Generating RELOCATION images: {article_title[:50]}")
 
     # Check API keys
     if not os.getenv("REPLICATE_API_TOKEN"):
         activity.logger.warning("⚠️  REPLICATE_API_TOKEN not set")
-        return {"hero": None, "content": None, "featured": None}
+        return {"hero": None, "content": None, "content2": None, "featured": None}
 
     if not os.getenv("CLOUDINARY_CLOUD_NAME"):
         activity.logger.warning("⚠️  Cloudinary not configured")
-        return {"hero": None, "content": None, "featured": None}
+        return {"hero": None, "content": None, "content2": None, "featured": None}
 
     try:
         # Simple, hardcoded prompts - Travel/lifestyle style
         prompts = {
             "hero": f"Vibrant travel photography, {article_title}, lifestyle scene, welcoming atmosphere, professional travel photography, city life, warm natural lighting, diverse people, modern urban environment",
             "featured": f"Travel destination imagery, {article_angle}, aspirational photography, golden hour lighting, cultural authenticity, welcoming atmosphere",
-            "content": f"Practical lifestyle scene, {article_title}, authentic photography, real-world scenarios, natural lighting, helpful realistic depiction"
+            "content": f"Practical lifestyle scene, {article_title}, authentic photography, real-world scenarios, natural lighting, helpful realistic depiction",
+            "content2": f"Community and culture, {article_angle}, local lifestyle photography, welcoming neighborhood atmosphere, authentic daily life scenes"
         }
 
         activity.logger.info("📸 Generating images with Replicate...")
@@ -123,11 +124,11 @@ async def generate_relocation_images(
             else:
                 cloudinary_urls[purpose] = None
 
-        activity.logger.info(f"✅ Relocation images complete: {len([u for u in cloudinary_urls.values() if u])}/3 successful")
+        activity.logger.info(f"✅ Relocation images complete: {len([u for u in cloudinary_urls.values() if u])}/4 successful")
         return cloudinary_urls
 
     except Exception as e:
         import traceback
         activity.logger.error(f"❌ Relocation image generation failed: {e}")
         activity.logger.error(f"Full traceback:\n{traceback.format_exc()}")
-        return {"hero": None, "content": None, "featured": None}
+        return {"hero": None, "content": None, "content2": None, "featured": None}
