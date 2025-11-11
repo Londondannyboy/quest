@@ -633,6 +633,88 @@ professional service provider visual, trustworthy and helpful feel""",
 
 
 # ============================================================================
+# EXECUTIVE ASSISTANT RECRUITERS CONFIGURATION
+# ============================================================================
+
+EXECUTIVE_ASSISTANT_RECRUITERS_CONFIG = CompanyConfig(
+    # Basic Identity
+    name="executive_assistant_recruiters",
+    domain="chiefofstaff.quest",
+    display_name="Executive Assistant & Chief of Staff Recruiters",
+
+    # Company Profile Parameters
+    tone="Professional, approachable, industry-focused",
+    target_audience="Chiefs of Staff, Executive Assistants, C-suite executives, HR managers, senior leadership",
+    content_focus="Executive Assistant recruitment, Chief of Staff placement, PA agencies, administrative recruitment services",
+    profile_sections=[
+        "Company Overview",
+        "Recruitment Services & Specializations",
+        "Key Sectors Served",
+        "Notable Placements",
+        "Contact Information"
+    ],
+
+    # Data Requirements
+    required_fields=[
+        "company_name",
+        "website",
+        "description",
+        "headquarters_location"
+    ],
+    optional_fields=[
+        "founded_year",
+        "employee_count",
+        "specializations",
+        "sectors_served",
+        "notable_placements",
+        "key_people",
+        "geographic_coverage",
+        "phone",
+        "email"
+    ],
+    data_sources=[
+        "Company website",
+        "LinkedIn company page",
+        "Recruitment industry directories",
+        "Client testimonials",
+        "Job boards",
+        "Industry news"
+    ],
+
+    # Logo/Image Handling
+    logo_style="original",
+    logo_prompt_template="""Professional stylized version of {company_name} logo,
+executive recruitment aesthetic, clean sophisticated design, suitable for Chief of Staff publication,
+maintain brand recognition, refined color treatment, high-quality professional rendering""",
+    fallback_image_prompt="""Professional recruitment imagery for {company_name}, executive assistant and Chief of Staff recruitment,
+modern professional office environment, sophisticated business photography,
+executive color palette, trustworthy and authoritative aesthetic""",
+
+    # Quality Thresholds
+    min_data_completeness=0.70,
+    auto_publish_threshold=0.85,
+
+    # Additional Guidelines
+    extraction_guidelines=[
+        "Focus on executive recruitment specializations",
+        "Extract sectors and industries served",
+        "Identify placement success stories",
+        "Note any unique recruiting methodologies",
+        "Capture geographic reach and office locations",
+        "Look for client testimonials or case studies",
+        "Extract key personnel and their backgrounds"
+    ],
+    validation_rules=[
+        "Company must be active recruitment agency",
+        "Website must be live and accessible",
+        "Description must be factual and professional",
+        "Specializations must be specific to executive/EA roles",
+        "Contact information must be verifiable"
+    ]
+)
+
+
+# ============================================================================
 # CONFIG REGISTRY
 # ============================================================================
 
@@ -646,6 +728,7 @@ _APP_CONFIGS: Dict[str, AppConfig] = {
 _COMPANY_CONFIGS: Dict[str, CompanyConfig] = {
     "placement_company": PLACEMENT_COMPANY_CONFIG,
     "relocation_company": RELOCATION_COMPANY_CONFIG,
+    "executive_assistant_recruiters": EXECUTIVE_ASSISTANT_RECRUITERS_CONFIG,
 }
 
 AVAILABLE_APPS = list(_APP_CONFIGS.keys())
