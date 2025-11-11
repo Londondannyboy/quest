@@ -29,7 +29,7 @@ async def generate_placement_images(
     article_angle: str
 ) -> Dict[str, str]:
     """
-    Generate 4 Bloomberg-style corporate images for Placement articles
+    Generate 6 Bloomberg-style corporate images for Placement articles
 
     Simple, hardcoded prompts - no config loading.
     This is the simple approach that worked before.
@@ -40,18 +40,18 @@ async def generate_placement_images(
         article_angle: Article angle for image generation
 
     Returns:
-        Dict with Cloudinary URLs for hero, featured, content, content2 images
+        Dict with Cloudinary URLs for hero, featured, content, content2, content3, content4 images
     """
     activity.logger.info(f"🎨 Generating PLACEMENT images: {article_title[:50]}")
 
     # Check API keys
     if not os.getenv("REPLICATE_API_TOKEN"):
         activity.logger.warning("⚠️  REPLICATE_API_TOKEN not set")
-        return {"hero": None, "content": None, "content2": None, "featured": None}
+        return {"hero": None, "featured": None, "content": None, "content2": None, "content3": None, "content4": None}
 
     if not os.getenv("CLOUDINARY_CLOUD_NAME"):
         activity.logger.warning("⚠️  Cloudinary not configured")
-        return {"hero": None, "content": None, "content2": None, "featured": None}
+        return {"hero": None, "featured": None, "content": None, "content2": None, "content3": None, "content4": None}
 
     try:
         # Simple, hardcoded prompts - Bloomberg style
@@ -59,7 +59,9 @@ async def generate_placement_images(
             "hero": f"Professional financial concept illustration, {article_title}, corporate style, clean modern design, Bloomberg aesthetic, sophisticated color palette, data visualization elements, minimalist composition",
             "featured": f"Financial data visualization, {article_angle}, clean modern infographic, corporate color scheme, business intelligence aesthetic",
             "content": f"Professional business imagery, {article_title}, corporate photography, modern professional aesthetic, financial district or boardroom",
-            "content2": f"Executive business setting, {article_angle}, modern office environment, professional corporate atmosphere, global business imagery"
+            "content2": f"Executive business setting, {article_angle}, modern office environment, professional corporate atmosphere, global business imagery",
+            "content3": f"Corporate meeting and collaboration, {article_title}, professional team environment, modern business setting, strategic planning atmosphere",
+            "content4": f"Financial technology and innovation, {article_angle}, modern digital workplace, data analytics visualization, professional tech environment"
         }
 
         activity.logger.info("📸 Generating images with Replicate...")
@@ -124,11 +126,11 @@ async def generate_placement_images(
             else:
                 cloudinary_urls[purpose] = None
 
-        activity.logger.info(f"✅ Placement images complete: {len([u for u in cloudinary_urls.values() if u])}/4 successful")
+        activity.logger.info(f"✅ Placement images complete: {len([u for u in cloudinary_urls.values() if u])}/6 successful")
         return cloudinary_urls
 
     except Exception as e:
         import traceback
         activity.logger.error(f"❌ Placement image generation failed: {e}")
         activity.logger.error(f"Full traceback:\n{traceback.format_exc()}")
-        return {"hero": None, "content": None, "content2": None, "featured": None}
+        return {"hero": None, "featured": None, "content": None, "content2": None, "content3": None, "content4": None}

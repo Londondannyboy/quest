@@ -36,7 +36,7 @@ async def generate_article_images(
     app: str = "placement"
 ) -> Dict[str, str]:
     """
-    Generate 4 distinct images using Replicate + upload to Cloudinary
+    Generate 6 distinct images using Replicate + upload to Cloudinary
     Uses app-specific image templates from config.
 
     Pipeline:
@@ -52,18 +52,18 @@ async def generate_article_images(
         app: App name (placement, relocation) for config
 
     Returns:
-        Dict with Cloudinary URLs for hero, featured, content, content2 images
+        Dict with Cloudinary URLs for hero, featured, content, content2, content3, content4 images
     """
     activity.logger.info(f"🎨 Generating images for {app}: {article_title[:50]}")
 
     # Check API keys
     if not os.getenv("REPLICATE_API_TOKEN"):
         activity.logger.warning("⚠️  REPLICATE_API_TOKEN not set, skipping image generation")
-        return {"hero": None, "content": None, "content2": None, "featured": None}
+        return {"hero": None, "featured": None, "content": None, "content2": None, "content3": None, "content4": None}
 
     if not os.getenv("CLOUDINARY_CLOUD_NAME"):
         activity.logger.warning("⚠️  Cloudinary not configured, skipping image generation")
-        return {"hero": None, "content": None, "content2": None, "featured": None}
+        return {"hero": None, "featured": None, "content": None, "content2": None, "content3": None, "content4": None}
 
     try:
         # Load app config
@@ -107,6 +107,24 @@ async def generate_article_images(
                     topic=article_title,
                     metric=article_angle
                 )
+            },
+            {
+                "purpose": "content3",
+                "aspect_ratio": "4:3",
+                "description": getattr(app_config, 'content3_image_prompt_template', app_config.content_image_prompt_template).format(
+                    theme=article_title,
+                    topic=article_title,
+                    metric=article_angle
+                )
+            },
+            {
+                "purpose": "content4",
+                "aspect_ratio": "4:3",
+                "description": getattr(app_config, 'content4_image_prompt_template', app_config.content_image_prompt_template).format(
+                    theme=article_title,
+                    topic=article_title,
+                    metric=article_angle
+                )
             }
         ]
 
@@ -126,7 +144,7 @@ async def generate_article_images(
         error_trace = traceback.format_exc()
         activity.logger.error(f"❌ Image generation failed: {e}")
         activity.logger.error(f"Full traceback:\n{error_trace}")
-        return {"hero": None, "content": None, "content2": None, "featured": None}
+        return {"hero": None, "featured": None, "content": None, "content2": None, "content3": None, "content4": None}
 
 
 async def _generate_with_replicate(prompts: List[Dict]) -> Dict[str, str]:
@@ -222,7 +240,7 @@ async def _upload_to_cloudinary(image_urls: Dict[str, str], article_id: str) -> 
         successful_uploads = {k: v for k, v in dict(results) if v is not None}
         activity.logger.info(f"   Cloudinary upload complete: {len(successful_uploads)}/{len(image_urls)} successful")
 
-        return successful_uploads if successful_uploads else {"hero": None, "content": None, "content2": None, "featured": None}
+        return successful_uploads if successful_uploads else {"hero": None, "featured": None, "content": None, "content2": None, "content3": None, "content4": None}
     except Exception as e:
         activity.logger.error(f"   ❌ Cloudinary upload gather failed: {e}")
-        return {"hero": None, "content": None, "content2": None, "featured": None}
+        return {"hero": None, "featured": None, "content": None, "content2": None, "content3": None, "content4": None}

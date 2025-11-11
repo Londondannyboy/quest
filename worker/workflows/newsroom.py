@@ -259,7 +259,7 @@ class NewsroomWorkflow:
         # Add images to article data
         article_data['images'] = image_urls
         if image_urls.get('hero'):
-            workflow.logger.info(f"✅ Generated images: hero, featured, content, content2")
+            workflow.logger.info(f"✅ Generated 6 images: hero, featured, content, content2, content3, content4")
         else:
             workflow.logger.info(f"⚠️  Image generation skipped (API keys not set)")
 
