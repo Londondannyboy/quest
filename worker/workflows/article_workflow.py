@@ -41,7 +41,8 @@ class ArticleWorkflow:
         target_word_count: int = 1500,
         num_research_sources: int = 5,
         deep_crawl_enabled: bool = False,
-        skip_zep_sync: bool = False
+        skip_zep_sync: bool = False,
+        article_format: str = "article"
     ) -> dict:
         """
         Run the article workflow
@@ -53,6 +54,7 @@ class ArticleWorkflow:
             num_research_sources: Number of Exa sources to retrieve
             deep_crawl_enabled: If True, deep crawl additional URLs
             skip_zep_sync: If True, skip Zep knowledge base sync
+            article_format: Format type - "article" (default) or "listicle"
 
         Returns:
             Complete Article dict
@@ -60,6 +62,7 @@ class ArticleWorkflow:
         workflow.logger.info(f"🚀 Article Workflow started")
         workflow.logger.info(f"   Topic: {topic}")
         workflow.logger.info(f"   App: {app}")
+        workflow.logger.info(f"   Format: {article_format}")
         workflow.logger.info(f"   Target words: {target_word_count}")
         workflow.logger.info(f"   Research sources: {num_research_sources}")
 
@@ -178,7 +181,8 @@ class ArticleWorkflow:
             "target_word_count": target_word_count,
             "source_urls": [r.get('url') for r in research_results],
             "approved_by": "system",
-            "app": app
+            "app": app,
+            "article_format": article_format
         }
 
         self.approved_brief = brief
@@ -196,7 +200,7 @@ class ArticleWorkflow:
 
         article_data = await workflow.execute_activity(
             "generate_article",
-            args=[brief, research_brief, app],
+            args=[brief, research_brief, app, article_format],
             start_to_close_timeout=timedelta(minutes=10),
             retry_policy=retry_policy,
         )

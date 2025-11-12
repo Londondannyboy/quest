@@ -77,7 +77,8 @@ def extract_and_parse_json(text: str) -> dict:
 async def generate_article(
     brief: Dict[str, Any],
     research_brief: Dict[str, Any],
-    app: str = "placement"
+    app: str = "placement",
+    article_format: str = "article"
 ) -> Dict[str, Any]:
     """
     Generate complete article using Gemini
@@ -86,12 +87,14 @@ async def generate_article(
         brief: ArticleBrief dict with title, angle, target_word_count
         research_brief: ResearchBrief dict with sources, citations, entities
         app: Application/site identifier
+        article_format: Format type - "article" (default) or "listicle"
 
     Returns:
         Article dict with title, slug, content, etc.
     """
     activity.logger.info(f"✍️  Generating article: {brief.get('title', 'Unknown')}")
     activity.logger.info(f"   App: {app}")
+    activity.logger.info(f"   Format: {article_format}")
 
     try:
         # Load app-specific configuration
@@ -132,6 +135,63 @@ async def generate_article(
         # Format preferred sources
         sources_list = ", ".join(app_config.preferred_sources[:5])  # First 5 for brevity
 
+        # Determine format-specific instructions
+        if article_format == "listicle":
+            format_instructions = """
+FORMAT: LISTICLE (Numbered List Article)
+
+STRUCTURE REQUIREMENTS:
+1. Opening paragraph (2-3 sentences) introducing the list topic
+2. Numbered list items (e.g., "## 1. Item Name", "## 2. Item Name", etc.)
+3. Each list item MUST have:
+   - Bold H2 heading with number and item name: ## 1. Item Name
+   - 2-3 paragraphs (150-250 words per item)
+   - Specific details, examples, and citations
+   - Clear value proposition or key insight
+4. Closing paragraph (2-3 sentences) summarizing the list
+
+LISTICLE CONTENT EXAMPLE:
+```
+# Top 10 Digital Nomad Destinations in Europe
+
+Finding the perfect base for remote work in Europe requires balancing factors like cost of living, visa policies, and community. These ten cities stand out for their combination of infrastructure, lifestyle, and digital nomad-friendly policies.
+
+## 1. Lisbon, Portugal
+
+Portugal's capital has become synonymous with digital nomad culture, offering a perfect blend of affordability and modern infrastructure. The city's [D7 visa program](https://example.com) provides straightforward pathways for remote workers, with processing times typically under 60 days.
+
+The cost of living remains competitive compared to other Western European capitals, with monthly expenses averaging €1,500-€2,000 for a comfortable lifestyle. Lisbon's co-working scene is extensive, with over 50 spaces offering reliable internet speeds averaging 100+ Mbps.
+
+The city's year-round mild climate and thriving expat community of over 100,000 make it particularly attractive for long-term stays. Recent infrastructure investments have improved public transit and urban connectivity.
+
+## 2. Berlin, Germany
+
+[Continue with remaining items...]
+
+Whether you prioritize visa simplicity, cost efficiency, or cultural immersion, these European destinations provide proven infrastructure and communities for remote professionals.
+```
+
+LISTICLE-SPECIFIC REQUIREMENTS:
+- Title must start with a number (e.g., "Top 10...", "7 Best...", "5 Essential...")
+- Each item must be substantial (150-250 words minimum)
+- Include specific data points, examples, or statistics in each item
+- Citations must support factual claims within list items
+- Maintain consistent depth across all list items
+"""
+        else:
+            format_instructions = """
+FORMAT: STANDARD ARTICLE
+
+STRUCTURE REQUIREMENTS:
+- Clear H2/H3 hierarchy with descriptive headings
+- Minimum {app_config.min_sections} major sections
+- Section style: {app_config.section_style}
+- Include anchor links in headings: ## <a id="section-slug"></a>Section Title
+- Introduction paragraph setting context
+- Body sections with detailed analysis
+- Conclusion paragraph summarizing key points
+"""
+
         # Create app-specific generation prompt
         prompt = f"""Write an article for {app_config.display_name} about: {brief.get('title')}
 
@@ -160,17 +220,13 @@ WRITING GUIDELINES:
 CONTENT REQUIREMENTS (Must Include):
 {requirements_text}
 
+{format_instructions}
+
 CITATION REQUIREMENTS:
 - Minimum {app_config.min_citations} citations required
 - Preferred sources: {sources_list}
 - Citation style: {app_config.citation_style}
 - Use inline markdown hyperlinks: [Source Title](url)
-
-STRUCTURAL REQUIREMENTS:
-- Minimum {app_config.min_sections} major sections
-- Section style: {app_config.section_style}
-- Include anchor links in headings: ## <a id="section-slug"></a>Section Title
-- Clear H2/H3 hierarchy
 
 SEO REQUIREMENTS:
 - Title: max 60 chars, action verbs, include primary keyword

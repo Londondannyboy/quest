@@ -38,6 +38,7 @@ class ArticleResearchRequest(BaseModel):
     num_research_sources: int = Field(default=5, ge=3, le=10, description="Number of Exa sources to retrieve")
     deep_crawl_enabled: bool = Field(default=False, description="Enable FireCrawl deep scraping")
     skip_zep_sync: bool = Field(default=False, description="Skip Zep knowledge base sync")
+    article_format: str = Field(default="article", description="Format type: 'article' or 'listicle'")
 
 
 class CompanyWorkflowRequest(BaseModel):
@@ -215,6 +216,7 @@ async def trigger_article_research_workflow(
             request.num_research_sources,
             request.deep_crawl_enabled,
             request.skip_zep_sync,
+            request.article_format,
         ]
 
         # Start workflow execution
