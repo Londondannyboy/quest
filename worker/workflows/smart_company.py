@@ -112,7 +112,8 @@ class SmartCompanyWorkflow:
             "relocation": "relocation_company",
         }
 
-        db_company_type = type_mapping.get(detected_type, "executive_assistant_recruiters")
+        # Default to placement_agent (most common type) if classification fails
+        db_company_type = type_mapping.get(detected_type, "placement_agent")
 
         # =====================================================================
         # STAGE 3: SEARCH COMPANY NEWS

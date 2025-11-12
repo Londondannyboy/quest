@@ -46,14 +46,22 @@ Based on this content, classify the company into ONE of these categories:
 1. **recruiter** - Executive Assistant, Chief of Staff, PA, or administrative recruitment agencies
    Examples: Bain & Gray, Tiger Recruitment, Office Angels, Pertemps
    Keywords: "executive assistant", "EA recruitment", "Chief of Staff", "PA jobs", "administrative", "personal assistant", "office manager recruitment"
+   IMPORTANT: These companies help people find JOBS as assistants/administrators
 
 2. **placement** - Private equity placement agents, fund placement, capital raising advisors
    Examples: Campbell Lutyens, Evercore, Lazard, Park Hill Group
-   Keywords: "placement agent", "private equity", "fund placement", "capital raising", "fundraising", "GP stakes", "secondary transactions"
+   Keywords: "placement agent", "private equity", "fund placement", "capital raising", "fundraising", "GP stakes", "secondary transactions", "fund advisory", "capital advisory"
+   IMPORTANT: These companies help funds/investors raise CAPITAL, NOT recruit people. "Fund placement" means placing capital with investors, NOT placing people in jobs.
 
 3. **relocation** - Relocation services, immigration, visa support, moving services
    Examples: Santa Fe Relocation, Crown Relocations, Sirva
    Keywords: "relocation", "immigration", "visa", "moving", "expat", "international assignment", "global mobility"
+   IMPORTANT: These companies help people/families move to new countries
+
+CRITICAL DISTINCTION:
+- If the company mentions "fund placement", "capital raising", "private equity", "secondary advisory", "GP capital advisory" → This is **placement** (financial services), NOT recruiter
+- If the company mentions "executive assistant", "EA jobs", "administrative roles", "PA placement" → This is **recruiter**
+- "Placement" in financial context means placing CAPITAL/FUNDS, not placing PEOPLE
 
 Return your analysis as JSON:
 {{

@@ -349,8 +349,16 @@ async def save_company_profile(
                     # Split on comma: "London, UK" -> ["London", "UK"]
                     parts = [p.strip() for p in headquarters.split(',')]
                     if len(parts) >= 2:
-                        primary_country = parts[-1]  # Last part is usually country
+                        country_raw = parts[-1]  # Last part is usually country
                         primary_region = parts[0]  # First part is usually city/region
+
+                        # Normalize country names to codes
+                        country_map = {
+                            "United Kingdom": "UK",
+                            "United States": "USA",
+                            "United States of America": "USA",
+                        }
+                        primary_country = country_map.get(country_raw, country_raw)
                     elif len(parts) == 1:
                         primary_country = parts[0]
 
