@@ -264,12 +264,20 @@ async def extract_company_info(
         # Build extraction prompt based on company type
         if "placement" in company_type:
             extraction_focus = """Focus on:
-- Financial services and deal types
+- Financial services and deal types (fund placement, secondary advisory, GP capital advisory)
 - Notable transactions and deals
-- Assets under management (AUM)
+- Assets under management (AUM) - total capital raised/placed
 - Key leadership in finance/investment
 - Market reputation and competitive position
-- Specializations (PE, VC, M&A, etc.)"""
+- Specializations (PE, VC, Infrastructure, Private Credit, Real Assets, etc.)
+- Geographic focus and office locations
+
+DO NOT include (these are NOT placement agent services):
+- Recruitment services, headhunting, or executive search
+- Executive Assistant or Chief of Staff placement
+- HR staffing or personnel services
+- Job boards or career services
+- Relocation or immigration services"""
         else:  # relocation
             extraction_focus = """Focus on:
 - Relocation and immigration services offered
@@ -278,7 +286,12 @@ async def extract_company_info(
 - Client reviews and success rates
 - Pricing information if available
 - Languages supported
-- Certifications and credentials"""
+- Certifications and credentials
+
+DO NOT include (these are NOT relocation services):
+- Fund placement or capital raising services
+- Executive recruitment services
+- Financial advisory services"""
 
         extraction_prompt = f"""Extract comprehensive company information for: {company_name}
 
@@ -323,10 +336,12 @@ Return ONLY a JSON object with this exact structure:
 
 Guidelines:
 - Be factual and objective
-- Use information directly from sources
+- Use information ONLY from the provided sources (website content and news)
+- DO NOT invent, assume, or hallucinate services that are not explicitly mentioned
+- If a service or field is not clearly stated in the sources, return null
 - Avoid promotional language
-- Return null for unavailable fields
-- Ensure accuracy over completeness"""
+- Ensure accuracy over completeness
+- When in doubt, return null rather than guessing"""
 
         model = genai.GenerativeModel("gemini-2.0-flash-exp")
         response = model.generate_content(extraction_prompt)

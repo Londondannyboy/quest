@@ -106,6 +106,20 @@ Be very confident in your classification. Analyze the services offered, client t
         activity.logger.info(f"   Confidence: {confidence:.1%}")
         activity.logger.info(f"   Reasoning: {reasoning[:100]}...")
 
+        # Confidence threshold check
+        if confidence < 0.8:
+            activity.logger.warning(f"⚠️  Low confidence classification ({confidence:.1%})")
+            activity.logger.warning(f"   Detected type: {company_type}")
+            activity.logger.warning(f"   Defaulting to 'placement' for safety")
+
+            # For low confidence, default to placement (most common type)
+            # This prevents misclassification when signals are unclear
+            return {
+                "company_type": "placement",
+                "confidence": confidence,
+                "reasoning": f"Low confidence ({confidence:.1%}). Original: {company_type}. {reasoning}"
+            }
+
         return {
             "company_type": company_type,
             "confidence": confidence,
