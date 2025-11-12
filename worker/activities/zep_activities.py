@@ -203,7 +203,7 @@ async def sync_article_to_zep(article: Dict[str, Any]) -> str:
             response = await client.post(
                 f"https://api.getzep.com/api/v2/graphs/{graph_id}/data",
                 headers={
-                    "Authorization": f"Bearer {api_key}",
+                    "Api-Key": api_key,
                     "Content-Type": "application/json"
                 },
                 json={
@@ -372,7 +372,7 @@ async def sync_company_to_zep(company: Dict[str, Any]) -> tuple[str, str]:
             response = await client.post(
                 f"https://api.getzep.com/api/v2/graphs/{graph_id}/data",
                 headers={
-                    "Authorization": f"Bearer {api_key}",
+                    "Api-Key": api_key,
                     "Content-Type": "application/json"
                 },
                 json={
