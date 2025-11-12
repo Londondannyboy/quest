@@ -19,6 +19,7 @@ from .insert_images import insert_images_into_content
 from .zep_activities import (
     check_zep_coverage,
     sync_article_to_zep,
+    sync_company_to_zep,
     extract_facts_to_zep,
 )
 
@@ -38,6 +39,7 @@ __all__ = [
     # Zep Graph
     "check_zep_coverage",
     "sync_article_to_zep",
+    "sync_company_to_zep",
     "extract_facts_to_zep",
 
     # Generation
