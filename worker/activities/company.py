@@ -35,17 +35,20 @@ async def _scrape_with_firecrawl(company_url: str) -> Optional[Dict[str, Any]]:
         return None
 
     try:
-        activity.logger.info("🔥 Firecrawl: Starting crawl job...")
+        activity.logger.info("🔥 Firecrawl v2: Starting crawl job...")
         async with httpx.AsyncClient(timeout=180.0) as client:
-            # Start crawl job (v1 API)
+            # Start crawl job (v2 API)
             response = await client.post(
-                "https://api.firecrawl.dev/v1/crawl",
+                "https://api.firecrawl.dev/v2/crawl",
                 json={
                     "url": company_url,
+                    "sitemap": "include",  # Use sitemap for faster crawling
+                    "crawlEntireDomain": False,
                     "limit": 10,  # Crawl up to 10 pages
                     "scrapeOptions": {
+                        "onlyMainContent": False,  # Get full content including nav
                         "formats": ["markdown"],
-                        "onlyMainContent": True
+                        "parsers": ["pdf"]  # Parse PDFs too
                     }
                 },
                 headers={
@@ -56,41 +59,46 @@ async def _scrape_with_firecrawl(company_url: str) -> Optional[Dict[str, Any]]:
             response.raise_for_status()
             data = response.json()
 
-            # Get crawl ID
+            # Get crawl ID (v2 returns 'id')
             crawl_id = data.get("id")
             if not crawl_id:
-                activity.logger.warning("Firecrawl: No crawl ID returned")
+                activity.logger.warning("Firecrawl v2: No crawl ID returned")
                 return None
 
+            activity.logger.info(f"🔥 Firecrawl v2: Crawl started, ID: {crawl_id}")
+
             # Poll for completion (max 120 seconds)
-            for _ in range(24):  # 24 attempts * 5 seconds = 120 seconds
+            for attempt in range(24):  # 24 attempts * 5 seconds = 120 seconds
                 await asyncio.sleep(5)
                 status_response = await client.get(
-                    f"https://api.firecrawl.dev/v1/crawl/{crawl_id}",
+                    f"https://api.firecrawl.dev/v2/crawl/{crawl_id}",
                     headers={"Authorization": f"Bearer {firecrawl_key}"}
                 )
                 status_response.raise_for_status()
                 status_data = status_response.json()
 
-                if status_data.get("status") == "completed":
-                    # Combine content from all crawled pages
+                status = status_data.get("status")
+                activity.logger.info(f"🔥 Firecrawl v2: Poll {attempt+1}/24, status: {status}")
+
+                if status == "completed":
+                    # v2 API: data is in 'data' field, each page has 'markdown' field
                     pages = status_data.get("data", [])
                     combined_content = "\n\n---PAGE BREAK---\n\n".join([
-                        f"PAGE: {page.get('metadata', {}).get('title', 'Unknown')}\n{page.get('markdown', '')}"
+                        f"PAGE: {page.get('metadata', {}).get('title', 'Unknown')}\nURL: {page.get('metadata', {}).get('url', '')}\n{page.get('markdown', '')}"
                         for page in pages
                     ])
 
                     if combined_content:
-                        activity.logger.info(f"✅ Firecrawl: Crawled {len(pages)} pages")
+                        activity.logger.info(f"✅ Firecrawl v2: Crawled {len(pages)} pages successfully")
                         return {
-                            "source": "firecrawl-crawl",
+                            "source": "firecrawl-v2-crawl",
                             "content": combined_content,
                             "title": pages[0].get("metadata", {}).get("title", "") if pages else "",
                             "char_count": len(combined_content)
                         }
                     break
-                elif status_data.get("status") in ["failed", "cancelled"]:
-                    activity.logger.warning(f"Firecrawl crawl {status_data.get('status')}")
+                elif status in ["failed", "cancelled"]:
+                    activity.logger.warning(f"Firecrawl v2 crawl {status}")
                     break
 
     except Exception as e:
