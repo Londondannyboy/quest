@@ -102,12 +102,12 @@ class SmartCompanyWorkflow:
         # Map detected type to database company_type
         type_mapping = {
             "recruiter": "executive_assistant_recruiters",
-            "placement": "placement_company",  # FIXED: was "placement_agent"
+            "placement": "placement_agent",  # Database constraint requires placement_agent
             "relocation": "relocation_company",
         }
 
-        # Default to placement_company (most common type) if classification fails
-        db_company_type = type_mapping.get(detected_type, "placement_company")
+        # Default to placement_agent (most common type) if classification fails
+        db_company_type = type_mapping.get(detected_type, "placement_agent")
 
         # =====================================================================
         # STAGE 3: SEARCH COMPANY NEWS
