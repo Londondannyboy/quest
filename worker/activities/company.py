@@ -29,18 +29,23 @@ cloudinary.config(
 
 
 async def _scrape_with_firecrawl(company_url: str) -> Optional[Dict[str, Any]]:
-    """Scrape using Firecrawl API"""
+    """Crawl entire website using Firecrawl API to get About, Team, Contact pages"""
     firecrawl_key = os.getenv("FIRECRAWL_API_KEY")
     if not firecrawl_key:
         return None
 
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=180.0) as client:
+            # Start crawl job (v1 API)
             response = await client.post(
-                "https://api.firecrawl.dev/v0/scrape",
+                "https://api.firecrawl.dev/v1/crawl",
                 json={
                     "url": company_url,
-                    "pageOptions": {"onlyMainContent": True}
+                    "limit": 10,  # Crawl up to 10 pages
+                    "scrapeOptions": {
+                        "formats": ["markdown"],
+                        "onlyMainContent": True
+                    }
                 },
                 headers={
                     "Authorization": f"Bearer {firecrawl_key}",
@@ -49,31 +54,64 @@ async def _scrape_with_firecrawl(company_url: str) -> Optional[Dict[str, Any]]:
             )
             response.raise_for_status()
             data = response.json()
-            content = data.get("data", {}).get("markdown") or data.get("data", {}).get("content", "")
 
-            if content:
-                return {
-                    "source": "firecrawl",
-                    "content": content,
-                    "title": data.get("data", {}).get("metadata", {}).get("title", ""),
-                    "char_count": len(content)
-                }
+            # Get crawl ID
+            crawl_id = data.get("id")
+            if not crawl_id:
+                activity.logger.warning("Firecrawl: No crawl ID returned")
+                return None
+
+            # Poll for completion (max 120 seconds)
+            for _ in range(24):  # 24 attempts * 5 seconds = 120 seconds
+                await asyncio.sleep(5)
+                status_response = await client.get(
+                    f"https://api.firecrawl.dev/v1/crawl/{crawl_id}",
+                    headers={"Authorization": f"Bearer {firecrawl_key}"}
+                )
+                status_response.raise_for_status()
+                status_data = status_response.json()
+
+                if status_data.get("status") == "completed":
+                    # Combine content from all crawled pages
+                    pages = status_data.get("data", [])
+                    combined_content = "\n\n---PAGE BREAK---\n\n".join([
+                        f"PAGE: {page.get('metadata', {}).get('title', 'Unknown')}\n{page.get('markdown', '')}"
+                        for page in pages
+                    ])
+
+                    if combined_content:
+                        activity.logger.info(f"✅ Firecrawl: Crawled {len(pages)} pages")
+                        return {
+                            "source": "firecrawl-crawl",
+                            "content": combined_content,
+                            "title": pages[0].get("metadata", {}).get("title", "") if pages else "",
+                            "char_count": len(combined_content)
+                        }
+                    break
+                elif status_data.get("status") in ["failed", "cancelled"]:
+                    activity.logger.warning(f"Firecrawl crawl {status_data.get('status')}")
+                    break
+
     except Exception as e:
-        activity.logger.warning(f"Firecrawl failed: {e}")
+        activity.logger.warning(f"Firecrawl crawl failed: {e}")
     return None
 
 
 async def _scrape_with_tavily(company_url: str) -> Optional[Dict[str, Any]]:
-    """Scrape using Tavily API"""
+    """Crawl entire website using Tavily Crawl API"""
     tavily_key = os.getenv("TAVILY_API_KEY")
     if not tavily_key:
         return None
 
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=180.0) as client:
             response = await client.post(
-                "https://api.tavily.com/extract",
-                json={"urls": [company_url]},
+                "https://api.tavily.com/crawl",
+                json={
+                    "url": company_url,
+                    "max_pages": 10,  # Crawl up to 10 pages
+                    "extract_mode": "markdown"
+                },
                 headers={
                     "Content-Type": "application/json",
                     "api-key": tavily_key
@@ -81,19 +119,24 @@ async def _scrape_with_tavily(company_url: str) -> Optional[Dict[str, Any]]:
             )
             response.raise_for_status()
             data = response.json()
+            pages = data.get("pages", [])
 
-            results = data.get("results", [])
-            if results and len(results) > 0:
-                content = results[0].get("raw_content", "")
-                if content:
-                    return {
-                        "source": "tavily",
-                        "content": content,
-                        "title": results[0].get("title", ""),
-                        "char_count": len(content)
-                    }
+            if pages:
+                # Combine content from all crawled pages
+                combined_content = "\n\n---PAGE BREAK---\n\n".join([
+                    f"PAGE: {page.get('title', 'Unknown')}\nURL: {page.get('url', '')}\n{page.get('content', '')}"
+                    for page in pages
+                ])
+
+                activity.logger.info(f"✅ Tavily: Crawled {len(pages)} pages")
+                return {
+                    "source": "tavily-crawl",
+                    "content": combined_content,
+                    "title": pages[0].get("title", "") if pages else "",
+                    "char_count": len(combined_content)
+                }
     except Exception as e:
-        activity.logger.warning(f"Tavily failed: {e}")
+        activity.logger.warning(f"Tavily crawl failed: {e}")
     return None
 
 
@@ -310,6 +353,12 @@ Required Fields to Extract:
 
 Optional Fields to Extract (if available):
 {', '.join(config.optional_fields)}
+
+IMPORTANT - Extract from news:
+- Look for PEOPLE'S NAMES and their titles/roles in the "Recent News" section
+- Look for founding dates, employee counts, office locations mentioned in news
+- Look for phone numbers, email addresses in website content
+- News articles often mention partners, executives, heads of departments - extract ALL of them
 
 Return ONLY a JSON object with this exact structure:
 {{
