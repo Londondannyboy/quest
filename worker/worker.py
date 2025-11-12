@@ -43,6 +43,7 @@ from activities import (
     # Zep Graph
     check_zep_coverage,
     sync_article_to_zep,
+    sync_company_to_zep,
     extract_facts_to_zep,
 
     # Generation
@@ -180,6 +181,7 @@ async def main():
             # Zep Graph
             check_zep_coverage,
             sync_article_to_zep,
+            sync_company_to_zep,
             extract_facts_to_zep,
 
             # Generation
@@ -242,6 +244,7 @@ async def main():
     print("   Zep Graph:")
     print("     - check_zep_coverage")
     print("     - sync_article_to_zep")
+    print("     - sync_company_to_zep")
     print("     - extract_facts_to_zep")
     print("   Generation:")
     print("     - generate_article")
