@@ -35,6 +35,7 @@ async def _scrape_with_firecrawl(company_url: str) -> Optional[Dict[str, Any]]:
         return None
 
     try:
+        activity.logger.info("🔥 Firecrawl: Starting crawl job...")
         async with httpx.AsyncClient(timeout=180.0) as client:
             # Start crawl job (v1 API)
             response = await client.post(

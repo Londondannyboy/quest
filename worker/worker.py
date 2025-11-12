@@ -2,6 +2,8 @@
 Quest Worker - Temporal Python Worker
 
 Executes NewsroomWorkflow for content generation across multiple apps.
+
+Updated: 2025-11-12 - Force clean rebuild for activity registration
 """
 
 import asyncio
