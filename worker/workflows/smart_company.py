@@ -82,28 +82,22 @@ class SmartCompanyWorkflow:
         workflow.logger.info(f"✅ Scraped {len(website_content)} characters from website")
 
         # =====================================================================
-        # STAGE 2: AI CLASSIFICATION - DETECT COMPANY TYPE
+        # STAGE 2: TEMPORARY FIX - HARDCODE TO PLACEMENT
         # =====================================================================
         workflow.logger.info("=" * 60)
-        workflow.logger.info("🤖 STAGE 2: AI CLASSIFICATION")
+        workflow.logger.info("🤖 STAGE 2: CLASSIFICATION (TEMPORARY HARDCODED)")
         workflow.logger.info("=" * 60)
 
-        classification = await workflow.execute_activity(
-            "classify_company_type",
-            args=[company_name, website_content],
-            start_to_close_timeout=timedelta(minutes=2),
-            retry_policy=retry_policy,
-        )
-
-        detected_type = classification.get("company_type")
-        confidence = classification.get("confidence", 0)
-        reasoning = classification.get("reasoning", "")
+        # TEMPORARY: Hardcode to placement until caching/classification fixed
+        detected_type = "placement"
+        confidence = 1.0
+        reasoning = "Hardcoded to placement (temporary fix for classification bug)"
 
         self.detected_type = detected_type
 
-        workflow.logger.info(f"✅ Detected Type: {detected_type}")
+        workflow.logger.info(f"✅ Hardcoded Type: {detected_type}")
         workflow.logger.info(f"   Confidence: {confidence:.1%}")
-        workflow.logger.info(f"   Reasoning: {reasoning[:100]}...")
+        workflow.logger.info(f"   Reasoning: {reasoning}")
 
         # Map detected type to database company_type
         type_mapping = {
