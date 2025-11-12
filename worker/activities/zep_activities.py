@@ -201,12 +201,13 @@ async def sync_article_to_zep(article: Dict[str, Any]) -> str:
         # Call Zep Graph API directly via HTTP (bypassing broken SDK)
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"https://api.getzep.com/api/v2/graphs/{graph_id}/data",
+                "https://api.getzep.com/api/v2/graph",
                 headers={
-                    "Api-Key": api_key,
+                    "Authorization": f"Api-Key {api_key}",
                     "Content-Type": "application/json"
                 },
                 json={
+                    "graph_id": graph_id,
                     "type": "text",
                     "data": condensed_content
                 },
@@ -370,12 +371,13 @@ async def sync_company_to_zep(company: Dict[str, Any]) -> tuple[str, str]:
         # Call Zep Graph API directly via HTTP (bypassing broken SDK)
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"https://api.getzep.com/api/v2/graphs/{graph_id}/data",
+                "https://api.getzep.com/api/v2/graph",
                 headers={
-                    "Api-Key": api_key,
+                    "Authorization": f"Api-Key {api_key}",
                     "Content-Type": "application/json"
                 },
                 json={
+                    "graph_id": graph_id,
                     "type": "text",
                     "data": condensed_content
                 },
