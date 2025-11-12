@@ -222,6 +222,34 @@ class SmartCompanyWorkflow:
         workflow.logger.info(f"✅ Formatted profile with {len(formatted_profile.get('profile_sections', []))} sections")
 
         # =====================================================================
+        # STAGE 7: SYNC TO ZEP KNOWLEDGE GRAPH
+        # =====================================================================
+        workflow.logger.info("=" * 60)
+        workflow.logger.info("🔗 STAGE 7: KNOWLEDGE BASE SYNC")
+        workflow.logger.info("=" * 60)
+
+        try:
+            zep_result = await workflow.execute_activity(
+                "sync_company_to_zep",
+                formatted_profile,
+                start_to_close_timeout=timedelta(minutes=2),
+                retry_policy=retry_policy,
+            )
+
+            # Unpack tuple result: (episode_uuid, condensed_summary)
+            zep_episode_id, condensed_summary = zep_result
+
+            workflow.logger.info(f"✅ Synced to Zep: {zep_episode_id}")
+
+            formatted_profile['zep_graph_id'] = zep_episode_id
+            formatted_profile['condensed_summary'] = condensed_summary
+
+        except Exception as e:
+            workflow.logger.error(f"⚠️  Zep sync failed (non-blocking): {e}")
+            formatted_profile['zep_graph_id'] = None
+            formatted_profile['condensed_summary'] = None
+
+        # =====================================================================
         # STAGE 8: SAVE TO DATABASE
         # =====================================================================
         workflow.logger.info("=" * 60)
@@ -230,7 +258,11 @@ class SmartCompanyWorkflow:
 
         saved = await workflow.execute_activity(
             "save_company_profile",
-            formatted_profile,
+            args=[
+                formatted_profile,
+                formatted_profile.get('zep_graph_id'),
+                formatted_profile.get('condensed_summary')
+            ],
             start_to_close_timeout=timedelta(minutes=2),
             retry_policy=retry_policy,
         )

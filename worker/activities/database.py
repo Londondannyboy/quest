@@ -221,12 +221,18 @@ async def save_to_neon(article: Dict[str, Any], brief: Dict[str, Any]) -> bool:
 
 
 @activity.defn(name="save_company_profile")
-async def save_company_profile(company_profile: Dict[str, Any]) -> bool:
+async def save_company_profile(
+    company_profile: Dict[str, Any],
+    zep_graph_id: Optional[str] = None,
+    condensed_summary: Optional[str] = None
+) -> bool:
     """
-    Save company profile to existing companies table
+    Save company profile to existing companies table with enriched data
 
     Args:
         company_profile: Company profile dict from workflow
+        zep_graph_id: Optional Zep episode UUID (from sync_company_to_zep)
+        condensed_summary: Optional condensed summary for Zep (<10k chars)
 
     Returns:
         True if saved successfully
@@ -294,18 +300,88 @@ async def save_company_profile(company_profile: Dict[str, Any]) -> bool:
                     "people": company_profile.get("key_people", []),
                 }
 
-                # Insert or update company profile using existing schema
+                # Extract enriched data fields
+                founded_year = company_profile.get("founded_year")
+                if founded_year and isinstance(founded_year, str):
+                    try:
+                        founded_year = int(founded_year)
+                    except (ValueError, TypeError):
+                        founded_year = None
+
+                employee_count = company_profile.get("employee_count")
+                if employee_count and isinstance(employee_count, str):
+                    # Handle ranges like "250-500" by taking midpoint
+                    if '-' in employee_count:
+                        try:
+                            parts = employee_count.split('-')
+                            employee_count = int((int(parts[0]) + int(parts[1])) / 2)
+                        except (ValueError, TypeError):
+                            employee_count = None
+                    else:
+                        try:
+                            employee_count = int(employee_count.replace(',', ''))
+                        except (ValueError, TypeError):
+                            employee_count = None
+
+                # Extract contact info
+                contact_info = company_profile.get("contact_info", {})
+                phone = contact_info.get("phone") if contact_info else None
+                email = contact_info.get("email") if contact_info else None
+
+                # Extract AUM from additional_data (for placement agents)
+                additional_data = company_profile.get("additional_data", {})
+                aum = additional_data.get("aum") or additional_data.get("assets_under_management")
+
+                # Extract geographic focus/regions served
+                geographic_focus = additional_data.get("regions_served") or additional_data.get("geographic_focus")
+                if isinstance(geographic_focus, list):
+                    geographic_focus = geographic_focus  # Keep as array
+                elif geographic_focus:
+                    geographic_focus = [geographic_focus]  # Convert string to array
+                else:
+                    geographic_focus = []
+
+                # Parse headquarters for primary_country and primary_region
+                headquarters = company_profile.get("headquarters_location", "")
+                primary_country = None
+                primary_region = None
+                if headquarters:
+                    # Split on comma: "London, UK" -> ["London", "UK"]
+                    parts = [p.strip() for p in headquarters.split(',')]
+                    if len(parts) >= 2:
+                        primary_country = parts[-1]  # Last part is usually country
+                        primary_region = parts[0]  # First part is usually city/region
+                    elif len(parts) == 1:
+                        primary_country = parts[0]
+
+                # Use provided zep_graph_id or get from profile
+                final_zep_graph_id = zep_graph_id or company_profile.get("zep_graph_id")
+
+                # Use provided condensed_summary or get from profile
+                final_condensed_summary = condensed_summary or company_profile.get("condensed_summary")
+
+                # Insert or update company profile using existing schema + new fields
                 await cur.execute("""
                     INSERT INTO companies (
                         name, slug, type, description,
                         headquarters, website_url, logo_url,
                         specializations, key_facts, overview,
-                        status, company_type, app
+                        status, company_type, app,
+                        founded_year, employee_count, phone, email,
+                        capital_raised_total, geographic_focus,
+                        primary_country, primary_region,
+                        zep_graph_id, condensed_summary,
+                        serviced_companies, serviced_deals, serviced_investors
                     ) VALUES (
                         %(name)s, %(slug)s, %(type)s, %(description)s,
                         %(headquarters)s, %(website_url)s, %(logo_url)s,
                         %(specializations)s, %(key_facts)s, %(overview)s,
-                        'published', %(company_type)s, %(app)s
+                        'published', %(company_type)s, %(app)s,
+                        %(founded_year)s, %(employee_count)s, %(phone)s, %(email)s,
+                        %(capital_raised_total)s, %(geographic_focus)s,
+                        %(primary_country)s, %(primary_region)s,
+                        %(zep_graph_id)s, %(condensed_summary)s,
+                        %(serviced_companies)s, %(serviced_deals)s, %(serviced_investors)s
                     )
                     ON CONFLICT (slug) DO UPDATE SET
                         name = EXCLUDED.name,
@@ -318,6 +394,19 @@ async def save_company_profile(company_profile: Dict[str, Any]) -> bool:
                         overview = EXCLUDED.overview,
                         company_type = EXCLUDED.company_type,
                         app = EXCLUDED.app,
+                        founded_year = EXCLUDED.founded_year,
+                        employee_count = EXCLUDED.employee_count,
+                        phone = EXCLUDED.phone,
+                        email = EXCLUDED.email,
+                        capital_raised_total = EXCLUDED.capital_raised_total,
+                        geographic_focus = EXCLUDED.geographic_focus,
+                        primary_country = EXCLUDED.primary_country,
+                        primary_region = EXCLUDED.primary_region,
+                        zep_graph_id = EXCLUDED.zep_graph_id,
+                        condensed_summary = EXCLUDED.condensed_summary,
+                        serviced_companies = EXCLUDED.serviced_companies,
+                        serviced_deals = EXCLUDED.serviced_deals,
+                        serviced_investors = EXCLUDED.serviced_investors,
                         updated_at = NOW()
                     RETURNING id, slug
                 """, {
@@ -325,14 +414,27 @@ async def save_company_profile(company_profile: Dict[str, Any]) -> bool:
                     "slug": slug,
                     "type": db_type,
                     "description": company_profile.get("description", "")[:500],  # Limit length
-                    "headquarters": company_profile.get("headquarters_location", ""),
+                    "headquarters": headquarters,
                     "website_url": company_profile.get("website", ""),
                     "logo_url": logo_url,
                     "specializations": specializations,
                     "key_facts": Json(key_facts),
                     "overview": company_profile.get("profile_summary", ""),
                     "company_type": db_company_type,  # Use mapped value
-                    "app": db_app  # Use mapped app value
+                    "app": db_app,  # Use mapped app value
+                    "founded_year": founded_year,
+                    "employee_count": employee_count,
+                    "phone": phone,
+                    "email": email,
+                    "capital_raised_total": aum,
+                    "geographic_focus": geographic_focus,
+                    "primary_country": primary_country,
+                    "primary_region": primary_region,
+                    "zep_graph_id": final_zep_graph_id,
+                    "condensed_summary": final_condensed_summary,
+                    "serviced_companies": None,  # Will be populated manually/later
+                    "serviced_deals": None,  # Will be populated manually/later
+                    "serviced_investors": None,  # Will be populated manually/later
                 })
 
                 result = await cur.fetchone()

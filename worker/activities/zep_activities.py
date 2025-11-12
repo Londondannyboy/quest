@@ -238,6 +238,178 @@ async def sync_article_to_zep(article: Dict[str, Any]) -> str:
         return f"zep-fallback-{article.get('id', 'unknown')}"
 
 
+@activity.defn(name="sync_company_to_zep")
+async def sync_company_to_zep(company: Dict[str, Any]) -> tuple[str, str]:
+    """
+    Sync company profile to Zep knowledge graph using direct HTTP API
+
+    Creates an Episode with the company content structured as:
+    - Main message: Company name + description + key info
+    - Condensed format: < 10K characters for graph embedding
+    - Facts: Specializations, people, metrics
+
+    Args:
+        company: Company profile dict with all data
+
+    Returns:
+        Tuple of (episode_uuid, condensed_summary) from Zep
+    """
+    activity.logger.info(f"🔗 Syncing company to Zep: {company.get('company_name', 'Unknown')[:50]}")
+
+    try:
+        api_key = os.getenv("ZEP_API_KEY")
+        if not api_key:
+            raise ValueError("ZEP_API_KEY not set")
+
+        app = company.get("app", "placement")
+        company_name = company.get("company_name", "Unknown")
+        description = company.get("description", "")
+        overview = company.get("profile_summary", company.get("overview", ""))
+
+        # Get graph ID for this app (finance-knowledge or relocation-knowledge)
+        graph_id = get_graph_id(app)
+
+        # Build condensed content for graph (keep it under 9,900 chars to be safe)
+        condensed_content = f"# {company_name}\n"
+        condensed_content += f"Type: {company.get('type', 'company')}\n\n"
+
+        # Description
+        if description:
+            condensed_content += f"## Description\n{description}\n\n"
+
+        # Overview (first 2000 chars)
+        if overview:
+            overview_excerpt = overview[:2000] + "..." if len(overview) > 2000 else overview
+            condensed_content += f"## Overview\n{overview_excerpt}\n\n"
+
+        # Key Information
+        condensed_content += "## Key Information\n"
+        if company.get("founded_year"):
+            condensed_content += f"- Founded: {company.get('founded_year')}\n"
+        if company.get("employee_count"):
+            condensed_content += f"- Employees: {company.get('employee_count')}\n"
+        if company.get("headquarters_location"):
+            condensed_content += f"- Headquarters: {company.get('headquarters_location')}\n"
+        if company.get("website"):
+            condensed_content += f"- Website: {company.get('website')}\n"
+
+        # Contact
+        contact_info = company.get("contact_info", {})
+        if contact_info.get("phone"):
+            condensed_content += f"- Phone: {contact_info.get('phone')}\n"
+        if contact_info.get("email"):
+            condensed_content += f"- Email: {contact_info.get('email')}\n"
+
+        condensed_content += "\n"
+
+        # Specializations
+        specializations = company.get("specializations", [])
+        if specializations:
+            condensed_content += "## Specializations\n"
+            for spec in specializations[:10]:  # Limit to 10
+                condensed_content += f"- {spec}\n"
+            condensed_content += "\n"
+
+        # Services (from key_facts)
+        key_facts = company.get("key_facts", {})
+        if isinstance(key_facts, dict):
+            services = key_facts.get("services", [])
+            if services:
+                condensed_content += "## Services\n"
+                for service in services[:10]:  # Limit to 10
+                    condensed_content += f"- {service}\n"
+                condensed_content += "\n"
+
+            # Key People
+            people = key_facts.get("people", [])
+            if people:
+                condensed_content += "## Key People\n"
+                for person in people[:10]:  # Limit to 10
+                    if isinstance(person, dict):
+                        name = person.get("name", "")
+                        title = person.get("title", "")
+                        condensed_content += f"- {name}"
+                        if title:
+                            condensed_content += f", {title}"
+                        condensed_content += "\n"
+                    elif isinstance(person, str):
+                        condensed_content += f"- {person}\n"
+                condensed_content += "\n"
+
+            # Achievements
+            achievements = key_facts.get("achievements", [])
+            if achievements:
+                condensed_content += "## Notable Achievements\n"
+                for achievement in achievements[:5]:  # Limit to 5
+                    condensed_content += f"- {achievement}\n"
+                condensed_content += "\n"
+
+        # Additional data (AUM, regions, etc.)
+        additional_data = company.get("additional_data", {})
+        if additional_data:
+            aum = additional_data.get("aum") or additional_data.get("assets_under_management")
+            if aum:
+                condensed_content += f"## Financial\n- Assets Under Management: {aum}\n\n"
+
+            regions = additional_data.get("regions_served") or additional_data.get("geographic_focus")
+            if regions:
+                if isinstance(regions, list):
+                    condensed_content += f"## Geographic Focus\n"
+                    for region in regions[:10]:
+                        condensed_content += f"- {region}\n"
+                    condensed_content += "\n"
+                elif isinstance(regions, str):
+                    condensed_content += f"## Geographic Focus\n{regions}\n\n"
+
+        # Ensure content is under 9,900 characters for safety margin
+        if len(condensed_content) > 9900:
+            condensed_content = condensed_content[:9800] + "\n\n[Content truncated for size]"
+
+        activity.logger.info(f"   Content length: {len(condensed_content)} chars")
+
+        # Call Zep Graph API directly via HTTP (bypassing broken SDK)
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"https://api.getzep.com/api/v2/graphs/{graph_id}/data",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "type": "text",
+                    "data": condensed_content
+                },
+                timeout=30.0
+            )
+
+            response.raise_for_status()
+            result = response.json()
+
+        # Extract episode UUID from response
+        episode_uuid = result.get("uuid", result.get("episode_uuid", str(result)))
+
+        activity.logger.info(f"✅ Company synced to Zep Graph")
+        activity.logger.info(f"   Graph ID: {graph_id}")
+        activity.logger.info(f"   Episode UUID: {episode_uuid}")
+        activity.logger.info(f"   App: {app}")
+        activity.logger.info(f"   Company: {company_name}")
+
+        return (episode_uuid, condensed_content)
+
+    except httpx.HTTPStatusError as e:
+        activity.logger.error(f"❌ Zep API error: {e.response.status_code}")
+        activity.logger.error(f"   Response: {e.response.text}")
+        activity.logger.error(f"   Company: {company.get('company_name')}")
+        fallback_id = f"zep-fallback-{company.get('id', 'unknown')}"
+        return (fallback_id, "")
+    except Exception as e:
+        activity.logger.error(f"❌ Zep sync failed: {type(e).__name__}: {str(e)}")
+        activity.logger.error(f"   Company: {company.get('company_name')}")
+        activity.logger.error(f"   App: {company.get('app')}")
+        fallback_id = f"zep-fallback-{company.get('id', 'unknown')}"
+        return (fallback_id, "")
+
+
 @activity.defn(name="extract_facts_to_zep")
 async def extract_facts_to_zep(
     article: Dict[str, Any],
