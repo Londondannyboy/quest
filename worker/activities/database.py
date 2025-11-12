@@ -6,7 +6,7 @@ Simple activities for saving articles to Neon PostgreSQL.
 
 import os
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from temporalio import activity
 import psycopg
 from psycopg.rows import dict_row
