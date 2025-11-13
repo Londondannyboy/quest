@@ -3,7 +3,7 @@ Quest Worker - Temporal Python Worker
 
 Executes NewsroomWorkflow for content generation across multiple apps.
 
-Updated: 2025-11-12 v2 - Force TRULY clean rebuild (Railway bytecode cache issue)
+Updated: 2025-11-13 v3 - Force rebuild for exa_research_company activity registration
 """
 
 import asyncio
