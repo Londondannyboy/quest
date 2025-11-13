@@ -29,28 +29,23 @@ cloudinary.config(
 
 
 async def _scrape_with_firecrawl(company_url: str) -> Optional[Dict[str, Any]]:
-    """Crawl entire website using Firecrawl API to get About, Team, Contact pages"""
+    """Scrape website using Firecrawl API (single-page scrape, not crawl)"""
     firecrawl_key = os.getenv("FIRECRAWL_API_KEY")
     if not firecrawl_key:
         activity.logger.warning("⚠️  FIRECRAWL_API_KEY not set - skipping Firecrawl")
         return None
 
     try:
-        activity.logger.info("🔥 Firecrawl v2: Starting crawl job...")
-        async with httpx.AsyncClient(timeout=180.0) as client:
-            # Start crawl job (v2 API)
+        activity.logger.info("🔥 Firecrawl v2: Scraping page...")
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            # Use /scrape endpoint (instant, not async like /crawl)
             response = await client.post(
-                "https://api.firecrawl.dev/v2/crawl",
+                "https://api.firecrawl.dev/v2/scrape",
                 json={
                     "url": company_url,
-                    "sitemap": "include",  # Use sitemap for faster crawling
-                    "crawlEntireDomain": False,
-                    "limit": 10,  # Crawl up to 10 pages
-                    "scrapeOptions": {
-                        "onlyMainContent": False,  # Get full content including nav
-                        "formats": ["markdown"],
-                        "parsers": ["pdf"]  # Parse PDFs too
-                    }
+                    "onlyMainContent": False,  # Get full page including footer with contact info
+                    "formats": ["markdown"],
+                    "parsers": ["pdf"]
                 },
                 headers={
                     "Authorization": f"Bearer {firecrawl_key}",
@@ -60,50 +55,24 @@ async def _scrape_with_firecrawl(company_url: str) -> Optional[Dict[str, Any]]:
             response.raise_for_status()
             data = response.json()
 
-            # Get crawl ID (v2 returns 'id')
-            crawl_id = data.get("id")
-            if not crawl_id:
-                activity.logger.warning("Firecrawl v2: No crawl ID returned")
+            # Extract markdown and metadata
+            markdown_content = data.get("markdown", "")
+            metadata = data.get("metadata", {})
+
+            if markdown_content:
+                activity.logger.info(f"✅ Firecrawl v2: Scraped {len(markdown_content)} chars")
+                return {
+                    "source": "firecrawl-v2-scrape",
+                    "content": markdown_content,
+                    "title": metadata.get("title", ""),
+                    "char_count": len(markdown_content)
+                }
+            else:
+                activity.logger.warning("Firecrawl v2: No markdown content returned")
                 return None
 
-            activity.logger.info(f"🔥 Firecrawl v2: Crawl started, ID: {crawl_id}")
-
-            # Poll for completion (max 120 seconds)
-            for attempt in range(24):  # 24 attempts * 5 seconds = 120 seconds
-                await asyncio.sleep(5)
-                status_response = await client.get(
-                    f"https://api.firecrawl.dev/v2/crawl/{crawl_id}",
-                    headers={"Authorization": f"Bearer {firecrawl_key}"}
-                )
-                status_response.raise_for_status()
-                status_data = status_response.json()
-
-                status = status_data.get("status")
-                activity.logger.info(f"🔥 Firecrawl v2: Poll {attempt+1}/24, status: {status}")
-
-                if status == "completed":
-                    # v2 API: data is in 'data' field, each page has 'markdown' field
-                    pages = status_data.get("data", [])
-                    combined_content = "\n\n---PAGE BREAK---\n\n".join([
-                        f"PAGE: {page.get('metadata', {}).get('title', 'Unknown')}\nURL: {page.get('metadata', {}).get('url', '')}\n{page.get('markdown', '')}"
-                        for page in pages
-                    ])
-
-                    if combined_content:
-                        activity.logger.info(f"✅ Firecrawl v2: Crawled {len(pages)} pages successfully")
-                        return {
-                            "source": "firecrawl-v2-crawl",
-                            "content": combined_content,
-                            "title": pages[0].get("metadata", {}).get("title", "") if pages else "",
-                            "char_count": len(combined_content)
-                        }
-                    break
-                elif status in ["failed", "cancelled"]:
-                    activity.logger.warning(f"Firecrawl v2 crawl {status}")
-                    break
-
     except Exception as e:
-        activity.logger.warning(f"Firecrawl crawl failed: {e}")
+        activity.logger.error(f"❌ Firecrawl scrape failed: {type(e).__name__}: {str(e)}")
     return None
 
 
