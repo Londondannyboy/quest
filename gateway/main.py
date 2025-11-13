@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import routers (relative imports for Railway deployment)
-from routers import health, workflows
+from routers import health, workflows, voice
 from temporal_client import TemporalClientManager
 
 
@@ -121,6 +121,7 @@ async def global_exception_handler(request, exc):
 # Include routers
 app.include_router(health.router)
 app.include_router(workflows.router)
+app.include_router(voice.router)
 
 
 # ============================================================================
