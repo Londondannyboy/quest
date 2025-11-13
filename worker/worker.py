@@ -69,6 +69,7 @@ from activities.images_gtm import generate_gtm_images
 from activities.company import (
     scrape_company_website,
     search_company_news,
+    exa_research_company,
     extract_company_info,
     validate_company_data,
     format_company_profile,
@@ -202,6 +203,7 @@ async def main():
             # Company Profile Activities
             scrape_company_website,
             search_company_news,
+            exa_research_company,
             extract_company_info,
             validate_company_data,
             format_company_profile,

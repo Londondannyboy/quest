@@ -126,6 +126,27 @@ class SmartCompanyWorkflow:
         workflow.logger.info(f"✅ Found {len(news_items)} news articles")
 
         # =====================================================================
+        # STAGE 3.5: EXA AUTONOMOUS RESEARCH
+        # =====================================================================
+        workflow.logger.info("=" * 60)
+        workflow.logger.info("🔬 STAGE 3.5: EXA DEEP RESEARCH")
+        workflow.logger.info("=" * 60)
+
+        exa_research = await workflow.execute_activity(
+            "exa_research_company",
+            args=[company_name, company_website],
+            start_to_close_timeout=timedelta(minutes=3),
+            retry_policy=retry_policy,
+        )
+
+        exa_report = exa_research.get("report", "")
+        if exa_report:
+            workflow.logger.info(f"✅ Exa research completed: {len(exa_report)} chars")
+            workflow.logger.info(f"   Cost: ${exa_research.get('cost', 0):.4f}")
+        else:
+            workflow.logger.info(f"ℹ️  Exa research returned no data")
+
+        # =====================================================================
         # STAGE 4: EXTRACT COMPANY INFORMATION (TYPE-AWARE)
         # =====================================================================
         workflow.logger.info("=" * 60)
@@ -135,7 +156,7 @@ class SmartCompanyWorkflow:
 
         company_data = await workflow.execute_activity(
             "extract_company_info",
-            args=[company_name, website_content, news_items, db_company_type],
+            args=[company_name, website_content, news_items, db_company_type, exa_report],
             start_to_close_timeout=timedelta(minutes=3),
             retry_policy=retry_policy,
         )

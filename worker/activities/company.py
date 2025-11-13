@@ -269,6 +269,67 @@ async def scrape_company_website(company_url: str) -> Dict[str, Any]:
     }
 
 
+@activity.defn(name="exa_research_company")
+async def exa_research_company(company_name: str, company_website: str) -> Dict[str, Any]:
+    """
+    Use Exa Research to do autonomous deep research on a company
+
+    Args:
+        company_name: Name of the company
+        company_website: Company website URL
+
+    Returns:
+        Dict with research_report (markdown), cost, sources
+    """
+    exa_key = os.getenv("EXA_API_KEY")
+    if not exa_key:
+        activity.logger.error("EXA_API_KEY not set")
+        return {"report": "", "cost": 0, "sources": []}
+
+    activity.logger.info(f"🔬 Exa Research: Deep dive on {company_name}")
+
+    try:
+        from exa_py import Exa
+
+        exa = Exa(api_key=exa_key)
+
+        # Create research task with instructions
+        research = exa.research.create(
+            instructions=f"Research {company_name} ({company_website}). Find: founding history, key executives and team members, notable deals and transactions, fund sizes managed, recent news and developments, contact information (phone, email, office addresses), specializations and focus areas.",
+            model="exa-research-fast"  # Faster and cheaper
+        )
+
+        activity.logger.info(f"🔬 Exa Research: Task created, ID: {research.research_id}")
+
+        # Poll for completion (stream results)
+        report_content = ""
+        for event in exa.research.get(research.research_id, stream=True):
+            if hasattr(event, 'status') and event.status == 'completed':
+                if hasattr(event, 'output') and event.output:
+                    report_content = event.output.content
+                    activity.logger.info(f"✅ Exa Research: Completed, {len(report_content)} chars")
+
+                    # Get cost info
+                    cost = 0
+                    if hasattr(event, 'cost_dollars'):
+                        cost = event.cost_dollars.total
+                        activity.logger.info(f"   Cost: ${cost:.4f}")
+
+                    return {
+                        "report": report_content,
+                        "cost": cost,
+                        "research_id": research.research_id
+                    }
+
+        # If we got here, research didn't complete properly
+        activity.logger.warning("Exa Research: No completed output received")
+        return {"report": "", "cost": 0, "sources": []}
+
+    except Exception as e:
+        activity.logger.error(f"❌ Exa Research failed: {e}")
+        return {"report": "", "cost": 0, "sources": []}
+
+
 @activity.defn(name="search_company_news")
 async def search_company_news(company_name: str, num_results: int = 5) -> List[Dict[str, Any]]:
     """
@@ -320,7 +381,8 @@ async def extract_company_info(
     company_name: str,
     website_content: str,
     news_items: List[Dict[str, Any]],
-    company_type: str
+    company_type: str,
+    exa_research_report: str = ""
 ) -> Dict[str, Any]:
     """
     Extract structured company information using Gemini
@@ -380,6 +442,11 @@ DO NOT include (these are NOT relocation services):
 - Executive recruitment services
 - Financial advisory services"""
 
+        # Add Exa research if available
+        exa_context = ""
+        if exa_research_report:
+            exa_context = f"\n\nEXA AUTONOMOUS RESEARCH (High Quality):\n{exa_research_report[:6000]}\n"
+
         extraction_prompt = f"""Extract comprehensive company information for: {company_name}
 
 Company Type: {config.display_name}
@@ -391,7 +458,7 @@ Website Content:
 
 Recent News:
 {news_context}
-
+{exa_context}
 Required Fields to Extract:
 {', '.join(config.required_fields)}
 
