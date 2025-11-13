@@ -77,46 +77,49 @@ async def _scrape_with_firecrawl(company_url: str) -> Optional[Dict[str, Any]]:
 
 
 async def _scrape_with_tavily(company_url: str) -> Optional[Dict[str, Any]]:
-    """Crawl entire website using Tavily Crawl API"""
+    """Extract content from website using Tavily Extract API"""
     tavily_key = os.getenv("TAVILY_API_KEY")
     if not tavily_key:
         activity.logger.warning("⚠️  TAVILY_API_KEY not set - skipping Tavily")
         return None
 
     try:
-        async with httpx.AsyncClient(timeout=180.0) as client:
+        activity.logger.info("🔍 Tavily: Extracting content...")
+        async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
-                "https://api.tavily.com/crawl",
+                "https://api.tavily.com/extract",
                 json={
-                    "url": company_url,
-                    "max_pages": 10,  # Crawl up to 10 pages
-                    "extract_mode": "markdown"
+                    "api_key": tavily_key,
+                    "urls": [company_url]
                 },
-                headers={
-                    "Content-Type": "application/json",
-                    "api-key": tavily_key
-                }
+                headers={"Content-Type": "application/json"}
             )
             response.raise_for_status()
             data = response.json()
-            pages = data.get("pages", [])
 
-            if pages:
-                # Combine content from all crawled pages
-                combined_content = "\n\n---PAGE BREAK---\n\n".join([
-                    f"PAGE: {page.get('title', 'Unknown')}\nURL: {page.get('url', '')}\n{page.get('content', '')}"
-                    for page in pages
-                ])
+            results = data.get("results", [])
+            if results and len(results) > 0:
+                result = results[0]
+                content = result.get("raw_content", "")
+                title = result.get("title", "")
 
-                activity.logger.info(f"✅ Tavily: Crawled {len(pages)} pages")
-                return {
-                    "source": "tavily-crawl",
-                    "content": combined_content,
-                    "title": pages[0].get("title", "") if pages else "",
-                    "char_count": len(combined_content)
-                }
+                if content:
+                    activity.logger.info(f"✅ Tavily: Extracted {len(content)} chars")
+                    return {
+                        "source": "tavily-extract",
+                        "content": content,
+                        "title": title,
+                        "char_count": len(content)
+                    }
+                else:
+                    activity.logger.warning("Tavily: No raw_content in response")
+                    return None
+            else:
+                activity.logger.warning("Tavily: No results returned")
+                return None
+
     except Exception as e:
-        activity.logger.warning(f"Tavily crawl failed: {e}")
+        activity.logger.error(f"❌ Tavily extract failed: {type(e).__name__}: {str(e)}")
     return None
 
 
