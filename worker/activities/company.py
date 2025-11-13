@@ -32,6 +32,7 @@ async def _scrape_with_firecrawl(company_url: str) -> Optional[Dict[str, Any]]:
     """Crawl entire website using Firecrawl API to get About, Team, Contact pages"""
     firecrawl_key = os.getenv("FIRECRAWL_API_KEY")
     if not firecrawl_key:
+        activity.logger.warning("⚠️  FIRECRAWL_API_KEY not set - skipping Firecrawl")
         return None
 
     try:
@@ -110,6 +111,7 @@ async def _scrape_with_tavily(company_url: str) -> Optional[Dict[str, Any]]:
     """Crawl entire website using Tavily Crawl API"""
     tavily_key = os.getenv("TAVILY_API_KEY")
     if not tavily_key:
+        activity.logger.warning("⚠️  TAVILY_API_KEY not set - skipping Tavily")
         return None
 
     try:
