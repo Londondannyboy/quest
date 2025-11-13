@@ -727,6 +727,7 @@ _APP_CONFIGS: Dict[str, AppConfig] = {
 
 _COMPANY_CONFIGS: Dict[str, CompanyConfig] = {
     "placement_company": PLACEMENT_COMPANY_CONFIG,
+    "placement_agent": PLACEMENT_COMPANY_CONFIG,  # Alias for database compatibility
     "relocation_company": RELOCATION_COMPANY_CONFIG,
     "executive_assistant_recruiters": EXECUTIVE_ASSISTANT_RECRUITERS_CONFIG,
 }
