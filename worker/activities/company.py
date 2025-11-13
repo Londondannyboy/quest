@@ -204,6 +204,16 @@ async def scrape_company_website(company_url: str) -> Dict[str, Any]:
         return_exceptions=True
     )
 
+    # Log what each scraper returned (including exceptions)
+    scraper_names = ["Firecrawl", "Tavily", "Direct"]
+    for i, (name, result) in enumerate(zip(scraper_names, results)):
+        if isinstance(result, Exception):
+            activity.logger.error(f"❌ {name} failed with exception: {type(result).__name__}: {str(result)}")
+        elif result is None:
+            activity.logger.warning(f"⚠️  {name} returned None (likely API key missing or early exit)")
+        else:
+            activity.logger.info(f"✅ {name} succeeded: {result.get('char_count', 0)} chars")
+
     # Filter out None and exceptions
     valid_results = [r for r in results if r and not isinstance(r, Exception)]
 
