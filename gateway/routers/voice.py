@@ -310,6 +310,65 @@ if HUME_API_KEY and gemini_assistant:
 
 
 # ============================================================================
+# TEXT CHAT HANDLER (WITHOUT HUME)
+# ============================================================================
+
+async def handle_text_chat(websocket: WebSocket, user_id: str, assistant: GeminiAssistant):
+    """
+    Handle text-only chat without Hume EVI
+
+    This is a fallback for when Hume SDK isn't available,
+    going directly to Gemini + Zep for text queries.
+    """
+    logger.info("text_chat_started", user_id=user_id, mode="text_only")
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+            message_type = data.get("type")
+
+            if message_type == "query":
+                query_text = data.get("text", "")
+
+                if not query_text:
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "No query text provided"
+                    })
+                    continue
+
+                logger.info("processing_text_query", query=query_text, user_id=user_id)
+
+                # Process through Gemini + Zep
+                response = await assistant.process_query(query_text, user_id)
+
+                await websocket.send_json({
+                    "type": "response",
+                    "text": response,
+                    "query": query_text,
+                    "timestamp": datetime.utcnow().isoformat()
+                })
+
+            elif message_type == "ping":
+                await websocket.send_json({"type": "pong"})
+
+            else:
+                logger.warning("unknown_message_type", type=message_type)
+
+    except WebSocketDisconnect:
+        logger.info("websocket_disconnected", user_id=user_id)
+    except Exception as e:
+        logger.error("text_chat_error", error=str(e), user_id=user_id)
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "message": "Connection error occurred"
+            })
+        except:
+            pass
+
+
+# ============================================================================
 # ROUTES
 # ============================================================================
 
@@ -361,10 +420,9 @@ async def voice_chat(
 
     logger.info("websocket_connected", user_id=user_id)
 
-    # Check if services are initialized
-    if not all([hume_handler, gemini_assistant, zep_graph]):
+    # Check if essential services are initialized (Gemini + Zep required, Hume optional for text chat)
+    if not gemini_assistant or not zep_graph:
         missing = []
-        if not hume_handler: missing.append("Hume EVI")
         if not gemini_assistant: missing.append("Gemini")
         if not zep_graph: missing.append("Zep")
 
@@ -384,7 +442,12 @@ async def voice_chat(
     })
 
     # Handle the conversation
-    await hume_handler.handle_evi_connection(websocket, user_id, config_id)
+    # For text chat, we don't need Hume - go directly to Gemini + Zep
+    if hume_handler:
+        await hume_handler.handle_evi_connection(websocket, user_id, config_id)
+    else:
+        # Text-only mode (no Hume voice)
+        await handle_text_chat(websocket, user_id, gemini_assistant)
 
 
 @router.post("/query")
