@@ -28,6 +28,56 @@ cloudinary.config(
 )
 
 
+async def _scrape_with_exa(company_url: str) -> Optional[Dict[str, Any]]:
+    """Scrape website and subpages using Exa API"""
+    exa_key = os.getenv("EXA_API_KEY")
+    if not exa_key:
+        activity.logger.warning("⚠️  EXA_API_KEY not set - skipping Exa")
+        return None
+
+    try:
+        activity.logger.info("🔎 Exa: Crawling main page + subpages...")
+        from exa_py import Exa
+
+        exa = Exa(api_key=exa_key)
+
+        # Get content from main page + up to 5 subpages
+        result = exa.get_contents(
+            [company_url],
+            text=True,
+            subpages=5,  # Crawl About, Team, Contact, etc.
+            extras={"links": 1}
+        )
+
+        if result.results and len(result.results) > 0:
+            main_result = result.results[0]
+
+            # Combine main page + subpages
+            combined_content = f"MAIN PAGE:\n{main_result.text or ''}\n\n"
+
+            if hasattr(main_result, 'subpages') and main_result.subpages:
+                for i, subpage in enumerate(main_result.subpages):
+                    combined_content += f"\n\n---SUBPAGE {i+1}: {subpage.url}---\n{subpage.text or ''}"
+
+                activity.logger.info(f"✅ Exa: Crawled main page + {len(main_result.subpages)} subpages")
+            else:
+                activity.logger.info(f"✅ Exa: Crawled main page only")
+
+            return {
+                "source": "exa-contents",
+                "content": combined_content,
+                "title": main_result.title or "",
+                "char_count": len(combined_content)
+            }
+        else:
+            activity.logger.warning("Exa: No results returned")
+            return None
+
+    except Exception as e:
+        activity.logger.error(f"❌ Exa crawl failed: {type(e).__name__}: {str(e)}")
+    return None
+
+
 async def _scrape_with_firecrawl(company_url: str) -> Optional[Dict[str, Any]]:
     """Scrape website using Firecrawl API (single-page scrape, not crawl)"""
     firecrawl_key = os.getenv("FIRECRAWL_API_KEY")
@@ -170,6 +220,7 @@ async def scrape_company_website(company_url: str) -> Dict[str, Any]:
 
     # Run all scrapers in parallel
     results = await asyncio.gather(
+        _scrape_with_exa(company_url),
         _scrape_with_firecrawl(company_url),
         _scrape_with_tavily(company_url),
         _scrape_direct(company_url),
@@ -177,7 +228,7 @@ async def scrape_company_website(company_url: str) -> Dict[str, Any]:
     )
 
     # Log what each scraper returned (including exceptions)
-    scraper_names = ["Firecrawl", "Tavily", "Direct"]
+    scraper_names = ["Exa", "Firecrawl", "Tavily", "Direct"]
     for i, (name, result) in enumerate(zip(scraper_names, results)):
         if isinstance(result, Exception):
             activity.logger.error(f"❌ {name} failed with exception: {type(result).__name__}: {str(result)}")
