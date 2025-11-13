@@ -27,6 +27,7 @@ router = APIRouter(prefix="/voice", tags=["voice"])
 HUME_API_KEY = os.getenv("HUME_API_KEY")
 HUME_SECRET_KEY = os.getenv("HUME_SECRET_KEY")
 ZEP_API_KEY = os.getenv("ZEP_API_KEY")
+ZEP_PROJECT_ID = os.getenv("ZEP_PROJECT_ID", "e265b35c-69d8-4880-b2b5-ec6acb237a3e")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 
@@ -35,14 +36,15 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # ============================================================================
 
 class ZepKnowledgeGraph:
-    """Interface to Zep knowledge graph for relocation information"""
+    """Interface to Zep knowledge graph for Quest project"""
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, project_id: str):
         self.api_key = api_key
+        self.project_id = project_id
         try:
             from zep_cloud.client import Zep
             self.client = Zep(api_key=api_key)
-            logger.info("zep_client_initialized")
+            logger.info("zep_client_initialized", project_id=project_id)
         except ImportError:
             logger.warning("zep-cloud package not installed")
             self.client = None
@@ -50,7 +52,7 @@ class ZepKnowledgeGraph:
             logger.error("zep_init_error", error=str(e))
             self.client = None
 
-    async def search(self, query: str, user_id: str = "relocation_user") -> dict:
+    async def search(self, query: str, user_id: str = "quest") -> dict:
         """
         Search the knowledge graph for relevant relocation information
 
@@ -299,8 +301,8 @@ zep_graph = None
 gemini_assistant = None
 hume_handler = None
 
-if ZEP_API_KEY:
-    zep_graph = ZepKnowledgeGraph(ZEP_API_KEY)
+if ZEP_API_KEY and ZEP_PROJECT_ID:
+    zep_graph = ZepKnowledgeGraph(ZEP_API_KEY, ZEP_PROJECT_ID)
 
 if GEMINI_API_KEY and zep_graph:
     gemini_assistant = GeminiAssistant(GEMINI_API_KEY, zep_graph)
