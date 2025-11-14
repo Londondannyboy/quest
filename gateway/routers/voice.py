@@ -629,3 +629,59 @@ async def service_status():
         ]),
         "timestamp": datetime.utcnow().isoformat()
     }
+
+
+@router.post("/access-token")
+async def get_access_token(request: Optional[Dict[str, Any]] = None):
+    """
+    Generate Hume API access token for client-side voice interface
+
+    This endpoint creates a short-lived access token that allows the frontend
+    React component to connect directly to Hume's EVI service.
+
+    Returns:
+        JSON with accessToken and expiresIn fields
+    """
+    if not HUME_API_KEY or not HUME_SECRET_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="Hume credentials not configured"
+        )
+
+    try:
+        from hume import HumeClient
+        from hume.empathic_voice import ChatConnectRequest
+
+        # Create Hume client
+        client = HumeClient(api_key=HUME_API_KEY, secret_key=HUME_SECRET_KEY)
+
+        # Get config_id from request if provided
+        config_id = None
+        if request and isinstance(request, dict):
+            config_id = request.get("configId")
+
+        # Generate access token (valid for 30 minutes)
+        # Note: Hume access tokens are short-lived for security
+        token_response = await client.empathic_voice.chat.get_access_token(
+            config_id=config_id
+        )
+
+        logger.info("access_token_generated", config_id=config_id)
+
+        return {
+            "accessToken": token_response.access_token,
+            "expiresIn": 1800  # 30 minutes
+        }
+
+    except ImportError:
+        logger.error("hume_package_not_installed")
+        raise HTTPException(
+            status_code=503,
+            detail="Hume package not installed"
+        )
+    except Exception as e:
+        logger.error("access_token_error", error=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate access token: {str(e)}"
+        )
