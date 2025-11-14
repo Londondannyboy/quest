@@ -12,10 +12,29 @@ from zep_cloud.types import GraphSearchScope
 from src.utils.config import config
 
 
+def get_graph_id_for_app(app: str) -> str:
+    """
+    Map app type to Zep graph ID.
+
+    Args:
+        app: Application type (placement, relocation, etc.)
+
+    Returns:
+        Zep graph ID
+    """
+    graph_mapping = {
+        "placement": "finance-knowledge",
+        "relocation": "relocation"
+    }
+
+    return graph_mapping.get(app, "finance-knowledge")
+
+
 @activity.defn
 async def query_zep_for_context(
     company_name: str,
-    domain: str
+    domain: str,
+    app: str
 ) -> Dict[str, Any]:
     """
     Query Zep knowledge graph for existing company coverage.
@@ -26,11 +45,13 @@ async def query_zep_for_context(
     Args:
         company_name: Company name
         domain: Company domain
+        app: Application type (placement, relocation) for graph selection
 
     Returns:
         Dict with articles, deals, found_existing_coverage
     """
-    activity.logger.info(f"Querying Zep for {company_name} context")
+    graph_id = get_graph_id_for_app(app)
+    activity.logger.info(f"Querying Zep graph '{graph_id}' for {company_name} context")
 
     if not config.ZEP_API_KEY:
         activity.logger.warning("ZEP_API_KEY not configured")
@@ -48,7 +69,7 @@ async def query_zep_for_context(
         search_query = f"{company_name} {domain}"
 
         results = await client.graph.search(
-            user_id="system",  # System-level search
+            user_id=graph_id,  # Use app-specific graph
             query=search_query,
             scope=GraphSearchScope.EDGES,  # Search relationships
             limit=20
@@ -83,7 +104,8 @@ async def query_zep_for_context(
 async def sync_company_to_zep(
     company_id: str,
     company_name: str,
-    summary: str
+    summary: str,
+    app: str
 ) -> Dict[str, Any]:
     """
     Sync company profile to Zep knowledge graph.
@@ -94,11 +116,13 @@ async def sync_company_to_zep(
         company_id: Database company ID
         company_name: Company name
         summary: Condensed company summary (<10k chars)
+        app: Application type (placement, relocation) for graph selection
 
     Returns:
         Dict with graph_id, success
     """
-    activity.logger.info(f"Syncing {company_name} to Zep")
+    graph_id = get_graph_id_for_app(app)
+    activity.logger.info(f"Syncing {company_name} to Zep graph '{graph_id}'")
 
     if not config.ZEP_API_KEY:
         return {
@@ -119,9 +143,9 @@ async def sync_company_to_zep(
             valid_at=None  # Always valid
         )
 
-        # Add to Zep
+        # Add to Zep using app-specific graph
         await client.memory.add(
-            session_id=f"company-{company_id}",
+            session_id=f"{graph_id}-company-{company_id}",
             messages=[{
                 "role": "assistant",
                 "content": summary
@@ -129,14 +153,16 @@ async def sync_company_to_zep(
             metadata={
                 "company_id": company_id,
                 "company_name": company_name,
-                "type": "company_profile"
+                "type": "company_profile",
+                "graph_id": graph_id,
+                "app": app
             }
         )
 
-        activity.logger.info(f"Company synced to Zep: {company_name}")
+        activity.logger.info(f"Company synced to Zep graph '{graph_id}': {company_name}")
 
         return {
-            "graph_id": f"company-{company_id}",
+            "graph_id": graph_id,
             "success": True
         }
 
