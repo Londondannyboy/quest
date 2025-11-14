@@ -50,8 +50,8 @@ This ensures:
 5. **Deploy**
    - Railway will automatically:
      - Detect Python via `requirements.txt`
-     - Use nixpacks for build
-     - Run `python worker.py`
+     - Use Railpack (Railway's preferred builder)
+     - Run `python worker.py` via Procfile
 
 ### Option 2: Railway CLI
 

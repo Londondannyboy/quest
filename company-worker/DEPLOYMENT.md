@@ -18,7 +18,7 @@ Since company-worker is part of the Quest monorepo, you need to create a separat
 2. Create new service from GitHub repo
 3. Select your Quest repository
 4. **Important**: Set "Root Directory" to `company-worker`
-5. Railway will automatically detect Python and use nixpacks
+5. Railway will automatically detect Python and use Railpack (Railway's preferred builder)
 
 **Option B: Using Railway CLI**
 

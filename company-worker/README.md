@@ -317,18 +317,18 @@ Display as timeline with relationship indicators!
 ### Railway
 
 1. **Create Service**
-   ```bash
-   railway up
-   ```
+   - In Railway dashboard, create new service from GitHub
+   - Set **Root Directory** to `company-worker`
+   - Railway will use Railpack (preferred builder)
 
 2. **Set Environment Variables**
    All variables from `.env.example` must be set in Railway
 
 3. **Deploy**
    Railway will automatically:
-   - Detect Python
+   - Detect Python via `requirements.txt`
    - Install dependencies
-   - Run `python worker.py`
+   - Run `python worker.py` via Procfile
 
 ### Monitoring
 
