@@ -4,7 +4,7 @@ Company Input Models
 User-provided input for company creation workflow.
 """
 
-from pydantic import BaseModel, HttpUrl, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class CompanyInput(BaseModel):
@@ -14,11 +14,28 @@ class CompanyInput(BaseModel):
     Only 4 required fields - everything else is researched automatically.
     """
 
-    url: HttpUrl = Field(
+    url: str = Field(
         ...,
-        description="Company website URL",
-        examples=["https://evercore.com"]
+        description="Company website URL or domain",
+        examples=["https://evercore.com", "evercore.com"]
     )
+
+    @field_validator('url')
+    @classmethod
+    def normalize_url(cls, v: str) -> str:
+        """Normalize URL to ensure it has https:// scheme."""
+        if not v:
+            raise ValueError("URL cannot be empty")
+
+        # Remove any whitespace
+        v = v.strip()
+
+        # If it already has a scheme, return as-is
+        if v.startswith(('http://', 'https://')):
+            return v
+
+        # Add https:// to plain domains
+        return f"https://{v}"
 
     category: str = Field(
         ...,
