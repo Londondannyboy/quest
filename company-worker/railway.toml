@@ -1,5 +1,6 @@
 [build]
 builder = "NIXPACKS"
+watchPatterns = ["company-worker/**"]
 
 [deploy]
 startCommand = "python worker.py"

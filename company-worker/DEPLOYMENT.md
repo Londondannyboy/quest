@@ -8,18 +8,36 @@
 2. Railway CLI installed: `npm install -g @railway/cli`
 3. All API keys ready (see `.env.example`)
 
-### Step 1: Create Railway Project
+### Step 1: Create Railway Service (Monorepo Setup)
+
+Since company-worker is part of the Quest monorepo, you need to create a separate Railway service for it:
+
+**Option A: Using Railway Dashboard (Recommended)**
+
+1. Go to Railway dashboard
+2. Create new service from GitHub repo
+3. Select your Quest repository
+4. **Important**: Set "Root Directory" to `company-worker`
+5. Railway will automatically detect Python and use nixpacks
+
+**Option B: Using Railway CLI**
 
 ```bash
+# From the Quest root directory
+cd ~/quest
+
 # Login to Railway
 railway login
 
-# Link to existing project or create new
+# Create/link to project
 railway link
 
-# Or create new project
-railway init
+# Deploy company-worker service
+# Railway will use the watchPatterns in railway.json to only watch company-worker/**
+railway up --service company-worker
 ```
+
+**Note**: The `railway.json` in `company-worker/` has `watchPatterns` configured to only trigger rebuilds when files in `company-worker/**` change.
 
 ### Step 2: Set Environment Variables
 
