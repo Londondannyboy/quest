@@ -54,13 +54,16 @@ class ZepKnowledgeGraph:
             logger.error("zep_init_error", error=str(e))
             self.client = None
 
-    async def search(self, query: str, user_id: str = "quest") -> dict:
+    async def search(self, query: str, user_id: str = "newsroom-system") -> dict:
         """
-        Search the knowledge graph for relevant relocation information
+        Search the knowledge graph for relevant information
+
+        Note: Knowledge is stored under user_id='newsroom-system' which contains
+        placement agent, relocation, and other Quest knowledge.
 
         Args:
-            query: Search query about relocation
-            user_id: User identifier for personalization
+            query: Search query
+            user_id: User identifier for knowledge graph (defaults to newsroom-system)
 
         Returns:
             Dictionary with search results
@@ -74,8 +77,9 @@ class ZepKnowledgeGraph:
 
         try:
             # Search for edges (relationships) which contain rich context
+            # Using newsroom-system user_id where all Quest knowledge is stored
             results = self.client.graph.search(
-                graph_id=self.graph_id,
+                user_id=user_id,
                 query=query,
                 scope="edges",
             )
@@ -131,13 +135,13 @@ class GeminiAssistant:
             logger.error("gemini_init_error", error=str(e))
             self.model = None
 
-    async def process_query(self, query: str, user_id: str = "relocation_user") -> str:
+    async def process_query(self, query: str, user_id: str = "newsroom-system") -> str:
         """
-        Process a relocation query using Gemini + Zep knowledge graph
+        Process a query using Gemini + Zep knowledge graph
 
         Args:
-            query: User's question about relocation
-            user_id: User identifier
+            query: User's question
+            user_id: User identifier for Zep graph (defaults to newsroom-system where knowledge is stored)
 
         Returns:
             Generated response text optimized for voice
