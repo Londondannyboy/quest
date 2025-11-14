@@ -65,11 +65,11 @@ async def query_zep_for_context(
     try:
         client = AsyncZep(api_key=config.ZEP_API_KEY)
 
-        # Search Zep graph
+        # Search Zep graph using graph_id (organizational knowledge)
         search_query = f"{company_name} {domain}"
 
         results = await client.graph.search(
-            user_id=graph_id,  # Use app-specific graph
+            graph_id=graph_id,  # Use app-specific organizational graph
             query=search_query,
             scope=GraphSearchScope.EDGES,  # Search relationships
             limit=20
@@ -134,29 +134,19 @@ async def sync_company_to_zep(
     try:
         client = AsyncZep(api_key=config.ZEP_API_KEY)
 
-        # Add company as a fact
-        from zep_cloud.types import Fact
+        # Add company to organizational graph using graph.add
+        graph_data = {
+            "company_id": company_id,
+            "company_name": company_name,
+            "summary": summary,
+            "type": "company_profile",
+            "app": app
+        }
 
-        fact = Fact(
-            fact=summary,
-            name=company_name,
-            valid_at=None  # Always valid
-        )
-
-        # Add to Zep using app-specific graph
-        await client.memory.add(
-            session_id=f"{graph_id}-company-{company_id}",
-            messages=[{
-                "role": "assistant",
-                "content": summary
-            }],
-            metadata={
-                "company_id": company_id,
-                "company_name": company_name,
-                "type": "company_profile",
-                "graph_id": graph_id,
-                "app": app
-            }
+        # Add to Zep using app-specific organizational graph
+        await client.graph.add(
+            graph_id=graph_id,
+            data=graph_data
         )
 
         activity.logger.info(f"Company synced to Zep graph '{graph_id}': {company_name}")
