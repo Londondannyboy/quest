@@ -264,6 +264,16 @@ class CompanyPayload(BaseModel):
         description="List of source URLs used in research"
     )
 
+    data_sources: dict[str, Any] = Field(
+        default_factory=lambda: {
+            "serper": {"articles": 0, "cost": 0.0, "queries": 0},
+            "crawl4ai": {"pages": 0, "success": False},
+            "firecrawl": {"pages": 0, "cost": 0.0, "success": False},
+            "exa": {"results": 0, "cost": 0.0, "research_id": None},
+        },
+        description="Detailed breakdown of what each data source contributed"
+    )
+
     data_completeness_score: float | None = Field(
         default=None,
         description="Data completeness score (0-100)",

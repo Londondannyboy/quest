@@ -238,7 +238,34 @@ class CompanyCreationWorkflow:
 
         payload["data_completeness_score"] = completeness
 
+        # Add data source tracking for transparency
+        payload["data_sources"] = {
+            "serper": {
+                "articles": len(news_data.get("articles", [])),
+                "cost": news_data.get("cost", 0.0),
+                "queries": news_data.get("num_queries", 0)
+            },
+            "crawl4ai": {
+                "pages": website_data.get("crawl4ai_pages", 0),
+                "success": website_data.get("crawl4ai_success", False)
+            },
+            "firecrawl": {
+                "pages": website_data.get("firecrawl_pages", 0),
+                "cost": website_data.get("cost", 0.0),
+                "success": website_data.get("firecrawl_success", False)
+            },
+            "exa": {
+                "results": len(exa_data.get("results", [])),
+                "cost": exa_data.get("cost", 0.0),
+                "research_id": exa_data.get("research_id")
+            }
+        }
+
         workflow.logger.info(f"Completeness score: {completeness}%")
+        workflow.logger.info(f"Data sources: Serper={payload['data_sources']['serper']['articles']} articles, "
+                           f"Crawl4AI={payload['data_sources']['crawl4ai']['pages']} pages, "
+                           f"Firecrawl={payload['data_sources']['firecrawl']['pages']} pages, "
+                           f"Exa={payload['data_sources']['exa']['results']} results")
 
         # ===== PHASE 8: SAVE TO NEON =====
         workflow.logger.info("Phase 8: Saving to Neon database")
