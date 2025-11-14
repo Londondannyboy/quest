@@ -173,7 +173,7 @@ async def fetch_company_news(
 
         return {
             "articles": final_results,
-            "query_used": query2 if len(all_results) >= 5 else query1,
+            "query_used": query1 if num_queries == 1 else query2,
             "jurisdiction": jurisdiction,
             "geo_code": gl,
             "cost": cost,
