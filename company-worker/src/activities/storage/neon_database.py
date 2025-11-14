@@ -58,6 +58,10 @@ async def save_company_to_neon(
                     (payload.get("description") or "")[:160]
                 )
 
+                # Store logo_url in payload (schema doesn't have logo_url column)
+                if logo_url:
+                    payload["logo_url"] = logo_url
+
                 if company_id:
                     # Update existing company
                     await cur.execute("""
@@ -66,7 +70,6 @@ async def save_company_to_neon(
                             name = %s,
                             slug = %s,
                             app = %s,
-                            logo_url = %s,
                             featured_image_url = %s,
                             meta_description = %s,
                             payload = %s,
@@ -77,7 +80,6 @@ async def save_company_to_neon(
                         name,
                         slug,
                         app,
-                        logo_url,
                         featured_image_url,
                         meta_description,
                         json.dumps(payload),
@@ -96,18 +98,16 @@ async def save_company_to_neon(
                             slug,
                             name,
                             app,
-                            logo_url,
                             featured_image_url,
                             meta_description,
                             payload,
                             created_at,
                             updated_at
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                        VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())
                         ON CONFLICT (slug)
                         DO UPDATE SET
                             name = EXCLUDED.name,
-                            logo_url = EXCLUDED.logo_url,
                             featured_image_url = EXCLUDED.featured_image_url,
                             meta_description = EXCLUDED.meta_description,
                             payload = EXCLUDED.payload,
@@ -117,7 +117,6 @@ async def save_company_to_neon(
                         slug,
                         name,
                         app,
-                        logo_url,
                         featured_image_url,
                         meta_description,
                         json.dumps(payload)
@@ -160,8 +159,9 @@ async def update_company_metadata(
         ) as conn:
             async with conn.cursor() as cur:
                 # Build SET clause dynamically
+                # Note: logo_url is stored in payload JSONB, not as a column
                 allowed_fields = [
-                    'logo_url', 'featured_image_url', 'meta_description',
+                    'featured_image_url', 'meta_description',
                     'status', 'visibility'
                 ]
 
@@ -220,7 +220,6 @@ async def get_company_by_id(company_id: str) -> Dict[str, Any] | None:
                         slug,
                         name,
                         app,
-                        logo_url,
                         featured_image_url,
                         meta_description,
                         payload,
@@ -235,17 +234,18 @@ async def get_company_by_id(company_id: str) -> Dict[str, Any] | None:
                 if not row:
                     return None
 
+                payload = row[6]
                 return {
                     "id": str(row[0]),
                     "slug": row[1],
                     "name": row[2],
                     "app": row[3],
-                    "logo_url": row[4],
-                    "featured_image_url": row[5],
-                    "meta_description": row[6],
-                    "payload": row[7],
-                    "created_at": row[8].isoformat() if row[8] else None,
-                    "updated_at": row[9].isoformat() if row[9] else None,
+                    "logo_url": payload.get("logo_url") if payload else None,
+                    "featured_image_url": row[4],
+                    "meta_description": row[5],
+                    "payload": payload,
+                    "created_at": row[7].isoformat() if row[7] else None,
+                    "updated_at": row[8].isoformat() if row[8] else None,
                 }
 
     except Exception as e:
