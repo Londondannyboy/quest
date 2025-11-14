@@ -527,12 +527,13 @@ async def _handle_llm_request(request: dict):
             return {"response": "I didn't understand that. Could you rephrase?"}
 
         # Extract user_id from context if available
+        # Default to 'newsroom-system' where all Quest knowledge is stored
         context = request.get("context", {})
-        user_id = context.get("user_id", "hume_user")
+        user_id = context.get("user_id", "newsroom-system")
 
         logger.info("hume_llm_request", query=user_message, user_id=user_id)
 
-        # Process through Gemini + Zep
+        # Process through Gemini + Zep with newsroom-system knowledge
         response = await gemini_assistant.process_query(user_message, user_id)
 
         return {
