@@ -28,6 +28,7 @@ HUME_API_KEY = os.getenv("HUME_API_KEY")
 HUME_SECRET_KEY = os.getenv("HUME_SECRET_KEY")
 ZEP_API_KEY = os.getenv("ZEP_API_KEY")
 ZEP_PROJECT_ID = os.getenv("ZEP_PROJECT_ID", "e265b35c-69d8-4880-b2b5-ec6acb237a3e")
+ZEP_GRAPH_ID = os.getenv("ZEP_GRAPH_ID", "finance-knowledge")  # Can be: finance-knowledge, relocation-knowledge, etc.
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 
@@ -38,7 +39,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 class ZepKnowledgeGraph:
     """Interface to Zep knowledge graph for Quest project"""
 
-    def __init__(self, api_key: str, project_id: str, graph_id: str = "finance-knowledge"):
+    def __init__(self, api_key: str, project_id: str, graph_id: str):
         self.api_key = api_key
         self.project_id = project_id
         self.graph_id = graph_id
@@ -306,7 +307,8 @@ gemini_assistant = None
 hume_handler = None
 
 if ZEP_API_KEY and ZEP_PROJECT_ID:
-    zep_graph = ZepKnowledgeGraph(ZEP_API_KEY, ZEP_PROJECT_ID)
+    zep_graph = ZepKnowledgeGraph(ZEP_API_KEY, ZEP_PROJECT_ID, ZEP_GRAPH_ID)
+    logger.info("zep_configured", graph_id=ZEP_GRAPH_ID)
 
 if GEMINI_API_KEY and zep_graph:
     gemini_assistant = GeminiAssistant(GEMINI_API_KEY, zep_graph)
