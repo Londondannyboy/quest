@@ -46,45 +46,64 @@ async def exa_research_company(
     try:
         exa = Exa(api_key=config.EXA_API_KEY)
 
-        # Construct query with domain for precision
+        # Use Exa Research API (exa-research model) with simple domain-based instructions
+        # This matches the working pattern: exa.research.create(instructions="evercore.com")
         category_clean = category.replace('_', ' ')
-        query = f"comprehensive profile {domain} {company_name} {category_clean}"
+        instructions = f"Research {domain} - a {category_clean} company named {company_name}. Provide comprehensive information including company overview, services, leadership, deal history, and key facts."
 
-        activity.logger.info(f"Exa query: {query}")
+        activity.logger.info(f"Creating Exa research for {domain}")
 
-        # Use standard search API (more reliable)
-        response = exa.search_and_contents(
-            query=query,
-            num_results=5,
-            text={"max_characters": 5000},
-            highlights={"num_sentences": 3}
+        # Create research job
+        research = exa.research.create(
+            instructions=instructions,
+            model="exa-research"
         )
 
-        # Process results
-        results = []
-        for item in response.results:
-            results.append({
-                "url": item.url,
-                "title": item.title,
-                "content": item.text[:3000] if item.text else "",
-                "highlights": getattr(item, 'highlights', []),
-                "published_date": getattr(item, 'published_date', None),
-                "score": getattr(item, 'score', 0.0),
-                "source": "exa"
-            })
+        activity.logger.info(f"Research created with ID: {research.research_id}")
+
+        # Stream events and collect content
+        all_events = []
+        collected_text = []
+
+        for event in exa.research.get(research.research_id, stream=True):
+            all_events.append(event)
+
+            # Extract text content from events
+            if hasattr(event, 'content'):
+                collected_text.append(str(event.content))
+            elif hasattr(event, 'text'):
+                collected_text.append(str(event.text))
+
+            activity.logger.debug(f"Received event type: {type(event).__name__}")
+
+        # Compile results from collected content
+        full_content = "\n\n".join(collected_text)
+
+        results = [{
+            "url": f"https://{domain}",
+            "title": f"{company_name} Research",
+            "content": full_content[:5000] if full_content else "",
+            "highlights": [],
+            "published_date": None,
+            "score": 1.0,
+            "source": "exa-research",
+            "research_id": research.research_id
+        }]
 
         # Extract key facts
         summary = extract_key_facts_from_exa(results, company_name)
+        summary["research_id"] = research.research_id
+        summary["event_count"] = len(all_events)
 
         activity.logger.info(
-            f"Exa returned {len(results)} results, avg_score: {summary.get('avg_score', 0):.2f}, cost: $0.04"
+            f"Exa research complete: {len(all_events)} events, {len(full_content)} chars, cost: $0.04"
         )
 
         return {
             "results": results,
             "cost": 0.04,
             "summary": summary,
-            "query": query
+            "research_id": research.research_id
         }
 
     except Exception as e:
