@@ -333,7 +333,7 @@ class CompanyCreationWorkflow:
 
         zep_result = await workflow.execute_activity(
             "sync_company_to_zep",
-            args=[company_id, company_name, zep_summary],
+            args=[str(company_id), company_name, zep_summary],
             start_to_close_timeout=timedelta(minutes=2)
         )
 
