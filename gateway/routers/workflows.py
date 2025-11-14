@@ -48,6 +48,17 @@ class CompanyWorkflowRequest(BaseModel):
     auto_approve: bool = Field(default=True, description="Skip manual approval")
 
 
+class CompanyWorkerRequest(BaseModel):
+    """Request to trigger CompanyCreationWorkflow (company-worker service)"""
+    url: str = Field(..., description="Company website URL", min_length=5)
+    category: str = Field(..., description="Company category: placement_agent, relocation_provider, recruiter")
+    jurisdiction: str = Field(..., description="Primary jurisdiction: UK, US, SG, EU, etc.")
+    app: str = Field(default="relocation", description="App context: placement, relocation")
+    force_update: bool = Field(default=False, description="Force re-research of existing company")
+    company_name: Optional[str] = Field(default=None, description="Override auto-detected company name")
+    research_depth: str = Field(default="standard", description="Research depth: quick, standard, deep")
+
+
 class WorkflowResponse(BaseModel):
     """Response after triggering workflow"""
     workflow_id: str
@@ -421,6 +432,98 @@ async def trigger_company_workflow(
             started_at=datetime.utcnow(),
             company_name=request.company_name,
             message=f"Smart company profile workflow started. AI will auto-detect company type. Use workflow_id to check status.",
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start workflow: {str(e)}",
+        )
+
+
+@router.post("/company-worker", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED)
+async def trigger_company_worker_workflow(
+    request: CompanyWorkerRequest,
+    api_key: str = Depends(validate_api_key),
+) -> WorkflowResponse:
+    """
+    Trigger CompanyCreationWorkflow for comprehensive company research (60+ fields)
+
+    This workflow performs deep research on a company and generates structured profiles
+    with 60+ data fields in 90-150 seconds for $0.08-0.14.
+
+    Features:
+    - Geo-targeted research (Serper.dev)
+    - Multi-source research (Crawl4AI, Firecrawl, Exa)
+    - AI profile generation (Gemini 2.5)
+    - Ambiguity detection & auto re-scraping
+    - Featured image generation (Replicate)
+    - Article relationship mapping (competitive USP!)
+    - Knowledge graph sync (Zep)
+
+    Requires X-API-Key header for authentication.
+
+    Args:
+        request: Company creation parameters (url, category, jurisdiction, app)
+        api_key: Validated API key from header
+
+    Returns:
+        Workflow execution details with workflow_id for status tracking
+
+    Example:
+        POST /v1/workflows/company-worker
+        {
+            "url": "https://evercore.com",
+            "category": "placement_agent",
+            "jurisdiction": "US",
+            "app": "placement"
+        }
+    """
+    # Get Temporal client
+    try:
+        client = await TemporalClientManager.get_client()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Failed to connect to Temporal: {str(e)}",
+        )
+
+    # Use CompanyCreationWorkflow on quest-company-queue
+    workflow_name = "CompanyCreationWorkflow"
+
+    # Generate workflow ID
+    workflow_id = f"company-worker-{request.app}-{uuid4()}"
+
+    # Get task queue for company-worker (different from content queue!)
+    task_queue = os.getenv("COMPANY_WORKER_TASK_QUEUE", "quest-company-queue")
+
+    try:
+        # Prepare workflow input matching CompanyInput model
+        workflow_input = {
+            "url": request.url,
+            "category": request.category,
+            "jurisdiction": request.jurisdiction,
+            "app": request.app,
+            "force_update": request.force_update,
+            "company_name": request.company_name,
+            "research_depth": request.research_depth,
+        }
+
+        # Start workflow execution
+        handle = await client.start_workflow(
+            workflow_name,
+            workflow_input,
+            id=workflow_id,
+            task_queue=task_queue,
+        )
+
+        return WorkflowResponse(
+            workflow_id=handle.id,
+            status="started",
+            started_at=datetime.utcnow(),
+            company_name=request.company_name or "Auto-detected",
+            app=request.app,
+            message=f"Company research workflow started on {task_queue}. Expected completion: 90-150s. Use workflow_id to check status.",
         )
 
     except Exception as e:
