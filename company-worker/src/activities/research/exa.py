@@ -56,7 +56,6 @@ async def exa_research_company(
         response = exa.search_and_contents(
             query=query,
             num_results=5,
-            use_autoprompt=True,
             text={"max_characters": 5000},
             highlights={"num_sentences": 3}
         )
