@@ -108,7 +108,11 @@ async def fetch_company_news(
             activity.logger.error(f"Serper query 1 error: {e}")
 
         # ===== STRATEGY 2: Category + jurisdiction search =====
+        ran_query2 = False
+        query2 = None
+
         if len(all_results) < 5:
+            ran_query2 = True
             # Clean category for search
             category_clean = category.replace('_', ' ')
 
@@ -163,7 +167,7 @@ async def fetch_company_news(
         final_results = unique_results[:10]
 
         # Cost calculation ($0.02 per 10 results, rounded up)
-        num_queries = 2 if len(all_results) >= 5 else 1
+        num_queries = 2 if ran_query2 else 1
         cost = num_queries * 0.02
 
         activity.logger.info(
@@ -173,7 +177,7 @@ async def fetch_company_news(
 
         return {
             "articles": final_results,
-            "query_used": query1 if num_queries == 1 else query2,
+            "query_used": query2 if ran_query2 else query1,
             "jurisdiction": jurisdiction,
             "geo_code": gl,
             "cost": cost,
