@@ -80,7 +80,8 @@ class Config:
             "EXA_API_KEY": cls.EXA_API_KEY,
             "ZEP_API_KEY": cls.ZEP_API_KEY,
             "REPLICATE_API_TOKEN": cls.REPLICATE_API_TOKEN,
-            "CLOUDINARY_URL": cls.CLOUDINARY_URL,
+            # CLOUDINARY_URL is optional - only needed for image hosting
+            # "CLOUDINARY_URL": cls.CLOUDINARY_URL,
         }
 
         # At least one AI provider
