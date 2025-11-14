@@ -38,13 +38,14 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 class ZepKnowledgeGraph:
     """Interface to Zep knowledge graph for Quest project"""
 
-    def __init__(self, api_key: str, project_id: str):
+    def __init__(self, api_key: str, project_id: str, graph_id: str = "finance-knowledge"):
         self.api_key = api_key
         self.project_id = project_id
+        self.graph_id = graph_id
         try:
             from zep_cloud.client import Zep
             self.client = Zep(api_key=api_key)
-            logger.info("zep_client_initialized", project_id=project_id)
+            logger.info("zep_client_initialized", project_id=project_id, graph_id=graph_id)
         except ImportError:
             logger.warning("zep-cloud package not installed")
             self.client = None
@@ -73,7 +74,7 @@ class ZepKnowledgeGraph:
         try:
             # Search for edges (relationships) which contain rich context
             results = self.client.graph.search(
-                user_id=user_id,
+                graph_id=self.graph_id,
                 query=query,
                 scope="edges",
             )
