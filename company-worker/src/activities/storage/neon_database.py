@@ -55,7 +55,7 @@ async def save_company_to_neon(
                 meta_description = (
                     payload.get("tagline") or
                     payload.get("short_description") or
-                    payload.get("description", "")[:160]
+                    (payload.get("description") or "")[:160]
                 )
 
                 if company_id:
