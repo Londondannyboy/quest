@@ -445,7 +445,7 @@ async def voice_chat(
 
     # Handle the conversation
     # For text chat, we don't need Hume - go directly to Gemini + Zep
-    if hume_handler:
+    if hume_handler and hume_handler.client:
         await hume_handler.handle_evi_connection(websocket, user_id, config_id)
     else:
         # Text-only mode (no Hume voice)
