@@ -487,28 +487,12 @@ async def text_query(
     }
 
 
-@router.post("/chat/completions")
-async def custom_llm_endpoint(request: dict):
+async def _handle_llm_request(request: dict):
     """
-    Custom LLM endpoint for Hume EVI
+    Shared handler for Hume EVI custom LLM requests
 
-    This endpoint is called by Hume EVI when using CUSTOM_LANGUAGE_MODEL.
-    It receives the conversation context and returns a response from
+    Processes conversation context and returns responses from
     our Gemini + Zep pipeline.
-
-    Expected request format from Hume:
-    {
-        "messages": [
-            {"role": "user", "content": "user message"},
-            {"role": "assistant", "content": "previous response"}
-        ],
-        "context": {...}
-    }
-
-    Expected response format:
-    {
-        "response": "assistant response text"
-    }
     """
     if not gemini_assistant:
         return {
@@ -551,6 +535,42 @@ async def custom_llm_endpoint(request: dict):
             "response": "I apologize, I encountered an error. Please try asking again.",
             "error": str(e)
         }
+
+
+@router.post("/llm-endpoint")
+async def llm_endpoint(request: dict):
+    """
+    Custom LLM endpoint for Hume EVI (primary endpoint)
+
+    This endpoint is called by Hume EVI when using CUSTOM_LANGUAGE_MODEL.
+    It receives the conversation context and returns a response from
+    our Gemini + Zep pipeline.
+
+    Expected request format from Hume:
+    {
+        "messages": [
+            {"role": "user", "content": "user message"},
+            {"role": "assistant", "content": "previous response"}
+        ],
+        "context": {...}
+    }
+
+    Expected response format:
+    {
+        "response": "assistant response text"
+    }
+    """
+    return await _handle_llm_request(request)
+
+
+@router.post("/chat/completions")
+async def custom_llm_endpoint(request: dict):
+    """
+    OpenAI-compatible endpoint alias (same as /llm-endpoint)
+
+    Allows using standard OpenAI API format if needed.
+    """
+    return await _handle_llm_request(request)
 
 
 @router.get("/status")
