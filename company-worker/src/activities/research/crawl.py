@@ -91,9 +91,17 @@ async def crawl_with_crawl4ai(base_url: str) -> Dict[str, Any]:
         "/company",
         "/services",
         "/what-we-do",
+        "/solutions",
         "/team",
         "/people",
         "/leadership",
+        "/our-team",
+        "/deals",
+        "/portfolio",
+        "/transactions",
+        "/track-record",
+        "/investments",
+        "/clients",
         "/contact",
     ]
 
@@ -138,8 +146,8 @@ async def crawl_with_crawl4ai(base_url: str) -> Dict[str, Any]:
 
                     success_count += 1
 
-                    # Stop after 4 successful pages
-                    if success_count >= 4:
+                    # Stop after 8 successful pages (increased for better coverage)
+                    if success_count >= 8:
                         break
 
             except Exception as e:

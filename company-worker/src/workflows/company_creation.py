@@ -104,7 +104,7 @@ class CompanyCreationWorkflow:
                 normalized["company_name_guess"],
                 input_data.category
             ],
-            start_to_close_timeout=timedelta(minutes=3)
+            start_to_close_timeout=timedelta(minutes=5)
         )
 
         logo_task = workflow.execute_activity(
@@ -151,7 +151,7 @@ class CompanyCreationWorkflow:
             exa_refined_task = workflow.execute_activity(
                 "exa_research_company",
                 args=[normalized["domain"], refined_query, input_data.category],
-                start_to_close_timeout=timedelta(minutes=3)
+                start_to_close_timeout=timedelta(minutes=5)
             )
 
             news_refined, exa_refined = await asyncio.gather(

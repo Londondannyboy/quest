@@ -46,9 +46,9 @@ async def exa_research_company(
     try:
         exa = Exa(api_key=config.EXA_API_KEY)
 
-        # Construct instructions for research
+        # Construct instructions for research with domain for precision
         category_clean = category.replace('_', ' ')
-        instructions = f"{company_name} {category_clean}"
+        instructions = f"Research the company at {domain} ({company_name}), focusing on their work as a {category_clean}"
 
         activity.logger.info(f"Exa research instructions: {instructions}")
 
