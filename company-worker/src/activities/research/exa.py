@@ -46,57 +46,45 @@ async def exa_research_company(
     try:
         exa = Exa(api_key=config.EXA_API_KEY)
 
-        # Construct instructions for research with domain for precision
+        # Construct query with domain for precision
         category_clean = category.replace('_', ' ')
-        instructions = f"Research the company at {domain} ({company_name}), focusing on their work as a {category_clean}"
+        query = f"comprehensive profile {domain} {company_name} {category_clean}"
 
-        activity.logger.info(f"Exa research instructions: {instructions}")
+        activity.logger.info(f"Exa query: {query}")
 
-        # Use Exa Research API
-        research = exa.research.create(
-            instructions=instructions,
-            model="exa-research"
+        # Use standard search API (more reliable)
+        response = exa.search_and_contents(
+            query=query,
+            num_results=5,
+            text={"max_characters": 5000},
+            highlights={"num_sentences": 3}
         )
 
-        # Get research results (streaming)
-        research_content = []
-        for event in exa.research.get(research.research_id, stream=True):
-            research_content.append(str(event))
-
-        # Combine all research content
-        full_research = "\n".join(research_content)
-
-        # Build results structure
-        results = [{
-            "url": f"https://{domain}",
-            "title": f"Exa Research: {company_name}",
-            "content": full_research[:5000],  # Limit to 5000 chars
-            "highlights": [],
-            "published_date": None,
-            "score": 1.0,  # Research is always high confidence
-            "source": "exa-research"
-        }]
+        # Process results
+        results = []
+        for item in response.results:
+            results.append({
+                "url": item.url,
+                "title": item.title,
+                "content": item.text[:3000] if item.text else "",
+                "highlights": getattr(item, 'highlights', []),
+                "published_date": getattr(item, 'published_date', None),
+                "score": getattr(item, 'score', 0.0),
+                "source": "exa"
+            })
 
         # Extract key facts
-        summary = {
-            "company_name": company_name,
-            "found_information": len(full_research) > 0,
-            "avg_score": 1.0,
-            "key_topics": [],
-            "source_count": 1,
-            "research_length": len(full_research)
-        }
+        summary = extract_key_facts_from_exa(results, company_name)
 
         activity.logger.info(
-            f"Exa research complete: {len(full_research)} chars, cost: $0.04"
+            f"Exa returned {len(results)} results, avg_score: {summary.get('avg_score', 0):.2f}, cost: $0.04"
         )
 
         return {
             "results": results,
             "cost": 0.04,
             "summary": summary,
-            "query": instructions,
-            "research_id": research.research_id
+            "query": query
         }
 
     except Exception as e:
