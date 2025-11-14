@@ -211,21 +211,23 @@ async def crawl_with_firecrawl(base_url: str) -> Dict[str, Any]:
 
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
-            # Use Firecrawl's map endpoint to get key pages
+            # Use Firecrawl v2 API (matches working example from playground)
             response = await client.post(
-                "https://api.firecrawl.dev/v0/crawl",
+                "https://api.firecrawl.dev/v2/crawl",
                 headers={
                     "Authorization": f"Bearer {config.FIRECRAWL_API_KEY}",
                     "Content-Type": "application/json"
                 },
                 json={
                     "url": base_url,
-                    "crawlerOptions": {
-                        "limit": 10,
-                        "maxDepth": 2
-                    },
-                    "pageOptions": {
-                        "onlyMainContent": True
+                    "sitemap": "include",
+                    "crawlEntireDomain": False,
+                    "limit": 10,
+                    "scrapeOptions": {
+                        "onlyMainContent": False,
+                        "maxAge": 172800000,  # 48 hours
+                        "parsers": ["pdf"],
+                        "formats": ["markdown"]
                     }
                 }
             )
