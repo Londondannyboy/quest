@@ -31,6 +31,8 @@ from src.activities.research.serper import (
 
 from src.activities.research.crawl import (
     crawl_company_website,
+    crawl4ai_crawl,
+    firecrawl_crawl,
 )
 
 from src.activities.research.exa import (
@@ -158,6 +160,8 @@ async def main():
             fetch_company_news,
             fetch_targeted_research,
             crawl_company_website,
+            crawl4ai_crawl,
+            firecrawl_crawl,
             exa_research_company,
             exa_find_similar_companies,
 
@@ -210,6 +214,8 @@ async def main():
             "fetch_company_news",
             "fetch_targeted_research",
             "crawl_company_website",
+            "crawl4ai_crawl",
+            "firecrawl_crawl",
             "exa_research_company",
             "exa_find_similar_companies",
         ]),

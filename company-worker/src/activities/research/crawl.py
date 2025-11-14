@@ -13,6 +13,73 @@ from src.utils.config import config
 
 
 @activity.defn
+async def crawl4ai_crawl(url: str) -> Dict[str, Any]:
+    """
+    Crawl company website using Crawl4AI (free, fast).
+
+    Args:
+        url: Company website URL
+
+    Returns:
+        Dict with pages, success, cost (always 0)
+    """
+    activity.logger.info(f"Crawl4AI crawling: {url}")
+
+    try:
+        result = await crawl_with_crawl4ai(url)
+        activity.logger.info(f"Crawl4AI: {len(result.get('pages', []))} pages")
+        return {
+            "pages": result.get("pages", []),
+            "success": result.get("success", False),
+            "cost": 0.0,
+            "crawler": "crawl4ai"
+        }
+    except Exception as e:
+        activity.logger.error(f"Crawl4AI failed: {e}")
+        return {
+            "pages": [],
+            "success": False,
+            "cost": 0.0,
+            "error": str(e),
+            "crawler": "crawl4ai"
+        }
+
+
+@activity.defn
+async def firecrawl_crawl(url: str) -> Dict[str, Any]:
+    """
+    Crawl company website using Firecrawl (paid, reliable).
+
+    Args:
+        url: Company website URL
+
+    Returns:
+        Dict with pages, success, cost
+    """
+    activity.logger.info(f"Firecrawl crawling: {url}")
+
+    try:
+        result = await crawl_with_firecrawl(url)
+        activity.logger.info(f"Firecrawl: {len(result.get('pages', []))} pages, cost: ${result.get('cost', 0):.4f}")
+        return {
+            "pages": result.get("pages", []),
+            "success": result.get("success", False),
+            "cost": result.get("cost", 0.0),
+            "error": result.get("error"),
+            "crawler": "firecrawl"
+        }
+    except Exception as e:
+        activity.logger.error(f"Firecrawl failed: {e}")
+        return {
+            "pages": [],
+            "success": False,
+            "cost": 0.0,
+            "error": str(e),
+            "crawler": "firecrawl"
+        }
+
+
+@activity.defn
 async def crawl_company_website(url: str) -> Dict[str, Any]:
     """
     Crawl company website using BOTH Crawl4AI and Firecrawl in parallel.
