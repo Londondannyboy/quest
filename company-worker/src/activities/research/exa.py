@@ -61,23 +61,24 @@ async def exa_research_company(
 
         activity.logger.info(f"Research created with ID: {research.research_id}")
 
-        # Stream events and collect content
+        # Stream events and collect content from task outputs
         all_events = []
-        collected_text = []
+        task_outputs = []
 
         for event in exa.research.get(research.research_id, stream=True):
             all_events.append(event)
 
-            # Extract text content from events
-            if hasattr(event, 'content'):
-                collected_text.append(str(event.content))
-            elif hasattr(event, 'text'):
-                collected_text.append(str(event.text))
+            # Extract content from ResearchTaskOutputEvent (where the actual research is!)
+            if hasattr(event, 'event_type') and event.event_type == 'task-output':
+                if hasattr(event, 'output') and hasattr(event.output, 'content'):
+                    content = event.output.content
+                    task_outputs.append(content)
+                    activity.logger.info(f"Collected task output: {len(content)} chars")
 
             activity.logger.debug(f"Received event type: {type(event).__name__}")
 
-        # Compile results from collected content
-        full_content = "\n\n".join(collected_text)
+        # Compile all research outputs
+        full_content = "\n\n---\n\n".join(task_outputs)
 
         results = [{
             "url": f"https://{domain}",
@@ -94,9 +95,11 @@ async def exa_research_company(
         summary = extract_key_facts_from_exa(results, company_name)
         summary["research_id"] = research.research_id
         summary["event_count"] = len(all_events)
+        summary["task_outputs"] = len(task_outputs)
+        summary["content_length"] = len(full_content)
 
         activity.logger.info(
-            f"Exa research complete: {len(all_events)} events, {len(full_content)} chars, cost: $0.04"
+            f"Exa research complete: {len(task_outputs)} task outputs, {len(full_content)} chars total, cost: $0.04"
         )
 
         return {
