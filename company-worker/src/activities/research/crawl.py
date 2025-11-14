@@ -277,8 +277,8 @@ async def crawl_with_firecrawl(base_url: str) -> Dict[str, Any]:
     activity.logger.info(f"Using Firecrawl API for {base_url}")
 
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            # Use Firecrawl v2 API (matches working example from playground)
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            # Step 1: Start Firecrawl v2 crawl job
             response = await client.post(
                 "https://api.firecrawl.dev/v2/crawl",
                 headers={
@@ -299,34 +299,9 @@ async def crawl_with_firecrawl(base_url: str) -> Dict[str, Any]:
                 }
             )
 
-            if response.status_code == 200:
-                data = response.json()
-                pages_data = data.get("data", [])
-
-                pages = [
-                    {
-                        "url": page.get("metadata", {}).get("sourceURL", ""),
-                        "title": page.get("metadata", {}).get("title", ""),
-                        "content": page.get("markdown", "")[:5000],
-                        "source": "firecrawl"
-                    }
-                    for page in pages_data[:10]
-                ]
-
-                # Cost: $0.01 per page
-                cost = len(pages) * 0.01
-
-                activity.logger.info(f"Firecrawl returned {len(pages)} pages")
-
-                return {
-                    "success": True,
-                    "pages": pages,
-                    "cost": cost
-                }
-
-            else:
+            if response.status_code != 200:
                 activity.logger.error(
-                    f"Firecrawl API error: {response.status_code}"
+                    f"Firecrawl API error: {response.status_code} - {response.text}"
                 )
                 return {
                     "success": False,
@@ -334,6 +309,84 @@ async def crawl_with_firecrawl(base_url: str) -> Dict[str, Any]:
                     "cost": 0.0,
                     "error": f"API returned {response.status_code}"
                 }
+
+            # Get crawl ID from response
+            data = response.json()
+            crawl_id = data.get("id")
+
+            if not crawl_id:
+                return {
+                    "success": False,
+                    "pages": [],
+                    "cost": 0.0,
+                    "error": "No crawl ID returned"
+                }
+
+            activity.logger.info(f"Firecrawl crawl started: {crawl_id}")
+
+            # Step 2: Poll for completion (v2 API is async)
+            import asyncio
+            max_polls = 30  # 30 polls * 3 seconds = 90 seconds max
+
+            for poll_count in range(max_polls):
+                await asyncio.sleep(3)  # Wait 3 seconds between polls
+
+                status_response = await client.get(
+                    f"https://api.firecrawl.dev/v2/crawl/{crawl_id}",
+                    headers={
+                        "Authorization": f"Bearer {config.FIRECRAWL_API_KEY}"
+                    }
+                )
+
+                if status_response.status_code == 200:
+                    status_data = status_response.json()
+                    crawl_status = status_data.get("status")
+
+                    activity.logger.info(f"Firecrawl poll {poll_count+1}: status={crawl_status}")
+
+                    if crawl_status == "completed":
+                        # Extract pages from completed crawl
+                        pages_data = status_data.get("data", [])
+
+                        pages = [
+                            {
+                                "url": page.get("metadata", {}).get("sourceURL", ""),
+                                "title": page.get("metadata", {}).get("title", ""),
+                                "content": page.get("markdown", "")[:5000],
+                                "source": "firecrawl"
+                            }
+                            for page in pages_data[:10]
+                        ]
+
+                        # Cost: $0.01 per page
+                        cost = len(pages) * 0.01
+
+                        activity.logger.info(f"Firecrawl completed: {len(pages)} pages")
+
+                        return {
+                            "success": True,
+                            "pages": pages,
+                            "cost": cost
+                        }
+
+                    elif crawl_status == "failed":
+                        return {
+                            "success": False,
+                            "pages": [],
+                            "cost": 0.0,
+                            "error": "Crawl failed"
+                        }
+
+                    # Still in progress, continue polling
+
+            # Timeout - crawl didn't complete in time
+            activity.logger.warning("Firecrawl crawl timeout after 90 seconds")
+            return {
+                "success": False,
+                "pages": [],
+                "cost": 0.0,
+                "error": "Crawl timeout"
+            }
 
     except Exception as e:
         activity.logger.error(f"Firecrawl error: {e}")
