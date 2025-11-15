@@ -34,7 +34,7 @@ def get_graph_id_for_app(app: str) -> str:
 async def query_zep_for_context(
     company_name: str,
     domain: str,
-    app: str
+    app: str = "placement"  # Default for backward compatibility
 ) -> Dict[str, Any]:
     """
     Query Zep knowledge graph for existing company coverage.
@@ -105,7 +105,7 @@ async def sync_company_to_zep(
     company_id: str,
     company_name: str,
     summary: str,
-    app: str
+    app: str = "placement"  # Default for backward compatibility
 ) -> Dict[str, Any]:
     """
     Sync company profile to Zep knowledge graph.
