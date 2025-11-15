@@ -182,33 +182,94 @@ async def create_zep_summary(
     """
     activity.logger.info("Creating Zep summary")
 
-    # Extract key information
+    # Extract comprehensive information
     name = payload.get("legal_name", "Unknown")
     tagline = payload.get("tagline", "")
     description = payload.get("short_description", "")
+    long_desc = payload.get("description", "")
     hq = payload.get("headquarters", "")
     industry = payload.get("industry", "")
     services = payload.get("services", [])
+    specializations = payload.get("specializations", [])
     notable_deals = payload.get("notable_deals", [])
+    executives = payload.get("executives", [])
+    key_clients = payload.get("key_clients", [])
+    office_locations = payload.get("office_locations", [])
+    hero_stats = payload.get("hero_stats", {})
 
-    # Build summary
+    # Build comprehensive summary
     summary_parts = [
         f"Company: {name}",
         f"Tagline: {tagline}" if tagline else "",
-        f"Description: {description}" if description else "",
+        "",
+        f"Short Description: {description}" if description else "",
+        f"Full Description: {long_desc[:500]}" if long_desc else "",
+        "",
         f"Headquarters: {hq}" if hq else "",
         f"Industry: {industry}" if industry else "",
-        f"Services: {', '.join(services[:5])}" if services else "",
+        "",
     ]
 
-    # Add notable deals
+    # Hero stats (key metrics)
+    if hero_stats:
+        stats = []
+        if hero_stats.get("founded_year"):
+            stats.append(f"Founded: {hero_stats['founded_year']}")
+        if hero_stats.get("employees"):
+            stats.append(f"Employees: {hero_stats['employees']}")
+        if hero_stats.get("serviced_deals"):
+            stats.append(f"Deals: {hero_stats['serviced_deals']}")
+        if hero_stats.get("serviced_companies"):
+            stats.append(f"Companies: {hero_stats['serviced_companies']}")
+        if stats:
+            summary_parts.append(f"Key Stats: {' | '.join(stats)}")
+            summary_parts.append("")
+
+    # Services and specializations
+    if services:
+        summary_parts.append(f"Services: {', '.join(services[:10])}")
+    if specializations:
+        summary_parts.append(f"Specializations: {', '.join(specializations[:10])}")
+    if services or specializations:
+        summary_parts.append("")
+
+    # Key clients
+    if key_clients:
+        clients_text = f"Key Clients: {', '.join(key_clients[:10])}"
+        summary_parts.append(clients_text)
+        summary_parts.append("")
+
+    # Office locations
+    if office_locations:
+        locations = [loc.get("city", "") for loc in office_locations[:5] if loc.get("city")]
+        if locations:
+            summary_parts.append(f"Offices: {', '.join(locations)}")
+            summary_parts.append("")
+
+    # Executives
+    if executives:
+        summary_parts.append("Leadership:")
+        for exec in executives[:5]:
+            exec_name = exec.get("name", "")
+            exec_title = exec.get("title", "")
+            if exec_name:
+                summary_parts.append(f"- {exec_name}, {exec_title}" if exec_title else f"- {exec_name}")
+        summary_parts.append("")
+
+    # Notable deals
     if notable_deals:
-        deals_text = "Notable Deals:\n"
-        for deal in notable_deals[:3]:
+        summary_parts.append("Notable Deals:")
+        for deal in notable_deals[:5]:
             deal_name = deal.get("name", "")
             deal_date = deal.get("date", "")
-            deals_text += f"- {deal_name} ({deal_date})\n"
-        summary_parts.append(deals_text)
+            deal_amount = deal.get("amount", "")
+            deal_line = f"- {deal_name}"
+            if deal_amount:
+                deal_line += f" ({deal_amount})"
+            if deal_date:
+                deal_line += f" - {deal_date}"
+            summary_parts.append(deal_line)
+        summary_parts.append("")
 
     # Add existing coverage context
     existing_articles = zep_context.get("articles", [])
