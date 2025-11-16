@@ -28,7 +28,7 @@ HUME_API_KEY = os.getenv("HUME_API_KEY")
 HUME_SECRET_KEY = os.getenv("HUME_SECRET_KEY")
 ZEP_API_KEY = os.getenv("ZEP_API_KEY")
 ZEP_PROJECT_ID = os.getenv("ZEP_PROJECT_ID", "e265b35c-69d8-4880-b2b5-ec6acb237a3e")
-ZEP_GRAPH_ID = os.getenv("ZEP_GRAPH_ID", "relocation")  # Relocation knowledge graph
+ZEP_GRAPH_ID = os.getenv("ZEP_GRAPH_ID", "Relocation")  # Relocation knowledge graph (case-sensitive!)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 
