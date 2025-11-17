@@ -23,9 +23,9 @@ PAYWALL_DOMAINS = {
 
 
 @activity.defn
-async def validate_news_sources(urls: List[str]) -> Dict[str, Any]:
+async def playwright_url_cleanse(urls: List[str]) -> Dict[str, Any]:
     """
-    Validate news source URLs before AI generation.
+    Playwright URL Cleanse - Validate URLs before AI generation.
 
     Filters out:
     - 404s (broken links)
@@ -39,7 +39,7 @@ async def validate_news_sources(urls: List[str]) -> Dict[str, Any]:
     Returns:
         Dict with valid_urls, invalid_urls, and stats
     """
-    activity.logger.info(f"Validating {len(urls)} URLs")
+    activity.logger.info(f"[Playwright URL Cleanse] Validating {len(urls)} URLs")
 
     valid_urls = []
     invalid_urls = []
@@ -103,9 +103,9 @@ async def validate_news_sources(urls: List[str]) -> Dict[str, Any]:
 
 
 @activity.defn
-async def clean_generated_links(profile_sections: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+async def playwright_clean_links(profile_sections: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
     """
-    Clean generated profile sections by removing broken links.
+    Playwright Clean Links - Remove broken links from generated content.
 
     Extracts all markdown links [text](url) from content,
     validates them, and removes broken ones.
@@ -116,7 +116,7 @@ async def clean_generated_links(profile_sections: Dict[str, Dict[str, Any]]) -> 
     Returns:
         Cleaned profile_sections dict
     """
-    activity.logger.info(f"Cleaning links from {len(profile_sections)} sections")
+    activity.logger.info(f"[Playwright Clean Links] Cleaning links from {len(profile_sections)} sections")
 
     import re
 
@@ -135,7 +135,7 @@ async def clean_generated_links(profile_sections: Dict[str, Dict[str, Any]]) -> 
     activity.logger.info(f"Found {len(all_urls)} unique external links")
 
     # Validate URLs
-    validation_result = await validate_news_sources(list(all_urls))
+    validation_result = await playwright_url_cleanse(list(all_urls))
     invalid_urls = set(item['url'] for item in validation_result['invalid_urls'])
 
     activity.logger.info(f"Removing {len(invalid_urls)} broken/paywalled links")

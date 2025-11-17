@@ -86,7 +86,9 @@ Generate rich narrative sections using markdown. Only create sections where you 
    - Founder background/story
    - Team expertise and credentials
    - Leadership philosophy
-   - Example: "Led by CEO Sarah Johnson, a 20-year veteran of..."
+   - IMPORTANT: Break into subsections or bullet points if more than 3-4 people
+   - Use **bold names** for each executive
+   - Example: "**Sarah Johnson, CEO**: A 20-year veteran of..."
 
 4. **track_record** (if deals/clients/results mentioned):
    - Notable transactions or projects
@@ -150,6 +152,11 @@ Generate rich narrative sections using markdown. Only create sections where you 
 - Don't create sections if you only have vague or generic info
 - AVOID honorific titles (Mr., Mrs., Dr., etc.) - just use full names
 - Write naturally flowing prose with clear sentence boundaries
+- **CRITICAL**: Break up large text blocks with:
+  - Bullet points for lists (executives, services, locations)
+  - Bold names/subheadings for structure
+  - Short paragraphs (2-4 sentences max)
+  - Don't write massive walls of text - break them up!
 
 **CRITICAL - Links and References:**
 

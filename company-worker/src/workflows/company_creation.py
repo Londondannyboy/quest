@@ -216,9 +216,9 @@ class CompanyCreationWorkflow:
             if result.get("url"):
                 all_source_urls.append(result["url"])
 
-        # Validate URLs
+        # Validate URLs with Playwright URL Cleanse
         validation_result = await workflow.execute_activity(
-            "validate_news_sources",
+            "playwright_url_cleanse",
             args=[all_source_urls],
             start_to_close_timeout=timedelta(seconds=30)
         )
@@ -277,12 +277,12 @@ class CompanyCreationWorkflow:
 
         if "profile_sections" in payload and payload["profile_sections"]:
             cleaned_sections = await workflow.execute_activity(
-                "clean_generated_links",
+                "playwright_clean_links",
                 args=[payload["profile_sections"]],
                 start_to_close_timeout=timedelta(seconds=30)
             )
             payload["profile_sections"] = cleaned_sections
-            workflow.logger.info("Link cleaning complete")
+            workflow.logger.info("Playwright link cleaning complete")
 
         # ===== PHASE 7: GENERATE IMAGES =====
         workflow.logger.info("Phase 7: Generating featured image")
