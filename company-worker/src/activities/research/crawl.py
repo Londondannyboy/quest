@@ -180,24 +180,51 @@ async def crawl_with_crawl4ai(base_url: str) -> Dict[str, Any]:
         Dict with success, pages
     """
     # Target URLs to scrape
+    # PRIORITY: Dynamic content pages (blogs, news, announcements) often have recent updates
     target_paths = [
         "",  # Homepage
+
+        # Company info (static)
         "/about",
         "/about-us",
         "/company",
+
+        # Services
         "/services",
         "/what-we-do",
         "/solutions",
+        "/expertise",
+
+        # Team/Leadership
         "/team",
         "/people",
         "/leadership",
         "/our-team",
+
+        # Deals/Portfolio/Transactions (HIGH PRIORITY - structured deal data)
         "/deals",
         "/portfolio",
         "/transactions",
         "/our-transactions",
         "/track-record",
         "/investments",
+        "/companies",
+        "/case-studies",
+
+        # News/Blog/Announcements (HIGH PRIORITY - recent updates)
+        "/news",
+        "/blog",
+        "/insights",
+        "/articles",
+        "/press",
+        "/press-releases",
+        "/media",
+        "/announcements",
+        "/updates",
+        "/perspectives",
+        "/thought-leadership",
+
+        # Clients/Contact
         "/clients",
         "/contact",
     ]
