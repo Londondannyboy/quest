@@ -63,45 +63,61 @@ async def fetch_company_graph_data(
         )
 
         # Build nodes and edges for visualization
+        # Strategy: Extract node info from facts since Zep doesn't return node details
         nodes = []
         edges = []
-        node_ids = set()
+        node_map = {}  # uuid -> node info
 
-        # Process search results
+        # First pass: Extract all unique entities from edge facts
         if results and hasattr(results, 'edges'):
             for edge in results.edges:
-                # Add source node
-                if hasattr(edge, 'source') and edge.source:
-                    source_id = str(edge.source.uuid) if hasattr(edge.source, 'uuid') else str(hash(edge.source.name))
-                    if source_id not in node_ids:
-                        nodes.append({
-                            "id": source_id,
-                            "label": getattr(edge.source, 'name', 'Unknown'),
-                            "group": getattr(edge.source, 'type', 'entity'),
-                            "title": getattr(edge.source, 'summary', '')  # Tooltip
-                        })
-                        node_ids.add(source_id)
+                fact = getattr(edge, 'fact', '')
+                edge_name = getattr(edge, 'name', 'RELATED_TO')
 
-                # Add target node
-                if hasattr(edge, 'target') and edge.target:
-                    target_id = str(edge.target.uuid) if hasattr(edge.target, 'uuid') else str(hash(edge.target.name))
-                    if target_id not in node_ids:
-                        nodes.append({
-                            "id": target_id,
-                            "label": getattr(edge.target, 'name', 'Unknown'),
-                            "group": getattr(edge.target, 'type', 'entity'),
-                            "title": getattr(edge.target, 'summary', '')
-                        })
-                        node_ids.add(target_id)
+                # Get UUIDs
+                source_uuid = getattr(edge, 'source_node_uuid', None)
+                target_uuid = getattr(edge, 'target_node_uuid', None)
+
+                if not source_uuid or not target_uuid:
+                    continue
+
+                # Extract entity names from fact text
+                # Facts like "Evercore is an investment banking firm"
+                # or "Roger Altman works at Evercore"
+                parts = fact.split(' ')
+
+                # Create/update source node
+                if source_uuid not in node_map:
+                    # Try to extract name from beginning of fact
+                    source_name = company_name if company_name.lower() in fact.lower() else parts[0] if parts else "Entity"
+                    node_map[source_uuid] = {
+                        "id": source_uuid,
+                        "label": source_name,
+                        "group": self._guess_node_type(edge_name, source_name),
+                        "title": fact  # Show fact as tooltip
+                    }
+
+                # Create/update target node
+                if target_uuid not in node_map:
+                    # Try to extract name from end of fact
+                    target_name = parts[-1] if len(parts) > 2 else "Related"
+                    node_map[target_uuid] = {
+                        "id": target_uuid,
+                        "label": target_name,
+                        "group": self._guess_node_type(edge_name, target_name),
+                        "title": fact
+                    }
 
                 # Add edge
-                if hasattr(edge, 'source') and hasattr(edge, 'target'):
-                    edges.append({
-                        "from": source_id,
-                        "to": target_id,
-                        "label": getattr(edge, 'fact', ''),
-                        "title": getattr(edge, 'fact', '')  # Tooltip
-                    })
+                edges.append({
+                    "from": source_uuid,
+                    "to": target_uuid,
+                    "label": edge_name.replace('_', ' ').title(),
+                    "title": fact
+                })
+
+        # Convert node_map to list
+        nodes = list(node_map.values())
 
         activity.logger.info(f"Graph data: {len(nodes)} nodes, {len(edges)} edges")
 

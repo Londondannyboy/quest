@@ -60,8 +60,10 @@ Extract these ONLY if explicitly mentioned:
 - linkedin_url: ONLY if found on company's official website (public declaration)
 
 **IMPORTANT - STRUCTURED FIELDS FORMAT:**
-- tagline, short_description: PLAIN TEXT ONLY (no markdown, no links, no formatting)
+- tagline: One sentence, 10-15 words max, plain text
+- short_description: 1-2 sentences MAX (40-60 words), for collection cards, plain text
 - legal_name: Plain text company name only
+- NO URLs, NO links, NO markdown in ANY structured fields
 
 **PRIVACY EXCLUSIONS - DO NOT EXTRACT:**
 - phone: Never extract phone numbers
@@ -249,17 +251,26 @@ Your output must follow the CompanyPayload schema."""
 
         # Note: LinkedIn is OK if it was on their website (public declaration)
 
-        # Clean markdown links from structured fields (plain text only)
+        # Clean markdown links and URLs from structured fields (plain text only)
         import re
-        if profile.tagline:
-            # Remove markdown links: [text](url) -> text
-            profile.tagline = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', profile.tagline)
-            # Remove incomplete markdown links
-            profile.tagline = re.sub(r'\[([^\]]+)\]\(.*$', r'\1', profile.tagline)
 
-        if profile.short_description:
-            profile.short_description = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', profile.short_description)
-            profile.short_description = re.sub(r'\[([^\]]+)\]\(.*$', r'\1', profile.short_description)
+        def clean_text_field(text):
+            if not text:
+                return text
+            # Remove markdown links: [text](url) -> text
+            text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
+            # Remove incomplete markdown links
+            text = re.sub(r'\[([^\]]+)\]\(.*$', r'\1', text)
+            # Remove standalone URLs (http:// or https://)
+            text = re.sub(r'\(https?://[^\)]+\)', '', text)
+            text = re.sub(r'https?://\S+', '', text)
+            # Clean up extra spaces
+            text = re.sub(r'\s+', ' ', text).strip()
+            return text
+
+        profile.tagline = clean_text_field(profile.tagline)
+        profile.short_description = clean_text_field(profile.short_description)
+        profile.legal_name = clean_text_field(profile.legal_name)
 
         # Calculate quality metrics
         profile.section_count = len(profile.profile_sections)
