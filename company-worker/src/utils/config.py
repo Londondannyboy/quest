@@ -111,7 +111,7 @@ class Config:
         """
         # Prefer Anthropic Claude for better narrative generation
         if cls.ANTHROPIC_API_KEY:
-            return ("anthropic", "claude-3-5-sonnet-20241022")
+            return ("anthropic", "claude-sonnet-4-5-20250929")
         elif cls.GOOGLE_API_KEY:
             return ("google", "gemini-2.5-flash")
         elif cls.OPENAI_API_KEY:
