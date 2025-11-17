@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Force Graph</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #0f172a;
+            overflow: hidden;
+        }
+        #graph {
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="graph"></div>
+
+    <!-- Load Force Graph 3D from CDN -->
+    <script src="https://unpkg.com/3d-force-graph@1.73.3/dist/3d-force-graph.min.js"></script>
+
+    <script>
+        // Graph data will be injected by Python
+        const graphData = {{GRAPH_DATA}};
+
+        // Create 3D force graph
+        const Graph = ForceGraph3D()
+            (document.getElementById('graph'))
+            .graphData(graphData)
+            .nodeLabel('label')
+            .nodeAutoColorBy('group')
+            .linkLabel('label')
+            .linkDirectionalParticles(2)
+            .linkDirectionalParticleSpeed(0.005)
+            .backgroundColor('#0f172a')
+            .nodeThreeObject(node => {
+                // Custom node rendering with better visibility
+                const sprite = new SpriteText(node.label || 'Node');
+                sprite.color = node.group === 'company' ? '#3b82f6' :
+                              node.group === 'person' ? '#10b981' :
+                              node.group === 'deal' ? '#f59e0b' : '#6b7280';
+                sprite.textHeight = 8;
+                sprite.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+                sprite.padding = 2;
+                sprite.borderRadius = 4;
+                return sprite;
+            })
+            .linkColor(link => 'rgba(255, 255, 255, 0.3)')
+            .linkWidth(2)
+            .d3Force('charge', d3.forceManyBody().strength(-100))
+            .d3Force('link', d3.forceLink().distance(100));
+
+        // Add camera controls for nice animation
+        const distance = 300;
+        let angle = 0;
+
+        // Rotate camera around graph
+        setInterval(() => {
+            angle += 0.005;
+            Graph.cameraPosition({
+                x: distance * Math.sin(angle),
+                y: 50,
+                z: distance * Math.cos(angle)
+            });
+        }, 50);
+
+        // Signal ready for capture
+        setTimeout(() => {
+            window.graphReady = true;
+        }, 3000);
+    </script>
+
+    <!-- Sprite Text for node labels -->
+    <script src="https://unpkg.com/three-spritetext@1.8.2/dist/three-spritetext.min.js"></script>
+</body>
+</html>
