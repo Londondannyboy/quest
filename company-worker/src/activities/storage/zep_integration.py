@@ -10,6 +10,13 @@ from zep_cloud.client import AsyncZep
 from zep_cloud.types import GraphSearchScope
 
 from src.utils.config import config
+from src.models.zep_ontology import (
+    extract_company_entity_from_payload,
+    COMPANY_ENTITY_TYPE,
+    DEAL_ENTITY_TYPE,
+    PERSON_ENTITY_TYPE,
+    EDGE_TYPES
+)
 
 
 def get_graph_id_for_app(app: str) -> str:
@@ -104,25 +111,31 @@ async def query_zep_for_context(
 async def sync_company_to_zep(
     company_id: str,
     company_name: str,
+    domain: str,
     summary: str,
+    payload: Dict[str, Any],
     app: str = "placement"  # Default for backward compatibility
 ) -> Dict[str, Any]:
     """
-    Sync company profile to Zep knowledge graph.
+    Sync company profile to Zep knowledge graph with ontology support.
 
-    Creates a company node with key facts condensed to <10k chars.
+    Creates:
+    1. Typed Company entity (using ontology)
+    2. Episode with narrative summary
 
     Args:
         company_id: Database company ID
         company_name: Company name
+        domain: Company domain
         summary: Condensed company summary (<10k chars)
+        payload: V2 flexible payload for extracting structured fields
         app: Application type (placement, relocation) for graph selection
 
     Returns:
         Dict with graph_id, success
     """
     graph_id = get_graph_id_for_app(app)
-    activity.logger.info(f"Syncing {company_name} to Zep graph '{graph_id}'")
+    activity.logger.info(f"Syncing {company_name} to Zep graph '{graph_id}' with ontology")
 
     if not config.ZEP_API_KEY:
         return {
@@ -134,13 +147,22 @@ async def sync_company_to_zep(
     try:
         client = AsyncZep(api_key=config.ZEP_API_KEY)
 
-        # Add company to organizational graph using graph.add
+        # Extract structured Company entity from flexible V2 payload
+        company_entity = extract_company_entity_from_payload(
+            company_name, domain, payload
+        )
+
+        activity.logger.info(f"Extracted company entity: {company_entity}")
+
+        # Add episode with narrative summary and structured entity
         graph_data = {
             "company_id": company_id,
             "company_name": company_name,
             "summary": summary,
             "type": "company_profile",
-            "app": app
+            "app": app,
+            # Include structured entity attributes for ontology extraction
+            "entity": company_entity
         }
 
         # Add to Zep using app-specific organizational graph
@@ -162,7 +184,8 @@ async def sync_company_to_zep(
         return {
             "graph_id": graph_id,
             "episode_id": episode_id,
-            "success": True
+            "success": True,
+            "entity": company_entity
         }
 
     except Exception as e:
