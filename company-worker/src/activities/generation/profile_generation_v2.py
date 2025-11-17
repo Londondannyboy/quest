@@ -128,11 +128,17 @@ Generate rich narrative sections using markdown. Only create sections where you 
    - Example: "Serves leading institutional investors including..."
 
 10. **deals** (if deals/transactions/announcements found):
-   - Specific transactions or deals closed
-   - Notable announcements or press releases
-   - ALWAYS include links to source articles
-   - Recent activity and achievements
-   - Example: "[Company announced a $500M fund closing](https://example.com/article)..."
+   - **CRITICAL**: Be SPECIFIC about every deal - include full details:
+     * Which companies were involved (buyer, seller, target)
+     * What type of transaction (M&A advisory, fund closing, capital raising, IPO, etc.)
+     * Deal value/size if available
+     * Date or timeframe
+     * Source link (REQUIRED for every deal)
+   - **NEVER write vague statements** like "financial advisor on a $7.4B acquisition"
+   - **ALWAYS identify** what the deal was (e.g., "advised Company X on acquisition of Company Y")
+   - If you cannot find specific deal details, DO NOT include that deal
+   - Example: "Advised [Tesla on its $5.2B acquisition of SolarCity](https://source.com) in August 2016..."
+   - Example: "Acted as placement agent for [XYZ Fund's $850M final closing](https://source.com) in Q2 2024..."
 
 11. **resources** (ALWAYS create this - list ALL sources used):
    - Citations and references section
@@ -150,7 +156,9 @@ Generate rich narrative sections using markdown. Only create sections where you 
 - Each section should stand alone and be complete
 - 2-4 sentences minimum per section
 - Don't create sections if you only have vague or generic info
-- AVOID honorific titles (Mr., Mrs., Dr., etc.) - just use full names
+- **CRITICAL - NO HONORIFICS**: NEVER use Mr., Mrs., Ms., Dr., Prof., etc. - just write full names directly
+  * WRONG: "Mr. Altman founded the company"
+  * RIGHT: "Roger Altman founded the company"
 - Write naturally flowing prose with clear sentence boundaries
 - **CRITICAL**: Break up large text blocks with:
   - Bullet points for lists (executives, services, locations)
