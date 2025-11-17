@@ -60,17 +60,17 @@ Extract these ONLY if explicitly mentioned:
 - linkedin_url: ONLY if found on company's official website (public declaration)
 
 **IMPORTANT - STRUCTURED FIELDS FORMAT:**
-- tagline: One sentence, 10-15 words max, plain text
-- short_description: 1-2 sentences MAX (40-60 words), for collection cards, plain text
 - legal_name: Plain text company name only
-- NO URLs, NO links, NO markdown in ANY structured fields
+- tagline: ALWAYS WRITE a compelling one sentence tagline, 10-15 words max, plain text (NEVER leave null)
+- short_description: ALWAYS WRITE a concise 1-2 sentence summary (40-60 words) for collection cards - synthesize from research, plain text only (NEVER leave null)
+- NO URLs, NO links, NO markdown in ANY structured fields above
 
 **PRIVACY EXCLUSIONS - DO NOT EXTRACT:**
 - phone: Never extract phone numbers
 - email: Never extract email addresses
 - twitter_url: Do not extract unless officially linked on website
 
-If not found, leave as null. Don't guess or infer these structured fields.
+For other structured fields (industry, headquarters, founded_year, etc.), only extract if explicitly found. Don't guess.
 
 ===== NARRATIVE SECTIONS (create only if you have substantial content) =====
 
