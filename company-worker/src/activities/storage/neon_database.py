@@ -51,14 +51,33 @@ async def save_company_to_neon(
                 # Generate slug
                 slug = generate_slug(name, domain)
 
+                # Extract content from V2 profile_sections for legacy columns
+                description = None
+                overview = None
+
+                if "profile_sections" in payload:
+                    sections = payload["profile_sections"]
+                    # Use overview section for description
+                    if "overview" in sections:
+                        overview_content = sections["overview"].get("content", "")
+                        description = overview_content[:500] if overview_content else None
+                        overview = overview_content
+                    # Combine all sections for overview if no dedicated overview
+                    if not overview and sections:
+                        overview = "\n\n".join([
+                            f"**{s.get('title', k.title())}**\n{s.get('content', '')}"
+                            for k, s in sections.items()
+                        ])
+
                 # Extract meta description from payload
                 meta_description = (
                     payload.get("tagline") or
+                    (description[:160] if description else None) or
                     payload.get("short_description") or
-                    (payload.get("description") or "")[:160]
+                    ""
                 )
 
-                # Store logo_url in payload (schema doesn't have logo_url column)
+                # Store logo_url in payload
                 if logo_url:
                     payload["logo_url"] = logo_url
 
@@ -70,6 +89,8 @@ async def save_company_to_neon(
                             name = %s,
                             slug = %s,
                             app = %s,
+                            description = %s,
+                            overview = %s,
                             featured_image_url = %s,
                             meta_description = %s,
                             payload = %s,
@@ -80,6 +101,8 @@ async def save_company_to_neon(
                         name,
                         slug,
                         app,
+                        description,
+                        overview,
                         featured_image_url,
                         meta_description,
                         json.dumps(payload),
@@ -98,16 +121,20 @@ async def save_company_to_neon(
                             slug,
                             name,
                             app,
+                            description,
+                            overview,
                             featured_image_url,
                             meta_description,
                             payload,
                             created_at,
                             updated_at
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
                         ON CONFLICT (slug)
                         DO UPDATE SET
                             name = EXCLUDED.name,
+                            description = EXCLUDED.description,
+                            overview = EXCLUDED.overview,
                             featured_image_url = EXCLUDED.featured_image_url,
                             meta_description = EXCLUDED.meta_description,
                             payload = EXCLUDED.payload,
@@ -117,6 +144,8 @@ async def save_company_to_neon(
                         slug,
                         name,
                         app,
+                        description,
+                        overview,
                         featured_image_url,
                         meta_description,
                         json.dumps(payload)
