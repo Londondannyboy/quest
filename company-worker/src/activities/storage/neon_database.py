@@ -59,13 +59,39 @@ async def save_company_to_neon(
                 description = None
                 overview = None
 
+                # Priority 1: Use short_description if available (clean, purpose-written)
+                if "short_description" in payload and payload["short_description"]:
+                    description = payload["short_description"]
+
                 if "profile_sections" in payload:
                     sections = payload["profile_sections"]
-                    # Use overview section for description
+                    # Use overview section
                     if "overview" in sections:
                         overview_content = sections["overview"].get("content", "")
-                        description = overview_content[:500] if overview_content else None
                         overview = overview_content
+
+                        # Priority 2: If no short_description, create clean excerpt from overview
+                        if not description and overview_content:
+                            import re
+                            # Strip markdown links: [text](url) -> text
+                            clean_text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', overview_content)
+                            # Strip standalone URLs
+                            clean_text = re.sub(r'https?://\S+', '', clean_text)
+                            # Strip markdown bold
+                            clean_text = re.sub(r'\*\*(.+?)\*\*', r'\1', clean_text)
+                            # Clean up extra whitespace
+                            clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+                            # Take first 200 chars, break at sentence
+                            if len(clean_text) > 200:
+                                # Try to break at sentence
+                                sentences = clean_text[:200].split('. ')
+                                if len(sentences) > 1:
+                                    description = sentences[0] + '.'
+                                else:
+                                    description = clean_text[:200].rsplit(' ', 1)[0] + '...'
+                            else:
+                                description = clean_text
+
                     # Combine all sections for overview if no dedicated overview
                     if not overview and sections:
                         overview = "\n\n".join([
@@ -75,9 +101,9 @@ async def save_company_to_neon(
 
                 # Extract meta description from payload
                 meta_description = (
-                    payload.get("tagline") or
-                    (description[:160] if description else None) or
                     payload.get("short_description") or
+                    payload.get("tagline") or
+                    (description[:160] if description else "") or
                     ""
                 )
 

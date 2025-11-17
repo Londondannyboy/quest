@@ -44,6 +44,14 @@ class CompanyPayload(BaseModel):
 
     # ===== ESSENTIAL STRUCTURED (Always present) =====
     legal_name: str = Field(description="Company legal name")
+    tagline: Optional[str] = Field(
+        default=None,
+        description="One sentence tagline, 10-15 words max, plain text only"
+    )
+    short_description: Optional[str] = Field(
+        default=None,
+        description="Brief 1-2 sentence summary for cards/previews, 40-60 words max, plain text only"
+    )
     website: str = Field(description="Company website URL")
     domain: str = Field(description="Domain name (e.g., 'thrivealts.com')")
     slug: str = Field(description="URL-friendly slug")
