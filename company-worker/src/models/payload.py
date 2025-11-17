@@ -1,6 +1,4 @@
 """
-
-from __future__ import annotations
 Company Payload Model
 
 Complete company data structure based on Crunchbase + PitchBook analysis.
@@ -327,3 +325,7 @@ class CompanyPayload(BaseModel):
                 "confidence_score": 0.92
             }
         }
+
+
+# Rebuild model to resolve forward references
+CompanyPayload.model_rebuild()
