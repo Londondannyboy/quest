@@ -66,15 +66,14 @@ class CompanyCreationWorkflow:
             start_to_close_timeout=timedelta(seconds=10)
         )
 
-        # Check if already exists and no force update
-        if existing["exists"] and not input_data.force_update:
-            workflow.logger.info("Company already exists")
-            return {
-                "status": "exists",
-                "company_id": existing["company_id"],
-                "slug": existing["slug"],
-                "message": "Company already exists in database"
-            }
+        # Always continue - we enrich existing companies instead of skipping
+        if existing["exists"]:
+            workflow.logger.info(
+                f"Company exists (ID: {existing['company_id']}). "
+                f"Enriching with new research..."
+            )
+        else:
+            workflow.logger.info("New company - creating from scratch")
 
         # ===== PHASE 2: PARALLEL RESEARCH =====
         workflow.logger.info("Phase 2: Parallel research (Serper + Crawl4AI + Firecrawl + Exa + Logo)")
