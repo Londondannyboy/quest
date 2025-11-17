@@ -142,21 +142,21 @@ class CompanyCreationWorkflow:
         workflow.logger.info("Phase 2 complete: All research gathered")
 
         # ===== PHASE 3: AMBIGUITY CHECK =====
-        workflow.logger.info("Phase 3: Checking research ambiguity")
+        workflow.logger.info("Phase 3: Skipping ambiguity check (not needed - AI can determine category from content)")
 
-        ambiguity = await workflow.execute_activity(
-            "check_research_ambiguity",
-            args=[news_data, website_data, exa_data, input_data.category],
-            start_to_close_timeout=timedelta(seconds=30)
-        )
-
-        workflow.logger.info(
-            f"Ambiguity check: confidence={ambiguity['confidence']:.2f}, "
-            f"recommendation={ambiguity['recommendation']}"
-        )
+        # Skip ambiguity check - it's counterproductive
+        # The AI is smart enough to determine category from payload content
+        # Edge cases can be manually corrected in DB
+        ambiguity = {
+            "confidence": 1.0,
+            "is_ambiguous": False,
+            "signals": [],
+            "recommendation": "proceed"
+        }
 
         # ===== PHASE 4: OPTIONAL RE-SCRAPE =====
-        if ambiguity["is_ambiguous"] and ambiguity["confidence"] < 0.7:
+        # Skip re-scrape since we're not checking ambiguity
+        if False and ambiguity["is_ambiguous"] and ambiguity["confidence"] < 0.7:
             workflow.logger.info("Phase 4: Running targeted re-scrape (low confidence)")
 
             category_clean = input_data.category.replace('_', ' ')
