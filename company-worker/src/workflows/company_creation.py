@@ -229,7 +229,7 @@ class CompanyCreationWorkflow:
         profile_result = await workflow.execute_activity(
             "generate_company_profile_v2",
             args=[research_data.model_dump()],
-            start_to_close_timeout=timedelta(seconds=30)
+            start_to_close_timeout=timedelta(seconds=120)  # Increased for Claude Sonnet 4.5 narrative generation
         )
 
         payload = profile_result["profile"]
