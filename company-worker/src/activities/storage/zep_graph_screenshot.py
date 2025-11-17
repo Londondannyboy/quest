@@ -32,20 +32,25 @@ async def capture_zep_graph_screenshot(
     """
     activity.logger.info(f"Capturing Zep graph screenshot for: {company_name}")
 
-    if not config.CLOUDINARY_CLOUD_NAME or not config.CLOUDINARY_API_KEY:
-        activity.logger.warning("Cloudinary not configured")
+    # Gracefully check if Cloudinary is configured
+    cloudinary_cloud = getattr(config, 'CLOUDINARY_CLOUD_NAME', None)
+    cloudinary_key = getattr(config, 'CLOUDINARY_API_KEY', None)
+    cloudinary_secret = getattr(config, 'CLOUDINARY_API_SECRET', None)
+
+    if not cloudinary_cloud or not cloudinary_key or not cloudinary_secret:
+        activity.logger.warning("Cloudinary not configured - skipping graph screenshot")
         return {
             "success": False,
             "cloudinary_url": None,
-            "error": "Cloudinary not configured"
+            "error": "Cloudinary not configured (optional feature)"
         }
 
     try:
         # Configure Cloudinary
         cloudinary.config(
-            cloud_name=config.CLOUDINARY_CLOUD_NAME,
-            api_key=config.CLOUDINARY_API_KEY,
-            api_secret=config.CLOUDINARY_API_SECRET
+            cloud_name=cloudinary_cloud,
+            api_key=cloudinary_key,
+            api_secret=cloudinary_secret
         )
 
         async with async_playwright() as p:
