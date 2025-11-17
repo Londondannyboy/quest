@@ -57,7 +57,16 @@ Extract these ONLY if explicitly mentioned:
 - headquarters_city, headquarters_country: From website footers, contact pages, addresses
 - founded_year: Only if explicitly stated (e.g., "Founded in 2015", "Established 1988")
 - employee_range: Only if mentioned (use: "1-10", "10-50", "50-100", "100-500", "500+")
-- phone, linkedin_url, twitter_url: Extract if found
+- linkedin_url: ONLY if found on company's official website (public declaration)
+
+**IMPORTANT - STRUCTURED FIELDS FORMAT:**
+- tagline, short_description: PLAIN TEXT ONLY (no markdown, no links, no formatting)
+- legal_name: Plain text company name only
+
+**PRIVACY EXCLUSIONS - DO NOT EXTRACT:**
+- phone: Never extract phone numbers
+- email: Never extract email addresses
+- twitter_url: Do not extract unless officially linked on website
 
 If not found, leave as null. Don't guess or infer these structured fields.
 
@@ -232,6 +241,25 @@ Your output must follow the CompanyPayload schema."""
         result = await company_agent.run(context)
 
         profile = result.output
+
+        # Privacy filter: Remove personal contact info
+        profile.phone = None
+        if profile.phone:
+            activity.logger.info("Removed phone number for privacy")
+
+        # Note: LinkedIn is OK if it was on their website (public declaration)
+
+        # Clean markdown links from structured fields (plain text only)
+        import re
+        if profile.tagline:
+            # Remove markdown links: [text](url) -> text
+            profile.tagline = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', profile.tagline)
+            # Remove incomplete markdown links
+            profile.tagline = re.sub(r'\[([^\]]+)\]\(.*$', r'\1', profile.tagline)
+
+        if profile.short_description:
+            profile.short_description = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', profile.short_description)
+            profile.short_description = re.sub(r'\[([^\]]+)\]\(.*$', r'\1', profile.short_description)
 
         # Calculate quality metrics
         profile.section_count = len(profile.profile_sections)
