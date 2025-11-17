@@ -112,9 +112,11 @@ async def capture_zep_graph_screenshot(
         }
 
     except Exception as e:
-        activity.logger.error(f"Failed to capture graph screenshot: {e}")
+        activity.logger.warning(f"Graph screenshot capture failed (non-critical): {e}")
+        # Return graceful failure - don't break workflow
         return {
             "success": False,
             "cloudinary_url": None,
-            "error": str(e)
+            "error": str(e),
+            "message": "Screenshot unavailable - graph data still synced to Zep"
         }

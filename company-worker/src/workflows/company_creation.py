@@ -401,12 +401,15 @@ class CompanyCreationWorkflow:
             start_to_close_timeout=timedelta(seconds=60)
         )
 
-        # Store graph screenshot URL in payload
+        # Store graph screenshot URL in payload (optional - won't break workflow if fails)
         if graph_screenshot.get("success") and graph_screenshot.get("cloudinary_url"):
             payload["zep_graph_screenshot_url"] = graph_screenshot["cloudinary_url"]
-            workflow.logger.info(f"Graph screenshot captured: {graph_screenshot['cloudinary_url']}")
+            workflow.logger.info(f"✅ Graph screenshot captured: {graph_screenshot['cloudinary_url']}")
         else:
-            workflow.logger.info(f"Graph screenshot failed: {graph_screenshot.get('error', 'Unknown error')}")
+            workflow.logger.warning(
+                f"⚠️ Graph screenshot unavailable (non-critical): {graph_screenshot.get('error', 'Unknown')} - "
+                f"Ontology sync still successful"
+            )
 
         # ===== COMPLETE =====
         from src.utils.helpers import generate_slug
