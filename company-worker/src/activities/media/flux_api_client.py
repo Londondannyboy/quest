@@ -258,20 +258,14 @@ async def generate_flux_image(
 
     # Validate configuration
     if not config.FLUX_API_KEY:
-        activity.logger.error("FLUX_API_KEY not configured")
-        return {
-            "cloudinary_url": None,
-            "success": False,
-            "error": "FLUX_API_KEY not configured"
-        }
+        error_msg = "❌ FLUX_API_KEY not configured - cannot generate images!"
+        activity.logger.error(error_msg)
+        raise ValueError(error_msg)
 
     if not config.CLOUDINARY_URL:
-        activity.logger.error("CLOUDINARY_URL not configured")
-        return {
-            "cloudinary_url": None,
-            "success": False,
-            "error": "CLOUDINARY_URL not configured"
-        }
+        error_msg = "❌ CLOUDINARY_URL not configured - cannot upload images!"
+        activity.logger.error(error_msg)
+        raise ValueError(error_msg)
 
     # Map model string to enum
     model_map = {
