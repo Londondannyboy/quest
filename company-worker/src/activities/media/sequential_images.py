@@ -505,6 +505,10 @@ async def generate_company_contextual_images(
         return result
 
     except Exception as e:
-        activity.logger.error(f"Company image generation failed: {e}")
+        activity.logger.error(f"❌ COMPANY IMAGE GENERATION FAILED: {e}", exc_info=True)
+        activity.logger.error(f"❌ Company: {company_name}, Logo: {logo_url}")
+        activity.logger.error(f"❌ This is a CRITICAL ERROR - company will have NO images!")
         result["success"] = False
-        return result
+        result["error"] = str(e)
+        # Re-raise to make failure visible in workflow
+        raise RuntimeError(f"Image generation failed for {company_name}: {e}") from e
