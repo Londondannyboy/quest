@@ -36,29 +36,33 @@ except Exception as e:
     print(f"Error listing graphs: {e}")
 
 print("\n" + "=" * 60)
-print("SEARCHING FOR CYPRUS IN 'relocation' GRAPH")
+print("SEARCHING FOR CYPRUS IN DIFFERENT WAYS")
 print("=" * 60)
 
-try:
-    # Search for Cyprus in relocation graph
-    results = client.graph.search(
-        user_id="newsroom-system",
-        query="Cyprus relocation",
-        scope="edges"
-    )
+# Try different search queries
+search_queries = [
+    ("Cyprus", "edges"),
+    ("relocation Cyprus", "edges"),
+    ("Cyprus visa", "edges"),
+]
 
-    print(f"\nSearch results for 'Cyprus' in newsroom-system:")
-    if hasattr(results, 'edges') and results.edges:
-        print(f"Found {len(results.edges)} results:")
-        for i, edge in enumerate(results.edges[:5], 1):
-            print(f"\n  Result {i}:")
-            if hasattr(edge, 'fact'):
-                print(f"    Fact: {edge.fact}")
-            if hasattr(edge, 'score'):
-                print(f"    Score: {edge.score}")
-    else:
-        print("No results found")
-        print(f"Response: {results}")
+for query, scope in search_queries:
+    print(f"\n--- Query: '{query}' (scope: {scope}) ---")
+    try:
+        results = client.graph.search(
+            user_id="newsroom-system",
+            query=query,
+            scope=scope
+        )
 
-except Exception as e:
-    print(f"Error searching: {e}")
+        if hasattr(results, 'edges') and results.edges:
+            print(f"Found {len(results.edges)} results:")
+            for i, edge in enumerate(results.edges[:3], 1):
+                fact = edge.fact if hasattr(edge, 'fact') else str(edge)
+                score = edge.score if hasattr(edge, 'score') else 'N/A'
+                print(f"  {i}. [{score}] {fact[:100]}...")
+        else:
+            print("No results found")
+
+    except Exception as e:
+        print(f"Error: {e}")

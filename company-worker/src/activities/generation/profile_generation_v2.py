@@ -125,6 +125,20 @@ Generate rich narrative sections using markdown. Only create sections where you 
    - Case studies or testimonials
    - Example: "Serves leading institutional investors including..."
 
+10. **deals** (if deals/transactions/announcements found):
+   - Specific transactions or deals closed
+   - Notable announcements or press releases
+   - ALWAYS include links to source articles
+   - Recent activity and achievements
+   - Example: "[Company announced a $500M fund closing](https://example.com/article)..."
+
+11. **resources** (ALWAYS create this - list ALL sources used):
+   - Citations and references section
+   - List all URLs consulted during research
+   - Format: "- [Source Name](url): Brief description"
+   - Include news articles, company pages, industry reports
+   - Example: "- [Company Website](https://example.com): Official company information"
+
 **Writing Guidelines:**
 
 - Use natural, professional language
@@ -134,18 +148,23 @@ Generate rich narrative sections using markdown. Only create sections where you 
 - Each section should stand alone and be complete
 - 2-4 sentences minimum per section
 - Don't create sections if you only have vague or generic info
+- AVOID honorific titles (Mr., Mrs., Dr., etc.) - just use full names
+- Write naturally flowing prose with clear sentence boundaries
 
 **CRITICAL - Links and References:**
 
-- ALWAYS add external links using markdown: [Company Name](https://example.com)
+- ALWAYS add MANY external links using markdown: [Company Name](https://example.com)
 - Link to the company website when first mentioning it
 - Link to news sources when citing articles or announcements
 - Link to partner companies or clients when mentioned
+- Link to industry reports, research papers, or credible sources
 - Add at least ONE internal link to "top private equity placement agents" or "leading placement agents"
 - Example internal link: "As one of the [leading placement agents](/) in the industry..."
 - Example external link: "[Evercore](https://www.evercore.com) specializes in..."
-- Every section should have 1-3 relevant links where appropriate
+- **IMPORTANT**: Aim for 2-5 relevant links per section (more is better for authority)
 - Use descriptive anchor text, not "click here" or bare URLs
+- In deals section: EVERY deal/announcement MUST have a source link
+- In resources section: List EVERY URL used with description
 
 **Content Quality:**
 

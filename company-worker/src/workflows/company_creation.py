@@ -204,6 +204,42 @@ class CompanyCreationWorkflow:
             f"{len(zep_context.get('deals', []))} deals"
         )
 
+        # ===== PHASE 5.5: VALIDATE SOURCE URLS =====
+        workflow.logger.info("Phase 5.5: Validating source URLs (removing 404s and paywalls)")
+
+        # Collect all URLs from research sources
+        all_source_urls = []
+        for article in news_data.get("articles", []):
+            if article.get("url"):
+                all_source_urls.append(article["url"])
+        for result in exa_data.get("results", []):
+            if result.get("url"):
+                all_source_urls.append(result["url"])
+
+        # Validate URLs
+        validation_result = await workflow.execute_activity(
+            "validate_news_sources",
+            args=[all_source_urls],
+            start_to_close_timeout=timedelta(seconds=30)
+        )
+
+        # Filter out invalid URLs from research data
+        valid_urls_set = set(validation_result["valid_urls"])
+        news_data["articles"] = [
+            article for article in news_data.get("articles", [])
+            if article.get("url") in valid_urls_set
+        ]
+        exa_data["results"] = [
+            result for result in exa_data.get("results", [])
+            if result.get("url") in valid_urls_set
+        ]
+
+        workflow.logger.info(
+            f"URL validation: {len(validation_result['valid_urls'])} valid, "
+            f"{len(validation_result['invalid_urls'])} invalid "
+            f"({validation_result['paywall_count']} paywalls)"
+        )
+
         # ===== PHASE 6: GENERATE PROFILE (V2 - Narrative-First) =====
         workflow.logger.info("Phase 6: Generating company profile with V2 (Narrative-First)")
 
@@ -235,6 +271,18 @@ class CompanyCreationWorkflow:
         payload = profile_result["profile"]
 
         workflow.logger.info("Profile generated successfully")
+
+        # ===== PHASE 6.5: CLEAN GENERATED LINKS =====
+        workflow.logger.info("Phase 6.5: Cleaning generated links (removing broken URLs)")
+
+        if "profile_sections" in payload and payload["profile_sections"]:
+            cleaned_sections = await workflow.execute_activity(
+                "clean_generated_links",
+                args=[payload["profile_sections"]],
+                start_to_close_timeout=timedelta(seconds=30)
+            )
+            payload["profile_sections"] = cleaned_sections
+            workflow.logger.info("Link cleaning complete")
 
         # ===== PHASE 7: GENERATE IMAGES =====
         workflow.logger.info("Phase 7: Generating featured image")

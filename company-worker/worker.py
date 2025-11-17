@@ -44,6 +44,11 @@ from src.activities.research.ambiguity import (
     validate_company_match,
 )
 
+from src.activities.validation.link_validator import (
+    validate_news_sources,
+    clean_generated_links,
+)
+
 from src.activities.media.logo_extraction import (
     extract_and_process_logo,
 )
@@ -171,6 +176,8 @@ async def main():
             # Ambiguity & Validation
             check_research_ambiguity,
             validate_company_match,
+            validate_news_sources,
+            clean_generated_links,
 
             # Media
             extract_and_process_logo,
