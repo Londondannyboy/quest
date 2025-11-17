@@ -174,7 +174,7 @@ Your output must follow the CompanyPayload schema."""
         # Generate profile
         result = await company_agent.run(context)
 
-        profile = result.data
+        profile = result.output
 
         # Calculate quality metrics
         profile.section_count = len(profile.profile_sections)
