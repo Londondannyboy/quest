@@ -56,10 +56,10 @@ async def capture_zep_graph_screenshot(
             )
             page = await context.new_page()
 
-            # Navigate to Zep Cloud graph with authentication
-            # Use account ID in URL path
-            zep_account_id = "e265b35c-69d8-4880-b2b5-ec6acb237a3e"
-            zep_url = f"https://cloud.getzep.com/accounts/{zep_account_id}/graphs/{graph_id}"
+            # Navigate to Zep app graph page
+            # URL format: /projects/{project_id}/groups/{group_id}
+            zep_project_id = "7d00497e-a7ef-47dd-9763-112a6bbe92f2"
+            zep_url = f"https://app.getzep.com/projects/{zep_project_id}/groups/{graph_id}"
 
             activity.logger.info(f"Navigating to: {zep_url}")
 
