@@ -56,11 +56,18 @@ async def capture_zep_graph_screenshot(
             )
             page = await context.new_page()
 
-            # Navigate to Zep Cloud
-            # Note: You'll need to provide authentication or a public graph URL
-            zep_url = f"https://cloud.getzep.com/graphs/{graph_id}"
+            # Navigate to Zep Cloud graph with authentication
+            # Use account ID in URL path
+            zep_account_id = "e265b35c-69d8-4880-b2b5-ec6acb237a3e"
+            zep_url = f"https://cloud.getzep.com/accounts/{zep_account_id}/graphs/{graph_id}"
 
             activity.logger.info(f"Navigating to: {zep_url}")
+
+            # Set authentication header with API key
+            await context.set_extra_http_headers({
+                "Authorization": f"Api-Key {config.ZEP_API_KEY}"
+            })
+
             await page.goto(zep_url, wait_until="networkidle", timeout=30000)
 
             # Wait for graph to render
