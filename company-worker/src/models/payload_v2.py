@@ -11,7 +11,7 @@ This eliminates NULL fields and provides richer, more flexible profiles.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 
