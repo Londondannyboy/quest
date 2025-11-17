@@ -381,20 +381,7 @@ def build_research_context(research: ResearchData) -> str:
 
             lines.append("=" * 70 + "\n")
 
-    # Research quality indicators
-    lines.extend([
-        "===== RESEARCH QUALITY =====",
-        f"Confidence Score: {research.confidence_score:.2f}",
-        f"Is Ambiguous: {research.is_ambiguous}",
-        f"Recommendation: {research.recommendation}",
-        ""
-    ])
-
-    if research.ambiguity_signals:
-        lines.append("Ambiguity Signals:")
-        for signal in research.ambiguity_signals:
-            lines.append(f"- {signal}")
-        lines.append("")
+    # Skip ambiguity indicators - AI can determine category from content
 
     context = "\n".join(lines)
 
