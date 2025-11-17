@@ -20,6 +20,46 @@ def get_graph_id_for_app(app: str) -> str:
     return graph_mapping.get(app, "finance-knowledge")
 
 
+def _guess_node_type(edge_name: str, entity_name: str) -> str:
+    """
+    Infer node type from edge relationship and entity name.
+
+    Args:
+        edge_name: Edge type (e.g., WORKS_AT, ADVISED_ON)
+        entity_name: Entity name extracted from fact
+
+    Returns:
+        Node type: company, person, deal, or entity
+    """
+    edge_name_lower = edge_name.lower()
+    entity_name_lower = entity_name.lower()
+
+    # Check edge type patterns
+    if "works_at" in edge_name_lower or "employed_by" in edge_name_lower:
+        # WORKS_AT edges: source is person, target is company
+        return "person"
+
+    if "advised_on" in edge_name_lower or "facilitated" in edge_name_lower:
+        # ADVISED_ON edges: source is company, target is deal
+        if "deal" in edge_name_lower or "transaction" in edge_name_lower:
+            return "deal"
+        return "company"
+
+    # Check entity name patterns
+    if any(word in entity_name_lower for word in ["deal", "transaction", "acquisition", "merger", "ipo"]):
+        return "deal"
+
+    if any(word in entity_name_lower for word in ["mr", "ms", "dr", "ceo", "cfo", "president", "director"]):
+        return "person"
+
+    # Check if it's likely a company (has Inc, LLC, Corp, etc.)
+    if any(suffix in entity_name_lower for suffix in ["inc", "llc", "corp", "ltd", "group", "partners", "capital"]):
+        return "company"
+
+    # Default to generic entity type
+    return "entity"
+
+
 @activity.defn
 async def fetch_company_graph_data(
     company_name: str,
@@ -93,7 +133,7 @@ async def fetch_company_graph_data(
                     node_map[source_uuid] = {
                         "id": source_uuid,
                         "label": source_name,
-                        "group": self._guess_node_type(edge_name, source_name),
+                        "group": _guess_node_type(edge_name, source_name),
                         "title": fact  # Show fact as tooltip
                     }
 
@@ -104,7 +144,7 @@ async def fetch_company_graph_data(
                     node_map[target_uuid] = {
                         "id": target_uuid,
                         "label": target_name,
-                        "group": self._guess_node_type(edge_name, target_name),
+                        "group": _guess_node_type(edge_name, target_name),
                         "title": fact
                     }
 

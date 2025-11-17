@@ -411,6 +411,31 @@ class CompanyCreationWorkflow:
                 f"Ontology sync still successful"
             )
 
+        # ===== PHASE 10.6: FETCH GRAPH VISUALIZATION DATA =====
+        workflow.logger.info("Phase 10.6: Fetching graph visualization data from Zep API")
+
+        graph_data = await workflow.execute_activity(
+            "fetch_company_graph_data",
+            args=[company_name, normalized["domain"], input_data.app],
+            start_to_close_timeout=timedelta(seconds=30)
+        )
+
+        # Store graph data in payload (optional - won't break workflow if fails)
+        if graph_data.get("success") and graph_data.get("nodes"):
+            payload["zep_graph_data"] = {
+                "nodes": graph_data["nodes"],
+                "edges": graph_data["edges"]
+            }
+            workflow.logger.info(
+                f"✅ Graph data fetched: {len(graph_data['nodes'])} nodes, "
+                f"{len(graph_data['edges'])} edges"
+            )
+        else:
+            workflow.logger.warning(
+                f"⚠️ Graph data unavailable (non-critical): {graph_data.get('error', 'No data')} - "
+                f"Will use screenshot if available"
+            )
+
         # ===== COMPLETE =====
         from src.utils.helpers import generate_slug
         slug = generate_slug(company_name, normalized["domain"])
