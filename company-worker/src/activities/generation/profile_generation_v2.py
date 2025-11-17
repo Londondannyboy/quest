@@ -135,6 +135,18 @@ Generate rich narrative sections using markdown. Only create sections where you 
 - 2-4 sentences minimum per section
 - Don't create sections if you only have vague or generic info
 
+**CRITICAL - Links and References:**
+
+- ALWAYS add external links using markdown: [Company Name](https://example.com)
+- Link to the company website when first mentioning it
+- Link to news sources when citing articles or announcements
+- Link to partner companies or clients when mentioned
+- Add at least ONE internal link to "top private equity placement agents" or "leading placement agents"
+- Example internal link: "As one of the [leading placement agents](/) in the industry..."
+- Example external link: "[Evercore](https://www.evercore.com) specializes in..."
+- Every section should have 1-3 relevant links where appropriate
+- Use descriptive anchor text, not "click here" or bare URLs
+
 **Content Quality:**
 
 ✅ Good: "Thrive Alternative Investments specializes in connecting institutional investors with alternative asset managers. The firm focuses on private equity, venture capital, and real estate funds, providing comprehensive capital raising services including investor identification, roadshow coordination, and closing support."
