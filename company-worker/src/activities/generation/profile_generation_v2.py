@@ -133,7 +133,9 @@ Generate rich narrative sections using markdown. Only create sections where you 
      * WHO: All parties involved (buyer, seller, target, fund, etc.) - USE FULL COMPANY NAMES
      * WHAT: Transaction type (M&A advisory, acquisition, fund closing, IPO, separation, investment, etc.)
      * VALUE: Deal size/value if available (e.g., $29.1 billion, $500M, etc.)
-     * WHEN: Specific date or timeframe (e.g., "November 2024", "Q2 2024", "2025")
+     * WHEN: **CRITICAL** - Must be MONTH or QUARTER, not just year (e.g., "November 2024", "Q2 2024", "March 2025")
+       - WRONG: "2025" or "2024"
+       - RIGHT: "Q1 2025", "November 2024", "March 2025"
      * SOURCE: Link to announcement or press release (REQUIRED)
 
    - **WRONG - TOO VAGUE:**

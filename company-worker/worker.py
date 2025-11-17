@@ -58,6 +58,19 @@ from src.activities.media.replicate_images import (
     generate_placeholder_image,
 )
 
+from src.activities.media.flux_api_client import (
+    generate_flux_image,
+)
+
+from src.activities.media.sequential_images import (
+    generate_sequential_article_images,
+    generate_company_contextual_images,
+)
+
+from src.activities.articles.analyze_sections import (
+    analyze_article_sections,
+)
+
 from src.activities.generation.profile_generation import (
     generate_company_profile,
 )
@@ -183,6 +196,10 @@ async def main():
             extract_and_process_logo,
             generate_company_featured_image,
             generate_placeholder_image,
+            generate_flux_image,
+            generate_sequential_article_images,
+            generate_company_contextual_images,
+            analyze_article_sections,
 
             # Generation
             generate_company_profile,

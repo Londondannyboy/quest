@@ -285,17 +285,21 @@ class CompanyCreationWorkflow:
             workflow.logger.info("Playwright link cleaning complete")
 
         # ===== PHASE 7: GENERATE IMAGES =====
-        workflow.logger.info("Phase 7: Generating featured image")
+        workflow.logger.info("Phase 7: Generating contextual brand images (Flux Kontext Max)")
 
-        featured_image = await workflow.execute_activity(
-            "generate_company_featured_image",
+        # Use new sequential image generation with Kontext Max for companies
+        company_images = await workflow.execute_activity(
+            "generate_company_contextual_images",
             args=[
+                company_id,
                 company_name,
                 logo_data.get("logo_url"),
+                list(payload.get("profile_sections", {}).values())[0].get("content", "")[:200] if payload.get("profile_sections") else company_name,
                 payload.get("headquarters_country") or "Global",
-                payload.get("hero_stats", {}).get("founded_year")
+                input_data.category or "placement",
+                True  # use_max_for_featured
             ],
-            start_to_close_timeout=timedelta(minutes=2)
+            start_to_close_timeout=timedelta(minutes=3)  # Kontext Max takes longer
         )
 
         # Calculate completeness
@@ -349,7 +353,7 @@ class CompanyCreationWorkflow:
                 input_data.category,
                 payload,
                 logo_data.get("logo_url"),
-                featured_image.get("url")
+                company_images.get("featured_image_url")
             ],
             start_to_close_timeout=timedelta(seconds=30)
         )
@@ -394,7 +398,7 @@ class CompanyCreationWorkflow:
         total_cost = (
             research_data.total_cost +
             profile_result.get("cost", 0.0) +
-            featured_image.get("cost", 0.0)
+            company_images.get("total_cost", 0.0)
         )
 
         workflow.logger.info(
@@ -408,7 +412,8 @@ class CompanyCreationWorkflow:
             "slug": slug,
             "name": company_name,
             "logo_url": logo_data.get("logo_url"),
-            "featured_image_url": featured_image.get("url"),
+            "featured_image_url": company_images.get("featured_image_url"),
+            "hero_image_url": company_images.get("hero_image_url"),
             "research_cost": total_cost,
             "research_confidence": ambiguity["confidence"],
             "data_completeness": completeness,

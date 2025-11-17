@@ -195,6 +195,7 @@ async def crawl_with_crawl4ai(base_url: str) -> Dict[str, Any]:
         "/deals",
         "/portfolio",
         "/transactions",
+        "/our-transactions",
         "/track-record",
         "/investments",
         "/clients",
