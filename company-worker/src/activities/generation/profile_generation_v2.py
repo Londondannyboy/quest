@@ -128,17 +128,26 @@ Generate rich narrative sections using markdown. Only create sections where you 
    - Example: "Serves leading institutional investors including..."
 
 10. **deals** (if deals/transactions/announcements found):
-   - **CRITICAL**: Be SPECIFIC about every deal - include full details:
-     * Which companies were involved (buyer, seller, target)
-     * What type of transaction (M&A advisory, fund closing, capital raising, IPO, etc.)
-     * Deal value/size if available
-     * Date or timeframe
-     * Source link (REQUIRED for every deal)
-   - **NEVER write vague statements** like "financial advisor on a $7.4B acquisition"
-   - **ALWAYS identify** what the deal was (e.g., "advised Company X on acquisition of Company Y")
-   - If you cannot find specific deal details, DO NOT include that deal
-   - Example: "Advised [Tesla on its $5.2B acquisition of SolarCity](https://source.com) in August 2016..."
-   - Example: "Acted as placement agent for [XYZ Fund's $850M final closing](https://source.com) in Q2 2024..."
+   - **CRITICAL - MUST NAME ALL PARTIES**: Every deal MUST identify ALL companies/entities involved
+   - **Format each deal as a bullet point** with this structure:
+     * WHO: All parties involved (buyer, seller, target, fund, etc.) - USE FULL COMPANY NAMES
+     * WHAT: Transaction type (M&A advisory, acquisition, fund closing, IPO, separation, investment, etc.)
+     * VALUE: Deal size/value if available (e.g., $29.1 billion, $500M, etc.)
+     * WHEN: Specific date or timeframe (e.g., "November 2024", "Q2 2024", "2025")
+     * SOURCE: Link to announcement or press release (REQUIRED)
+
+   - **WRONG - TOO VAGUE:**
+     * ❌ "Financial Advisor on a pending $29.1 billion sale (2025)"
+     * ❌ "Financial Advisor on the separation of a Biosciences business"
+     * ❌ "Lead advisor on major acquisition"
+
+   - **RIGHT - SPECIFIC WITH ALL PARTIES:**
+     * ✅ "Advised [Pfizer on its $29.1B sale of its Consumer Healthcare division to GSK](https://source.com) - Completed Q1 2025"
+     * ✅ "Lead financial advisor to [Thermo Fisher on the $7.2B separation of its Biosciences Solutions business into a standalone public company called NewCo](https://source.com) - Expected 2025"
+     * ✅ "Advised [H.I.G Capital on its $125M growth investment into Rely Home](https://source.com) - November 2024"
+
+   - **If you CANNOT find who the buyer/seller/target companies are, DO NOT include that deal**
+   - Include appointments, market reports, fund closings, investments - ANY significant announcement with dates and links
 
 11. **resources** (ALWAYS create this - list ALL sources used):
    - Citations and references section

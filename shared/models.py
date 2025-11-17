@@ -121,6 +121,45 @@ class Article(BaseModel):
     keywords: List[str] = Field(default_factory=list)
     citations: List[Citation] = Field(default_factory=list)
 
+    # Sequential Images (Flux Kontext)
+    featured_image_url: Optional[str] = Field(default=None, description="Social sharing image (1200x630)")
+    featured_image_alt: Optional[str] = Field(default=None, description="Alt text for featured image")
+    featured_image_description: Optional[str] = Field(default=None, description="Description for SEO")
+    featured_image_title: Optional[str] = Field(default=None, description="Image title")
+
+    hero_image_url: Optional[str] = Field(default=None, description="Article header image (16:9)")
+    hero_image_alt: Optional[str] = Field(default=None, description="Alt text for hero image")
+    hero_image_description: Optional[str] = Field(default=None, description="Description for SEO")
+    hero_image_title: Optional[str] = Field(default=None, description="Image title")
+
+    content_image1_url: Optional[str] = Field(default=None, description="First content image")
+    content_image1_alt: Optional[str] = Field(default=None)
+    content_image1_description: Optional[str] = Field(default=None)
+    content_image1_title: Optional[str] = Field(default=None)
+
+    content_image2_url: Optional[str] = Field(default=None, description="Second content image")
+    content_image2_alt: Optional[str] = Field(default=None)
+    content_image2_description: Optional[str] = Field(default=None)
+    content_image2_title: Optional[str] = Field(default=None)
+
+    content_image3_url: Optional[str] = Field(default=None, description="Third content image")
+    content_image3_alt: Optional[str] = Field(default=None)
+    content_image3_description: Optional[str] = Field(default=None)
+    content_image3_title: Optional[str] = Field(default=None)
+
+    content_image4_url: Optional[str] = Field(default=None, description="Fourth content image")
+    content_image4_alt: Optional[str] = Field(default=None)
+    content_image4_description: Optional[str] = Field(default=None)
+    content_image4_title: Optional[str] = Field(default=None)
+
+    content_image5_url: Optional[str] = Field(default=None, description="Fifth content image")
+    content_image5_alt: Optional[str] = Field(default=None)
+    content_image5_description: Optional[str] = Field(default=None)
+    content_image5_title: Optional[str] = Field(default=None)
+
+    # Section analysis (for image generation)
+    sections: Optional[List[dict]] = Field(default=None, description="H2 sections with sentiment analysis")
+
     # Knowledge base
     zep_graph_id: Optional[str] = Field(default=None)
     neon_saved: bool = Field(default=False)

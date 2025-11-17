@@ -108,10 +108,47 @@ class CompanyPayload(BaseModel):
         description="Company logo URL (Cloudinary or other CDN)"
     )
 
+    # Sequential Images (Flux Kontext)
     featured_image_url: str | None = Field(
         default=None,
-        description="Featured/hero image URL (AI-generated or scraped)"
+        description="Social sharing image with logo (1200x630)"
     )
+    featured_image_alt: str | None = Field(default=None)
+    featured_image_description: str | None = Field(default=None)
+    featured_image_title: str | None = Field(default=None)
+
+    hero_image_url: str | None = Field(
+        default=None,
+        description="Company header image (16:9)"
+    )
+    hero_image_alt: str | None = Field(default=None)
+    hero_image_description: str | None = Field(default=None)
+    hero_image_title: str | None = Field(default=None)
+
+    content_image1_url: str | None = Field(default=None, description="First contextual brand image")
+    content_image1_alt: str | None = Field(default=None)
+    content_image1_description: str | None = Field(default=None)
+    content_image1_title: str | None = Field(default=None)
+
+    content_image2_url: str | None = Field(default=None, description="Second contextual brand image")
+    content_image2_alt: str | None = Field(default=None)
+    content_image2_description: str | None = Field(default=None)
+    content_image2_title: str | None = Field(default=None)
+
+    content_image3_url: str | None = Field(default=None, description="Third contextual brand image")
+    content_image3_alt: str | None = Field(default=None)
+    content_image3_description: str | None = Field(default=None)
+    content_image3_title: str | None = Field(default=None)
+
+    content_image4_url: str | None = Field(default=None, description="Fourth contextual brand image")
+    content_image4_alt: str | None = Field(default=None)
+    content_image4_description: str | None = Field(default=None)
+    content_image4_title: str | None = Field(default=None)
+
+    content_image5_url: str | None = Field(default=None, description="Fifth contextual brand image")
+    content_image5_alt: str | None = Field(default=None)
+    content_image5_description: str | None = Field(default=None)
+    content_image5_title: str | None = Field(default=None)
 
     # ===== METADATA =====
     research_date: str = Field(

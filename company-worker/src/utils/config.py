@@ -37,6 +37,7 @@ class Config:
     # ===== IMAGE SERVICES =====
     REPLICATE_API_TOKEN: str | None = os.getenv("REPLICATE_API_TOKEN")
     CLOUDINARY_URL: str | None = os.getenv("CLOUDINARY_URL")
+    FLUX_API_KEY: str | None = os.getenv("FLUX_API_KEY")  # Black Forest Labs direct API
 
     # ===== KNOWLEDGE GRAPH =====
     ZEP_API_KEY: str | None = os.getenv("ZEP_API_KEY")
@@ -57,6 +58,12 @@ class Config:
     # Image settings
     GENERATE_FEATURED_IMAGES: bool = os.getenv("GENERATE_FEATURED_IMAGES", "true").lower() == "true"
     LOGO_SIZE: str = os.getenv("LOGO_SIZE", "400x400")
+
+    # Sequential image settings (Flux Kontext)
+    FLUX_MODEL: str = os.getenv("FLUX_MODEL", "kontext-pro")  # or "kontext-max"
+    MIN_CONTENT_IMAGES: int = int(os.getenv("MIN_CONTENT_IMAGES", "3"))
+    MAX_CONTENT_IMAGES: int = int(os.getenv("MAX_CONTENT_IMAGES", "5"))
+    GENERATE_SEQUENTIAL_IMAGES: bool = os.getenv("GENERATE_SEQUENTIAL_IMAGES", "true").lower() == "true"
 
     # Cost limits
     MAX_COST_PER_COMPANY: float = float(os.getenv("MAX_COST_PER_COMPANY", "0.20"))
