@@ -390,24 +390,24 @@ class CompanyCreationWorkflow:
 
         workflow.logger.info("Zep sync complete")
 
-        # ===== PHASE 10.5: FETCH GRAPH VISUALIZATION DATA =====
-        workflow.logger.info("Phase 10.5: Fetching graph visualization data from Zep")
+        # ===== PHASE 10.5: CAPTURE GRAPH SCREENSHOT =====
+        workflow.logger.info("Phase 10.5: Capturing Zep graph screenshot with Playwright")
 
-        graph_data = await workflow.execute_activity(
-            "fetch_company_graph_data",
-            args=[company_name, normalized["domain"], input_data.app],
-            start_to_close_timeout=timedelta(seconds=30)
+        # Map app to graph ID
+        graph_id = "finance-knowledge" if input_data.app == "placement" else "relocation"
+
+        graph_screenshot = await workflow.execute_activity(
+            "capture_zep_graph_screenshot",
+            args=[company_name, graph_id],
+            start_to_close_timeout=timedelta(seconds=60)
         )
 
-        # Store graph data in payload
-        if graph_data.get("success") and graph_data.get("nodes"):
-            payload["zep_graph_data"] = {
-                "nodes": graph_data["nodes"],
-                "edges": graph_data["edges"]
-            }
-            workflow.logger.info(f"Graph data: {len(graph_data['nodes'])} nodes, {len(graph_data['edges'])} edges")
+        # Store graph screenshot URL in payload
+        if graph_screenshot.get("success") and graph_screenshot.get("cloudinary_url"):
+            payload["zep_graph_screenshot_url"] = graph_screenshot["cloudinary_url"]
+            workflow.logger.info(f"Graph screenshot captured: {graph_screenshot['cloudinary_url']}")
         else:
-            workflow.logger.info("No graph data available yet")
+            workflow.logger.info(f"Graph screenshot failed: {graph_screenshot.get('error', 'Unknown error')}")
 
         # ===== COMPLETE =====
         from src.utils.helpers import generate_slug

@@ -101,6 +101,10 @@ from src.activities.storage.zep_graph_visual import (
     fetch_company_graph_data,
 )
 
+from src.activities.storage.zep_graph_screenshot import (
+    capture_zep_graph_screenshot,
+)
+
 # Articles activities re-enabled
 from src.activities.articles.fetch_related import (
     fetch_related_articles,
@@ -222,6 +226,7 @@ async def main():
             sync_company_to_zep,
             create_zep_summary,
             fetch_company_graph_data,
+            capture_zep_graph_screenshot,
 
             # Articles (re-enabled)
             fetch_related_articles,
