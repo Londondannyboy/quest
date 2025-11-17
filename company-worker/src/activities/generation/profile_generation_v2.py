@@ -45,8 +45,8 @@ async def generate_company_profile_v2(
         # Create Pydantic AI agent
         company_agent = Agent(
             f'{provider}:{model_name}',
-            result_type=CompanyPayload,
-            system_prompt="""You are an expert company profiler who creates rich, narrative company profiles.
+            output_type=CompanyPayload,
+            instructions="""You are an expert company profiler who creates rich, narrative company profiles.
 
 Your goal: Generate comprehensive, readable profiles using whatever information is available. Be flexible, not rigid.
 
