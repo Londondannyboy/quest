@@ -144,15 +144,24 @@ async def sync_company_to_zep(
         }
 
         # Add to Zep using app-specific organizational graph
-        await client.graph.add(
+        response = await client.graph.add(
             graph_id=graph_id,
             data=graph_data
         )
 
         activity.logger.info(f"Company synced to Zep graph '{graph_id}': {company_name}")
+        activity.logger.info(f"Zep response: {response}")
+
+        # Extract episode_id from response if available
+        episode_id = None
+        if response and hasattr(response, 'episode_id'):
+            episode_id = response.episode_id
+        elif response and isinstance(response, dict):
+            episode_id = response.get('episode_id')
 
         return {
             "graph_id": graph_id,
+            "episode_id": episode_id,
             "success": True
         }
 
