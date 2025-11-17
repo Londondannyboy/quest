@@ -10,7 +10,7 @@ Stored as JSONB in Neon PostgreSQL.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 
@@ -38,7 +38,7 @@ class CompanyPayload(BaseModel):
     )
 
     # ===== BASIC INFO =====
-    legal_name: str | None = Field(
+    legal_name: Optional[str] = Field(
         default=None,
         description="Official legal company name"
     )
@@ -48,23 +48,23 @@ class CompanyPayload(BaseModel):
         description="Alternative names, DBA names"
     )
 
-    tagline: str | None = Field(
+    tagline: Optional[str] = Field(
         default=None,
         description="One-line company tagline"
     )
 
-    description: str | None = Field(
+    description: Optional[str] = Field(
         default=None,
         description="Full company description (2-3 paragraphs)"
     )
 
-    short_description: str | None = Field(
+    short_description: Optional[str] = Field(
         default=None,
         description="Short description (1-2 sentences)"
     )
 
     # ===== CLASSIFICATION =====
-    industry: str | None = Field(
+    industry: Optional[str] = Field(
         default=None,
         description="Primary industry"
     )
@@ -74,12 +74,12 @@ class CompanyPayload(BaseModel):
         description="Sub-industries and sectors"
     )
 
-    service_type: str | None = Field(
+    service_type: Optional[str] = Field(
         default=None,
         description="Type of services provided"
     )
 
-    company_type: str | None = Field(
+    company_type: Optional[str] = Field(
         default=None,
         description="Company type (placement_agent, relocation_provider, etc.)"
     )
@@ -90,17 +90,17 @@ class CompanyPayload(BaseModel):
     )
 
     # ===== LOCATION =====
-    headquarters: str | None = Field(
+    headquarters: Optional[str] = Field(
         default=None,
         description="Full headquarters address"
     )
 
-    headquarters_city: str | None = Field(
+    headquarters_city: Optional[str] = Field(
         default=None,
         description="HQ city"
     )
 
-    headquarters_country: str | None = Field(
+    headquarters_country: Optional[str] = Field(
         default=None,
         description="HQ country"
     )
@@ -111,28 +111,28 @@ class CompanyPayload(BaseModel):
     )
 
     # ===== CONTACT =====
-    phone: str | None = Field(
+    phone: Optional[str] = Field(
         default=None,
         description="Primary phone number"
     )
 
-    website: str | None = Field(
+    website: Optional[str] = Field(
         default=None,
         description="Company website URL"
     )
 
-    linkedin_url: str | None = Field(
+    linkedin_url: Optional[str] = Field(
         default=None,
         description="LinkedIn company page URL"
     )
 
-    twitter_url: str | None = Field(
+    twitter_url: Optional[str] = Field(
         default=None,
         description="Twitter/X profile URL"
     )
 
     # ===== PEOPLE =====
-    headcount: str | None = Field(
+    headcount: Optional[str] = Field(
         default=None,
         description="Employee count or range"
     )
@@ -174,7 +174,7 @@ class CompanyPayload(BaseModel):
     )
 
     # ===== DEALS =====
-    total_deals: int | None = Field(
+    total_deals: Optional[int] = Field(
         default=None,
         description="Total number of deals completed"
     )
@@ -185,7 +185,7 @@ class CompanyPayload(BaseModel):
     )
 
     # ===== CLIENTS =====
-    total_clients: int | None = Field(
+    total_clients: Optional[int] = Field(
         default=None,
         description="Total number of clients served"
     )
@@ -242,7 +242,7 @@ class CompanyPayload(BaseModel):
         description="Subsidiary companies"
     )
 
-    parent_company: str | None = Field(
+    parent_company: Optional[str] = Field(
         default=None,
         description="Parent company name if applicable"
     )
@@ -278,14 +278,14 @@ class CompanyPayload(BaseModel):
         description="Detailed breakdown of what each data source contributed"
     )
 
-    data_completeness_score: float | None = Field(
+    data_completeness_score: Optional[float] = Field(
         default=None,
         description="Data completeness score (0-100)",
         ge=0.0,
         le=100.0
     )
 
-    last_verified: str | None = Field(
+    last_verified: Optional[str] = Field(
         default=None,
         description="ISO datetime of last verification"
     )
@@ -303,7 +303,7 @@ class CompanyPayload(BaseModel):
     )
 
     # ===== ZEPGRAPH =====
-    zep_graph_id: str | None = Field(
+    zep_graph_id: Optional[str] = Field(
         default=None,
         description="Zep graph node ID"
     )

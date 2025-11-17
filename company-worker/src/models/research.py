@@ -9,7 +9,7 @@ Intermediate research data structures used during company profiling.
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
-from typing import Any
+from typing import Any, Optional
 
 
 class ResearchData(BaseModel):
@@ -107,7 +107,7 @@ class ResearchData(BaseModel):
     )
 
     # ===== METADATA =====
-    research_duration_seconds: float | None = Field(
+    research_duration_seconds: Optional[float] = Field(
         default=None,
         description="Total research duration in seconds"
     )
@@ -182,12 +182,12 @@ class ExistingCompanyCheck(BaseModel):
         description="Whether company exists in database"
     )
 
-    company_id: str | None = Field(
+    company_id: Optional[str] = Field(
         default=None,
         description="Database ID if exists"
     )
 
-    slug: str | None = Field(
+    slug: Optional[str] = Field(
         default=None,
         description="URL slug if exists"
     )
@@ -197,7 +197,7 @@ class ExistingCompanyCheck(BaseModel):
         description="Whether existing company needs update"
     )
 
-    last_updated: str | None = Field(
+    last_updated: Optional[str] = Field(
         default=None,
         description="ISO datetime of last update"
     )

@@ -5,11 +5,13 @@ Extract company logo from website and process it for display.
 Upload to Cloudinary for hosting.
 """
 
+from __future__ import annotations
+
 import httpx
 import cloudinary
 import cloudinary.uploader
 from temporalio import activity
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from PIL import Image
@@ -204,7 +206,7 @@ async def find_logo_urls(url: str) -> list[str]:
     return candidates[:5]  # Return top 5 candidates
 
 
-async def download_image(url: str) -> bytes | None:
+async def download_image(url: str) -> Optional[bytes]:
     """
     Download image from URL.
 

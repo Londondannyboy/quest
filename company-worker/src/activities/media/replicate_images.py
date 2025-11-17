@@ -4,11 +4,13 @@ Replicate Image Generation Activity
 Generate featured images for companies using Flux Schnell via Replicate.
 """
 
+from __future__ import annotations
+
 import replicate
 import cloudinary
 import cloudinary.uploader
 from temporalio import activity
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from src.utils.config import config
 
@@ -16,9 +18,9 @@ from src.utils.config import config
 @activity.defn
 async def generate_company_featured_image(
     company_name: str,
-    logo_url: str | None,
+    logo_url: Optional[str],
     country: str,
-    founded_year: int | None
+    founded_year: Optional[int]
 ) -> Dict[str, Any]:
     """
     Generate featured image for company using Replicate + Flux Schnell.
@@ -128,9 +130,9 @@ async def generate_company_featured_image(
 
 def build_image_prompt(
     company_name: str,
-    logo_url: str | None,
+    logo_url: Optional[str],
     country: str,
-    founded_year: int | None
+    founded_year: Optional[int]
 ) -> str:
     """
     Build prompt for featured image generation.

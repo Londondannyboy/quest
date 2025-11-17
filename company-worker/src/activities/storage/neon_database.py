@@ -4,10 +4,12 @@ Neon PostgreSQL Database Activities
 Save company profiles to Neon database.
 """
 
+from __future__ import annotations
+
 import psycopg
 import json
 from temporalio import activity
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime
 
 from src.utils.config import config
@@ -16,14 +18,14 @@ from src.utils.helpers import generate_slug
 
 @activity.defn
 async def save_company_to_neon(
-    company_id: str | None,
+    company_id: Optional[str],
     domain: str,
     name: str,
     app: str,
     category: str,
     payload: Dict[str, Any],
-    logo_url: str | None,
-    featured_image_url: str | None
+    logo_url: Optional[str],
+    featured_image_url: Optional[str]
 ) -> str:
     """
     Save or update company profile in Neon database.
@@ -226,7 +228,7 @@ async def update_company_metadata(
 
 
 @activity.defn
-async def get_company_by_id(company_id: str) -> Dict[str, Any] | None:
+async def get_company_by_id(company_id: str) -> Optional[Dict[str, Any]]:
     """
     Retrieve company by ID.
 

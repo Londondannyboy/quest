@@ -4,8 +4,9 @@ Configuration Management
 Centralized environment variable loading and validation.
 """
 
+from __future__ import annotations
 import os
-from typing import Any
+from typing import Any, Optional
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -18,29 +19,29 @@ class Config:
     # ===== TEMPORAL =====
     TEMPORAL_ADDRESS: str = os.getenv("TEMPORAL_ADDRESS", "localhost:7233")
     TEMPORAL_NAMESPACE: str = os.getenv("TEMPORAL_NAMESPACE", "default")
-    TEMPORAL_API_KEY: str | None = os.getenv("TEMPORAL_API_KEY")
+    TEMPORAL_API_KEY: Optional[str] = os.getenv("TEMPORAL_API_KEY")
     TEMPORAL_TASK_QUEUE: str = os.getenv("TEMPORAL_TASK_QUEUE", "quest-company-queue")
 
     # ===== DATABASE =====
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 
     # ===== AI SERVICES =====
-    GOOGLE_API_KEY: str | None = os.getenv("GOOGLE_API_KEY")
-    OPENAI_API_KEY: str | None = os.getenv("OPENAI_API_KEY")
-    ANTHROPIC_API_KEY: str | None = os.getenv("ANTHROPIC_API_KEY")
+    GOOGLE_API_KEY: Optional[str] = os.getenv("GOOGLE_API_KEY")
+    OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
+    ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY")
 
     # ===== SEARCH & RESEARCH =====
-    SERPER_API_KEY: str | None = os.getenv("SERPER_API_KEY")
-    EXA_API_KEY: str | None = os.getenv("EXA_API_KEY")
-    FIRECRAWL_API_KEY: str | None = os.getenv("FIRECRAWL_API_KEY")
+    SERPER_API_KEY: Optional[str] = os.getenv("SERPER_API_KEY")
+    EXA_API_KEY: Optional[str] = os.getenv("EXA_API_KEY")
+    FIRECRAWL_API_KEY: Optional[str] = os.getenv("FIRECRAWL_API_KEY")
 
     # ===== IMAGE SERVICES =====
-    REPLICATE_API_TOKEN: str | None = os.getenv("REPLICATE_API_TOKEN")
-    CLOUDINARY_URL: str | None = os.getenv("CLOUDINARY_URL")
-    FLUX_API_KEY: str | None = os.getenv("FLUX_API_KEY")  # Black Forest Labs direct API
+    REPLICATE_API_TOKEN: Optional[str] = os.getenv("REPLICATE_API_TOKEN")
+    CLOUDINARY_URL: Optional[str] = os.getenv("CLOUDINARY_URL")
+    FLUX_API_KEY: Optional[str] = os.getenv("FLUX_API_KEY")  # Black Forest Labs direct API
 
     # ===== KNOWLEDGE GRAPH =====
-    ZEP_API_KEY: str | None = os.getenv("ZEP_API_KEY")
+    ZEP_API_KEY: Optional[str] = os.getenv("ZEP_API_KEY")
 
     # ===== FASTAPI =====
     API_KEY: str = os.getenv("API_KEY", "change-this-secret-key")

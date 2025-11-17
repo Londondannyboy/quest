@@ -52,35 +52,35 @@ class CompanyPayload(BaseModel):
     )
 
     # ===== OPTIONAL STRUCTURED (Only if clearly available) =====
-    industry: str | None = Field(
+    industry: Optional[str] = Field(
         default=None,
         description="Primary industry or sector"
     )
 
-    headquarters_city: str | None = Field(
+    headquarters_city: Optional[str] = Field(
         default=None,
         description="Headquarters city"
     )
 
-    headquarters_country: str | None = Field(
+    headquarters_country: Optional[str] = Field(
         default=None,
         description="Headquarters country"
     )
 
-    founded_year: int | None = Field(
+    founded_year: Optional[int] = Field(
         default=None,
         description="Year founded (only if explicitly mentioned)"
     )
 
-    employee_range: str | None = Field(
+    employee_range: Optional[str] = Field(
         default=None,
         description="Employee count range: '1-10', '10-50', '50-100', '100-500', '500+'"
     )
 
     # ===== CONTACT (Optional) =====
-    phone: str | None = Field(default=None, description="Primary phone number")
-    linkedin_url: str | None = Field(default=None, description="LinkedIn URL")
-    twitter_url: str | None = Field(default=None, description="Twitter/X URL")
+    phone: Optional[str] = Field(default=None, description="Primary phone number")
+    linkedin_url: Optional[str] = Field(default=None, description="LinkedIn URL")
+    twitter_url: Optional[str] = Field(default=None, description="Twitter/X URL")
 
     # ===== NARRATIVE SECTIONS (Dynamic - only exist if data supports them) =====
     profile_sections: dict[str, ProfileSection] = Field(
@@ -103,52 +103,52 @@ class CompanyPayload(BaseModel):
     )
 
     # ===== VISUAL ASSETS =====
-    logo_url: str | None = Field(
+    logo_url: Optional[str] = Field(
         default=None,
         description="Company logo URL (Cloudinary or other CDN)"
     )
 
     # Sequential Images (Flux Kontext)
-    featured_image_url: str | None = Field(
+    featured_image_url: Optional[str] = Field(
         default=None,
         description="Social sharing image with logo (1200x630)"
     )
-    featured_image_alt: str | None = Field(default=None)
-    featured_image_description: str | None = Field(default=None)
-    featured_image_title: str | None = Field(default=None)
+    featured_image_alt: Optional[str] = Field(default=None)
+    featured_image_description: Optional[str] = Field(default=None)
+    featured_image_title: Optional[str] = Field(default=None)
 
-    hero_image_url: str | None = Field(
+    hero_image_url: Optional[str] = Field(
         default=None,
         description="Company header image (16:9)"
     )
-    hero_image_alt: str | None = Field(default=None)
-    hero_image_description: str | None = Field(default=None)
-    hero_image_title: str | None = Field(default=None)
+    hero_image_alt: Optional[str] = Field(default=None)
+    hero_image_description: Optional[str] = Field(default=None)
+    hero_image_title: Optional[str] = Field(default=None)
 
-    content_image1_url: str | None = Field(default=None, description="First contextual brand image")
-    content_image1_alt: str | None = Field(default=None)
-    content_image1_description: str | None = Field(default=None)
-    content_image1_title: str | None = Field(default=None)
+    content_image1_url: Optional[str] = Field(default=None, description="First contextual brand image")
+    content_image1_alt: Optional[str] = Field(default=None)
+    content_image1_description: Optional[str] = Field(default=None)
+    content_image1_title: Optional[str] = Field(default=None)
 
-    content_image2_url: str | None = Field(default=None, description="Second contextual brand image")
-    content_image2_alt: str | None = Field(default=None)
-    content_image2_description: str | None = Field(default=None)
-    content_image2_title: str | None = Field(default=None)
+    content_image2_url: Optional[str] = Field(default=None, description="Second contextual brand image")
+    content_image2_alt: Optional[str] = Field(default=None)
+    content_image2_description: Optional[str] = Field(default=None)
+    content_image2_title: Optional[str] = Field(default=None)
 
-    content_image3_url: str | None = Field(default=None, description="Third contextual brand image")
-    content_image3_alt: str | None = Field(default=None)
-    content_image3_description: str | None = Field(default=None)
-    content_image3_title: str | None = Field(default=None)
+    content_image3_url: Optional[str] = Field(default=None, description="Third contextual brand image")
+    content_image3_alt: Optional[str] = Field(default=None)
+    content_image3_description: Optional[str] = Field(default=None)
+    content_image3_title: Optional[str] = Field(default=None)
 
-    content_image4_url: str | None = Field(default=None, description="Fourth contextual brand image")
-    content_image4_alt: str | None = Field(default=None)
-    content_image4_description: str | None = Field(default=None)
-    content_image4_title: str | None = Field(default=None)
+    content_image4_url: Optional[str] = Field(default=None, description="Fourth contextual brand image")
+    content_image4_alt: Optional[str] = Field(default=None)
+    content_image4_description: Optional[str] = Field(default=None)
+    content_image4_title: Optional[str] = Field(default=None)
 
-    content_image5_url: str | None = Field(default=None, description="Fifth contextual brand image")
-    content_image5_alt: str | None = Field(default=None)
-    content_image5_description: str | None = Field(default=None)
-    content_image5_title: str | None = Field(default=None)
+    content_image5_url: Optional[str] = Field(default=None, description="Fifth contextual brand image")
+    content_image5_alt: Optional[str] = Field(default=None)
+    content_image5_description: Optional[str] = Field(default=None)
+    content_image5_title: Optional[str] = Field(default=None)
 
     # ===== METADATA =====
     research_date: str = Field(
@@ -189,7 +189,7 @@ class CompanyPayload(BaseModel):
     )
 
     # ===== ZEP INTEGRATION =====
-    zep_graph_id: str | None = Field(
+    zep_graph_id: Optional[str] = Field(
         default=None,
         description="Zep graph episode or entity ID"
     )

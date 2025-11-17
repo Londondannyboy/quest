@@ -62,7 +62,7 @@ class CompanyInput(BaseModel):
     )
 
     # Optional overrides
-    company_name: str | None = Field(
+    company_name: Optional[str] = Field(
         default=None,
         description="Override auto-detected company name"
     )

@@ -4,10 +4,12 @@ Helper Utilities
 Common utility functions used across activities.
 """
 
+from __future__ import annotations
+
 import re
 from urllib.parse import urlparse
 from slugify import slugify as python_slugify
-from typing import Any
+from typing import Any, Optional
 
 
 def normalize_url(url: str) -> str:

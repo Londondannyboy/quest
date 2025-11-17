@@ -288,10 +288,11 @@ class CompanyCreationWorkflow:
         workflow.logger.info("Phase 7: Generating contextual brand images (Flux Kontext Max)")
 
         # Use new sequential image generation with Kontext Max for companies
+        # Use domain as ID since company_id isn't created yet
         company_images = await workflow.execute_activity(
             "generate_company_contextual_images",
             args=[
-                company_id,
+                normalized["domain"],  # Use domain instead of company_id (not created yet)
                 company_name,
                 logo_data.get("logo_url"),
                 list(payload.get("profile_sections", {}).values())[0].get("content", "")[:200] if payload.get("profile_sections") else company_name,
@@ -387,6 +388,25 @@ class CompanyCreationWorkflow:
         )
 
         workflow.logger.info("Zep sync complete")
+
+        # ===== PHASE 10.5: FETCH GRAPH VISUALIZATION DATA =====
+        workflow.logger.info("Phase 10.5: Fetching graph visualization data from Zep")
+
+        graph_data = await workflow.execute_activity(
+            "fetch_company_graph_data",
+            args=[company_name, normalized["domain"], input_data.app],
+            start_to_close_timeout=timedelta(seconds=30)
+        )
+
+        # Store graph data in payload
+        if graph_data.get("success") and graph_data.get("nodes"):
+            payload["zep_graph_data"] = {
+                "nodes": graph_data["nodes"],
+                "edges": graph_data["edges"]
+            }
+            workflow.logger.info(f"Graph data: {len(graph_data['nodes'])} nodes, {len(graph_data['edges'])} edges")
+        else:
+            workflow.logger.info("No graph data available yet")
 
         # ===== COMPLETE =====
         from src.utils.helpers import generate_slug
