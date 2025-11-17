@@ -109,12 +109,13 @@ class Config:
         Returns:
             Tuple of (provider, model_name)
         """
-        if cls.GOOGLE_API_KEY:
+        # Prefer Anthropic Claude for better narrative generation
+        if cls.ANTHROPIC_API_KEY:
+            return ("anthropic", "claude-3-5-sonnet-20241022")
+        elif cls.GOOGLE_API_KEY:
             return ("google", "gemini-2.5-flash")
         elif cls.OPENAI_API_KEY:
             return ("openai", "gpt-4o-mini")
-        elif cls.ANTHROPIC_API_KEY:
-            return ("anthropic", "claude-3-5-sonnet-20241022")
         else:
             raise ValueError("No AI API key configured")
 
