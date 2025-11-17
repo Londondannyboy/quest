@@ -1,8 +1,12 @@
 """
+
+from __future__ import annotations
 Research Data Models
 
 Intermediate research data structures used during company profiling.
 """
+
+from __future__ import annotations
 
 from pydantic import BaseModel, Field
 from typing import Any

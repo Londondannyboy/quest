@@ -360,19 +360,16 @@ class CompanyCreationWorkflow:
 
         workflow.logger.info(f"Saved to database: company_id={company_id}")
 
-        # ===== PHASE 9: FETCH RELATED ARTICLES - DISABLED =====
-        # Disabled due to type error: Expected value to be str, was <class 'int'>
-        # workflow.logger.info("Phase 9: Fetching related articles")
-        #
-        # related_articles = await workflow.execute_activity(
-        #     "fetch_related_articles",
-        #     args=[company_id, 10],
-        #     start_to_close_timeout=timedelta(seconds=30)
-        # )
-        #
-        # workflow.logger.info(f"Found {len(related_articles)} related articles")
+        # ===== PHASE 9: FETCH RELATED ARTICLES =====
+        workflow.logger.info("Phase 9: Fetching related articles")
 
-        related_articles = []  # Placeholder
+        related_articles = await workflow.execute_activity(
+            "fetch_related_articles",
+            args=[str(company_id), 10],  # Convert company_id to string
+            start_to_close_timeout=timedelta(seconds=30)
+        )
+
+        workflow.logger.info(f"Found {len(related_articles)} related articles")
 
         # ===== PHASE 10: ZEP SYNC =====
         workflow.logger.info("Phase 10: Syncing to Zep knowledge graph")

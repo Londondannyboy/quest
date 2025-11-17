@@ -1,9 +1,13 @@
 """
+
+from __future__ import annotations
 Company Payload Model
 
 Complete company data structure based on Crunchbase + PitchBook analysis.
 Stored as JSONB in Neon PostgreSQL.
 """
+
+from __future__ import annotations
 
 from datetime import datetime
 from typing import Any

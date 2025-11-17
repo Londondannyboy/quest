@@ -4,7 +4,9 @@ Company Input Models
 User-provided input for company creation workflow.
 """
 
+from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator
+from typing import Optional
 
 
 class CompanyInput(BaseModel):

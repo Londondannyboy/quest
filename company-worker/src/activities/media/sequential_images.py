@@ -48,19 +48,27 @@ def build_sequential_prompt(
     Returns:
         Optimized Kontext prompt with appropriate tone
     """
-    # App-specific style guidance
-    style_guides = {
-        "placement": "Bloomberg editorial style, corporate photography, professional finance aesthetic, "
-                     "modern clean design, subtle blues and grays, business imagery",
-        "relocation": "National Geographic travel photography, lifestyle imagery, aspirational scenes, "
-                      "golden hour lighting, authentic cultural moments, welcoming atmosphere",
-        "chief-of-staff": "Fortune 500 executive photography, leadership imagery, premium corporate aesthetic, "
-                          "authoritative professional scenes, polished business environment",
-        "consultancy": "McKinsey-style advisory imagery, strategic business photography, analytical aesthetic, "
-                       "clean modern professional design"
+    # CRITICAL: Semi-cartoon illustration style (NOT photorealistic!)
+    # This makes the context/sentiment immediately visually obvious
+    base_style = (
+        "Semi-cartoon illustration style, stylized NOT photorealistic. "
+        "Clean lines, professional but approachable, digital art aesthetic, business-appropriate cartoon. "
+        "Color palette: corporate navy blue, charcoal gray, tech blue accents, white/light backgrounds, "
+        "minimal use of warm colors. "
+        "Characters: Stylized cartoon business executives and professionals (NOT realistic people). "
+        "Setting: Modern corporate environments with glass walls, minimalist design, clean digital art. "
+        "IMPORTANT: Professional digital art for business article. Avoid cheesy realistic photography."
+    )
+
+    # App-specific context (adds to base style)
+    app_context = {
+        "placement": "Private equity/M&A office settings, financial district aesthetics",
+        "relocation": "International relocation scenes, cultural transition moments",
+        "chief-of-staff": "C-suite executive environments, leadership settings",
+        "consultancy": "Strategic advisory settings, business transformation scenes"
     }
 
-    base_style = style_guides.get(app, style_guides["placement"])
+    context_addition = app_context.get(app, app_context["placement"])
 
     # Extract section details with context awareness
     title = section.get("title", "")
@@ -69,49 +77,63 @@ def build_sequential_prompt(
     visual_tone = section.get("visual_tone", "professional")
     business_context = section.get("business_context", "general")
 
-    # Build tone-appropriate description
+    # Build tone-appropriate description (EXAGGERATED for cartoon style)
+    # The semi-cartoon style lets us be more expressive and obvious about the context
     tone_guidance = {
-        "somber-serious": "serious expressions, no smiling, subdued professional atmosphere",
-        "professional-optimistic": "confident but measured, professional handshakes, positive energy",
-        "tense-uncertain": "concerned expressions, uncertain atmosphere, problem-solving mode",
-        "celebratory": "professional celebration, achievement moment, positive but tasteful",
-        "analytical-neutral": "focused analytical work, neutral professional demeanor"
+        "somber-serious": "serious cartoon faces with furrowed brows, subdued colors, downward body language, "
+                         "heavy atmosphere visible in illustration (e.g., darker shading around characters)",
+        "professional-optimistic": "confident cartoon handshakes, slight smiles, positive energy shown through "
+                                  "bright accents, upward gestures, open body language in illustration",
+        "tense-uncertain": "worried cartoon expressions, question marks or concern symbols, uncertain postures, "
+                          "fragmented or angular illustration elements suggesting instability",
+        "celebratory": "joyful cartoon celebration, raised arms, confetti or achievement symbols, bright colors, "
+                      "triumphant poses in stylized digital art",
+        "analytical-neutral": "focused cartoon professionals with charts/graphs, neutral expressions, "
+                            "clean organized workspace, balanced composition"
     }
 
-    tone_desc = tone_guidance.get(visual_tone, "professional demeanor")
+    tone_desc = tone_guidance.get(visual_tone, "professional cartoon demeanor")
 
     if is_first:
         # First image: Set the visual foundation with appropriate tone
+        # EXAGGERATED so story is visually obvious (e.g., "that's about layoffs")
         prompt = (
-            f"{visual_moment}. {base_style}. "
-            f"Tone: {tone_desc}. "
-            f"Context: {business_context}. "
-            f"Professional, high-quality, editorial photography. "
-            f"Mood matches the reality: {sentiment}."
+            f"Scene: {visual_moment}. "
+            f"Style: {base_style} "
+            f"Context: {context_addition}. "
+            f"Tone/Mood: {tone_desc} "
+            f"Business context: {business_context} (make this visually obvious through exaggerated cartoon expression). "
+            f"Sentiment: {sentiment} - exaggerate this in the illustration style. "
+            f"CRITICAL: Semi-cartoon digital art, NOT realistic photography. Stylized business characters."
         )
     else:
-        # Subsequent images: Preserve previous context, add new scene, MAINTAIN TONE
+        # Subsequent images: Preserve previous context, add new scene, MAINTAIN CARTOON STYLE
         # This is the KEY to Kontext's sequential power
         prompt = (
-            f"Using the same visual style, characters, and aesthetic as the previous image, "
+            f"Using the SAME semi-cartoon illustration style, same stylized characters, "
+            f"same color palette (navy blue, charcoal gray, tech blue) as the previous image, "
             f"now show: {visual_moment}. "
-            f"Keep the same artistic approach, color palette, and professional quality. "
-            f"Change the scene to represent: {title}. "
-            f"Tone: {tone_desc}. "
-            f"Context: {business_context}. "
-            f"Maintain consistency while depicting this new moment. "
-            f"Mood: {sentiment}. {base_style}."
+            f"Scene: {title}. "
+            f"Tone/Mood: {tone_desc} "
+            f"Business context: {business_context} (exaggerate visually through cartoon expressions and setting). "
+            f"Sentiment: {sentiment}. "
+            f"Maintain visual consistency with previous cartoon style - same character designs, same digital art aesthetic. "
+            f"IMPORTANT: Continue the semi-cartoon illustration style, NOT photorealistic. "
+            f"Professional digital art for business article."
         )
 
     # Keep under 512 token limit (roughly 400-450 words)
     if len(prompt) > 2000:  # Rough character limit
-        # Simplify if too long
+        # Simplify if too long BUT keep semi-cartoon style mandate
         if is_first:
-            prompt = f"{visual_moment}. {base_style}. Mood: {sentiment}."
+            prompt = (
+                f"{visual_moment}. Semi-cartoon illustration style, NOT photorealistic. "
+                f"Stylized business characters. {tone_desc} Mood: {sentiment}."
+            )
         else:
             prompt = (
-                f"Using the same style as the previous image, show: {visual_moment}. "
-                f"Maintain consistency. {base_style}."
+                f"Using the same semi-cartoon style and characters from previous image, show: {visual_moment}. "
+                f"Maintain cartoon illustration consistency. {tone_desc}"
             )
 
     return prompt
@@ -425,10 +447,13 @@ async def generate_company_contextual_images(
         activity.logger.info(f"Generating company featured image with {featured_model}")
 
         featured_prompt = (
-            f"Professional business card design for {company_name}. "
-            f"Clean modern corporate aesthetic. Premium brand imagery. "
-            f"1200x630 aspect. {country} market. Sophisticated professional style. "
-            f"High-end branding, company identity focus."
+            f"Semi-cartoon illustration style business card design for {company_name}. "
+            f"Stylized corporate branding, NOT photorealistic. "
+            f"Clean lines, professional digital art aesthetic. "
+            f"Color palette: corporate navy blue, charcoal gray, tech blue accents, white background. "
+            f"Company logo integrated into stylized business cartoon scene. "
+            f"{country} market focus. "
+            f"IMPORTANT: Professional cartoon digital art for business branding, NOT realistic photography."
         )
 
         featured_result = await generate_flux_image(
@@ -449,10 +474,13 @@ async def generate_company_contextual_images(
         activity.logger.info(f"Generating company hero image with {featured_model}")
 
         hero_prompt = (
-            f"Using the same brand aesthetic, corporate office environment for {company_name}. "
-            f"Modern professional workspace. Maintain brand consistency. "
-            f"Premium business photography. 16:9 aspect. "
-            f"Company identity and culture focus."
+            f"Using the SAME semi-cartoon illustration style and color palette as the previous image, "
+            f"corporate office environment for {company_name}. "
+            f"Stylized cartoon professionals in modern workspace with glass walls, minimalist design. "
+            f"Same navy blue, charcoal gray, tech blue color scheme. "
+            f"Maintain cartoon illustration consistency with previous image. "
+            f"Company culture shown through stylized digital art. "
+            f"IMPORTANT: Continue the semi-cartoon aesthetic, NOT realistic photography."
         )
 
         hero_result = await generate_flux_image(

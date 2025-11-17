@@ -97,12 +97,12 @@ from src.activities.storage.zep_integration import (
     create_zep_summary,
 )
 
-# Articles activities disabled - type error issues
-# from src.activities.articles.fetch_related import (
-#     fetch_related_articles,
-#     link_article_to_company,
-#     get_article_timeline,
-# )
+# Articles activities re-enabled
+from src.activities.articles.fetch_related import (
+    fetch_related_articles,
+    link_article_to_company,
+    get_article_timeline,
+)
 
 from src.utils.config import config
 
@@ -218,10 +218,10 @@ async def main():
             sync_company_to_zep,
             create_zep_summary,
 
-            # Articles disabled - type error issues
-            # fetch_related_articles,
-            # link_article_to_company,
-            # get_article_timeline,
+            # Articles (re-enabled)
+            fetch_related_articles,
+            link_article_to_company,
+            get_article_timeline,
         ],
     )
 
@@ -269,12 +269,11 @@ async def main():
             "sync_company_to_zep",
             "create_zep_summary",
         ]),
-        # Articles disabled - type error issues
-        # ("Articles", [
-        #     "fetch_related_articles",
-        #     "link_article_to_company",
-        #     "get_article_timeline",
-        # ]),
+        ("Articles", [
+            "fetch_related_articles",
+            "link_article_to_company",
+            "get_article_timeline",
+        ]),
     ]
 
     for group_name, activities in activity_groups:
