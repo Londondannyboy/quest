@@ -296,27 +296,15 @@ def build_research_context(research: ResearchData) -> str:
     Returns:
         Formatted context string optimized for narrative generation
     """
-    # Map category to explicit business type
-    category_map = {
-        "placement": "placement agent",
-        "relocation": "relocation service provider",
-        "consulting": "consulting firm",
-        "investment": "investment firm"
-    }
-    explicit_type = category_map.get(research.category, research.category)
-
     lines = [
         f"COMPANY: {research.company_name}",
         f"DOMAIN: {research.domain}",
         f"URL: {research.normalized_url}",
         f"JURISDICTION: {research.jurisdiction}",
-        f"",
-        f"IMPORTANT: This IS a {explicit_type.upper()} company.",
-        f"Category: {research.category}",
+        f"CATEGORY: {research.category}",
         "",
         "Generate a rich, narrative profile using the information below.",
         "Only create sections where you have substantial, specific content.",
-        "PRIORITIZE information from EXA RESEARCH as it contains high-quality, curated sources.",
         "",
         "=" * 70,
         ""
@@ -393,14 +381,20 @@ def build_research_context(research: ResearchData) -> str:
 
             lines.append("=" * 70 + "\n")
 
-    # Research quality indicators (informational only - don't let this override the data above)
+    # Research quality indicators
     lines.extend([
-        "===== RESEARCH METADATA (for reference only) =====",
-        f"Initial Confidence Score: {research.confidence_score:.2f}",
-        f"NOTE: Low confidence scores may indicate sparse public information, not inaccurate category.",
-        f"Use ALL available data from Exa Research and Website Content above.",
+        "===== RESEARCH QUALITY =====",
+        f"Confidence Score: {research.confidence_score:.2f}",
+        f"Is Ambiguous: {research.is_ambiguous}",
+        f"Recommendation: {research.recommendation}",
         ""
     ])
+
+    if research.ambiguity_signals:
+        lines.append("Ambiguity Signals:")
+        for signal in research.ambiguity_signals:
+            lines.append(f"- {signal}")
+        lines.append("")
 
     context = "\n".join(lines)
 
