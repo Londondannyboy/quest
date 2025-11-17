@@ -354,7 +354,8 @@ class CompanyCreationWorkflow:
                 input_data.category,
                 payload,
                 logo_data.get("logo_url"),
-                company_images.get("featured_image_url")
+                company_images.get("featured_image_url"),
+                company_images.get("hero_image_url")  # Add hero image
             ],
             start_to_close_timeout=timedelta(seconds=30)
         )

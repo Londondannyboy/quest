@@ -25,7 +25,8 @@ async def save_company_to_neon(
     category: str,
     payload: Dict[str, Any],
     logo_url: Optional[str],
-    featured_image_url: Optional[str]
+    featured_image_url: Optional[str],
+    hero_image_url: Optional[str] = None
 ) -> str:
     """
     Save or update company profile in Neon database.
@@ -39,6 +40,7 @@ async def save_company_to_neon(
         payload: Full CompanyPayload as dict
         logo_url: URL to company logo
         featured_image_url: URL to featured image
+        hero_image_url: URL to hero image
 
     Returns:
         Company ID (str)
@@ -94,6 +96,7 @@ async def save_company_to_neon(
                             description = %s,
                             overview = %s,
                             featured_image_url = %s,
+                            hero_image_url = %s,
                             meta_description = %s,
                             payload = %s,
                             updated_at = NOW()
@@ -106,6 +109,7 @@ async def save_company_to_neon(
                         description,
                         overview,
                         featured_image_url,
+                        hero_image_url,
                         meta_description,
                         json.dumps(payload),
                         company_id
@@ -126,18 +130,20 @@ async def save_company_to_neon(
                             description,
                             overview,
                             featured_image_url,
+                            hero_image_url,
                             meta_description,
                             payload,
                             created_at,
                             updated_at
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
                         ON CONFLICT (slug)
                         DO UPDATE SET
                             name = EXCLUDED.name,
                             description = EXCLUDED.description,
                             overview = EXCLUDED.overview,
                             featured_image_url = EXCLUDED.featured_image_url,
+                            hero_image_url = EXCLUDED.hero_image_url,
                             meta_description = EXCLUDED.meta_description,
                             payload = EXCLUDED.payload,
                             updated_at = NOW()
@@ -149,6 +155,7 @@ async def save_company_to_neon(
                         description,
                         overview,
                         featured_image_url,
+                        hero_image_url,
                         meta_description,
                         json.dumps(payload)
                     ))
