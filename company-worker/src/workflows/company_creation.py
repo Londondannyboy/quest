@@ -389,51 +389,76 @@ class CompanyCreationWorkflow:
 
         workflow.logger.info("Zep sync complete")
 
-        # ===== PHASE 10.5: CAPTURE GRAPH SCREENSHOT =====
-        workflow.logger.info("Phase 10.5: Capturing Zep graph screenshot with Playwright")
+        # ===== PHASE 10.5: PARALLEL GRAPH VISUALIZATION (3 ATTEMPTS) =====
+        workflow.logger.info("Phase 10.5: Running 3 parallel graph visualization attempts")
 
         # Map app to graph ID
         graph_id = "finance-knowledge" if input_data.app == "placement" else "relocation"
 
-        graph_screenshot = await workflow.execute_activity(
+        # Run all 3 visualization attempts in parallel
+        screenshot_task = workflow.execute_activity(
             "capture_zep_graph_screenshot",
             args=[company_name, graph_id],
             start_to_close_timeout=timedelta(seconds=60)
         )
 
-        # Store graph screenshot URL in payload (optional - won't break workflow if fails)
-        if graph_screenshot.get("success") and graph_screenshot.get("cloudinary_url"):
-            payload["zep_graph_screenshot_url"] = graph_screenshot["cloudinary_url"]
-            workflow.logger.info(f"✅ Graph screenshot captured: {graph_screenshot['cloudinary_url']}")
-        else:
-            workflow.logger.warning(
-                f"⚠️ Graph screenshot unavailable (non-critical): {graph_screenshot.get('error', 'Unknown')} - "
-                f"Ontology sync still successful"
-            )
-
-        # ===== PHASE 10.6: FETCH GRAPH VISUALIZATION DATA =====
-        workflow.logger.info("Phase 10.6: Fetching graph visualization data from Zep API")
-
-        graph_data = await workflow.execute_activity(
+        data_task = workflow.execute_activity(
             "fetch_company_graph_data",
             args=[company_name, normalized["domain"], input_data.app],
             start_to_close_timeout=timedelta(seconds=30)
         )
 
-        # Store graph data in payload (optional - won't break workflow if fails)
+        video_task = workflow.execute_activity(
+            "capture_graph_3d_video",
+            args=[company_name, {"nodes": [], "edges": []}],  # Will be populated after data_task
+            start_to_close_timeout=timedelta(seconds=90)
+        )
+
+        # Wait for all to complete
+        graph_screenshot, graph_data, graph_video = await asyncio.gather(
+            screenshot_task, data_task, video_task
+        )
+
+        # Store screenshot if available
+        if graph_screenshot.get("success") and graph_screenshot.get("cloudinary_url"):
+            payload["zep_graph_screenshot_url"] = graph_screenshot["cloudinary_url"]
+            workflow.logger.info(f"✅ Attempt #3 (Screenshot): {graph_screenshot['cloudinary_url']}")
+        else:
+            workflow.logger.warning(
+                f"⚠️ Attempt #3 (Screenshot) failed: {graph_screenshot.get('error', 'Unknown')}"
+            )
+
+        # Store graph data if available
         if graph_data.get("success") and graph_data.get("nodes"):
             payload["zep_graph_data"] = {
                 "nodes": graph_data["nodes"],
                 "edges": graph_data["edges"]
             }
             workflow.logger.info(
-                f"✅ Graph data fetched: {len(graph_data['nodes'])} nodes, "
+                f"✅ Attempt #1 (API Data): {len(graph_data['nodes'])} nodes, "
                 f"{len(graph_data['edges'])} edges"
             )
+
+            # Re-run 3D video with actual graph data if we got it
+            if graph_data["nodes"]:
+                workflow.logger.info("Re-running 3D video with actual graph data...")
+                graph_video = await workflow.execute_activity(
+                    "capture_graph_3d_video",
+                    args=[company_name, graph_data],
+                    start_to_close_timeout=timedelta(seconds=90)
+                )
         else:
             workflow.logger.warning(
-                f"⚠️ Graph data unavailable (non-critical): {graph_data.get('error', 'No data')} - "
-                f"Will use screenshot if available"
+                f"⚠️ Attempt #1 (API Data) failed: {graph_data.get('error', 'No data')}"
+            )
+
+        # Store 3D video if available
+        if graph_video.get("success") and graph_video.get("video_url"):
+            payload["zep_graph_3d_video_url"] = graph_video["video_url"]
+            workflow.logger.info(f"✅ Attempt #2 (3D Video): {graph_video['video_url']}")
+        else:
+            workflow.logger.warning(
+                f"⚠️ Attempt #2 (3D Video) failed: {graph_video.get('error', 'Unknown')}"
             )
 
         # ===== COMPLETE =====
