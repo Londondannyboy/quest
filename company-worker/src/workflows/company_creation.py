@@ -204,8 +204,8 @@ class CompanyCreationWorkflow:
             f"{len(zep_context.get('deals', []))} deals"
         )
 
-        # ===== PHASE 6: GENERATE PROFILE =====
-        workflow.logger.info("Phase 6: Generating company profile with Pydantic AI")
+        # ===== PHASE 6: GENERATE PROFILE (V2 - Narrative-First) =====
+        workflow.logger.info("Phase 6: Generating company profile with V2 (Narrative-First)")
 
         # Build research data
         research_data = ResearchData(
@@ -227,7 +227,7 @@ class CompanyCreationWorkflow:
         )
 
         profile_result = await workflow.execute_activity(
-            "generate_company_profile",
+            "generate_company_profile_v2",
             args=[research_data.model_dump()],
             start_to_close_timeout=timedelta(seconds=30)
         )

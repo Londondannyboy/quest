@@ -57,6 +57,10 @@ from src.activities.generation.profile_generation import (
     generate_company_profile,
 )
 
+from src.activities.generation.profile_generation_v2 import (
+    generate_company_profile_v2,
+)
+
 from src.activities.generation.completeness import (
     calculate_completeness_score,
     get_missing_fields,
@@ -175,6 +179,7 @@ async def main():
 
             # Generation
             generate_company_profile,
+            generate_company_profile_v2,
             calculate_completeness_score,
             get_missing_fields,
             suggest_improvements,
@@ -225,6 +230,7 @@ async def main():
         ]),
         ("Generation", [
             "generate_company_profile",
+            "generate_company_profile_v2",
             "calculate_completeness_score",
             "get_missing_fields",
             "suggest_improvements",
