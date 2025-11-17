@@ -5,6 +5,8 @@ Generates flexible, narrative company profiles that only include sections
 where substantial information is available. No NULL fields, no forced structure.
 """
 
+from __future__ import annotations
+
 from temporalio import activity
 from typing import Dict, Any
 from pydantic_ai import Agent
