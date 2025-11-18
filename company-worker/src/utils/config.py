@@ -62,6 +62,7 @@ class Config:
     # ===== SEARCH & RESEARCH =====
     SERPER_API_KEY: Optional[str] = os.getenv("SERPER_API_KEY")
     EXA_API_KEY: Optional[str] = os.getenv("EXA_API_KEY")
+    LINKUP_API_KEY: Optional[str] = os.getenv("LINKUP_API_KEY")
     FIRECRAWL_API_KEY: Optional[str] = os.getenv("FIRECRAWL_API_KEY")
 
     # ===== IMAGE SERVICES =====

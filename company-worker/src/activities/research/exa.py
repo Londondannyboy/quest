@@ -3,6 +3,8 @@ Exa Research Activity
 
 High-quality company research using Exa's neural search.
 Cost: $0.04 per query
+
+Falls back to LinkUp Deep Research ($0.05) if Exa fails.
 """
 
 from temporalio import activity
@@ -10,6 +12,7 @@ from typing import Dict, Any
 from exa_py import Exa
 
 from src.utils.config import config
+from src.activities.research.linkup import linkup_deep_research
 
 
 @activity.defn
@@ -111,6 +114,34 @@ async def exa_research_company(
 
     except Exception as e:
         activity.logger.error(f"Exa research failed: {e}")
+
+        # Fallback to LinkUp if configured
+        if config.LINKUP_API_KEY:
+            activity.logger.warning("Falling back to LinkUp Deep Research")
+            try:
+                # Build query for LinkUp
+                category_clean = category.replace('_', ' ')
+                query = f"{company_name} {category_clean} deals transactions"
+
+                linkup_result = await linkup_deep_research(query, company_name)
+
+                # Mark result as from fallback
+                linkup_result["fallback_from"] = "exa"
+                linkup_result["exa_error"] = str(e)
+
+                activity.logger.info(f"LinkUp fallback successful: {len(linkup_result.get('results', []))} results")
+                return linkup_result
+
+            except Exception as linkup_error:
+                activity.logger.error(f"LinkUp fallback also failed: {linkup_error}")
+                return {
+                    "results": [],
+                    "cost": 0.04,  # Exa charges even on error
+                    "summary": {},
+                    "error": f"Exa failed: {str(e)}, LinkUp fallback failed: {str(linkup_error)}"
+                }
+
+        # No fallback available
         return {
             "results": [],
             "cost": 0.04,  # Still charged even on error
