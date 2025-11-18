@@ -78,7 +78,7 @@ async def query_zep_for_context(
         results = await client.graph.search(
             graph_id=graph_id,  # Use app-specific organizational graph
             query=search_query,
-            scope=GraphSearchScope.EDGES,  # Search relationships
+            scope=GraphSearchScope.NODES,  # Search entities (companies, deals, people)
             limit=20
         )
 
