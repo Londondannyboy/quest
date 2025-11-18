@@ -97,6 +97,11 @@ from src.activities.storage.zep_integration import (
     query_zep_for_context,
     sync_company_to_zep,
     create_zep_summary,
+    sync_v2_profile_to_zep_graph,
+)
+
+from src.activities.storage.zep_entity_extraction import (
+    extract_entities_from_v2_profile,
 )
 
 from src.activities.storage.zep_graph_visual import (

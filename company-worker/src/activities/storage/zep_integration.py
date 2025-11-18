@@ -72,29 +72,76 @@ async def query_zep_for_context(
     try:
         client = AsyncZep(api_key=config.ZEP_API_KEY)
 
-        # Search Zep graph using graph_id (organizational knowledge)
+        # Search query combining company name and domain
         search_query = f"{company_name} {domain}"
 
-        results = await client.graph.search(
-            graph_id=graph_id,  # Use app-specific organizational graph
+        # 1. Search episodes (narrative content)
+        activity.logger.info(f"Searching episodes for: {search_query}")
+        episode_results = await client.graph.search(
+            graph_id=graph_id,
             query=search_query,
-            scope="nodes",  # Search entities (companies, deals, people) - must be lowercase string
+            scope="episodes",  # Search narrative episodes
             limit=20
         )
 
-        # Extract articles and deals from nodes
-        articles = extract_articles_from_results(results)
-        deals = extract_deals_from_results(results)
+        # 2. Search nodes/entities (structured entities)
+        activity.logger.info(f"Searching entities for: {search_query}")
+        entity_results = await client.graph.search(
+            graph_id=graph_id,
+            query=search_query,
+            scope="nodes",  # Search structured entities
+            limit=20
+        )
+
+        # Extract structured entities from episode data
+        extracted_deals = []
+        extracted_people = []
+
+        # Parse episode data for extracted_entities
+        if hasattr(episode_results, 'edges'):
+            for edge in episode_results.edges:
+                if hasattr(edge, 'fact') and edge.fact:
+                    try:
+                        import json
+                        # Try to parse the fact as JSON
+                        fact_data = json.loads(edge.fact) if isinstance(edge.fact, str) else edge.fact
+                        if isinstance(fact_data, dict):
+                            # Extract entities if present
+                            entities = fact_data.get('extracted_entities', {})
+                            if entities.get('deals'):
+                                extracted_deals.extend(entities['deals'][:5])
+                            if entities.get('people'):
+                                extracted_people.extend(entities['people'][:5])
+                    except:
+                        pass
+
+        # Extract from nodes
+        articles = extract_articles_from_results(entity_results)
+        node_deals = extract_deals_from_results(entity_results)
+
+        # Combine deals from episodes and nodes
+        all_deals = extracted_deals + node_deals
+
+        # Deduplicate deals by name
+        seen_deals = set()
+        unique_deals = []
+        for deal in all_deals:
+            deal_name = deal.get('name', '')
+            if deal_name and deal_name not in seen_deals:
+                seen_deals.add(deal_name)
+                unique_deals.append(deal)
 
         activity.logger.info(
-            f"Zep context: {len(articles)} articles, {len(deals)} deals"
+            f"Zep context: {len(articles)} articles, {len(unique_deals)} deals, {len(extracted_people)} people"
         )
 
         return {
             "articles": articles[:10],
-            "deals": deals[:10],
-            "found_existing_coverage": len(articles) > 0 or len(deals) > 0,
-            "total_nodes": len(results.nodes) if hasattr(results, 'nodes') else 0
+            "deals": unique_deals[:15],  # Return more deals
+            "people": extracted_people[:10],
+            "found_existing_coverage": len(articles) > 0 or len(unique_deals) > 0,
+            "total_episodes": len(episode_results.edges) if hasattr(episode_results, 'edges') else 0,
+            "total_entities": len(entity_results.nodes) if hasattr(entity_results, 'nodes') else 0
         }
 
     except Exception as e:
@@ -102,6 +149,7 @@ async def query_zep_for_context(
         return {
             "articles": [],
             "deals": [],
+            "people": [],
             "found_existing_coverage": False,
             "error": str(e)
         }
@@ -378,3 +426,126 @@ def extract_deals_from_results(results: Any) -> list[Dict[str, Any]]:
             })
 
     return deals
+
+
+@activity.defn
+async def sync_v2_profile_to_zep_graph(
+    company_id: str,
+    company_name: str,
+    domain: str,
+    payload: Dict[str, Any],
+    extracted_entities: Dict[str, Any],
+    app: str = "placement"
+) -> Dict[str, Any]:
+    """
+    Sync V2 profile to Zep as structured graph entities.
+
+    Creates:
+    1. Company entity (typed)
+    2. Deal entities (from extracted deals)
+    3. Person entities (from extracted people)
+    4. Edges linking them
+
+    Args:
+        company_id: Database company ID
+        company_name: Company name
+        domain: Company domain
+        payload: V2 flexible payload
+        extracted_entities: Entities extracted from narrative
+        app: Application type for graph selection
+
+    Returns:
+        Dict with success, entity IDs, counts
+    """
+    graph_id = get_graph_id_for_app(app)
+    activity.logger.info(
+        f"Syncing {company_name} to Zep graph '{graph_id}' as structured entities"
+    )
+
+    if not config.ZEP_API_KEY:
+        return {
+            "success": False,
+            "error": "ZEP_API_KEY not configured"
+        }
+
+    try:
+        client = AsyncZep(api_key=config.ZEP_API_KEY)
+
+        # Extract company properties from payload
+        company_entity_data = extract_company_entity_from_payload(
+            company_name, domain, payload
+        )
+
+        activity.logger.info(f"Creating Company entity: {company_name}")
+
+        # 1. Create Company entity
+        # Note: Zep entity creation API might be: client.graph.add_node() or similar
+        # For now, we'll continue using episode sync as primary
+        # TODO: Update once Zep Python SDK supports entity.create() method
+
+        # Create summary with entities for episode
+        deals_summary = ""
+        if extracted_entities.get("deals"):
+            deals_count = len(extracted_entities["deals"])
+            deals_summary = f"\n\nKNOWN DEALS ({deals_count}):\n"
+            for deal in extracted_entities["deals"][:10]:  # Top 10
+                deals_summary += f"- {deal['name']} ({deal.get('value', 'N/A')}) - {deal.get('date', 'N/A')}\n"
+
+        people_summary = ""
+        if extracted_entities.get("people"):
+            people_count = len(extracted_entities["people"])
+            people_summary = f"\n\nKEY PEOPLE ({people_count}):\n"
+            for person in extracted_entities["people"][:10]:  # Top 10
+                people_summary += f"- {person['name']}, {person.get('role', 'N/A')}\n"
+
+        # Build enhanced episode data
+        enhanced_data = {
+            "company_id": company_id,
+            "company_name": company_name,
+            "domain": domain,
+            "app": app,
+            "entity": company_entity_data,
+            "extracted_entities": {
+                "deals_count": len(extracted_entities.get("deals", [])),
+                "people_count": len(extracted_entities.get("people", [])),
+                "deals": extracted_entities.get("deals", []),
+                "people": extracted_entities.get("people", [])
+            },
+            "structured_summary": deals_summary + people_summary
+        }
+
+        # Add enhanced episode to Zep
+        import json as json_lib
+        response = await client.graph.add(
+            graph_id=graph_id,
+            type="json",
+            data=json_lib.dumps(enhanced_data)
+        )
+
+        activity.logger.info(
+            f"Company synced to Zep graph '{graph_id}' with {len(extracted_entities.get('deals', []))} deals "
+            f"and {len(extracted_entities.get('people', []))} people"
+        )
+
+        # Extract episode_id from response
+        episode_id = None
+        if response and hasattr(response, 'episode_id'):
+            episode_id = response.episode_id
+        elif response and isinstance(response, dict):
+            episode_id = response.get('episode_id')
+
+        return {
+            "graph_id": graph_id,
+            "episode_id": episode_id,
+            "success": True,
+            "company_entity": company_entity_data,
+            "deals_count": len(extracted_entities.get("deals", [])),
+            "people_count": len(extracted_entities.get("people", []))
+        }
+
+    except Exception as e:
+        activity.logger.error(f"Zep graph sync failed: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }

@@ -286,7 +286,21 @@ class CompanyCreationWorkflow:
 
         workflow.logger.info("Profile generated successfully")
 
-        # ===== PHASE 6.5: CLEAN GENERATED LINKS =====
+        # ===== PHASE 6.5: EXTRACT ENTITIES FOR ZEP GRAPH =====
+        workflow.logger.info("Phase 6.5: Extracting entities from narrative for Zep graph")
+
+        extracted_entities = await workflow.execute_activity(
+            "extract_entities_from_v2_profile",
+            args=[payload],
+            start_to_close_timeout=timedelta(seconds=60)
+        )
+
+        workflow.logger.info(
+            f"Extracted {extracted_entities.get('total_deals', 0)} deals and "
+            f"{extracted_entities.get('total_people', 0)} people"
+        )
+
+        # ===== PHASE 6.6: CLEAN GENERATED LINKS =====
         # DISABLED: Link cleaning was breaking malformed markdown links from AI
         # Better to have no cleaning than broken text
         # workflow.logger.info("Phase 6.5: Cleaning generated links (removing broken URLs)")
@@ -389,21 +403,26 @@ class CompanyCreationWorkflow:
         workflow.logger.info(f"Found {len(related_articles)} related articles")
 
         # ===== PHASE 10: ZEP SYNC =====
-        workflow.logger.info("Phase 10: Syncing to Zep knowledge graph")
+        workflow.logger.info("Phase 10: Syncing to Zep knowledge graph with structured entities")
 
-        zep_summary = await workflow.execute_activity(
-            "create_zep_summary",
-            args=[payload, zep_context],
-            start_to_close_timeout=timedelta(seconds=30)
-        )
-
+        # Sync to Zep graph with extracted entities
         zep_result = await workflow.execute_activity(
-            "sync_company_to_zep",
-            args=[str(company_id), company_name, normalized["domain"], zep_summary, payload, input_data.app],
+            "sync_v2_profile_to_zep_graph",
+            args=[
+                str(company_id),
+                company_name,
+                normalized["domain"],
+                payload,
+                extracted_entities,
+                input_data.app
+            ],
             start_to_close_timeout=timedelta(minutes=2)
         )
 
-        workflow.logger.info("Zep sync complete")
+        workflow.logger.info(
+            f"Zep sync complete: {zep_result.get('deals_count', 0)} deals, "
+            f"{zep_result.get('people_count', 0)} people synced"
+        )
 
         # ===== PHASE 10.5: GRAPH VISUALIZATION (API DATA) =====
         workflow.logger.info("Phase 10.5: Fetching graph data from Zep API")
