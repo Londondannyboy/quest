@@ -5,9 +5,10 @@ Crawl4AI (free, fast) with Firecrawl fallback for website scraping.
 """
 
 import httpx
+import re
 from temporalio import activity
 from typing import Dict, Any, List
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from src.utils.config import config
 
@@ -429,3 +430,199 @@ async def crawl_with_firecrawl(base_url: str) -> Dict[str, Any]:
             "cost": 0.0,
             "error": str(e)
         }
+
+
+# Keywords to identify relevant pages
+RELEVANT_URL_KEYWORDS = [
+    "news",
+    "insights",
+    "deals",
+    "transactions",
+    "portfolio",
+    "case-studies",
+    "announcements",
+    "press",
+    "media",
+    "blog",
+    "articles",
+    "updates",
+    "perspectives",
+    "thought-leadership",
+]
+
+
+def extract_urls_from_markdown(markdown: str, base_url: str) -> List[str]:
+    """
+    Extract URLs from Firecrawl markdown output.
+
+    Args:
+        markdown: Firecrawl markdown output
+        base_url: Base URL for resolving relative links
+
+    Returns:
+        List of absolute URLs
+    """
+    # Match markdown links: [text](url)
+    markdown_links = re.findall(r'\[([^\]]+)\]\(([^\)]+)\)', markdown)
+
+    urls = []
+    for text, url in markdown_links:
+        # Skip anchors, mailto, tel
+        if url.startswith(('#', 'mailto:', 'tel:')):
+            continue
+
+        # Resolve relative URLs
+        absolute_url = urljoin(base_url, url)
+
+        # Only include URLs from same domain
+        base_domain = urlparse(base_url).netloc
+        url_domain = urlparse(absolute_url).netloc
+
+        if url_domain == base_domain:
+            urls.append(absolute_url)
+
+    return list(set(urls))  # Deduplicate
+
+
+def filter_relevant_urls(urls: List[str]) -> List[str]:
+    """
+    Filter URLs to only those containing relevant keywords.
+
+    Args:
+        urls: List of URLs
+
+    Returns:
+        Filtered list of relevant URLs
+    """
+    relevant = []
+
+    for url in urls:
+        url_lower = url.lower()
+
+        # Check if URL contains any relevant keyword
+        if any(keyword in url_lower for keyword in RELEVANT_URL_KEYWORDS):
+            relevant.append(url)
+
+    return relevant
+
+
+@activity.defn
+async def firecrawl_crawl4ai_discover_and_scrape(base_url: str) -> Dict[str, Any]:
+    """
+    Use Firecrawl to discover URLs, then Crawl4AI to scrape relevant pages.
+
+    Strategy:
+    1. Firecrawl homepage → get markdown with navigation links
+    2. Extract all URLs from markdown
+    3. Filter to relevant keywords (news, insights, deals, etc.)
+    4. Crawl4AI scrapes discovered URLs in parallel
+
+    Args:
+        base_url: Company website URL
+
+    Returns:
+        Dict with pages, discovered_urls, crawlers_used, cost
+    """
+    activity.logger.info(f"Firecrawl discovering URLs, then Crawl4AI scraping: {base_url}")
+
+    # Step 1: Firecrawl homepage to discover URLs
+    firecrawl_result = await crawl_with_firecrawl(base_url)
+
+    if not firecrawl_result.get("success"):
+        activity.logger.warning("Firecrawl failed, falling back to Crawl4AI only")
+        crawl4ai_result = await crawl_with_crawl4ai(base_url)
+        return {
+            "pages": crawl4ai_result.get("pages", []),
+            "discovered_urls": [],
+            "crawlers_used": ["crawl4ai"],
+            "cost": 0.0,
+            "success": crawl4ai_result.get("success", False)
+        }
+
+    # Step 2: Extract URLs from Firecrawl markdown
+    firecrawl_pages = firecrawl_result.get("pages", [])
+    all_discovered_urls = []
+
+    for page in firecrawl_pages:
+        markdown = page.get("content", "")
+        page_url = page.get("url", base_url)
+
+        urls = extract_urls_from_markdown(markdown, page_url)
+        all_discovered_urls.extend(urls)
+
+    # Deduplicate
+    all_discovered_urls = list(set(all_discovered_urls))
+
+    activity.logger.info(f"Firecrawl discovered {len(all_discovered_urls)} URLs from markdown")
+
+    # Step 3: Filter to relevant URLs
+    relevant_urls = filter_relevant_urls(all_discovered_urls)
+
+    activity.logger.info(
+        f"Filtered to {len(relevant_urls)} relevant URLs "
+        f"(keywords: {', '.join(RELEVANT_URL_KEYWORDS[:5])}...)"
+    )
+
+    # Step 4: Crawl4AI scrapes discovered URLs (limit to 10)
+    crawled_pages = []
+
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        for url in relevant_urls[:10]:
+            try:
+                activity.logger.info(f"Crawl4AI scraping discovered URL: {url}")
+
+                response = await client.get(
+                    url,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (compatible; QuestBot/1.0)"
+                    }
+                )
+
+                if response.status_code == 200:
+                    from bs4 import BeautifulSoup
+
+                    soup = BeautifulSoup(response.text, 'html.parser')
+
+                    # Remove script and style elements
+                    for script in soup(["script", "style"]):
+                        script.decompose()
+
+                    # Get text
+                    text = soup.get_text(separator=' ', strip=True)
+
+                    # Limit to 5000 chars
+                    text = text[:5000]
+
+                    crawled_pages.append({
+                        "url": url,
+                        "title": soup.title.string if soup.title else "",
+                        "content": text,
+                        "source": "crawl4ai_discovered"
+                    })
+
+                    activity.logger.info(f"Crawl4AI success: {len(text)} chars from {url}")
+
+            except Exception as e:
+                activity.logger.debug(f"Failed to scrape {url}: {e}")
+                continue
+
+    # Combine Firecrawl pages + Crawl4AI discovered pages
+    all_pages = firecrawl_pages + crawled_pages
+
+    firecrawl_cost = firecrawl_result.get("cost", 0.0)
+
+    activity.logger.info(
+        f"Discovery complete: {len(all_pages)} total pages "
+        f"(Firecrawl: {len(firecrawl_pages)}, Crawl4AI discovered: {len(crawled_pages)}), "
+        f"cost: ${firecrawl_cost:.4f}"
+    )
+
+    return {
+        "pages": all_pages,
+        "discovered_urls": relevant_urls[:10],
+        "crawlers_used": ["firecrawl", "crawl4ai_discovered"],
+        "cost": firecrawl_cost,
+        "success": len(all_pages) > 0,
+        "firecrawl_pages": len(firecrawl_pages),
+        "crawl4ai_discovered_pages": len(crawled_pages)
+    }

@@ -96,8 +96,9 @@ class CompanyCreationWorkflow:
             start_to_close_timeout=timedelta(minutes=3)
         )
 
+        # NEW: Intelligent URL discovery - Firecrawl discovers URLs, Crawl4AI scrapes them
         firecrawl_task = workflow.execute_activity(
-            "firecrawl_crawl",
+            "firecrawl_crawl4ai_discover_and_scrape",
             args=[normalized["normalized_url"]],
             start_to_close_timeout=timedelta(minutes=3)
         )
@@ -123,20 +124,34 @@ class CompanyCreationWorkflow:
             news_task, crawl4ai_task, firecrawl_task, exa_task, logo_task
         )
 
+        # NEW: Deep crawl news articles found by Serper
+        workflow.logger.info("Phase 2b: Deep crawling news articles")
+        deep_articles_data = await workflow.execute_activity(
+            "serper_crawl4ai_deep_articles",
+            args=[news_data.get("articles", []), 4],
+            start_to_close_timeout=timedelta(minutes=2)
+        )
+
+        # Add deep articles to news_data
+        if deep_articles_data.get("success"):
+            crawled_articles = deep_articles_data.get("crawled_articles", [])
+            news_data["articles"].extend(crawled_articles)
+            workflow.logger.info(f"Added {len(crawled_articles)} deep-crawled articles to research")
+
         # Combine crawler results
         website_data = {
             "pages": crawl4ai_data.get("pages", []) + firecrawl_data.get("pages", []),
             "crawl4ai_pages": len(crawl4ai_data.get("pages", [])),
-            "firecrawl_pages": len(firecrawl_data.get("pages", [])),
+            "firecrawl_pages": firecrawl_data.get("firecrawl_pages", 0),
+            "crawl4ai_discovered_pages": firecrawl_data.get("crawl4ai_discovered_pages", 0),
+            "discovered_urls": firecrawl_data.get("discovered_urls", []),
             "crawl4ai_success": crawl4ai_data.get("success", False),
             "firecrawl_success": firecrawl_data.get("success", False),
             "cost": firecrawl_data.get("cost", 0.0),
-            "crawlers_used": []
+            "crawlers_used": firecrawl_data.get("crawlers_used", [])
         }
-        if crawl4ai_data.get("success"):
+        if crawl4ai_data.get("success") and "crawl4ai" not in website_data["crawlers_used"]:
             website_data["crawlers_used"].append("crawl4ai")
-        if firecrawl_data.get("success"):
-            website_data["crawlers_used"].append("firecrawl")
 
         workflow.logger.info("Phase 2 complete: All research gathered")
 
