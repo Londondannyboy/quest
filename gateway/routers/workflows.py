@@ -593,8 +593,8 @@ async def trigger_article_creation_workflow(
     # Generate workflow ID
     workflow_id = f"article-creation-{request.app}-{uuid4()}"
 
-    # Use article-worker task queue
-    task_queue = "quest-article-queue"
+    # Use shared task queue (same as company-worker)
+    task_queue = os.getenv("TEMPORAL_TASK_QUEUE", "quest-content-queue")
     workflow_name = "ArticleCreationWorkflow"
 
     try:
