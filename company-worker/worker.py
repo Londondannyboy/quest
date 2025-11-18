@@ -27,11 +27,13 @@ from src.activities.normalize import (
 from src.activities.research.serper import (
     fetch_company_news,
     fetch_targeted_research,
+    serper_crawl4ai_deep_articles,  # NEW: Deep article crawling
 )
 
 from src.activities.research.crawl import (
     crawl4ai_crawl,
-    firecrawl_crawl,
+    firecrawl_crawl,  # Keep for backward compatibility
+    firecrawl_crawl4ai_discover_and_scrape,  # NEW: Intelligent URL discovery
 )
 
 from src.activities.research.exa import (
@@ -193,8 +195,10 @@ async def main():
             # Research
             fetch_company_news,
             fetch_targeted_research,
+            serper_crawl4ai_deep_articles,  # NEW: Deep article crawling
             crawl4ai_crawl,
-            firecrawl_crawl,
+            firecrawl_crawl,  # Keep for backward compatibility
+            firecrawl_crawl4ai_discover_and_scrape,  # NEW: Intelligent URL discovery
             exa_research_company,
             exa_find_similar_companies,
 
@@ -256,8 +260,10 @@ async def main():
         ("Research", [
             "fetch_company_news",
             "fetch_targeted_research",
+            "serper_crawl4ai_deep_articles",  # NEW
             "crawl4ai_crawl",
             "firecrawl_crawl",
+            "firecrawl_crawl4ai_discover_and_scrape",  # NEW
             "exa_research_company",
             "exa_find_similar_companies",
         ]),
