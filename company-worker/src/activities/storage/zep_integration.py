@@ -165,11 +165,13 @@ async def sync_company_to_zep(
         }
 
         # Add to Zep using app-specific organizational graph
-        # NOTE: type must be passed as keyword argument, not in data dict
+        # NOTE: type must be "json", "text", or "message" (not custom values)
+        # NOTE: data must be a string (use json.dumps for structured data)
+        import json as json_lib
         response = await client.graph.add(
             graph_id=graph_id,
-            type="company_profile",
-            data=graph_data
+            type="json",  # Valid GraphDataType enum value
+            data=json_lib.dumps(graph_data)  # Convert dict to JSON string
         )
 
         activity.logger.info(f"Company synced to Zep graph '{graph_id}': {company_name}")
