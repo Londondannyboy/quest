@@ -390,10 +390,27 @@ class CompanyCreationWorkflow:
 
         workflow.logger.info("Zep sync complete")
 
-        # ===== PHASE 10.5: PARALLEL GRAPH VISUALIZATION (3 ATTEMPTS) =====
-        # DISABLED: Causing workflow timeouts - needs debugging on Railway
-        # TODO: Re-enable after fixing deployment issues
-        workflow.logger.info("Phase 10.5: Graph visualization temporarily disabled")
+        # ===== PHASE 10.5: GRAPH VISUALIZATION (SCREENSHOT ONLY) =====
+        workflow.logger.info("Phase 10.5: Attempting graph visualization screenshot")
+
+        try:
+            # Try screenshot approach only (simplest, most reliable)
+            graph_screenshot = await workflow.execute_activity(
+                "capture_zep_graph_screenshot",
+                args=[company_name, "finance-knowledge"],
+                start_to_close_timeout=timedelta(seconds=60)
+            )
+
+            if graph_screenshot.get("success"):
+                payload["zep_graph_screenshot_url"] = graph_screenshot["cloudinary_url"]
+                workflow.logger.info(f"Graph screenshot captured: {graph_screenshot['cloudinary_url']}")
+            else:
+                workflow.logger.warning("Graph screenshot failed - continuing without it")
+
+        except Exception as e:
+            # Non-blocking - just log and continue
+            workflow.logger.warning(f"Graph visualization skipped: {str(e)}")
+            pass
 
         # ===== COMPLETE =====
         from src.utils.helpers import generate_slug
