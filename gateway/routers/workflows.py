@@ -531,3 +531,110 @@ async def trigger_company_worker_workflow(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to start workflow: {str(e)}",
         )
+
+
+# ============================================================================
+# ARTICLE-WORKER ENDPOINTS (NEW)
+# ============================================================================
+
+class ArticleCreationRequest(BaseModel):
+    """Request to trigger ArticleCreationWorkflow (article-worker service)"""
+    topic: str = Field(..., description="Article topic or subject", min_length=5)
+    app: str = Field(..., description="App context: placement, relocation, chief-of-staff, gtm, newsroom")
+    target_word_count: int = Field(default=1500, ge=500, le=5000, description="Target word count")
+    article_format: str = Field(default="article", description="Format: article, listicle, guide, analysis")
+    jurisdiction: Optional[str] = Field(default=None, description="Geo-targeting: UK, US, SG, EU, etc.")
+    num_research_sources: int = Field(default=10, ge=3, le=20, description="Number of research sources")
+    deep_crawl_enabled: bool = Field(default=True, description="Enable deep crawling of authoritative sites")
+    generate_images: bool = Field(default=True, description="Generate contextual images")
+    auto_publish: bool = Field(default=False, description="Auto-publish (vs draft)")
+    skip_zep_sync: bool = Field(default=False, description="Skip Zep knowledge graph sync")
+    target_keywords: Optional[List[str]] = Field(default=None, description="Target SEO keywords")
+    meta_description: Optional[str] = Field(default=None, description="Override meta description")
+    author: Optional[str] = Field(default=None, description="Article author")
+    article_angle: Optional[str] = Field(default=None, description="Editorial angle")
+
+
+@router.post("/article-creation", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED)
+async def trigger_article_creation_workflow(
+    request: ArticleCreationRequest,
+    api_key: str = Depends(validate_api_key),
+) -> WorkflowResponse:
+    """
+    Trigger ArticleCreationWorkflow (article-worker service)
+
+    NEW: Uses the dedicated article-worker service with comprehensive research,
+    contextual image generation (7 images), and company mention extraction.
+
+    Timeline: 5-12 minutes
+    - Research: News + Exa + Crawling (60s)
+    - Content generation: Gemini 2.5 + Claude (60-120s)
+    - Images: 7 contextual images via Flux Kontext Max (5-10min)
+    - Company linking: Automatic NER extraction
+
+    Requires X-API-Key header for authentication.
+
+    Args:
+        request: Article creation parameters
+        api_key: Validated API key from header
+
+    Returns:
+        Workflow execution details with workflow_id for status tracking
+    """
+    # Get Temporal client
+    try:
+        client = await TemporalClientManager.get_client()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Failed to connect to Temporal: {str(e)}",
+        )
+
+    # Generate workflow ID
+    workflow_id = f"article-creation-{request.app}-{uuid4()}"
+
+    # Use article-worker task queue
+    task_queue = "quest-article-queue"
+    workflow_name = "ArticleCreationWorkflow"
+
+    try:
+        # Prepare workflow input matching ArticleInput model
+        workflow_input = {
+            "topic": request.topic,
+            "app": request.app,
+            "target_word_count": request.target_word_count,
+            "article_format": request.article_format,
+            "jurisdiction": request.jurisdiction,
+            "num_research_sources": request.num_research_sources,
+            "deep_crawl_enabled": request.deep_crawl_enabled,
+            "generate_images": request.generate_images,
+            "auto_publish": request.auto_publish,
+            "skip_zep_sync": request.skip_zep_sync,
+            "target_keywords": request.target_keywords,
+            "meta_description": request.meta_description,
+            "author": request.author,
+            "article_angle": request.article_angle,
+        }
+
+        # Start workflow execution
+        handle = await client.start_workflow(
+            workflow_name,
+            workflow_input,
+            id=workflow_id,
+            task_queue=task_queue,
+        )
+
+        return WorkflowResponse(
+            workflow_id=handle.id,
+            status="started",
+            started_at=datetime.utcnow(),
+            topic=request.topic,
+            app=request.app,
+            message=f"Article creation workflow started on {task_queue}. Expected completion: 5-12 minutes. Use workflow_id to check status.",
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start workflow: {str(e)}",
+        )
