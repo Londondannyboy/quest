@@ -390,26 +390,29 @@ class CompanyCreationWorkflow:
 
         workflow.logger.info("Zep sync complete")
 
-        # ===== PHASE 10.5: GRAPH VISUALIZATION (SCREENSHOT ONLY) =====
-        workflow.logger.info("Phase 10.5: Attempting graph visualization screenshot")
+        # ===== PHASE 10.5: GRAPH VISUALIZATION (API DATA) =====
+        workflow.logger.info("Phase 10.5: Fetching graph data from Zep API")
 
         try:
-            # Try screenshot approach only (simplest, most reliable)
-            graph_screenshot = await workflow.execute_activity(
-                "capture_zep_graph_screenshot",
-                args=[company_name, "finance-knowledge"],
-                start_to_close_timeout=timedelta(seconds=60)
+            # Fetch graph data via Zep API (no Playwright needed)
+            graph_data = await workflow.execute_activity(
+                "fetch_company_graph_data",
+                args=[company_name, normalized["domain"], input_data.app],
+                start_to_close_timeout=timedelta(seconds=30)
             )
 
-            if graph_screenshot.get("success"):
-                payload["zep_graph_screenshot_url"] = graph_screenshot["cloudinary_url"]
-                workflow.logger.info(f"Graph screenshot captured: {graph_screenshot['cloudinary_url']}")
+            if graph_data.get("success") and len(graph_data.get("nodes", [])) > 0:
+                payload["zep_graph_data"] = {
+                    "nodes": graph_data["nodes"],
+                    "edges": graph_data["edges"]
+                }
+                workflow.logger.info(f"Graph data fetched: {len(graph_data['nodes'])} nodes, {len(graph_data['edges'])} edges")
             else:
-                workflow.logger.warning("Graph screenshot failed - continuing without it")
+                workflow.logger.info("No graph data available yet - will appear after more entities are added")
 
         except Exception as e:
             # Non-blocking - just log and continue
-            workflow.logger.warning(f"Graph visualization skipped: {str(e)}")
+            workflow.logger.warning(f"Graph data fetch skipped: {str(e)}")
             pass
 
         # ===== COMPLETE =====
