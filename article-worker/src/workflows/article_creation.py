@@ -405,7 +405,7 @@ class ArticleCreationWorkflow:
         # ===== COMPLETE =====
         total_cost = (
             research_data["total_cost"] +
-            content_result.get("cost", 0.0") +
+            content_result.get("cost", 0.0) +
             (article_images.get("total_cost", 0.0) if input_data.generate_images else 0.0)
         )
 
