@@ -22,6 +22,35 @@ class Config:
     TEMPORAL_API_KEY: Optional[str] = os.getenv("TEMPORAL_API_KEY")
     TEMPORAL_TASK_QUEUE: str = os.getenv("TEMPORAL_TASK_QUEUE", "quest-company-queue")
 
+    @staticmethod
+    def _parse_cloudinary_url() -> tuple[Optional[str], Optional[str], Optional[str]]:
+        """
+        Parse CLOUDINARY_URL into components.
+        Format: cloudinary://api_key:api_secret@cloud_name
+
+        Returns:
+            Tuple of (cloud_name, api_key, api_secret)
+        """
+        cloudinary_url = os.getenv("CLOUDINARY_URL")
+        if not cloudinary_url:
+            return (None, None, None)
+
+        try:
+            # Remove cloudinary:// prefix
+            if cloudinary_url.startswith("cloudinary://"):
+                cloudinary_url = cloudinary_url[13:]
+
+            # Parse: api_key:api_secret@cloud_name
+            if "@" in cloudinary_url:
+                auth, cloud_name = cloudinary_url.split("@", 1)
+                if ":" in auth:
+                    api_key, api_secret = auth.split(":", 1)
+                    return (cloud_name, api_key, api_secret)
+        except Exception:
+            pass
+
+        return (None, None, None)
+
     # ===== DATABASE =====
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 
@@ -38,6 +67,19 @@ class Config:
     # ===== IMAGE SERVICES =====
     REPLICATE_API_TOKEN: Optional[str] = os.getenv("REPLICATE_API_TOKEN")
     CLOUDINARY_URL: Optional[str] = os.getenv("CLOUDINARY_URL")
+
+    # Cloudinary components (can be set individually or parsed from CLOUDINARY_URL)
+    _cloudinary_parsed = _parse_cloudinary_url.__func__()
+    CLOUDINARY_CLOUD_NAME: Optional[str] = (
+        os.getenv("CLOUDINARY_CLOUD_NAME") or _cloudinary_parsed[0]
+    )
+    CLOUDINARY_API_KEY: Optional[str] = (
+        os.getenv("CLOUDINARY_API_KEY") or _cloudinary_parsed[1]
+    )
+    CLOUDINARY_API_SECRET: Optional[str] = (
+        os.getenv("CLOUDINARY_API_SECRET") or _cloudinary_parsed[2]
+    )
+
     FLUX_API_KEY: Optional[str] = os.getenv("FLUX_API_KEY")  # Black Forest Labs direct API
 
     # ===== KNOWLEDGE GRAPH =====
