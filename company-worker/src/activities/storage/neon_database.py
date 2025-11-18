@@ -99,13 +99,13 @@ async def save_company_to_neon(
                             for k, s in sections.items()
                         ])
 
-                # Extract meta description from payload
+                # Extract meta description from payload (max 160 chars for VARCHAR(160))
                 meta_description = (
                     payload.get("short_description") or
                     payload.get("tagline") or
                     (description[:160] if description else "") or
                     ""
-                )
+                )[:160]  # Ensure never exceeds database limit
 
                 # Store logo_url in payload
                 if logo_url:
