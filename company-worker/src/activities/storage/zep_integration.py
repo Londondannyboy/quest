@@ -159,15 +159,16 @@ async def sync_company_to_zep(
             "company_id": company_id,
             "company_name": company_name,
             "summary": summary,
-            "type": "company_profile",
             "app": app,
             # Include structured entity attributes for ontology extraction
             "entity": company_entity
         }
 
         # Add to Zep using app-specific organizational graph
+        # NOTE: type must be passed as keyword argument, not in data dict
         response = await client.graph.add(
             graph_id=graph_id,
+            type="company_profile",
             data=graph_data
         )
 
