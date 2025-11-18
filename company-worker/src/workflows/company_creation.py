@@ -272,16 +272,17 @@ class CompanyCreationWorkflow:
         workflow.logger.info("Profile generated successfully")
 
         # ===== PHASE 6.5: CLEAN GENERATED LINKS =====
-        workflow.logger.info("Phase 6.5: Cleaning generated links (removing broken URLs)")
-
-        if "profile_sections" in payload and payload["profile_sections"]:
-            cleaned_sections = await workflow.execute_activity(
-                "playwright_clean_links",
-                args=[payload["profile_sections"]],
-                start_to_close_timeout=timedelta(seconds=30)
-            )
-            payload["profile_sections"] = cleaned_sections
-            workflow.logger.info("Playwright link cleaning complete")
+        # DISABLED: Link cleaning was breaking malformed markdown links from AI
+        # Better to have no cleaning than broken text
+        # workflow.logger.info("Phase 6.5: Cleaning generated links (removing broken URLs)")
+        # if "profile_sections" in payload and payload["profile_sections"]:
+        #     cleaned_sections = await workflow.execute_activity(
+        #         "playwright_clean_links",
+        #         args=[payload["profile_sections"]],
+        #         start_to_close_timeout=timedelta(seconds=30)
+        #     )
+        #     payload["profile_sections"] = cleaned_sections
+        #     workflow.logger.info("Playwright link cleaning complete")
 
         # ===== PHASE 7: GENERATE IMAGES =====
         workflow.logger.info("Phase 7: Generating contextual brand images (Flux Kontext Max)")
