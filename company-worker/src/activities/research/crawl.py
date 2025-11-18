@@ -213,6 +213,9 @@ async def crawl_with_crawl4ai(base_url: str) -> Dict[str, Any]:
 
         # News/Blog/Announcements (HIGH PRIORITY - recent updates)
         "/news",
+        "/news-insights",
+        "/news-insights/news",
+        "/newsroom",
         "/blog",
         "/insights",
         "/articles",
@@ -223,6 +226,8 @@ async def crawl_with_crawl4ai(base_url: str) -> Dict[str, Any]:
         "/updates",
         "/perspectives",
         "/thought-leadership",
+        "/latest-news",
+        "/news-and-insights",
 
         # Clients/Contact
         "/clients",

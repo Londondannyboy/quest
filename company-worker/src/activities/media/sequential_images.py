@@ -447,13 +447,14 @@ async def generate_company_contextual_images(
         activity.logger.info(f"Generating company featured image with {featured_model}")
 
         featured_prompt = (
-            f"Semi-cartoon illustration style business card design for {company_name}. "
-            f"Stylized corporate branding, NOT photorealistic. "
-            f"Clean lines, professional digital art aesthetic. "
-            f"Color palette: corporate navy blue, charcoal gray, tech blue accents, white background. "
-            f"Company logo integrated into stylized business cartoon scene. "
-            f"{country} market focus. "
-            f"IMPORTANT: Professional cartoon digital art for business branding, NOT realistic photography."
+            f"Professional corporate photography of premium office building in {country} financial district. "
+            f"Modern glass skyscraper facade with sleek architecture, blue hour lighting. "
+            f"Prominent text overlay displaying '{company_name}' in elegant sans-serif typography. "
+            f"Company name integrated as building signage or sophisticated text overlay. "
+            f"Photorealistic, high-end commercial photography style. "
+            f"Color palette: deep blues, corporate grays, warm accent lighting. "
+            f"Canon EOS R5 style, shallow depth of field, 8K resolution. "
+            f"IMPORTANT: Real photography aesthetic with elegant company name display, NOT illustration."
         )
 
         featured_result = await generate_flux_image(
@@ -474,13 +475,14 @@ async def generate_company_contextual_images(
         activity.logger.info(f"Generating company hero image with {featured_model}")
 
         hero_prompt = (
-            f"Using the SAME semi-cartoon illustration style and color palette as the previous image, "
-            f"corporate office environment for {company_name}. "
-            f"Stylized cartoon professionals in modern workspace with glass walls, minimalist design. "
-            f"Same navy blue, charcoal gray, tech blue color scheme. "
-            f"Maintain cartoon illustration consistency with previous image. "
-            f"Company culture shown through stylized digital art. "
-            f"IMPORTANT: Continue the semi-cartoon aesthetic, NOT realistic photography."
+            f"Professional corporate photography of {company_name} office interior in {country}. "
+            f"Diverse business professionals collaborating in premium modern workspace. "
+            f"Include South Asian woman and Black male colleague in professional attire. "
+            f"Glass walls, minimalist design, natural daylight, contemporary furniture. "
+            f"Team working on financial analysis, sophisticated business environment. "
+            f"Photorealistic, Canon EOS R5 style, shallow depth of field. "
+            f"Same color palette as previous image: deep blues, corporate grays, warm lighting. "
+            f"IMPORTANT: Real photography with authentic diversity, NOT illustration."
         )
 
         hero_result = await generate_flux_image(
