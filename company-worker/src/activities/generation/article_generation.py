@@ -118,39 +118,80 @@ Generate a comprehensive, well-researched article based on the provided research
 
 **TARGET LENGTH**: ~{target_word_count} words
 
-**CRITICAL RULES**:
-- Use markdown for formatting
+===== REQUIRED FIELDS (You MUST fill these) =====
+
+1. **title**: Clear, compelling headline (60-80 chars, plain text)
+2. **slug**: URL-friendly version of title (lowercase, hyphens, no spaces)
+   Example: "goldman-sachs-acquires-ai-startup"
+3. **content**: Full article in markdown (H2 sections, NO H1)
+4. **excerpt**: 1-2 sentence summary (40-60 words, plain text, no markdown)
+5. **app**: Set to "{app}"
+6. **article_type**: Set to "{article_type}"
+7. **meta_description**: SEO description (150-160 chars, plain text)
+8. **tags**: List of 5-8 relevant tags as strings
+
+===== ARTICLE_SECTIONS (Create meaningful sections) =====
+
+Create sections in article_sections dict. Each section needs:
+- Key: section identifier (e.g., "introduction", "background", "details")
+- Value: ArticleSection object with:
+  - title: Section heading (string)
+  - content: Section content in markdown (string)
+  - sources: List of URLs used for this section
+
+Example structure:
+```
+article_sections = {{
+    "introduction": {{
+        "title": "Introduction",
+        "content": "Goldman Sachs announced today...",
+        "sources": ["https://example.com/news"]
+    }},
+    "background": {{
+        "title": "Company Background",
+        "content": "The investment bank has been...",
+        "sources": ["https://example.com/about"]
+    }}
+}}
+```
+
+===== MENTIONED_COMPANIES (Extract all companies) =====
+
+For EVERY company mentioned in the article, create an entry:
+- name: Company name as written
+- relevance_score: 0.0 to 1.0 (1.0 = primary subject)
+- is_primary: true for main company, false for others
+
+Example:
+```
+mentioned_companies = [
+    {{"name": "Goldman Sachs", "relevance_score": 1.0, "is_primary": true}},
+    {{"name": "TechCo", "relevance_score": 0.8, "is_primary": false}}
+]
+```
+
+===== FIELDS TO LEAVE AS DEFAULTS (DO NOT SET) =====
+
+- All image fields (featured_image_url, hero_image_url, content_image_*_url, etc.)
+- image_count
+- word_count, reading_time_minutes, section_count, company_mention_count
+- research_date, research_cost, data_sources
+- status, published_at, author
+- zep_graph_id, confidence_score
+
+These are populated by the workflow after generation.
+
+===== CONTENT WRITING RULES =====
+
+- Use markdown for formatting in content field
 - Create H2 sections (##) for main sections
 - Use H3 (###) for subsections when needed
 - **NO H1 headers in content** - title is separate
 - Write in professional, journalistic style
 - Include specific facts, figures, and quotes from sources
-- Extract and mention ALL companies found in research
 - Add markdown links to sources: [Company Name](url)
 - Write naturally flowing prose with clear sentence boundaries
 - Break up text with bullet points and lists where appropriate
-
-**STRUCTURED FIELDS** (plain text, no markdown):
-- title: Clear, compelling headline (60-80 chars)
-- subtitle: Optional subheading (80-120 chars)
-- excerpt: 1-2 sentence summary (40-60 words) - PLAIN TEXT
-- meta_description: SEO description (150-160 chars) - PLAIN TEXT
-- slug: URL-friendly (lowercase, hyphens)
-- tags: 5-8 relevant tags
-
-**COMPANY MENTIONS**:
-For each company mentioned:
-- Extract company name
-- Estimate relevance_score (0-1)
-- Count mentions
-- Mark primary focus (is_primary=true for main subject)
-
-**SECTIONS**:
-Create clear H2 sections with:
-- Descriptive titles
-- 2-4 paragraphs per section
-- Specific details from research
-- Sources cited with markdown links
 
 """
 
@@ -272,7 +313,15 @@ Create clear H2 sections with:
 - Clear > Complex
 - Useful > Verbose
 
-Generate a comprehensive, well-structured article using the research context provided.
+===== OUTPUT STRUCTURE =====
+
+Return an ArticlePayload with:
+- All required fields filled (title, slug, content, excerpt, app, article_type, meta_description, tags)
+- article_sections dict with meaningful sections (introduction, background, details, etc.)
+- mentioned_companies list with all companies found
+- Leave all other fields as defaults (especially image fields)
+
+Your output must follow the ArticlePayload schema exactly.
 """
 
 
