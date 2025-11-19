@@ -218,13 +218,11 @@ class ArticleCreationWorkflow:
             start_to_close_timeout=timedelta(minutes=3)
         )
 
+        # Continue with whatever article we got (even minimal fallback)
+        # Don't return early - always save to Neon and sync to Zep
         if not article_result.get("success"):
-            workflow.logger.error("Article generation failed")
-            return {
-                "status": "failed",
-                "error": article_result.get("error", "Unknown error"),
-                "article_id": None
-            }
+            workflow.logger.warning(f"Article generation had issues: {article_result.get('error')}")
+            workflow.logger.info("Continuing with fallback article content")
 
         article = article_result["article"]
 
