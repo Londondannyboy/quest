@@ -15,8 +15,9 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Import workflow
+# Import workflows
 from src.workflows.company_creation import CompanyCreationWorkflow
+from src.workflows.article_creation import ArticleCreationWorkflow
 
 # Import all activities
 from src.activities.normalize import (
@@ -79,6 +80,10 @@ from src.activities.articles.analyze_sections import (
 
 from src.activities.generation.profile_generation_v2 import (
     generate_company_profile_v2,
+)
+
+from src.activities.generation.article_generation import (
+    generate_article_content,
 )
 
 from src.activities.generation.completeness import (
@@ -183,7 +188,7 @@ async def main():
     worker = Worker(
         client,
         task_queue=config.TEMPORAL_TASK_QUEUE,
-        workflows=[CompanyCreationWorkflow],
+        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow],
         activities=[
             # Normalization
             normalize_company_url,
@@ -217,6 +222,7 @@ async def main():
 
             # Generation
             generate_company_profile_v2,
+            generate_article_content,
             calculate_completeness_score,
             get_missing_fields,
             suggest_improvements,
@@ -248,6 +254,7 @@ async def main():
 
     print("\n📋 Registered Workflows:")
     print("   - CompanyCreationWorkflow")
+    print("   - ArticleCreationWorkflow")
 
     print("\n📋 Registered Activities:")
     activity_groups = [
@@ -272,6 +279,7 @@ async def main():
         ("Generation", [
             "generate_company_profile",
             "generate_company_profile_v2",
+            "generate_article_content",
             "calculate_completeness_score",
             "get_missing_fields",
             "suggest_improvements",
