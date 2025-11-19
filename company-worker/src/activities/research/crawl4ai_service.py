@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 from src.utils.config import config
 
 
-@activity.defn
+@activity.defn(name="crawl4ai_crawl")  # Alias for backward compatibility with old workflows
 async def crawl4ai_service_crawl(url: str) -> Dict[str, Any]:
     """
     Crawl company website using external Crawl4AI service (browser automation).

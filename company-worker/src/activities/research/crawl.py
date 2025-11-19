@@ -13,7 +13,7 @@ from urllib.parse import urljoin, urlparse
 from src.utils.config import config
 
 
-@activity.defn(name="crawl4ai_crawl")  # Alias for backward compatibility with old workflows
+@activity.defn
 async def httpx_crawl(url: str) -> Dict[str, Any]:
     """
     Crawl company website using httpx + BeautifulSoup (free, fast).
