@@ -429,6 +429,137 @@ def extract_deals_from_results(results: Any) -> list[Dict[str, Any]]:
 
 
 @activity.defn
+async def sync_article_to_zep(
+    article_id: str,
+    title: str,
+    slug: str,
+    content: str,
+    excerpt: str,
+    article_type: str,
+    mentioned_companies: list,
+    app: str = "placement"
+) -> Dict[str, Any]:
+    """
+    Sync article to Zep knowledge graph as an episode.
+
+    Creates:
+    1. Episode with condensed article content
+    2. Links to mentioned companies as entities
+
+    Args:
+        article_id: Database article ID
+        title: Article title
+        slug: Article slug
+        content: Full article content (will be condensed)
+        excerpt: Article excerpt
+        article_type: Type (news, guide, comparison)
+        mentioned_companies: List of company mentions with relevance scores
+        app: Application type for graph selection
+
+    Returns:
+        Dict with graph_id, episode_id, success
+    """
+    graph_id = get_graph_id_for_app(app)
+    activity.logger.info(f"Syncing article '{title}' to Zep graph '{graph_id}'")
+
+    if not config.ZEP_API_KEY:
+        return {
+            "graph_id": None,
+            "episode_id": None,
+            "success": False,
+            "error": "ZEP_API_KEY not configured"
+        }
+
+    try:
+        client = AsyncZep(api_key=config.ZEP_API_KEY)
+
+        # Create condensed summary for Zep (<10k chars)
+        # Include key info: title, excerpt, company mentions, and condensed content
+        summary_parts = [
+            f"ARTICLE: {title}",
+            f"Type: {article_type}",
+            f"Slug: {slug}",
+            "",
+            f"EXCERPT: {excerpt}",
+            ""
+        ]
+
+        # Add mentioned companies
+        if mentioned_companies:
+            summary_parts.append(f"MENTIONED COMPANIES ({len(mentioned_companies)}):")
+            for company in mentioned_companies[:10]:  # Top 10
+                company_name = company.get("name", "Unknown")
+                relevance = company.get("relevance_score", 0)
+                is_primary = company.get("is_primary", False)
+                primary_marker = " [PRIMARY]" if is_primary else ""
+                summary_parts.append(f"- {company_name} (relevance: {relevance:.2f}){primary_marker}")
+            summary_parts.append("")
+
+        # Add condensed content (first 5000 chars)
+        summary_parts.append("CONTENT:")
+        condensed_content = content[:5000] if len(content) > 5000 else content
+        summary_parts.append(condensed_content)
+
+        summary = "\n".join(summary_parts)
+
+        # Truncate to 10k chars for Zep
+        if len(summary) > 10000:
+            summary = summary[:9950] + "... [truncated]"
+
+        # Build episode data
+        episode_data = {
+            "article_id": article_id,
+            "title": title,
+            "slug": slug,
+            "article_type": article_type,
+            "app": app,
+            "summary": summary,
+            "mentioned_companies": [
+                {
+                    "name": c.get("name"),
+                    "relevance_score": c.get("relevance_score", 0),
+                    "is_primary": c.get("is_primary", False)
+                }
+                for c in mentioned_companies[:15]
+            ],
+            "entity_type": "article"
+        }
+
+        # Add to Zep graph
+        import json as json_lib
+        response = await client.graph.add(
+            graph_id=graph_id,
+            type="json",
+            data=json_lib.dumps(episode_data)
+        )
+
+        activity.logger.info(f"Article synced to Zep graph '{graph_id}': {title}")
+
+        # Extract episode_id from response
+        episode_id = None
+        if response and hasattr(response, 'episode_id'):
+            episode_id = response.episode_id
+        elif response and isinstance(response, dict):
+            episode_id = response.get('episode_id')
+
+        return {
+            "graph_id": graph_id,
+            "episode_id": episode_id,
+            "success": True,
+            "companies_linked": len(mentioned_companies)
+        }
+
+    except Exception as e:
+        activity.logger.error(f"Zep article sync failed: {e}")
+        return {
+            "graph_id": None,
+            "episode_id": None,
+            "success": False,
+            "error": str(e)
+        }
+
+
+@activity.defn
 async def sync_v2_profile_to_zep_graph(
     company_id: str,
     company_name: str,

@@ -269,10 +269,30 @@ class ArticleCreationWorkflow:
         workflow.logger.info(f"Article saved to database with ID: {article_id}")
 
         # ===== PHASE 8: SYNC TO ZEP =====
-        workflow.logger.info("Phase 8: Syncing to Zep knowledge graph")
+        workflow.logger.info("Phase 8: Syncing article to Zep knowledge graph")
 
-        # TODO: Implement sync_article_to_zep activity
-        # Will extract entities and create graph nodes
+        zep_result = await workflow.execute_activity(
+            "sync_article_to_zep",
+            args=[
+                article_id,
+                article["title"],
+                article["slug"],
+                article["content"],
+                article.get("excerpt", ""),
+                article_type,
+                article.get("mentioned_companies", []),
+                app
+            ],
+            start_to_close_timeout=timedelta(minutes=2)
+        )
+
+        if zep_result.get("success"):
+            workflow.logger.info(
+                f"Article synced to Zep: graph={zep_result.get('graph_id')}, "
+                f"companies={zep_result.get('companies_linked', 0)}"
+            )
+        else:
+            workflow.logger.warning(f"Zep sync failed: {zep_result.get('error')}")
 
         # Calculate total cost
         total_cost = (

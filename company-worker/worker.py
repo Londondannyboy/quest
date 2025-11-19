@@ -105,6 +105,7 @@ from src.activities.storage.zep_integration import (
     sync_company_to_zep,
     create_zep_summary,
     sync_v2_profile_to_zep_graph,
+    sync_article_to_zep,
 )
 
 from src.activities.storage.zep_entity_extraction import (
@@ -240,6 +241,7 @@ async def main():
             query_zep_for_context,
             sync_company_to_zep,
             create_zep_summary,
+            sync_article_to_zep,
             fetch_company_graph_data,
 
             # Articles (re-enabled)
