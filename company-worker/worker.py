@@ -27,13 +27,17 @@ from src.activities.normalize import (
 from src.activities.research.serper import (
     fetch_company_news,
     fetch_targeted_research,
-    serper_crawl4ai_deep_articles,  # NEW: Deep article crawling
+    serper_httpx_deep_articles,  # Deep article crawling with httpx
 )
 
 from src.activities.research.crawl import (
-    crawl4ai_crawl,
+    httpx_crawl,
     firecrawl_crawl,  # Keep for backward compatibility
-    firecrawl_crawl4ai_discover_and_scrape,  # NEW: Intelligent URL discovery
+    firecrawl_httpx_discover,  # Intelligent URL discovery with Firecrawl + httpx
+)
+
+from src.activities.research.crawl4ai_service import (
+    crawl4ai_service_crawl,  # External Railway Crawl4AI microservice (browser automation)
 )
 
 from src.activities.research.exa import (
@@ -106,14 +110,6 @@ from src.activities.storage.zep_entity_extraction import (
 
 from src.activities.storage.zep_graph_visual import (
     fetch_company_graph_data,
-)
-
-from src.activities.storage.zep_graph_screenshot import (
-    capture_zep_graph_screenshot,
-)
-
-from src.activities.storage.zep_graph_3d_video import (
-    capture_graph_3d_video,
 )
 
 # Articles activities re-enabled
@@ -200,10 +196,11 @@ async def main():
             # Research
             fetch_company_news,
             fetch_targeted_research,
-            serper_crawl4ai_deep_articles,  # NEW: Deep article crawling
-            crawl4ai_crawl,
+            serper_httpx_deep_articles,  # Deep article crawling with httpx
+            httpx_crawl,
+            crawl4ai_service_crawl,  # External Crawl4AI service (browser automation)
             firecrawl_crawl,  # Keep for backward compatibility
-            firecrawl_crawl4ai_discover_and_scrape,  # NEW: Intelligent URL discovery
+            firecrawl_httpx_discover,  # Intelligent URL discovery with Firecrawl + httpx
             exa_research_company,
             exa_find_similar_companies,
 
@@ -239,8 +236,6 @@ async def main():
             sync_company_to_zep,
             create_zep_summary,
             fetch_company_graph_data,
-            capture_zep_graph_screenshot,
-            capture_graph_3d_video,
 
             # Articles (re-enabled)
             fetch_related_articles,

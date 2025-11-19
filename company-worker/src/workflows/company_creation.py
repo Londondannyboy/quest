@@ -90,15 +90,15 @@ class CompanyCreationWorkflow:
             start_to_close_timeout=timedelta(minutes=2)
         )
 
-        crawl4ai_task = workflow.execute_activity(
-            "crawl4ai_crawl",
+        httpx_task = workflow.execute_activity(
+            "httpx_crawl",
             args=[normalized["normalized_url"]],
             start_to_close_timeout=timedelta(minutes=3)
         )
 
-        # NEW: Intelligent URL discovery - Firecrawl discovers URLs, Crawl4AI scrapes them
+        # NEW: Intelligent URL discovery - Firecrawl discovers URLs, HTTPX scrapes them
         firecrawl_task = workflow.execute_activity(
-            "firecrawl_crawl4ai_discover_and_scrape",
+            "firecrawl_httpx_discover",
             args=[normalized["normalized_url"]],
             start_to_close_timeout=timedelta(minutes=3)
         )
@@ -120,14 +120,14 @@ class CompanyCreationWorkflow:
         )
 
         # Wait for all to complete
-        news_data, crawl4ai_data, firecrawl_data, exa_data, logo_data = await asyncio.gather(
-            news_task, crawl4ai_task, firecrawl_task, exa_task, logo_task
+        news_data, httpx_data, firecrawl_data, exa_data, logo_data = await asyncio.gather(
+            news_task, httpx_task, firecrawl_task, exa_task, logo_task
         )
 
         # NEW: Deep crawl news articles found by Serper
         workflow.logger.info("Phase 2b: Deep crawling news articles")
         deep_articles_data = await workflow.execute_activity(
-            "serper_crawl4ai_deep_articles",
+            "serper_httpx_deep_articles",
             args=[news_data.get("articles", []), 4],
             start_to_close_timeout=timedelta(minutes=2)
         )
@@ -140,18 +140,18 @@ class CompanyCreationWorkflow:
 
         # Combine crawler results
         website_data = {
-            "pages": crawl4ai_data.get("pages", []) + firecrawl_data.get("pages", []),
-            "crawl4ai_pages": len(crawl4ai_data.get("pages", [])),
+            "pages": httpx_data.get("pages", []) + firecrawl_data.get("pages", []),
+            "httpx_pages": len(httpx_data.get("pages", [])),
             "firecrawl_pages": firecrawl_data.get("firecrawl_pages", 0),
-            "crawl4ai_discovered_pages": firecrawl_data.get("crawl4ai_discovered_pages", 0),
+            "httpx_discovered_pages": firecrawl_data.get("httpx_discovered_pages", 0),
             "discovered_urls": firecrawl_data.get("discovered_urls", []),
-            "crawl4ai_success": crawl4ai_data.get("success", False),
+            "httpx_success": httpx_data.get("success", False),
             "firecrawl_success": firecrawl_data.get("success", False),
             "cost": firecrawl_data.get("cost", 0.0),
             "crawlers_used": firecrawl_data.get("crawlers_used", [])
         }
-        if crawl4ai_data.get("success") and "crawl4ai" not in website_data["crawlers_used"]:
-            website_data["crawlers_used"].append("crawl4ai")
+        if httpx_data.get("success") and "httpx" not in website_data["crawlers_used"]:
+            website_data["crawlers_used"].append("httpx")
 
         workflow.logger.info("Phase 2 complete: All research gathered")
 

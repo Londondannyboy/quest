@@ -291,12 +291,12 @@ PAYWALL_DOMAINS = {
 
 
 @activity.defn
-async def serper_crawl4ai_deep_articles(
+async def serper_httpx_deep_articles(
     articles: List[Dict[str, Any]],
     max_articles: int = 4
 ) -> Dict[str, Any]:
     """
-    Deep crawl news articles found by Serper using Crawl4AI (httpx + BeautifulSoup).
+    Deep crawl news articles found by Serper using httpx + BeautifulSoup.
 
     Filters out paywalled content and scrapes full article text.
 

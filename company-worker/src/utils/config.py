@@ -64,6 +64,7 @@ class Config:
     EXA_API_KEY: Optional[str] = os.getenv("EXA_API_KEY")
     LINKUP_API_KEY: Optional[str] = os.getenv("LINKUP_API_KEY")
     FIRECRAWL_API_KEY: Optional[str] = os.getenv("FIRECRAWL_API_KEY")
+    CRAWL4AI_SERVICE_URL: Optional[str] = os.getenv("CRAWL4AI_SERVICE_URL")
 
     # ===== IMAGE SERVICES =====
     REPLICATE_API_TOKEN: Optional[str] = os.getenv("REPLICATE_API_TOKEN")

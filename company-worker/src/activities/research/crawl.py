@@ -14,9 +14,9 @@ from src.utils.config import config
 
 
 @activity.defn
-async def crawl4ai_crawl(url: str) -> Dict[str, Any]:
+async def httpx_crawl(url: str) -> Dict[str, Any]:
     """
-    Crawl company website using Crawl4AI (free, fast).
+    Crawl company website using httpx + BeautifulSoup (free, fast).
 
     Args:
         url: Company website URL
@@ -24,25 +24,25 @@ async def crawl4ai_crawl(url: str) -> Dict[str, Any]:
     Returns:
         Dict with pages, success, cost (always 0)
     """
-    activity.logger.info(f"Crawl4AI crawling: {url}")
+    activity.logger.info(f"HTTPX crawling: {url}")
 
     try:
-        result = await crawl_with_crawl4ai(url)
-        activity.logger.info(f"Crawl4AI: {len(result.get('pages', []))} pages")
+        result = await crawl_with_httpx(url)
+        activity.logger.info(f"HTTPX: {len(result.get('pages', []))} pages")
         return {
             "pages": result.get("pages", []),
             "success": result.get("success", False),
             "cost": 0.0,
-            "crawler": "crawl4ai"
+            "crawler": "httpx"
         }
     except Exception as e:
-        activity.logger.error(f"Crawl4AI failed: {e}")
+        activity.logger.error(f"HTTPX crawl failed: {e}")
         return {
             "pages": [],
             "success": False,
             "cost": 0.0,
             "error": str(e),
-            "crawler": "crawl4ai"
+            "crawler": "httpx"
         }
 
 
@@ -167,12 +167,12 @@ async def crawl_company_website(url: str) -> Dict[str, Any]:
     }
 
 
-async def crawl_with_crawl4ai(base_url: str) -> Dict[str, Any]:
+async def crawl_with_httpx(base_url: str) -> Dict[str, Any]:
     """
-    Crawl with Crawl4AI (free, local).
+    Crawl with httpx + BeautifulSoup (free, local).
 
-    Note: This is a simplified version. In production, you'd use
-    the actual Crawl4AI Python library with async browser support.
+    Uses httpx for HTTP requests and BeautifulSoup for HTML parsing.
+    No browser automation - pure HTTP scraping.
 
     Args:
         base_url: Base URL to crawl
@@ -507,15 +507,15 @@ def filter_relevant_urls(urls: List[str]) -> List[str]:
 
 
 @activity.defn
-async def firecrawl_crawl4ai_discover_and_scrape(base_url: str) -> Dict[str, Any]:
+async def firecrawl_httpx_discover(base_url: str) -> Dict[str, Any]:
     """
-    Use Firecrawl to discover URLs, then Crawl4AI to scrape relevant pages.
+    Use Firecrawl to discover URLs, then httpx to scrape relevant pages.
 
     Strategy:
     1. Firecrawl homepage → get markdown with navigation links
     2. Extract all URLs from markdown
     3. Filter to relevant keywords (news, insights, deals, etc.)
-    4. Crawl4AI scrapes discovered URLs in parallel
+    4. HTTPX scrapes discovered URLs in parallel
 
     Args:
         base_url: Company website URL
@@ -523,20 +523,20 @@ async def firecrawl_crawl4ai_discover_and_scrape(base_url: str) -> Dict[str, Any
     Returns:
         Dict with pages, discovered_urls, crawlers_used, cost
     """
-    activity.logger.info(f"Firecrawl discovering URLs, then Crawl4AI scraping: {base_url}")
+    activity.logger.info(f"Firecrawl discovering URLs, then HTTPX scraping: {base_url}")
 
     # Step 1: Firecrawl homepage to discover URLs
     firecrawl_result = await crawl_with_firecrawl(base_url)
 
     if not firecrawl_result.get("success"):
-        activity.logger.warning("Firecrawl failed, falling back to Crawl4AI only")
-        crawl4ai_result = await crawl_with_crawl4ai(base_url)
+        activity.logger.warning("Firecrawl failed, falling back to HTTPX only")
+        httpx_result = await crawl_with_httpx(base_url)
         return {
-            "pages": crawl4ai_result.get("pages", []),
+            "pages": httpx_result.get("pages", []),
             "discovered_urls": [],
-            "crawlers_used": ["crawl4ai"],
+            "crawlers_used": ["httpx"],
             "cost": 0.0,
-            "success": crawl4ai_result.get("success", False)
+            "success": httpx_result.get("success", False)
         }
 
     # Step 2: Extract URLs from Firecrawl markdown
@@ -563,13 +563,13 @@ async def firecrawl_crawl4ai_discover_and_scrape(base_url: str) -> Dict[str, Any
         f"(keywords: {', '.join(RELEVANT_URL_KEYWORDS[:5])}...)"
     )
 
-    # Step 4: Crawl4AI scrapes discovered URLs (limit to 10)
+    # Step 4: HTTPX scrapes discovered URLs (limit to 10)
     crawled_pages = []
 
     async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         for url in relevant_urls[:10]:
             try:
-                activity.logger.info(f"Crawl4AI scraping discovered URL: {url}")
+                activity.logger.info(f"HTTPX scraping discovered URL: {url}")
 
                 response = await client.get(
                     url,
@@ -606,23 +606,23 @@ async def firecrawl_crawl4ai_discover_and_scrape(base_url: str) -> Dict[str, Any
                 activity.logger.debug(f"Failed to scrape {url}: {e}")
                 continue
 
-    # Combine Firecrawl pages + Crawl4AI discovered pages
+    # Combine Firecrawl pages + HTTPX discovered pages
     all_pages = firecrawl_pages + crawled_pages
 
     firecrawl_cost = firecrawl_result.get("cost", 0.0)
 
     activity.logger.info(
         f"Discovery complete: {len(all_pages)} total pages "
-        f"(Firecrawl: {len(firecrawl_pages)}, Crawl4AI discovered: {len(crawled_pages)}), "
+        f"(Firecrawl: {len(firecrawl_pages)}, HTTPX discovered: {len(crawled_pages)}), "
         f"cost: ${firecrawl_cost:.4f}"
     )
 
     return {
         "pages": all_pages,
         "discovered_urls": relevant_urls[:10],
-        "crawlers_used": ["firecrawl", "crawl4ai_discovered"],
+        "crawlers_used": ["firecrawl", "httpx_discovered"],
         "cost": firecrawl_cost,
         "success": len(all_pages) > 0,
         "firecrawl_pages": len(firecrawl_pages),
-        "crawl4ai_discovered_pages": len(crawled_pages)
+        "httpx_discovered_pages": len(crawled_pages)
     }
