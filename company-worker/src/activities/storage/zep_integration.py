@@ -473,56 +473,53 @@ async def sync_article_to_zep(
     try:
         client = AsyncZep(api_key=config.ZEP_API_KEY)
 
-        # Create condensed summary for Zep (<10k chars)
-        # Include key info: title, excerpt, company mentions, and condensed content
-        summary_parts = [
-            f"ARTICLE: {title}",
-            f"Type: {article_type}",
-            f"Slug: {slug}",
-            "",
-            f"EXCERPT: {excerpt}",
-            ""
-        ]
+        # Create structured summary for Zep (matching company pattern)
+        # Keep it concise - Zep works better with structured data
 
-        # Add mentioned companies
+        # Build companies summary
+        companies_summary = ""
         if mentioned_companies:
-            summary_parts.append(f"MENTIONED COMPANIES ({len(mentioned_companies)}):")
+            companies_count = len(mentioned_companies)
+            companies_summary = f"\n\nMENTIONED COMPANIES ({companies_count}):\n"
             for company in mentioned_companies[:10]:  # Top 10
                 company_name = company.get("name", "Unknown")
                 relevance = company.get("relevance_score", 0)
                 is_primary = company.get("is_primary", False)
                 primary_marker = " [PRIMARY]" if is_primary else ""
-                summary_parts.append(f"- {company_name} (relevance: {relevance:.2f}){primary_marker}")
-            summary_parts.append("")
+                companies_summary += f"- {company_name} (relevance: {relevance:.2f}){primary_marker}\n"
 
-        # Add condensed content (first 5000 chars)
-        summary_parts.append("CONTENT:")
-        condensed_content = content[:5000] if len(content) > 5000 else content
-        summary_parts.append(condensed_content)
+        # Build content summary (first 3000 chars for Zep)
+        content_summary = f"\n\nCONTENT EXCERPT:\n{content[:3000]}" if content else ""
 
-        summary = "\n".join(summary_parts)
-
-        # Truncate to 10k chars for Zep
-        if len(summary) > 10000:
-            summary = summary[:9950] + "... [truncated]"
-
-        # Build episode data
+        # Build episode data (matching company sync pattern)
         episode_data = {
             "article_id": article_id,
             "title": title,
             "slug": slug,
             "article_type": article_type,
             "app": app,
-            "summary": summary,
+            "excerpt": excerpt,
+            "entity_type": "article",
+            # Structured entity data (like company sync)
+            "entity": {
+                "name": title,
+                "type": "article",
+                "article_type": article_type,
+                "app": app,
+                "slug": slug
+            },
+            # Mentioned companies as structured entities
             "mentioned_companies": [
                 {
                     "name": c.get("name"),
                     "relevance_score": c.get("relevance_score", 0),
-                    "is_primary": c.get("is_primary", False)
+                    "is_primary": c.get("is_primary", False),
+                    "mention_count": c.get("mention_count", 1)
                 }
                 for c in mentioned_companies[:15]
             ],
-            "entity_type": "article"
+            # Structured summary (like company sync)
+            "structured_summary": companies_summary + content_summary
         }
 
         # Add to Zep graph
