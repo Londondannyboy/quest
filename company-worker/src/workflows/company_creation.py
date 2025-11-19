@@ -92,14 +92,14 @@ class CompanyCreationWorkflow:
 
         # Use Crawl4AI service (with fallback to httpx if service unavailable)
         crawl4ai_task = workflow.execute_activity(
-            "crawl4ai_service_crawl",
+            "crawl4ai_crawl",  # Alias name for crawl4ai_service_crawl
             args=[normalized["normalized_url"]],
             start_to_close_timeout=timedelta(minutes=3)
         )
 
         # Intelligent URL discovery - Firecrawl discovers URLs, then scrapes them
         firecrawl_task = workflow.execute_activity(
-            "firecrawl_httpx_discover",
+            "firecrawl_crawl4ai_discover_and_scrape",  # Alias name for firecrawl_httpx_discover
             args=[normalized["normalized_url"]],
             start_to_close_timeout=timedelta(minutes=3)
         )
