@@ -13,7 +13,7 @@ from urllib.parse import urljoin, urlparse
 from src.utils.config import config
 
 
-@activity.defn
+@activity.defn(name="crawl4ai_crawl")  # Alias for backward compatibility with old workflows
 async def httpx_crawl(url: str) -> Dict[str, Any]:
     """
     Crawl company website using httpx + BeautifulSoup (free, fast).
@@ -506,7 +506,7 @@ def filter_relevant_urls(urls: List[str]) -> List[str]:
     return relevant
 
 
-@activity.defn
+@activity.defn(name="firecrawl_crawl4ai_discover_and_scrape")  # Alias for backward compatibility
 async def firecrawl_httpx_discover(base_url: str) -> Dict[str, Any]:
     """
     Use Firecrawl to discover URLs, then httpx to scrape relevant pages.

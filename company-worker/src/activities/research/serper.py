@@ -290,7 +290,7 @@ PAYWALL_DOMAINS = {
 }
 
 
-@activity.defn
+@activity.defn(name="serper_crawl4ai_deep_articles")  # Alias for backward compatibility
 async def serper_httpx_deep_articles(
     articles: List[Dict[str, Any]],
     max_articles: int = 4
