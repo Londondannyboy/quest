@@ -338,7 +338,7 @@ async def save_article_to_neon(
         slug: Article slug
         title: Article title
         app: App context (placement, relocation, etc.)
-        article_type: Type (news, guide, comparison)
+        article_type: Type (news, guide, comparison) - stored in payload
         payload: Full ArticlePayload as dict
         featured_image_url: URL to featured image
         hero_image_url: URL to hero image
@@ -356,10 +356,11 @@ async def save_article_to_neon(
         ) as conn:
             async with conn.cursor() as cur:
                 # Extract key fields from payload
-                excerpt = payload.get("excerpt", "")[:500]
-                meta_description = payload.get("meta_description", "")[:160]
+                content = payload.get("content", "")
+                excerpt = payload.get("excerpt", "")[:500] if payload.get("excerpt") else ""
+                meta_description = payload.get("meta_description", "")[:160] if payload.get("meta_description") else ""
                 word_count = payload.get("word_count", 0)
-                reading_time = payload.get("reading_time_minutes", 1)
+                article_angle = payload.get("article_angle") or article_type  # Use article_type as angle
 
                 if article_id:
                     # Update existing article
@@ -369,11 +370,11 @@ async def save_article_to_neon(
                             slug = %s,
                             title = %s,
                             app = %s,
-                            article_type = %s,
+                            content = %s,
                             excerpt = %s,
                             meta_description = %s,
                             word_count = %s,
-                            reading_time_minutes = %s,
+                            article_angle = %s,
                             featured_image_url = %s,
                             hero_image_url = %s,
                             payload = %s,
@@ -385,11 +386,11 @@ async def save_article_to_neon(
                         slug,
                         title,
                         app,
-                        article_type,
+                        content,
                         excerpt,
                         meta_description,
                         word_count,
-                        reading_time,
+                        article_angle,
                         featured_image_url,
                         hero_image_url,
                         json.dumps(payload),
@@ -409,11 +410,11 @@ async def save_article_to_neon(
                             slug,
                             title,
                             app,
-                            article_type,
+                            content,
                             excerpt,
                             meta_description,
                             word_count,
-                            reading_time_minutes,
+                            article_angle,
                             featured_image_url,
                             hero_image_url,
                             payload,
@@ -425,10 +426,11 @@ async def save_article_to_neon(
                         ON CONFLICT (slug)
                         DO UPDATE SET
                             title = EXCLUDED.title,
+                            content = EXCLUDED.content,
                             excerpt = EXCLUDED.excerpt,
                             meta_description = EXCLUDED.meta_description,
                             word_count = EXCLUDED.word_count,
-                            reading_time_minutes = EXCLUDED.reading_time_minutes,
+                            article_angle = EXCLUDED.article_angle,
                             featured_image_url = EXCLUDED.featured_image_url,
                             hero_image_url = EXCLUDED.hero_image_url,
                             payload = EXCLUDED.payload,
@@ -439,11 +441,11 @@ async def save_article_to_neon(
                         slug,
                         title,
                         app,
-                        article_type,
+                        content,
                         excerpt,
                         meta_description,
                         word_count,
-                        reading_time,
+                        article_angle,
                         featured_image_url,
                         hero_image_url,
                         json.dumps(payload),
@@ -525,12 +527,13 @@ async def get_article_by_slug(slug: str) -> Optional[Dict[str, Any]]:
                         slug,
                         title,
                         app,
-                        article_type,
+                        content,
+                        excerpt,
                         featured_image_url,
                         hero_image_url,
                         meta_description,
                         word_count,
-                        reading_time_minutes,
+                        article_angle,
                         payload,
                         status,
                         published_at,
@@ -550,17 +553,18 @@ async def get_article_by_slug(slug: str) -> Optional[Dict[str, Any]]:
                     "slug": row[1],
                     "title": row[2],
                     "app": row[3],
-                    "article_type": row[4],
-                    "featured_image_url": row[5],
-                    "hero_image_url": row[6],
-                    "meta_description": row[7],
-                    "word_count": row[8],
-                    "reading_time_minutes": row[9],
-                    "payload": row[10],
-                    "status": row[11],
-                    "published_at": row[12].isoformat() if row[12] else None,
-                    "created_at": row[13].isoformat() if row[13] else None,
-                    "updated_at": row[14].isoformat() if row[14] else None,
+                    "content": row[4],
+                    "excerpt": row[5],
+                    "featured_image_url": row[6],
+                    "hero_image_url": row[7],
+                    "meta_description": row[8],
+                    "word_count": row[9],
+                    "article_angle": row[10],
+                    "payload": row[11],
+                    "status": row[12],
+                    "published_at": row[13].isoformat() if row[13] else None,
+                    "created_at": row[14].isoformat() if row[14] else None,
+                    "updated_at": row[15].isoformat() if row[15] else None,
                 }
 
     except Exception as e:
