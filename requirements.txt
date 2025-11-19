@@ -21,8 +21,7 @@ anthropic>=0.40.0
 # Pin transitive dependencies that cause backtracking
 litellm>=1.53.1  # Required by crawl4ai 0.4.247
 logfire==2.10.0
-opentelemetry-api==1.29.0
-opentelemetry-sdk==1.29.0
+# Let logfire control opentelemetry versions (removed pins that caused conflicts)
 
 # Database
 psycopg[binary]>=3.1.0
