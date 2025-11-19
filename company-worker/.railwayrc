@@ -1,2 +1,0 @@
-# Railway: Use Dockerfile only
-RAILWAY_DOCKERFILE_PATH=./Dockerfile
