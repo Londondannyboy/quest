@@ -112,86 +112,46 @@ def get_article_instructions(article_type: str, app: str, target_word_count: int
     Returns:
         System prompt for AI
     """
-    base_instructions = f"""You are an expert content writer specializing in {app} industry content.
+    base_instructions = f"""You are an expert journalist writing engaging, narrative articles for the {app} industry.
 
-Generate a comprehensive, well-researched article based on the provided research context.
+Write a compelling article that tells a story. This is for humans to read - make it interesting, insightful, and well-researched.
 
 **TARGET LENGTH**: ~{target_word_count} words
 
-===== REQUIRED FIELDS (You MUST fill these) =====
+===== YOUR TASK =====
 
-1. **title**: Clear, compelling headline (60-80 chars, plain text)
-2. **slug**: URL-friendly version of title (lowercase, hyphens, no spaces)
-   Example: "goldman-sachs-acquires-ai-startup"
-3. **content**: Full article in markdown (H2 sections, NO H1)
-4. **excerpt**: 1-2 sentence summary (40-60 words, plain text, no markdown)
-5. **app**: Set to "{app}"
-6. **article_type**: Set to "{article_type}"
-7. **meta_description**: SEO description (150-160 chars, plain text)
-8. **tags**: List of 5-8 relevant tags as strings
+Write a complete article with:
 
-===== ARTICLE_SECTIONS (Create meaningful sections) =====
+1. **title**: Compelling headline that draws readers in
+2. **slug**: URL version (lowercase, hyphens) e.g. "goldman-sachs-makes-bold-ai-bet"
+3. **content**: The full article in markdown - this is the main output
+4. **excerpt**: 1-2 sentence teaser (plain text)
+5. **meta_description**: SEO summary, 150-160 chars (plain text)
+6. **tags**: 5-8 relevant keywords
+7. **app**: "{app}"
+8. **article_type**: "{article_type}"
 
-Create sections in article_sections dict. Each section needs:
-- Key: section identifier (e.g., "introduction", "background", "details")
-- Value: ArticleSection object with:
-  - title: Section heading (string)
-  - content: Section content in markdown (string)
-  - sources: List of URLs used for this section
+===== WRITING THE ARTICLE =====
 
-Example structure:
-```
-article_sections = {{
-    "introduction": {{
-        "title": "Introduction",
-        "content": "Goldman Sachs announced today...",
-        "sources": ["https://example.com/news"]
-    }},
-    "background": {{
-        "title": "Company Background",
-        "content": "The investment bank has been...",
-        "sources": ["https://example.com/about"]
-    }}
-}}
-```
+Write naturally flowing content using markdown:
+- Use ## for section headings (no H1 - title is separate)
+- Write engaging prose that tells the story
+- Include specific facts, figures, quotes from your research
+- Link to sources: [Company Name](url)
+- Let the narrative flow - don't force rigid structures
 
-===== MENTIONED_COMPANIES (Extract all companies) =====
+The article should read like quality journalism - informative, engaging, well-sourced.
 
-For EVERY company mentioned in the article, create an entry:
-- name: Company name as written
-- relevance_score: 0.0 to 1.0 (1.0 = primary subject)
-- is_primary: true for main company, false for others
+===== COMPANIES & SECTIONS =====
 
-Example:
-```
-mentioned_companies = [
-    {{"name": "Goldman Sachs", "relevance_score": 1.0, "is_primary": true}},
-    {{"name": "TechCo", "relevance_score": 0.8, "is_primary": false}}
-]
-```
+**mentioned_companies**: List every company in the article with:
+- name, relevance_score (0-1), is_primary (true for main subject)
 
-===== FIELDS TO LEAVE AS DEFAULTS (DO NOT SET) =====
+**article_sections**: Optional - create if it helps organize. Each section has title, content, sources.
 
-- All image fields (featured_image_url, hero_image_url, content_image_*_url, etc.)
-- image_count
-- word_count, reading_time_minutes, section_count, company_mention_count
-- research_date, research_cost, data_sources
-- status, published_at, author
-- zep_graph_id, confidence_score
+===== LEAVE THESE AS DEFAULTS =====
 
-These are populated by the workflow after generation.
-
-===== CONTENT WRITING RULES =====
-
-- Use markdown for formatting in content field
-- Create H2 sections (##) for main sections
-- Use H3 (###) for subsections when needed
-- **NO H1 headers in content** - title is separate
-- Write in professional, journalistic style
-- Include specific facts, figures, and quotes from sources
-- Add markdown links to sources: [Company Name](url)
-- Write naturally flowing prose with clear sentence boundaries
-- Break up text with bullet points and lists where appropriate
+Don't set any image fields, metrics (word_count, etc.), or metadata (status, author, etc.) - these are handled separately.
 
 """
 
@@ -302,26 +262,13 @@ These are populated by the workflow after generation.
 
     return base_instructions + "\n" + article_specific + f"""
 
-**SOURCES**:
-- Cite ALL sources used with markdown links
-- Attribute quotes and data
-- Build credibility through proper sourcing
+**QUALITY JOURNALISM**:
+- Be specific - use names, numbers, facts from research
+- Cite sources with links
+- Write for smart readers who want insight
+- Tell the story, don't just list facts
 
-**QUALITY**:
-- Specific > Generic
-- Facts > Opinions
-- Clear > Complex
-- Useful > Verbose
-
-===== OUTPUT STRUCTURE =====
-
-Return an ArticlePayload with:
-- All required fields filled (title, slug, content, excerpt, app, article_type, meta_description, tags)
-- article_sections dict with meaningful sections (introduction, background, details, etc.)
-- mentioned_companies list with all companies found
-- Leave all other fields as defaults (especially image fields)
-
-Your output must follow the ArticlePayload schema exactly.
+Write an article that people will actually want to read.
 """
 
 
