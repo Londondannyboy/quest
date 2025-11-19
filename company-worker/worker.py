@@ -77,10 +77,6 @@ from src.activities.articles.analyze_sections import (
     analyze_article_sections,
 )
 
-from src.activities.generation.profile_generation import (
-    generate_company_profile,
-)
-
 from src.activities.generation.profile_generation_v2 import (
     generate_company_profile_v2,
 )
@@ -220,7 +216,6 @@ async def main():
             analyze_article_sections,
 
             # Generation
-            generate_company_profile,
             generate_company_profile_v2,
             calculate_completeness_score,
             get_missing_fields,
