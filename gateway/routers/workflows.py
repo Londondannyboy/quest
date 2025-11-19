@@ -538,21 +538,15 @@ async def trigger_company_worker_workflow(
 # ============================================================================
 
 class ArticleCreationRequest(BaseModel):
-    """Request to trigger ArticleCreationWorkflow (article-worker service)"""
+    """Request to trigger ArticleCreationWorkflow (company-worker service)"""
     topic: str = Field(..., description="Article topic or subject", min_length=5)
-    app: str = Field(..., description="App context: placement, relocation, chief-of-staff, gtm, newsroom")
-    target_word_count: int = Field(default=1500, ge=500, le=5000, description="Target word count")
-    article_format: str = Field(default="article", description="Format: article, listicle, guide, analysis")
-    jurisdiction: Optional[str] = Field(default=None, description="Geo-targeting: UK, US, SG, EU, etc.")
-    num_research_sources: int = Field(default=10, ge=3, le=20, description="Number of research sources")
-    deep_crawl_enabled: bool = Field(default=True, description="Enable deep crawling of authoritative sites")
-    generate_images: bool = Field(default=True, description="Generate contextual images")
-    auto_publish: bool = Field(default=False, description="Auto-publish (vs draft)")
+    article_type: str = Field(default="news", description="Type: news, guide, comparison")
+    app: str = Field(default="placement", description="App context: placement, relocation, chief-of-staff, gtm, newsroom")
+    target_word_count: int = Field(default=1500, ge=500, le=3000, description="Target word count")
+    jurisdiction: Optional[str] = Field(default="UK", description="Geo-targeting: UK, US, SG, EU, etc.")
+    num_research_sources: int = Field(default=10, ge=3, le=15, description="Number of research sources")
+    generate_images: bool = Field(default=False, description="Generate contextual images (adds 5-8 min)")
     skip_zep_sync: bool = Field(default=False, description="Skip Zep knowledge graph sync")
-    target_keywords: Optional[List[str]] = Field(default=None, description="Target SEO keywords")
-    meta_description: Optional[str] = Field(default=None, description="Override meta description")
-    author: Optional[str] = Field(default=None, description="Article author")
-    article_angle: Optional[str] = Field(default=None, description="Editorial angle")
 
 
 @router.post("/article-creation", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED)
@@ -593,27 +587,20 @@ async def trigger_article_creation_workflow(
     # Generate workflow ID
     workflow_id = f"article-creation-{request.app}-{uuid4()}"
 
-    # Use shared task queue (same as company-worker)
-    task_queue = os.getenv("TEMPORAL_TASK_QUEUE", "quest-content-queue")
+    # Use company-worker task queue (same as CompanyCreationWorkflow)
+    task_queue = os.getenv("COMPANY_WORKER_TASK_QUEUE", "quest-company-queue")
     workflow_name = "ArticleCreationWorkflow"
 
     try:
-        # Prepare workflow input matching ArticleInput model
+        # Prepare workflow input matching ArticleCreationWorkflow expected format
         workflow_input = {
             "topic": request.topic,
+            "article_type": request.article_type,
             "app": request.app,
             "target_word_count": request.target_word_count,
-            "article_format": request.article_format,
             "jurisdiction": request.jurisdiction,
             "num_research_sources": request.num_research_sources,
-            "deep_crawl_enabled": request.deep_crawl_enabled,
             "generate_images": request.generate_images,
-            "auto_publish": request.auto_publish,
-            "skip_zep_sync": request.skip_zep_sync,
-            "target_keywords": request.target_keywords,
-            "meta_description": request.meta_description,
-            "author": request.author,
-            "article_angle": request.article_angle,
         }
 
         # Start workflow execution
