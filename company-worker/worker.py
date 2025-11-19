@@ -96,6 +96,8 @@ from src.activities.storage.neon_database import (
     save_company_to_neon,
     update_company_metadata,
     get_company_by_id,
+    save_article_to_neon,
+    get_article_by_slug,
 )
 
 from src.activities.storage.zep_integration import (
@@ -231,6 +233,8 @@ async def main():
             save_company_to_neon,
             update_company_metadata,
             get_company_by_id,
+            save_article_to_neon,
+            get_article_by_slug,
 
             # Zep Integration
             query_zep_for_context,

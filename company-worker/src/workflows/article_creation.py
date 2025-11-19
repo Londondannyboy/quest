@@ -248,9 +248,25 @@ class ArticleCreationWorkflow:
         # ===== PHASE 7: SAVE TO DATABASE =====
         workflow.logger.info("Phase 7: Saving article to database")
 
-        # TODO: Implement save_article_to_neon activity
-        # For now, return success with payload
-        article_id = temp_article_id  # Will be real UUID from database
+        # Save article to Neon database
+        article_id = await workflow.execute_activity(
+            "save_article_to_neon",
+            args=[
+                None,  # article_id (new article)
+                article["slug"],
+                article["title"],
+                app,
+                article_type,
+                article,  # Full payload
+                article.get("featured_image_url"),
+                article.get("hero_image_url"),
+                article.get("mentioned_companies", []),
+                "draft"  # status
+            ],
+            start_to_close_timeout=timedelta(seconds=30)
+        )
+
+        workflow.logger.info(f"Article saved to database with ID: {article_id}")
 
         # ===== PHASE 8: SYNC TO ZEP =====
         workflow.logger.info("Phase 8: Syncing to Zep knowledge graph")

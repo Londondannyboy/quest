@@ -315,3 +315,254 @@ async def get_company_by_id(company_id: str) -> Optional[Dict[str, Any]]:
     except Exception as e:
         activity.logger.error(f"Failed to fetch company: {e}")
         return None
+
+
+@activity.defn
+async def save_article_to_neon(
+    article_id: Optional[str],
+    slug: str,
+    title: str,
+    app: str,
+    article_type: str,
+    payload: Dict[str, Any],
+    featured_image_url: Optional[str] = None,
+    hero_image_url: Optional[str] = None,
+    mentioned_companies: Optional[list] = None,
+    status: str = "draft"
+) -> str:
+    """
+    Save or update article in Neon database.
+
+    Args:
+        article_id: Existing article ID (None for new)
+        slug: Article slug
+        title: Article title
+        app: App context (placement, relocation, etc.)
+        article_type: Type (news, guide, comparison)
+        payload: Full ArticlePayload as dict
+        featured_image_url: URL to featured image
+        hero_image_url: URL to hero image
+        mentioned_companies: List of company mentions with relevance scores
+        status: Article status (draft, published, archived)
+
+    Returns:
+        Article ID (str)
+    """
+    activity.logger.info(f"Saving article '{title}' to Neon database")
+
+    try:
+        async with await psycopg.AsyncConnection.connect(
+            config.DATABASE_URL
+        ) as conn:
+            async with conn.cursor() as cur:
+                # Extract key fields from payload
+                excerpt = payload.get("excerpt", "")[:500]
+                meta_description = payload.get("meta_description", "")[:160]
+                word_count = payload.get("word_count", 0)
+                reading_time = payload.get("reading_time_minutes", 1)
+
+                if article_id:
+                    # Update existing article
+                    await cur.execute("""
+                        UPDATE articles
+                        SET
+                            slug = %s,
+                            title = %s,
+                            app = %s,
+                            article_type = %s,
+                            excerpt = %s,
+                            meta_description = %s,
+                            word_count = %s,
+                            reading_time_minutes = %s,
+                            featured_image_url = %s,
+                            hero_image_url = %s,
+                            payload = %s,
+                            status = %s,
+                            updated_at = NOW()
+                        WHERE id = %s
+                        RETURNING id
+                    """, (
+                        slug,
+                        title,
+                        app,
+                        article_type,
+                        excerpt,
+                        meta_description,
+                        word_count,
+                        reading_time,
+                        featured_image_url,
+                        hero_image_url,
+                        json.dumps(payload),
+                        status,
+                        article_id
+                    ))
+
+                    result = await cur.fetchone()
+                    final_id = result[0] if result else article_id
+
+                    activity.logger.info(f"Updated article: {slug} (ID: {final_id})")
+
+                else:
+                    # Insert new article
+                    await cur.execute("""
+                        INSERT INTO articles (
+                            slug,
+                            title,
+                            app,
+                            article_type,
+                            excerpt,
+                            meta_description,
+                            word_count,
+                            reading_time_minutes,
+                            featured_image_url,
+                            hero_image_url,
+                            payload,
+                            status,
+                            created_at,
+                            updated_at
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                        ON CONFLICT (slug)
+                        DO UPDATE SET
+                            title = EXCLUDED.title,
+                            excerpt = EXCLUDED.excerpt,
+                            meta_description = EXCLUDED.meta_description,
+                            word_count = EXCLUDED.word_count,
+                            reading_time_minutes = EXCLUDED.reading_time_minutes,
+                            featured_image_url = EXCLUDED.featured_image_url,
+                            hero_image_url = EXCLUDED.hero_image_url,
+                            payload = EXCLUDED.payload,
+                            status = EXCLUDED.status,
+                            updated_at = NOW()
+                        RETURNING id
+                    """, (
+                        slug,
+                        title,
+                        app,
+                        article_type,
+                        excerpt,
+                        meta_description,
+                        word_count,
+                        reading_time,
+                        featured_image_url,
+                        hero_image_url,
+                        json.dumps(payload),
+                        status
+                    ))
+
+                    result = await cur.fetchone()
+                    final_id = str(result[0])
+
+                    activity.logger.info(f"Inserted article: {slug} (ID: {final_id})")
+
+                # Link to mentioned companies
+                if mentioned_companies:
+                    for company in mentioned_companies:
+                        company_name = company.get("name", "")
+                        relevance_score = company.get("relevance_score", 0.5)
+
+                        # Try to find company by name
+                        await cur.execute("""
+                            SELECT id FROM companies
+                            WHERE LOWER(name) = LOWER(%s)
+                            LIMIT 1
+                        """, (company_name,))
+
+                        company_row = await cur.fetchone()
+
+                        if company_row:
+                            company_id = str(company_row[0])
+
+                            # Create link
+                            await cur.execute("""
+                                INSERT INTO article_companies (
+                                    article_id,
+                                    company_id,
+                                    relevance_score,
+                                    created_at
+                                )
+                                VALUES (%s, %s, %s, NOW())
+                                ON CONFLICT (article_id, company_id)
+                                DO UPDATE SET
+                                    relevance_score = EXCLUDED.relevance_score,
+                                    updated_at = NOW()
+                            """, (final_id, company_id, relevance_score))
+
+                            activity.logger.info(
+                                f"Linked article to company: {company_name}"
+                            )
+
+                await conn.commit()
+
+                return str(final_id)
+
+    except Exception as e:
+        activity.logger.error(f"Failed to save article to Neon: {e}")
+        raise
+
+
+@activity.defn
+async def get_article_by_slug(slug: str) -> Optional[Dict[str, Any]]:
+    """
+    Retrieve article by slug.
+
+    Args:
+        slug: Article slug
+
+    Returns:
+        Article data dict or None
+    """
+    activity.logger.info(f"Fetching article: {slug}")
+
+    try:
+        async with await psycopg.AsyncConnection.connect(
+            config.DATABASE_URL
+        ) as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("""
+                    SELECT
+                        id,
+                        slug,
+                        title,
+                        app,
+                        article_type,
+                        featured_image_url,
+                        hero_image_url,
+                        meta_description,
+                        word_count,
+                        reading_time_minutes,
+                        payload,
+                        status,
+                        published_at,
+                        created_at,
+                        updated_at
+                    FROM articles
+                    WHERE slug = %s
+                """, (slug,))
+
+                row = await cur.fetchone()
+
+                if not row:
+                    return None
+
+                return {
+                    "id": str(row[0]),
+                    "slug": row[1],
+                    "title": row[2],
+                    "app": row[3],
+                    "article_type": row[4],
+                    "featured_image_url": row[5],
+                    "hero_image_url": row[6],
+                    "meta_description": row[7],
+                    "word_count": row[8],
+                    "reading_time_minutes": row[9],
+                    "payload": row[10],
+                    "status": row[11],
+                    "published_at": row[12].isoformat() if row[12] else None,
+                    "created_at": row[13].isoformat() if row[13] else None,
+                    "updated_at": row[14].isoformat() if row[14] else None,
+                }
+
+    except Exception as e:
+        activity.logger.error(f"Failed to fetch article: {e}")
+        return None
