@@ -1,0 +1,5 @@
+# Quest monorepo - Company Worker dependencies
+# This file allows Railpack to detect Python at repo root
+# while keeping actual dependencies in company-worker/
+
+-r company-worker/requirements.txt
