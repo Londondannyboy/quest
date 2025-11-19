@@ -55,7 +55,7 @@ async def generate_article_content(
         article = result.output
 
         # Calculate quality metrics
-        article.section_count = len(article.sections)
+        article.section_count = len(article.article_sections)
         article.word_count = len(article.content.split())
         article.reading_time_minutes = max(1, article.word_count // 200)  # ~200 wpm
         article.company_mention_count = len(article.mentioned_companies)
@@ -85,8 +85,10 @@ async def generate_article_content(
             app=app,
             article_type=article_type,
             meta_description=f"Article about {topic}.",
+            tags=[],
             word_count=10,
-            reading_time_minutes=1
+            reading_time_minutes=1,
+            section_count=0
         )
 
         return {
