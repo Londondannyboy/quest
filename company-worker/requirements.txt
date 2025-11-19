@@ -8,11 +8,17 @@ proto-plus>=1.24.0,<2.0.0
 protobuf>=4.25.0,<6.0.0
 googleapis-common-protos>=1.63.0,<2.0.0
 
-# AI/ML & Generation - only install needed extras to avoid dependency conflicts
-pydantic-ai[openai,anthropic,google]>=0.1.0
+# AI/ML & Generation - pin versions to avoid resolution conflicts
+pydantic-ai[openai,anthropic,google]==0.1.4
 google-generativeai>=0.8.0
 openai>=1.0.0
 anthropic>=0.40.0
+
+# Pin transitive dependencies that cause backtracking
+litellm==1.52.13
+logfire==2.10.0
+opentelemetry-api==1.29.0
+opentelemetry-sdk==1.29.0
 
 # Database
 psycopg[binary]>=3.1.0
@@ -26,7 +32,7 @@ cloudinary>=1.40.0
 Pillow>=10.0.0
 
 # Web Scraping & Research
-crawl4ai>=0.3.0
+crawl4ai==0.4.247  # Pin to avoid litellm conflicts
 firecrawl-py>=0.0.5
 playwright>=1.49.0
 exa-py>=1.0.0
