@@ -255,10 +255,11 @@ async def main():
         ("Research", [
             "fetch_company_news",
             "fetch_targeted_research",
-            "serper_crawl4ai_deep_articles",  # NEW
-            "crawl4ai_crawl",
+            "serper_httpx_deep_articles",
+            "httpx_crawl",
+            "crawl4ai_service_crawl",
             "firecrawl_crawl",
-            "firecrawl_crawl4ai_discover_and_scrape",  # NEW
+            "firecrawl_httpx_discover",
             "exa_research_company",
             "exa_find_similar_companies",
         ]),
