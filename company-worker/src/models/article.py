@@ -83,11 +83,42 @@ class ArticlePayload(BaseModel):
         description="Companies mentioned in article"
     )
 
-    # ===== VISUAL ASSETS (All Optional) =====
+    # ===== VISUAL ASSETS (Populated by image generation, replaceable by humans) =====
+    # Featured (1200x630 - social sharing)
     featured_image_url: Optional[str] = Field(default=None)
     featured_image_alt: Optional[str] = Field(default=None)
+    featured_image_title: Optional[str] = Field(default=None)
+    featured_image_description: Optional[str] = Field(default=None)
+
+    # Hero (16:9 - article header, can be replaced with video)
     hero_image_url: Optional[str] = Field(default=None)
     hero_image_alt: Optional[str] = Field(default=None)
+    hero_image_title: Optional[str] = Field(default=None)
+    hero_image_description: Optional[str] = Field(default=None)
+
+    # Hero Video (optional replacement for hero image)
+    hero_video_url: Optional[str] = Field(default=None, description="Cloudinary video URL")
+    hero_video_title: Optional[str] = Field(default=None)
+    hero_video_description: Optional[str] = Field(default=None)
+
+    # Content Images 1-3 (4:3 - in-article contextual)
+    content_image_1_url: Optional[str] = Field(default=None)
+    content_image_1_alt: Optional[str] = Field(default=None)
+    content_image_1_title: Optional[str] = Field(default=None)
+    content_image_1_description: Optional[str] = Field(default=None)
+
+    content_image_2_url: Optional[str] = Field(default=None)
+    content_image_2_alt: Optional[str] = Field(default=None)
+    content_image_2_title: Optional[str] = Field(default=None)
+    content_image_2_description: Optional[str] = Field(default=None)
+
+    content_image_3_url: Optional[str] = Field(default=None)
+    content_image_3_alt: Optional[str] = Field(default=None)
+    content_image_3_title: Optional[str] = Field(default=None)
+    content_image_3_description: Optional[str] = Field(default=None)
+
+    # Image count for tracking
+    image_count: int = Field(default=0)
 
     # ===== METADATA =====
     author: Optional[str] = Field(default="Quest Editorial Team")
