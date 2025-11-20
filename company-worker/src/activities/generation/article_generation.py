@@ -1,12 +1,11 @@
 """
-Article Content Generation
+Article Content Generation - Simplest Possible
 
-Generates comprehensive articles using AI with rich research context.
-Uses simple Pydantic model for AI output, then builds full payload.
+Just get the AI to write the article. That's it.
 """
 
 from temporalio import activity
-from typing import Dict, Any, List
+from typing import Dict, Any
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 from slugify import slugify
@@ -14,22 +13,10 @@ from slugify import slugify
 from src.utils.config import config
 
 
-# ============================================================================
-# SIMPLE PYDANTIC MODEL FOR AI OUTPUT
-# ============================================================================
+class ArticleOutput(BaseModel):
+    """Just the article content - nothing else."""
+    article: str = Field(description="The complete article in markdown format")
 
-class ArticleContentOutput(BaseModel):
-    """Simple AI-generated article - just the core content."""
-    title: str = Field(description="Compelling article headline")
-    summary: str = Field(description="Article summary/excerpt (2-3 sentences)")
-    content: str = Field(description="Full article content in markdown with ## headings")
-    meta_description: str = Field(description="SEO meta description (150-160 chars)")
-    tags: List[str] = Field(default_factory=list, description="5-8 relevant keywords")
-
-
-# ============================================================================
-# ARTICLE GENERATION ACTIVITY
-# ============================================================================
 
 @activity.defn
 async def generate_article_content(
@@ -39,119 +26,99 @@ async def generate_article_content(
     research_context: Dict[str, Any],
     target_word_count: int = 1500
 ) -> Dict[str, Any]:
-    """
-    Generate article content using Pydantic AI.
-
-    Args:
-        topic: Article topic/title
-        article_type: Type (news, guide, comparison)
-        app: Application context (placement, relocation, etc.)
-        research_context: Dict with news, crawled_content, exa_results
-        target_word_count: Target article length
-
-    Returns:
-        Dict with article payload, cost, model_used
-    """
+    """Generate article content using Pydantic AI."""
     activity.logger.info(f"Generating {article_type} article: {topic}")
 
     try:
-        # Get AI model configuration
         provider, model_name = config.get_ai_model()
         activity.logger.info(f"Using AI: {provider}:{model_name}")
 
-        # Create agent with simple output model
+        # Simplest possible agent - just output one string
         agent = Agent(
             model=f'{provider}:{model_name}',
-            result_type=ArticleContentOutput,
-            system_prompt=get_system_prompt(article_type, app, target_word_count)
+            result_type=ArticleOutput,
+            system_prompt=f"""You are an expert journalist. Write a {target_word_count}-word {article_type} article for the {app} industry.
+
+Output your article in markdown format with:
+- A title on the first line (no # prefix)
+- Sections using ## headings
+- Professional, engaging prose
+- Facts and figures from the research
+
+Just write the article. Nothing else."""
         )
 
-        # Build context prompt
-        prompt = build_prompt(topic, article_type, research_context, target_word_count)
+        # Build simple prompt
+        prompt = build_prompt(topic, research_context)
 
-        # Generate article
+        # Generate
         result = await agent.run(prompt)
-        article_output = result.data
+        article_text = result.data.article
 
-        # Generate slug
-        slug = slugify(article_output.title, max_length=100)
+        # Parse title from first line
+        lines = article_text.strip().split('\n')
+        title = lines[0].strip().lstrip('#').strip() if lines else topic
+        content = '\n'.join(lines[1:]).strip() if len(lines) > 1 else article_text
 
-        # Calculate metrics
-        word_count = len(article_output.content.split())
-        section_count = article_output.content.count('## ')
-        reading_time = max(1, word_count // 200)
+        # Generate metadata
+        slug = slugify(title, max_length=100)
+        word_count = len(content.split())
 
-        activity.logger.info(
-            f"Article generated: {word_count} words, {section_count} sections"
-        )
+        # Extract first paragraph as excerpt
+        paragraphs = [p.strip() for p in content.split('\n\n') if p.strip() and not p.strip().startswith('#')]
+        excerpt = paragraphs[0][:200] if paragraphs else f"Article about {topic}"
 
-        # Build full payload
-        payload = {
-            "title": article_output.title,
-            "slug": slug,
-            "content": article_output.content,
-            "excerpt": article_output.summary,
-            "app": app,
-            "article_type": article_type,
-            "meta_description": article_output.meta_description,
-            "tags": article_output.tags,
-
-            # Metrics
-            "word_count": word_count,
-            "reading_time_minutes": reading_time,
-            "section_count": section_count,
-
-            # Image placeholders (populated by image generation)
-            "featured_image_url": None,
-            "featured_image_alt": None,
-            "hero_image_url": None,
-            "hero_image_alt": None,
-            "content_image_1_url": None,
-            "content_image_2_url": None,
-            "content_image_3_url": None,
-            "image_count": 0,
-
-            # Metadata
-            "author": "Quest Editorial Team",
-            "status": "draft",
-            "confidence_score": 1.0
-        }
+        activity.logger.info(f"Article generated: {word_count} words")
 
         return {
-            "article": payload,
-            "cost": estimate_ai_cost(provider, model_name),
+            "article": {
+                "title": title,
+                "slug": slug,
+                "content": content,
+                "excerpt": excerpt,
+                "app": app,
+                "article_type": article_type,
+                "meta_description": excerpt[:160],
+                "tags": [],
+                "word_count": word_count,
+                "reading_time_minutes": max(1, word_count // 200),
+                "section_count": content.count('## '),
+                "featured_image_url": None,
+                "hero_image_url": None,
+                "image_count": 0,
+                "author": "Quest Editorial Team",
+                "status": "draft",
+                "confidence_score": 1.0
+            },
+            "cost": 0.02,
             "model_used": f"{provider}:{model_name}",
             "success": True
         }
 
     except Exception as e:
-        activity.logger.error(f"ARTICLE GENERATION FAILED: {e}", exc_info=True)
+        activity.logger.error(f"FAILED: {e}", exc_info=True)
 
-        # Return minimal article on error
         slug = slugify(topic, max_length=100)
-
-        payload = {
-            "title": topic,
-            "slug": slug,
-            "content": f"## Introduction\n\nArticle about {topic} is currently being researched.",
-            "excerpt": f"Information about {topic}.",
-            "app": app,
-            "article_type": article_type,
-            "meta_description": f"Article about {topic}.",
-            "tags": [],
-            "word_count": 10,
-            "reading_time_minutes": 1,
-            "section_count": 1,
-            "featured_image_url": None,
-            "hero_image_url": None,
-            "image_count": 0,
-            "author": "Quest Editorial Team",
-            "status": "draft",
-            "confidence_score": 0.0
-        }
-
         return {
-            "article": payload,
+            "article": {
+                "title": topic,
+                "slug": slug,
+                "content": f"## {topic}\n\nArticle generation failed: {e}",
+                "excerpt": f"Article about {topic}.",
+                "app": app,
+                "article_type": article_type,
+                "meta_description": f"Article about {topic}.",
+                "tags": [],
+                "word_count": 10,
+                "reading_time_minutes": 1,
+                "section_count": 1,
+                "featured_image_url": None,
+                "hero_image_url": None,
+                "image_count": 0,
+                "author": "Quest Editorial Team",
+                "status": "draft",
+                "confidence_score": 0.0
+            },
             "cost": 0.0,
             "model_used": "fallback",
             "success": False,
@@ -159,119 +126,36 @@ async def generate_article_content(
         }
 
 
-def get_system_prompt(article_type: str, app: str, target_word_count: int) -> str:
-    """Get system prompt for article generation."""
+def build_prompt(topic: str, research_context: Dict[str, Any]) -> str:
+    """Build prompt with research."""
+    parts = [f"Write an article about: {topic}\n"]
 
-    type_guidance = {
-        "news": "Write a news article with the most important information first (inverted pyramid). Keep it factual and cite sources.",
-        "guide": "Write a helpful guide that explains concepts clearly with step-by-step instructions where appropriate.",
-        "comparison": "Write an analytical comparison examining options objectively with pros/cons and recommendations."
-    }
-
-    guidance = type_guidance.get(article_type, type_guidance["news"])
-
-    return f"""You are an expert journalist writing for a professional audience in the {app} industry.
-
-Article Type: {article_type.upper()}
-Target Length: ~{target_word_count} words
-Guidance: {guidance}
-
-Write a compelling, well-structured article from the research provided.
-
-Guidelines:
-- Write in third person, professional journalistic tone
-- Lead with the most newsworthy/important information
-- Include specific numbers, dates, and names when available
-- Attribute information to sources with inline links [Source](url)
-- Use markdown ## headings to structure content
-- Write engaging prose that tells a story
-
-Your output should have:
-- title: Compelling headline
-- summary: 2-3 sentence excerpt
-- content: Full article in markdown (the main output)
-- meta_description: SEO description (150-160 chars)
-- tags: List of 5-8 keywords"""
-
-
-def build_prompt(
-    topic: str,
-    article_type: str,
-    research_context: Dict[str, Any],
-    target_word_count: int
-) -> str:
-    """Build the prompt with all research context."""
-
-    parts = [
-        f"TOPIC: {topic}",
-        f"TYPE: {article_type}",
-        f"TARGET: ~{target_word_count} words",
-        "",
-        "Write a comprehensive article using this research:",
-        "=" * 60
-    ]
-
-    # News articles from Serper
+    # Add all research
     news = research_context.get("news_articles", [])
     if news:
-        parts.append("\n=== NEWS ARTICLES ===")
-        for i, article in enumerate(news[:15], 1):
-            parts.append(f"\n{i}. {article.get('title', 'Untitled')}")
-            if article.get('date'):
-                parts.append(f"   Date: {article['date']}")
-            parts.append(f"   URL: {article.get('url', '')}")
-            if article.get('snippet'):
-                parts.append(f"   {article['snippet']}")
+        parts.append("\n=== NEWS ===")
+        for a in news[:10]:
+            parts.append(f"\n{a.get('title', '')}")
+            parts.append(f"URL: {a.get('url', '')}")
+            if a.get('snippet'):
+                parts.append(a['snippet'])
 
-    # Crawled content
     crawled = research_context.get("crawled_pages", [])
     if crawled:
-        parts.append("\n=== CRAWLED CONTENT ===")
-        for i, page in enumerate(crawled[:10], 1):
-            parts.append(f"\n{i}. {page.get('title', 'Untitled')}")
-            parts.append(f"   URL: {page.get('url', '')}")
-            content = page.get('content', '')
+        parts.append("\n=== SOURCES ===")
+        for p in crawled[:5]:
+            parts.append(f"\n{p.get('title', '')}")
+            content = p.get('content', '')[:2000]
             if content:
-                parts.append(content[:3000])
+                parts.append(content)
 
-    # Exa research
     exa = research_context.get("exa_results", [])
     if exa:
-        parts.append("\n=== EXA DEEP RESEARCH ===")
-        for i, result in enumerate(exa[:5], 1):
-            parts.append(f"\n{i}. {result.get('title', 'Untitled')}")
-            parts.append(f"   URL: {result.get('url', '')}")
-            content = result.get('content', '') or result.get('text', '')
+        parts.append("\n=== RESEARCH ===")
+        for r in exa[:5]:
+            parts.append(f"\n{r.get('title', '')}")
+            content = r.get('content', '') or r.get('text', '')
             if content:
                 parts.append(content[:2000])
 
-    # Zep context
-    zep = research_context.get("zep_context", {})
-    if zep.get("articles") or zep.get("deals"):
-        parts.append("\n=== EXISTING KNOWLEDGE ===")
-        if zep.get("articles"):
-            parts.append("Related Articles:")
-            for a in zep["articles"][:5]:
-                parts.append(f"- {a.get('name', '')}")
-        if zep.get("deals"):
-            parts.append("Related Deals:")
-            for d in zep["deals"][:5]:
-                parts.append(f"- {d.get('name', '')}")
-
-    prompt = "\n".join(parts)
-
-    # Truncate if too long
-    if len(prompt) > 80000:
-        prompt = prompt[:80000] + "\n\n[truncated]"
-
-    return prompt
-
-
-def estimate_ai_cost(provider: str, model: str) -> float:
-    """Estimate AI generation cost."""
-    costs = {
-        "google": 0.015,
-        "openai": 0.025,
-        "anthropic": 0.035,
-    }
-    return costs.get(provider, 0.015)
+    return '\n'.join(parts)
