@@ -43,6 +43,7 @@ PLACEMENT_CONFIG = AppConfig(
     description="Directory of placement agents for private equity fund managers",
 
     keywords=[
+        "private equity placement",
         "placement agent",
         "fund placement",
         "capital raising",
