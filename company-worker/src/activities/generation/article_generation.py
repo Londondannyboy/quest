@@ -118,18 +118,46 @@ Write a compelling article that tells a story. This is for humans to read - make
 
 **TARGET LENGTH**: ~{target_word_count} words
 
-===== YOUR TASK =====
+===== REQUIRED FIELDS (use these EXACT names) =====
 
-Write a complete article with:
+You MUST provide these fields with these EXACT names:
 
-1. **title**: Compelling headline that draws readers in
-2. **slug**: URL version (lowercase, hyphens) e.g. "goldman-sachs-makes-bold-ai-bet"
-3. **content**: The full article in markdown - this is the main output
-4. **excerpt**: 1-2 sentence teaser (plain text)
-5. **meta_description**: SEO summary, 150-160 chars (plain text)
-6. **tags**: 5-8 relevant keywords
-7. **app**: "{app}"
-8. **article_type**: "{article_type}"
+1. **title** (string): Compelling headline
+2. **slug** (string): URL version, lowercase with hyphens, e.g. "goldman-sachs-makes-bold-ai-bet"
+3. **content** (string): Full article in markdown - this is the main output
+4. **excerpt** (string): 1-2 sentence teaser, plain text
+5. **meta_description** (string): SEO summary, 150-160 chars, plain text
+6. **tags** (list of strings): 5-8 relevant keywords
+7. **app** (string): "{app}"
+8. **article_type** (string): "{article_type}"
+
+===== COMPANY MENTIONS (use this EXACT structure) =====
+
+**mentioned_companies** (list): For every company mentioned:
+```json
+[
+  {{"name": "Company Name", "relevance_score": 0.9, "is_primary": true}},
+  {{"name": "Another Co", "relevance_score": 0.5, "is_primary": false}}
+]
+```
+
+===== ARTICLE SECTIONS (use this EXACT structure) =====
+
+**article_sections** (dict): Organize your content:
+```json
+{{
+  "introduction": {{
+    "title": "Introduction",
+    "content": "The markdown content...",
+    "sources": ["https://source1.com"]
+  }},
+  "deal_details": {{
+    "title": "Deal Details",
+    "content": "More content...",
+    "sources": ["https://source2.com"]
+  }}
+}}
+```
 
 ===== WRITING THE ARTICLE =====
 
@@ -138,20 +166,12 @@ Write naturally flowing content using markdown:
 - Write engaging prose that tells the story
 - Include specific facts, figures, quotes from your research
 - Link to sources: [Company Name](url)
-- Let the narrative flow - don't force rigid structures
 
 The article should read like quality journalism - informative, engaging, well-sourced.
 
-===== COMPANIES & SECTIONS =====
-
-**mentioned_companies**: List every company in the article with:
-- name, relevance_score (0-1), is_primary (true for main subject)
-
-**article_sections**: Optional - create if it helps organize. Each section has title, content, sources.
-
 ===== LEAVE THESE AS DEFAULTS =====
 
-Don't set any image fields, metrics (word_count, etc.), or metadata (status, author, etc.) - these are handled separately.
+Don't set: image fields, word_count, reading_time_minutes, section_count, company_mention_count, research_date, research_cost, data_sources, status, published_at, author, zep_graph_id, confidence_score.
 
 """
 
