@@ -263,8 +263,12 @@ async def generate_sequential_article_images(
                 "sentiment": "professional"
             }
 
+            # Create featured-specific prompt (social sharing focus)
+            featured_section = first_section.copy()
+            featured_section["visual_moment"] = f"Wide establishing shot: {first_section.get('visual_moment', title)}. Social media hero image style."
+
             featured_prompt = build_sequential_prompt(
-                section=first_section,
+                section=featured_section,
                 app=app,
                 is_first=True
             )
@@ -298,7 +302,15 @@ async def generate_sequential_article_images(
             activity.logger.info("Generating hero image...")
 
             # Use second section or similar to featured
-            hero_section = sections[1] if len(sections) > 1 else sections[0]
+            base_hero_section = sections[1] if len(sections) > 1 else sections[0]
+
+            # Create hero-specific prompt (article header focus - closer/action shot)
+            hero_section = base_hero_section.copy()
+            if len(sections) <= 1:
+                # Same section as featured - make hero a different perspective
+                hero_section["visual_moment"] = f"Close-up action shot: {base_hero_section.get('visual_moment', title)}. Article header banner style, different angle from previous."
+            else:
+                hero_section["visual_moment"] = f"Dynamic scene: {base_hero_section.get('visual_moment', title)}. Article header banner composition."
 
             hero_prompt = build_sequential_prompt(
                 section=hero_section,
@@ -332,14 +344,28 @@ async def generate_sequential_article_images(
                 result["errors"].append(f"Hero image failed: {hero_result.get('error')}")
 
         # Step 4: Generate content images sequentially (THE KEY FEATURE!)
+        # Perspective variations for visual diversity
+        perspective_variations = [
+            "Medium shot showing",
+            "Detail close-up of",
+            "Wide angle view of",
+            "Over-the-shoulder perspective of",
+            "Bird's eye view of"
+        ]
+
         for i, section in enumerate(image_sections, start=1):
             if i > max_content_images:
                 break
 
             activity.logger.info(f"Generating content image {i}/{len(image_sections)}...")
 
+            # Create varied prompt for each content image
+            content_section = section.copy()
+            perspective = perspective_variations[(i - 1) % len(perspective_variations)]
+            content_section["visual_moment"] = f"{perspective} {section.get('visual_moment', title)}. Content image {i} of {len(image_sections)}."
+
             content_prompt = build_sequential_prompt(
-                section=section,
+                section=content_section,
                 app=app,
                 is_first=(previous_image_url is None),
                 previous_description=section.get("visual_moment")
