@@ -163,7 +163,7 @@ class Config:
         """
         # Try Gemini first to test
         if cls.GOOGLE_API_KEY:
-            return ("google", "gemini-2.0-flash")
+            return ("google", "gemini-1.5-flash")
         elif cls.ANTHROPIC_API_KEY:
             return ("anthropic", "claude-sonnet-4-5-20250929")
         elif cls.OPENAI_API_KEY:
