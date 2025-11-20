@@ -161,11 +161,11 @@ class Config:
         Returns:
             Tuple of (provider, model_name)
         """
-        # Try Gemini first to test
-        if cls.GOOGLE_API_KEY:
-            return ("google-gla", "gemini-1.5-flash")
-        elif cls.ANTHROPIC_API_KEY:
+        # Anthropic Claude for article generation
+        if cls.ANTHROPIC_API_KEY:
             return ("anthropic", "claude-sonnet-4-5-20250929")
+        elif cls.GOOGLE_API_KEY:
+            return ("google-gla", "gemini-1.5-flash")
         elif cls.OPENAI_API_KEY:
             return ("openai", "gpt-4o-mini")
         else:
