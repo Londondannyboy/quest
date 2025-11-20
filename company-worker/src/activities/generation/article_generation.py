@@ -55,15 +55,15 @@ async def generate_article_content(
         article = result.output
 
         # Calculate quality metrics
-        article.section_count = len(article.article_sections)
         article.word_count = len(article.content.split())
         article.reading_time_minutes = max(1, article.word_count // 200)  # ~200 wpm
-        article.company_mention_count = len(article.mentioned_companies)
+
+        # Count H2 sections in content
+        article.section_count = article.content.count('## ')
 
         activity.logger.info(
-            f"Article generated: {article.section_count} sections, "
-            f"{article.word_count} words, "
-            f"{article.company_mention_count} companies"
+            f"Article generated: {article.word_count} words, "
+            f"{article.section_count} sections"
         )
 
         return {
@@ -74,7 +74,7 @@ async def generate_article_content(
         }
 
     except Exception as e:
-        activity.logger.error(f"❌ ARTICLE GENERATION FAILED: {e}", exc_info=True)
+        activity.logger.error(f"ARTICLE GENERATION FAILED: {e}", exc_info=True)
 
         # Return minimal article on error
         minimal_article = ArticlePayload(
@@ -87,8 +87,7 @@ async def generate_article_content(
             meta_description=f"Article about {topic}.",
             tags=[],
             word_count=10,
-            reading_time_minutes=1,
-            section_count=0
+            reading_time_minutes=1
         )
 
         return {
@@ -105,7 +104,7 @@ def get_article_instructions(article_type: str, app: str, target_word_count: int
     Get AI instructions based on article type.
 
     Args:
-        article_type: news, guide, comparison, analysis
+        article_type: news, guide, comparison
         app: Application context
         target_word_count: Target length
 
@@ -114,179 +113,68 @@ def get_article_instructions(article_type: str, app: str, target_word_count: int
     """
     base_instructions = f"""You are an expert journalist writing engaging, narrative articles for the {app} industry.
 
-Write a compelling article that tells a story. This is for humans to read - make it interesting, insightful, and well-researched.
+Write a compelling article that tells a story. Make it interesting, insightful, and well-researched.
 
 **TARGET LENGTH**: ~{target_word_count} words
 
-===== REQUIRED FIELDS (use these EXACT names) =====
+===== OUTPUT FIELDS =====
 
-You MUST provide these fields with these EXACT names:
+Generate these 8 fields:
 
-1. **title** (string): Compelling headline
-2. **slug** (string): URL version, lowercase with hyphens, e.g. "goldman-sachs-makes-bold-ai-bet"
-3. **content** (string): Full article in markdown - this is the main output
-4. **excerpt** (string): 1-2 sentence teaser, plain text
-5. **meta_description** (string): SEO summary, 150-160 chars, plain text
-6. **tags** (list of strings): 5-8 relevant keywords
-7. **app** (string): "{app}"
-8. **article_type** (string): "{article_type}"
-
-===== COMPANY MENTIONS (use this EXACT structure) =====
-
-**mentioned_companies** (list): For every company mentioned:
-```json
-[
-  {{"name": "Company Name", "relevance_score": 0.9, "is_primary": true}},
-  {{"name": "Another Co", "relevance_score": 0.5, "is_primary": false}}
-]
-```
-
-===== ARTICLE SECTIONS (use this EXACT structure) =====
-
-**article_sections** (dict): Organize your content:
-```json
-{{
-  "introduction": {{
-    "title": "Introduction",
-    "content": "The markdown content...",
-    "sources": ["https://source1.com"]
-  }},
-  "deal_details": {{
-    "title": "Deal Details",
-    "content": "More content...",
-    "sources": ["https://source2.com"]
-  }}
-}}
-```
+1. **title**: Compelling headline
+2. **slug**: URL version, lowercase with hyphens (e.g. "goldman-sachs-acquires-ai-startup")
+3. **content**: Full article in markdown - THIS IS THE MAIN OUTPUT
+4. **excerpt**: 1-2 sentence teaser
+5. **meta_description**: SEO summary, 150-160 chars
+6. **tags**: List of 5-8 relevant keywords
+7. **app**: "{app}"
+8. **article_type**: "{article_type}"
 
 ===== WRITING THE ARTICLE =====
 
-Write naturally flowing content using markdown:
+Write naturally flowing content in markdown:
 - Use ## for section headings (no H1 - title is separate)
 - Write engaging prose that tells the story
 - Include specific facts, figures, quotes from your research
 - Link to sources: [Company Name](url)
+- Be specific - use names, numbers, dates
+- Cite sources with inline links
 
 The article should read like quality journalism - informative, engaging, well-sourced.
 
-===== LEAVE THESE AS DEFAULTS =====
-
-Don't set: image fields, word_count, reading_time_minutes, section_count, company_mention_count, research_date, research_cost, data_sources, status, published_at, author, zep_graph_id, confidence_score.
-
 """
 
-    # Type-specific instructions
-    type_instructions = {
+    # Type-specific guidance
+    type_guidance = {
         "news": """
-**NEWS ARTICLE STRUCTURE**:
-
-1. **Introduction** (H2)
-   - Lead paragraph with who, what, when, where, why
-   - Key facts and figures
-   - Context and background
-
-2. **Background** (H2)
-   - Company/entity background
-   - Historical context
-   - Previous related news
-
-3. **Deal/Event Details** (H2)
-   - Specific details of the news
-   - Terms, conditions, timeline
-   - Key parties involved
-
-4. **Market Implications** (H2)
-   - Impact on industry
-   - Competitive landscape
-   - Future outlook
-
-5. **Expert Commentary** (H2) - Optional
-   - Quotes from research
-   - Expert analysis
-   - Market reaction
-
-**TONE**: Professional, objective, news-worthy
-**IMAGERY**: Match sentiment to news (somber for layoffs, celebratory for acquisitions)
+**NEWS ARTICLE**: Write like a news story.
+- Lead with who/what/when/where/why
+- Include background and context
+- Cover deal/event details
+- Discuss market implications
+- Professional, objective tone
 """,
         "guide": """
-**GUIDE ARTICLE STRUCTURE**:
-
-1. **Introduction** (H2)
-   - What is this about?
-   - Who is it for?
-   - Why is it important?
-
-2. **Overview** (H2)
-   - Comprehensive explanation
-   - Key concepts
-   - Important considerations
-
-3. **Requirements** (H2) - If applicable
-   - Eligibility criteria
-   - Documentation needed
-   - Prerequisites
-
-4. **Step-by-Step Process** (H2)
-   - Numbered steps
-   - Detailed instructions
-   - Timeline and costs
-
-5. **Tips & Best Practices** (H2)
-   - Practical advice
-   - Common mistakes
-   - Pro tips
-
-6. **Resources** (H2)
-   - Useful links
-   - Further reading
-   - Contact information
-
-**TONE**: Helpful, instructive, practical
-**IMAGERY**: Optimistic, aspirational (for visas/relocation), professional (for business guides)
+**GUIDE ARTICLE**: Write like a helpful guide.
+- Explain what it is and who it's for
+- Cover key concepts and requirements
+- Provide step-by-step process
+- Include tips and best practices
+- Helpful, instructive tone
 """,
         "comparison": """
-**COMPARISON ARTICLE STRUCTURE**:
-
-1. **Introduction** (H2)
-   - What are we comparing?
-   - Why this comparison matters
-   - Methodology overview
-
-2. **Comparison Criteria** (H2)
-   - Key factors being compared
-   - How we evaluated
-   - Data sources
-
-3. **Top Options** (H2)
-   - Detailed analysis of each option
-   - Use H3 for each item
-   - Include pros/cons
-   - Specific data points
-
-4. **Comparison Table** (H2) - Optional
-   - Side-by-side comparison
-   - Key metrics
-   - Pricing/features
-
-5. **How to Choose** (H2)
-   - Decision framework
-   - Who each option is best for
-   - Final recommendations
-
-**TONE**: Analytical, balanced, objective
-**IMAGERY**: Analytical (charts, comparisons, professional settings)
+**COMPARISON ARTICLE**: Write like an analytical comparison.
+- Explain what's being compared and why
+- Define comparison criteria
+- Analyze each option with pros/cons
+- Provide decision framework
+- Analytical, balanced tone
 """
     }
 
-    article_specific = type_instructions.get(article_type, type_instructions["news"])
+    guidance = type_guidance.get(article_type, type_guidance["news"])
 
-    return base_instructions + "\n" + article_specific + f"""
-
-**QUALITY JOURNALISM**:
-- Be specific - use names, numbers, facts from research
-- Cite sources with links
-- Write for smart readers who want insight
-- Tell the story, don't just list facts
+    return base_instructions + guidance + """
 
 Write an article that people will actually want to read.
 """
@@ -315,7 +203,7 @@ def build_article_context(
         f"TYPE: {article_type}",
         f"TARGET LENGTH: ~{target_word_count} words",
         "",
-        "Generate a comprehensive article using the information below.",
+        "Write a comprehensive article using the research below.",
         "",
         "=" * 70,
         ""
@@ -352,7 +240,6 @@ def build_article_context(
             lines.append(f"{i}. {title}")
             lines.append(f"   URL: {url}")
             if content:
-                # Include substantial content (up to 3000 chars per page)
                 lines.append(f"{content[:3000]}")
             lines.append("")
         lines.append("=" * 70 + "\n")
@@ -364,7 +251,7 @@ def build_article_context(
         for i, result in enumerate(exa_results[:5], 1):
             title = result.get('title', 'Untitled')
             url = result.get('url', '')
-            content = result.get('content', '') or result.get('text', '')  # Exa uses 'content'
+            content = result.get('content', '') or result.get('text', '')
             score = result.get('score', 0.0)
 
             lines.append(f"{i}. {title} (relevance: {score:.2f})")
@@ -396,7 +283,7 @@ def build_article_context(
     context = "\n".join(lines)
 
     # Truncate if too long
-    max_length = 80000  # Large context for comprehensive articles
+    max_length = 80000
     if len(context) > max_length:
         context = context[:max_length] + "\n\n[... content truncated ...]"
 
@@ -415,9 +302,9 @@ def estimate_ai_cost(provider: str, model: str) -> float:
         Estimated cost in USD
     """
     cost_map = {
-        "google": 0.015,     # Gemini 2.5 Flash
-        "openai": 0.025,     # GPT-4o-mini
-        "anthropic": 0.035,  # Claude Sonnet
+        "google": 0.015,
+        "openai": 0.025,
+        "anthropic": 0.035,
     }
 
     return cost_map.get(provider, 0.015)

@@ -307,7 +307,7 @@ class ArticleCreationWorkflow:
                 article,  # Full payload
                 article.get("featured_image_url"),
                 article.get("hero_image_url"),
-                article.get("mentioned_companies", []),
+                [],  # mentioned_companies (extracted by Zep)
                 "draft"  # status
             ],
             start_to_close_timeout=timedelta(seconds=30)
@@ -327,7 +327,7 @@ class ArticleCreationWorkflow:
                 article["content"],
                 article.get("excerpt", ""),
                 article_type,
-                article.get("mentioned_companies", []),
+                [],  # mentioned_companies (Zep extracts from content)
                 app
             ],
             start_to_close_timeout=timedelta(minutes=2)
@@ -364,10 +364,8 @@ class ArticleCreationWorkflow:
             "word_count": article["word_count"],
             "section_count": article["section_count"],
             "image_count": article.get("image_count", 0),
-            "company_mentions": article.get("company_mention_count", 0),
             "featured_image_url": article.get("featured_image_url"),
             "hero_image_url": article.get("hero_image_url"),
             "research_cost": total_cost,
-            "completeness_score": article.get("completeness_score", 0.0),
             "article": article  # Full payload for debugging
         }
