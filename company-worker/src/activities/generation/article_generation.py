@@ -2,15 +2,34 @@
 Article Content Generation
 
 Generates comprehensive articles using AI with rich research context.
+Uses simple Pydantic model for AI output, then builds full payload.
 """
 
 from temporalio import activity
-from typing import Dict, Any
+from typing import Dict, Any, List
+from pydantic import BaseModel, Field
 from pydantic_ai import Agent
+from slugify import slugify
 
-from src.models.article import ArticlePayload
 from src.utils.config import config
 
+
+# ============================================================================
+# SIMPLE PYDANTIC MODEL FOR AI OUTPUT
+# ============================================================================
+
+class ArticleContentOutput(BaseModel):
+    """Simple AI-generated article - just the core content."""
+    title: str = Field(description="Compelling article headline")
+    summary: str = Field(description="Article summary/excerpt (2-3 sentences)")
+    content: str = Field(description="Full article content in markdown with ## headings")
+    meta_description: str = Field(description="SEO meta description (150-160 chars)")
+    tags: List[str] = Field(default_factory=list, description="5-8 relevant keywords")
+
+
+# ============================================================================
+# ARTICLE GENERATION ACTIVITY
+# ============================================================================
 
 @activity.defn
 async def generate_article_content(
@@ -31,7 +50,7 @@ async def generate_article_content(
         target_word_count: Target article length
 
     Returns:
-        Dict with article (ArticlePayload), cost, model_used
+        Dict with article payload, cost, model_used
     """
     activity.logger.info(f"Generating {article_type} article: {topic}")
 
@@ -40,34 +59,66 @@ async def generate_article_content(
         provider, model_name = config.get_ai_model()
         activity.logger.info(f"Using AI: {provider}:{model_name}")
 
-        # Create article generation agent
-        article_agent = Agent(
-            f'{provider}:{model_name}',
-            output_type=ArticlePayload,
-            instructions=get_article_instructions(article_type, app, target_word_count)
+        # Create agent with simple output model
+        agent = Agent(
+            model=f'{provider}:{model_name}',
+            result_type=ArticleContentOutput,
+            system_prompt=get_system_prompt(article_type, app, target_word_count)
         )
 
-        # Build context for AI
-        context = build_article_context(topic, article_type, research_context, target_word_count)
+        # Build context prompt
+        prompt = build_prompt(topic, article_type, research_context, target_word_count)
 
         # Generate article
-        result = await article_agent.run(context)
-        article = result.output
+        result = await agent.run(prompt)
+        article_output = result.data
 
-        # Calculate quality metrics
-        article.word_count = len(article.content.split())
-        article.reading_time_minutes = max(1, article.word_count // 200)  # ~200 wpm
+        # Generate slug
+        slug = slugify(article_output.title, max_length=100)
 
-        # Count H2 sections in content
-        article.section_count = article.content.count('## ')
+        # Calculate metrics
+        word_count = len(article_output.content.split())
+        section_count = article_output.content.count('## ')
+        reading_time = max(1, word_count // 200)
 
         activity.logger.info(
-            f"Article generated: {article.word_count} words, "
-            f"{article.section_count} sections"
+            f"Article generated: {word_count} words, {section_count} sections"
         )
 
+        # Build full payload
+        payload = {
+            "title": article_output.title,
+            "slug": slug,
+            "content": article_output.content,
+            "excerpt": article_output.summary,
+            "app": app,
+            "article_type": article_type,
+            "meta_description": article_output.meta_description,
+            "tags": article_output.tags,
+
+            # Metrics
+            "word_count": word_count,
+            "reading_time_minutes": reading_time,
+            "section_count": section_count,
+
+            # Image placeholders (populated by image generation)
+            "featured_image_url": None,
+            "featured_image_alt": None,
+            "hero_image_url": None,
+            "hero_image_alt": None,
+            "content_image_1_url": None,
+            "content_image_2_url": None,
+            "content_image_3_url": None,
+            "image_count": 0,
+
+            # Metadata
+            "author": "Quest Editorial Team",
+            "status": "draft",
+            "confidence_score": 1.0
+        }
+
         return {
-            "article": article.model_dump(),
+            "article": payload,
             "cost": estimate_ai_cost(provider, model_name),
             "model_used": f"{provider}:{model_name}",
             "success": True
@@ -77,21 +128,30 @@ async def generate_article_content(
         activity.logger.error(f"ARTICLE GENERATION FAILED: {e}", exc_info=True)
 
         # Return minimal article on error
-        minimal_article = ArticlePayload(
-            title=topic,
-            slug=topic.lower().replace(" ", "-")[:50],
-            content=f"## Introduction\n\nArticle about {topic} is currently being researched.",
-            excerpt=f"Information about {topic}.",
-            app=app,
-            article_type=article_type,
-            meta_description=f"Article about {topic}.",
-            tags=[],
-            word_count=10,
-            reading_time_minutes=1
-        )
+        slug = slugify(topic, max_length=100)
+
+        payload = {
+            "title": topic,
+            "slug": slug,
+            "content": f"## Introduction\n\nArticle about {topic} is currently being researched.",
+            "excerpt": f"Information about {topic}.",
+            "app": app,
+            "article_type": article_type,
+            "meta_description": f"Article about {topic}.",
+            "tags": [],
+            "word_count": 10,
+            "reading_time_minutes": 1,
+            "section_count": 1,
+            "featured_image_url": None,
+            "hero_image_url": None,
+            "image_count": 0,
+            "author": "Quest Editorial Team",
+            "status": "draft",
+            "confidence_score": 0.0
+        }
 
         return {
-            "article": minimal_article.model_dump(),
+            "article": payload,
             "cost": 0.0,
             "model_used": "fallback",
             "success": False,
@@ -99,212 +159,119 @@ async def generate_article_content(
         }
 
 
-def get_article_instructions(article_type: str, app: str, target_word_count: int) -> str:
-    """
-    Get AI instructions based on article type.
+def get_system_prompt(article_type: str, app: str, target_word_count: int) -> str:
+    """Get system prompt for article generation."""
 
-    Args:
-        article_type: news, guide, comparison
-        app: Application context
-        target_word_count: Target length
-
-    Returns:
-        System prompt for AI
-    """
-    base_instructions = f"""You are an expert journalist writing engaging, narrative articles for the {app} industry.
-
-Write a compelling article that tells a story. Make it interesting, insightful, and well-researched.
-
-**TARGET LENGTH**: ~{target_word_count} words
-
-===== OUTPUT FIELDS =====
-
-Generate these 8 fields:
-
-1. **title**: Compelling headline
-2. **slug**: URL version, lowercase with hyphens (e.g. "goldman-sachs-acquires-ai-startup")
-3. **content**: Full article in markdown - THIS IS THE MAIN OUTPUT
-4. **excerpt**: 1-2 sentence teaser
-5. **meta_description**: SEO summary, 150-160 chars
-6. **tags**: List of 5-8 relevant keywords
-7. **app**: "{app}"
-8. **article_type**: "{article_type}"
-
-===== WRITING THE ARTICLE =====
-
-Write naturally flowing content in markdown:
-- Use ## for section headings (no H1 - title is separate)
-- Write engaging prose that tells the story
-- Include specific facts, figures, quotes from your research
-- Link to sources: [Company Name](url)
-- Be specific - use names, numbers, dates
-- Cite sources with inline links
-
-The article should read like quality journalism - informative, engaging, well-sourced.
-
-"""
-
-    # Type-specific guidance
     type_guidance = {
-        "news": """
-**NEWS ARTICLE**: Write like a news story.
-- Lead with who/what/when/where/why
-- Include background and context
-- Cover deal/event details
-- Discuss market implications
-- Professional, objective tone
-""",
-        "guide": """
-**GUIDE ARTICLE**: Write like a helpful guide.
-- Explain what it is and who it's for
-- Cover key concepts and requirements
-- Provide step-by-step process
-- Include tips and best practices
-- Helpful, instructive tone
-""",
-        "comparison": """
-**COMPARISON ARTICLE**: Write like an analytical comparison.
-- Explain what's being compared and why
-- Define comparison criteria
-- Analyze each option with pros/cons
-- Provide decision framework
-- Analytical, balanced tone
-"""
+        "news": "Write a news article with the most important information first (inverted pyramid). Keep it factual and cite sources.",
+        "guide": "Write a helpful guide that explains concepts clearly with step-by-step instructions where appropriate.",
+        "comparison": "Write an analytical comparison examining options objectively with pros/cons and recommendations."
     }
 
     guidance = type_guidance.get(article_type, type_guidance["news"])
 
-    return base_instructions + guidance + """
+    return f"""You are an expert journalist writing for a professional audience in the {app} industry.
 
-Write an article that people will actually want to read.
-"""
+Article Type: {article_type.upper()}
+Target Length: ~{target_word_count} words
+Guidance: {guidance}
+
+Write a compelling, well-structured article from the research provided.
+
+Guidelines:
+- Write in third person, professional journalistic tone
+- Lead with the most newsworthy/important information
+- Include specific numbers, dates, and names when available
+- Attribute information to sources with inline links [Source](url)
+- Use markdown ## headings to structure content
+- Write engaging prose that tells a story
+
+Your output should have:
+- title: Compelling headline
+- summary: 2-3 sentence excerpt
+- content: Full article in markdown (the main output)
+- meta_description: SEO description (150-160 chars)
+- tags: List of 5-8 keywords"""
 
 
-def build_article_context(
+def build_prompt(
     topic: str,
     article_type: str,
     research_context: Dict[str, Any],
     target_word_count: int
 ) -> str:
-    """
-    Build comprehensive context string for AI generation.
+    """Build the prompt with all research context."""
 
-    Args:
-        topic: Article topic
-        article_type: Article type
-        research_context: Research data
-        target_word_count: Target length
-
-    Returns:
-        Formatted context string
-    """
-    lines = [
+    parts = [
         f"TOPIC: {topic}",
         f"TYPE: {article_type}",
-        f"TARGET LENGTH: ~{target_word_count} words",
+        f"TARGET: ~{target_word_count} words",
         "",
-        "Write a comprehensive article using the research below.",
-        "",
-        "=" * 70,
-        ""
+        "Write a comprehensive article using this research:",
+        "=" * 60
     ]
 
     # News articles from Serper
-    news_articles = research_context.get("news_articles", [])
-    if news_articles:
-        lines.append("===== NEWS ARTICLES =====\n")
-        for i, article in enumerate(news_articles[:15], 1):
-            title = article.get('title', 'Untitled')
-            url = article.get('url', '')
-            snippet = article.get('snippet', '')
-            date = article.get('date', '')
+    news = research_context.get("news_articles", [])
+    if news:
+        parts.append("\n=== NEWS ARTICLES ===")
+        for i, article in enumerate(news[:15], 1):
+            parts.append(f"\n{i}. {article.get('title', 'Untitled')}")
+            if article.get('date'):
+                parts.append(f"   Date: {article['date']}")
+            parts.append(f"   URL: {article.get('url', '')}")
+            if article.get('snippet'):
+                parts.append(f"   {article['snippet']}")
 
-            lines.append(f"{i}. {title}")
-            if date:
-                lines.append(f"   Date: {date}")
-            lines.append(f"   URL: {url}")
-            if snippet:
-                lines.append(f"   {snippet}")
-            lines.append("")
-        lines.append("=" * 70 + "\n")
-
-    # Crawled full content from discovered URLs
-    crawled_pages = research_context.get("crawled_pages", [])
-    if crawled_pages:
-        lines.append("===== FULL CONTENT FROM CRAWLED SOURCES =====\n")
-        for i, page in enumerate(crawled_pages[:10], 1):
-            url = page.get('url', '')
-            title = page.get('title', 'Untitled')
+    # Crawled content
+    crawled = research_context.get("crawled_pages", [])
+    if crawled:
+        parts.append("\n=== CRAWLED CONTENT ===")
+        for i, page in enumerate(crawled[:10], 1):
+            parts.append(f"\n{i}. {page.get('title', 'Untitled')}")
+            parts.append(f"   URL: {page.get('url', '')}")
             content = page.get('content', '')
-
-            lines.append(f"{i}. {title}")
-            lines.append(f"   URL: {url}")
             if content:
-                lines.append(f"{content[:3000]}")
-            lines.append("")
-        lines.append("=" * 70 + "\n")
+                parts.append(content[:3000])
 
-    # Exa research (high-quality sources)
-    exa_results = research_context.get("exa_results", [])
-    if exa_results:
-        lines.append("===== EXA DEEP RESEARCH =====\n")
-        for i, result in enumerate(exa_results[:5], 1):
-            title = result.get('title', 'Untitled')
-            url = result.get('url', '')
+    # Exa research
+    exa = research_context.get("exa_results", [])
+    if exa:
+        parts.append("\n=== EXA DEEP RESEARCH ===")
+        for i, result in enumerate(exa[:5], 1):
+            parts.append(f"\n{i}. {result.get('title', 'Untitled')}")
+            parts.append(f"   URL: {result.get('url', '')}")
             content = result.get('content', '') or result.get('text', '')
-            score = result.get('score', 0.0)
-
-            lines.append(f"{i}. {title} (relevance: {score:.2f})")
-            lines.append(f"   URL: {url}")
             if content:
-                lines.append(f"{content[:2000]}")
-            lines.append("")
-        lines.append("=" * 70 + "\n")
+                parts.append(content[:2000])
 
-    # Zep context (existing knowledge)
-    zep_context = research_context.get("zep_context", {})
-    if zep_context.get("articles") or zep_context.get("deals"):
-        lines.append("===== EXISTING KNOWLEDGE (ZEP) =====\n")
+    # Zep context
+    zep = research_context.get("zep_context", {})
+    if zep.get("articles") or zep.get("deals"):
+        parts.append("\n=== EXISTING KNOWLEDGE ===")
+        if zep.get("articles"):
+            parts.append("Related Articles:")
+            for a in zep["articles"][:5]:
+                parts.append(f"- {a.get('name', '')}")
+        if zep.get("deals"):
+            parts.append("Related Deals:")
+            for d in zep["deals"][:5]:
+                parts.append(f"- {d.get('name', '')}")
 
-        if zep_context.get("articles"):
-            lines.append("Related Articles:")
-            for article in zep_context["articles"][:5]:
-                lines.append(f"- {article.get('name', '')}")
-            lines.append("")
-
-        if zep_context.get("deals"):
-            lines.append("Related Deals:")
-            for deal in zep_context["deals"][:5]:
-                lines.append(f"- {deal.get('name', '')}")
-            lines.append("")
-
-        lines.append("=" * 70 + "\n")
-
-    context = "\n".join(lines)
+    prompt = "\n".join(parts)
 
     # Truncate if too long
-    max_length = 80000
-    if len(context) > max_length:
-        context = context[:max_length] + "\n\n[... content truncated ...]"
+    if len(prompt) > 80000:
+        prompt = prompt[:80000] + "\n\n[truncated]"
 
-    return context
+    return prompt
 
 
 def estimate_ai_cost(provider: str, model: str) -> float:
-    """
-    Estimate AI generation cost.
-
-    Args:
-        provider: AI provider
-        model: Model name
-
-    Returns:
-        Estimated cost in USD
-    """
-    cost_map = {
+    """Estimate AI generation cost."""
+    costs = {
         "google": 0.015,
         "openai": 0.025,
         "anthropic": 0.035,
     }
-
-    return cost_map.get(provider, 0.015)
+    return costs.get(provider, 0.015)
