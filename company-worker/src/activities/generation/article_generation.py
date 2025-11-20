@@ -1,21 +1,52 @@
 """
-Article Content Generation - Simplest Possible
+Article Content Generation - Direct Anthropic SDK
 
-Just get the AI to write the article. That's it.
+Bypasses pydantic_ai structured output to avoid validation issues.
+Just gets raw markdown text from Claude and parses it.
 """
 
 from temporalio import activity
 from typing import Dict, Any
-from pydantic import BaseModel, Field
-from pydantic_ai import Agent
 from slugify import slugify
+import anthropic
+import re
 
 from src.utils.config import config
 
 
-class ArticleOutput(BaseModel):
-    """Just the article content - nothing else."""
-    article: str = Field(description="The complete article in markdown format")
+def extract_image_prompts(content: str) -> tuple:
+    """
+    Extract image prompts from article content.
+
+    Looks for ---IMAGE PROMPTS--- section and extracts:
+    - FEATURED: prompt
+    - SECTION N: prompt
+
+    Returns:
+        Tuple of (cleaned_content, featured_prompt, section_prompts)
+    """
+    featured_prompt = ""
+    section_prompts = []
+
+    # Find image prompts section
+    match = re.search(r'---\s*IMAGE PROMPTS\s*---\s*(.+)', content, re.DOTALL | re.IGNORECASE)
+
+    if match:
+        prompts_section = match.group(1)
+
+        # Extract FEATURED: line
+        featured_match = re.search(r'FEATURED:\s*([^\n]+)', prompts_section)
+        if featured_match:
+            featured_prompt = featured_match.group(1).strip().strip('[]')
+
+        # Extract SECTION N: lines
+        section_matches = re.findall(r'SECTION\s*\d+:\s*([^\n]+)', prompts_section)
+        section_prompts = [p.strip().strip('[]') for p in section_matches]
+
+        # Remove prompts section from article content
+        content = re.sub(r'---\s*IMAGE PROMPTS\s*---\s*.+', '', content, flags=re.DOTALL | re.IGNORECASE).strip()
+
+    return content, featured_prompt, section_prompts
 
 
 @activity.defn
@@ -26,51 +57,165 @@ async def generate_article_content(
     research_context: Dict[str, Any],
     target_word_count: int = 1500
 ) -> Dict[str, Any]:
-    """Generate article content using Pydantic AI."""
+    """Generate article content using Anthropic SDK directly."""
     activity.logger.info(f"Generating {article_type} article: {topic}")
 
     try:
+        # Get model config
         provider, model_name = config.get_ai_model()
         activity.logger.info(f"Using AI: {provider}:{model_name}")
 
-        # Simplest possible agent - just output one string
-        # pydantic_ai just wants the model name for Google
-        model_str = model_name if provider == "google" else f'{provider}:{model_name}'
-        agent = Agent(
-            model_str,
-            output_type=ArticleOutput,
-            instructions=f"""You are an expert journalist writing for the {app} industry.
-
-Generate a {target_word_count}-word {article_type} article in markdown format.
-
-The article field should contain:
-- Title on first line
-- Sections with ## headings
-- Professional, engaging content
-- Facts from the research provided"""
-        )
-
-        # Build simple prompt
+        # Build prompt with research context
         prompt = build_prompt(topic, research_context)
 
-        # Generate
-        result = await agent.run(prompt)
-        article_text = result.output.article
+        # Use Anthropic SDK directly - no pydantic_ai structured output
+        client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+
+        # Build comprehensive system prompt
+        system_prompt = f"""You are an expert financial journalist writing for {app} - a professional platform covering private equity, M&A, and corporate finance.
+
+Write a {target_word_count}-word {article_type} article using HTML with Tailwind CSS classes.
+
+===== OUTPUT FORMAT =====
+
+Start with the title on the first line (plain text, no HTML):
+Leonard Green Takes Control of Topgolf in $1.1bn Carve-Out
+
+Then the full article body in HTML with Tailwind CSS:
+
+<p class="text-lg text-gray-700 leading-relaxed mb-6">
+  Strong opening paragraph that hooks the reader...
+</p>
+
+<h2 class="text-2xl font-bold text-gray-900 mt-8 mb-4">Section Heading</h2>
+
+<p class="text-gray-700 leading-relaxed mb-4">
+  Section content with <a href="https://source.com" class="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener">inline source links</a>...
+</p>
+
+<blockquote class="border-l-4 border-blue-500 pl-4 my-6 italic text-gray-600">
+  Important quote or key statistic...
+</blockquote>
+
+<ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
+  <li>Key point one</li>
+  <li>Key point two</li>
+</ul>
+
+===== CONTENT REQUIREMENTS =====
+
+1. **Professional Financial Journalism Tone**
+   - Write like Financial Times, WSJ, or Bloomberg
+   - Authoritative but accessible
+   - Match the tone to the story (serious for layoffs, measured optimism for deals)
+
+2. **Rich Source Attribution (CRITICAL - MANY LINKS)**
+   - Link to EVERY source mentioned in the research
+   - Use inline links: <a href="URL" class="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener">Source Name</a>
+   - Cite specific numbers, dates, and facts from sources
+   - Include at least 10-15 source links throughout the article
+   - Link company names to their websites when mentioned
+   - Link to news sources, press releases, and industry reports
+   - MORE LINKS IS BETTER - aim for 2-3 links per paragraph
+
+3. **Image Prompts (REQUIRED - 4 prompts minimum)**
+   After the article content, add image generation prompts:
+
+   ---IMAGE PROMPTS---
+   FEATURED: [Vivid cinematic description for hero image - must include specific story elements like golf course, boardroom, etc]
+   SECTION 1: [First content image - opening scene establishing context]
+   SECTION 2: [Second content image - development/action scene]
+   SECTION 3: [Third content image - different angle/moment]
+   SECTION 4: [Fourth content image - resolution/implications scene]
+
+   Rules for image prompts:
+   - MUST include 4+ prompts (FEATURED + 3-4 SECTION prompts)
+   - Match tone to article sentiment (somber for layoffs, celebratory for deals)
+   - Semi-cartoon illustration style, NOT photorealistic
+   - Include SPECIFIC visual elements from the story (golf course for golf deal, boardroom for M&A, etc)
+   - Each image should show DIFFERENT scene/angle - visual progression telling the story
+   - Be vivid and specific - not generic "business meeting"
+
+   CRITICAL - AVOID CONTENT FILTER:
+   - NEVER ask to show logos, brand marks, or trademarked visual elements
+   - WRONG: "Callaway logo", "Nike swoosh", "show the Apple logo"
+   - Company names for CONTEXT are OK: "executives from the golf company celebrating"
+   - But NOT for visual replication: "logo on the wall", "branded equipment"
+   - Focus on scenes, people, emotions - NOT brand identity or logos
+
+   DO NOT include any {{IMAGE_N}} placeholders in the article content. Images will be inserted automatically.
+
+4. **Structure**
+   - Strong lead paragraph (who, what, when, where, why)
+   - 4-6 sections with h2 headings
+   - Use blockquotes for key quotes or statistics
+   - Use lists for key points, deal terms, or comparisons
+   - End with implications/what's next
+   - ALWAYS include a "Sources & References" section at the end with all URLs used:
+     <h2 class="text-2xl font-bold text-gray-900 mt-8 mb-4">Sources & References</h2>
+     <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
+       <li><a href="URL" class="text-blue-600 hover:text-blue-800 underline" target="_blank">Source Name</a> - Brief description</li>
+     </ul>
+
+5. **Tailwind Classes to Use**
+   - Paragraphs: text-gray-700 leading-relaxed mb-4 (or mb-6 for spacing)
+   - Headings: text-2xl font-bold text-gray-900 mt-8 mb-4
+   - Links: text-blue-600 hover:text-blue-800 underline
+   - Blockquotes: border-l-4 border-blue-500 pl-4 my-6 italic text-gray-600
+   - Lists: list-disc list-inside space-y-2 mb-6 text-gray-700
+   - Bold: font-semibold
+   - Images: my-8
+
+6. **Context Awareness**
+   - Understand the story: Is this a deal? Layoffs? IPO? Crisis?
+   - Match tone to context (don't be celebratory about job losses)
+   - Include relevant industry context and implications
+
+Output ONLY the title on line 1, then the HTML content. No other text or explanation."""
+
+        message = client.messages.create(
+            model=model_name,
+            max_tokens=8192,
+            system=system_prompt,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+
+        article_text = message.content[0].text
 
         # Parse title from first line
         lines = article_text.strip().split('\n')
         title = lines[0].strip().lstrip('#').strip() if lines else topic
-        content = '\n'.join(lines[1:]).strip() if len(lines) > 1 else article_text
+        raw_content = '\n'.join(lines[1:]).strip() if len(lines) > 1 else article_text
+
+        # Extract image prompts from content
+        content, featured_prompt, section_prompts = extract_image_prompts(raw_content)
 
         # Generate metadata
         slug = slugify(title, max_length=100)
-        word_count = len(content.split())
 
-        # Extract first paragraph as excerpt
-        paragraphs = [p.strip() for p in content.split('\n\n') if p.strip() and not p.strip().startswith('#')]
-        excerpt = paragraphs[0][:200] if paragraphs else f"Article about {topic}"
+        # Count words (strip HTML tags for accurate count)
+        text_only = re.sub(r'<[^>]+>', '', content)
+        word_count = len(text_only.split())
+
+        # Extract first paragraph as excerpt (strip HTML)
+        # Find first <p> tag content
+        first_p_match = re.search(r'<p[^>]*>(.*?)</p>', content, re.DOTALL)
+        if first_p_match:
+            excerpt_html = first_p_match.group(1)
+            excerpt = re.sub(r'<[^>]+>', '', excerpt_html).strip()[:200]
+        else:
+            excerpt = f"Article about {topic}"
+
+        activity.logger.info(f"Extracted {len(section_prompts)} section image prompts")
 
         activity.logger.info(f"Article generated: {word_count} words")
+
+        # Calculate cost (rough estimate for Claude Sonnet)
+        input_tokens = message.usage.input_tokens
+        output_tokens = message.usage.output_tokens
+        cost = (input_tokens * 0.003 + output_tokens * 0.015) / 1000
 
         return {
             "article": {
@@ -84,15 +229,17 @@ The article field should contain:
                 "tags": [],
                 "word_count": word_count,
                 "reading_time_minutes": max(1, word_count // 200),
-                "section_count": content.count('## '),
+                "section_count": content.count('<h2'),
                 "featured_image_url": None,
                 "hero_image_url": None,
                 "image_count": 0,
                 "author": "Quest Editorial Team",
                 "status": "draft",
-                "confidence_score": 1.0
+                "confidence_score": 1.0,
+                "featured_image_prompt": featured_prompt,
+                "section_image_prompts": section_prompts
             },
-            "cost": 0.02,
+            "cost": cost,
             "model_used": f"{provider}:{model_name}",
             "success": True
         }

@@ -238,7 +238,7 @@ class ArticleCreationWorkflow:
             section_analysis = await workflow.execute_activity(
                 "analyze_article_sections",
                 args=[article["content"], article["title"], app],
-                start_to_close_timeout=timedelta(seconds=30)
+                start_to_close_timeout=timedelta(seconds=60)
             )
 
             workflow.logger.info(
@@ -248,22 +248,18 @@ class ArticleCreationWorkflow:
             # ===== PHASE 6: GENERATE SEQUENTIAL IMAGES =====
             workflow.logger.info("Phase 6: Generating sequential contextual images")
 
-            # Generate article_id for image storage (temporary, will be replaced after DB save)
-            import hashlib
-            temp_article_id = hashlib.md5(topic.encode()).hexdigest()[:12]
-
             images_result = await workflow.execute_activity(
                 "generate_sequential_article_images",
                 args=[
-                    temp_article_id,
+                    article["slug"],
                     article["title"],
                     article["content"],
                     app,
-                    "kontext-pro",  # Always use Pro for articles
+                    "kontext-pro",
                     True,  # generate_featured
                     True,  # generate_hero
-                    3,  # min_content_images
-                    5   # max_content_images
+                    3,     # min_content_images
+                    5      # max_content_images
                 ],
                 start_to_close_timeout=timedelta(minutes=10)
             )
@@ -274,11 +270,10 @@ class ArticleCreationWorkflow:
             article["hero_image_url"] = images_result.get("hero_image_url")
             article["hero_image_alt"] = images_result.get("hero_image_alt")
 
-            # Content images (up to 5)
+            # Content images
             for i in range(1, 6):
                 url_key = f"content_image_{i}_url"
                 alt_key = f"content_image_{i}_alt"
-                # Image generator uses different key format
                 gen_url_key = f"content_image{i}_url"
                 gen_alt_key = f"content_image{i}_alt"
                 if images_result.get(gen_url_key):
@@ -286,6 +281,11 @@ class ArticleCreationWorkflow:
                     article[alt_key] = images_result.get(gen_alt_key)
 
             article["image_count"] = images_result.get("images_generated", 0)
+
+            workflow.logger.info(
+                f"Images generated: {article['image_count']}, "
+                f"cost: ${images_result.get('total_cost', 0):.4f}"
+            )
 
             workflow.logger.info(
                 f"Images generated: {article['image_count']}, "

@@ -1,135 +1,76 @@
 """
 Article Section Analysis Activity
 
-Extracts H2 sections from markdown content and analyzes narrative structure
+Extracts H2 sections from markdown/HTML content and analyzes narrative structure
 for sequential image generation with Flux Kontext.
 
-Auto-decides optimal image placement (3-5 images) based on:
-- Article length and structure
-- Sentiment shifts (provocative moments)
-- Narrative flow and pacing
+Uses direct Anthropic SDK to avoid pydantic_ai validation issues.
 """
 
 import re
+import json
 from typing import Dict, Any, List
 from temporalio import activity
-
-from pydantic import BaseModel, Field
-from pydantic_ai import Agent
+import anthropic
 
 from src.utils.config import config
 
 
-class Section(BaseModel):
-    """Article section with metadata"""
-    index: int = Field(description="Section index (0-based)")
-    title: str = Field(description="H2 heading text")
-    content: str = Field(description="Section content (without heading)")
-    word_count: int = Field(description="Word count of section")
-    sentiment: str = Field(
-        description="Overall sentiment: positive, negative, neutral, tense, celebratory, somber, distressed, optimistic"
-    )
-    sentiment_intensity: float = Field(
-        description="Sentiment strength 0-1, higher = more intense emotion"
-    )
-    business_context: str = Field(
-        description="Business context: layoffs, acquisition, deal, growth, crisis, restructuring, success, expansion, etc."
-    )
-    visual_tone: str = Field(
-        description="Appropriate visual tone: professional-optimistic, somber-serious, tense-uncertain, celebratory, analytical-neutral"
-    )
-    visual_moment: str = Field(
-        description="Visual description for image generation, matching the tone and context (e.g., 'somber boardroom for layoffs', 'celebratory handshake for acquisition')"
-    )
-    should_generate_image: bool = Field(
-        default=False,
-        description="Whether this section should get an image"
-    )
-
-
-class ArticleAnalysis(BaseModel):
-    """Complete article structure analysis"""
-    sections: List[Section] = Field(description="All H2 sections")
-    total_word_count: int = Field(description="Total article word count")
-    recommended_image_count: int = Field(
-        description="Recommended number of content images (3-5)",
-        ge=3,
-        le=5
-    )
-    narrative_arc: str = Field(
-        description="Overall story arc: problem-solution, chronological, comparative, guide, crisis-resolution, etc."
-    )
-
-    # Overall + 3-stage sentiment analysis
-    overall_sentiment: str = Field(
-        description="Overall sentiment of the entire article: positive, negative, mixed, analytical, etc."
-    )
-
-    opening_sentiment: str = Field(
-        description="Opening stage sentiment and context (first 1-2 sections) - sets the tone"
-    )
-    middle_sentiment: str = Field(
-        description="Middle/transition sentiment (core sections) - where story develops or shifts"
-    )
-    climax_sentiment: str = Field(
-        description="Climax/resolution sentiment (peak moment or conclusion) - how it ends"
-    )
-
-    # Business context awareness
-    primary_business_context: str = Field(
-        description="Primary business context of article: layoffs, acquisition, IPO, expansion, crisis, success, etc."
-    )
-
-    key_sentiment_shifts: List[int] = Field(
-        description="Section indexes where major sentiment shifts occur (max 3 for the 3 stages)"
-    )
-
-
-def extract_h2_sections(markdown_content: str) -> List[Dict[str, Any]]:
+def extract_sections(content: str) -> List[Dict[str, Any]]:
     """
-    Parse markdown content into H2 sections.
-
-    Args:
-        markdown_content: Full article markdown
-
-    Returns:
-        List of dicts with title and content for each section
+    Parse content into sections (supports both markdown ## and HTML h2).
     """
-    # Split on H2 headings (## Heading)
-    # Regex: match ## at start of line, capture heading text
-    pattern = r'^##\s+(.+?)$'
-
-    # Split content while preserving headings
-    splits = re.split(pattern, markdown_content, flags=re.MULTILINE)
-
     sections = []
 
-    # First element is intro (before first H2)
-    if splits[0].strip():
-        sections.append({
-            "title": "Introduction",
-            "content": splits[0].strip()
-        })
+    # Try HTML h2 tags first
+    h2_pattern = r'<h2[^>]*>(.*?)</h2>'
+    h2_matches = list(re.finditer(h2_pattern, content, re.DOTALL | re.IGNORECASE))
 
-    # Process H2 sections (pairs of heading + content)
-    for i in range(1, len(splits), 2):
-        if i + 1 < len(splits):
-            title = splits[i].strip()
-            content = splits[i + 1].strip()
+    if h2_matches:
+        # HTML format - split by h2 tags
+        for i, match in enumerate(h2_matches):
+            title = re.sub(r'<[^>]+>', '', match.group(1)).strip()
 
-            # Skip empty sections
-            if content:
+            # Get content between this h2 and next h2 (or end)
+            start = match.end()
+            end = h2_matches[i + 1].start() if i + 1 < len(h2_matches) else len(content)
+            section_content = content[start:end].strip()
+
+            if section_content:
                 sections.append({
                     "title": title,
-                    "content": content
+                    "content": section_content
                 })
+    else:
+        # Try markdown ## format
+        pattern = r'^##\s+(.+?)$'
+        splits = re.split(pattern, content, flags=re.MULTILINE)
+
+        # First element is intro
+        if splits[0].strip():
+            sections.append({
+                "title": "Introduction",
+                "content": splits[0].strip()
+            })
+
+        # Process ## sections
+        for i in range(1, len(splits), 2):
+            if i + 1 < len(splits):
+                title = splits[i].strip()
+                section_content = splits[i + 1].strip()
+                if section_content:
+                    sections.append({
+                        "title": title,
+                        "content": section_content
+                    })
 
     return sections
 
 
 def count_words(text: str) -> int:
-    """Simple word counter"""
-    return len(text.split())
+    """Count words, stripping HTML tags."""
+    text_only = re.sub(r'<[^>]+>', '', text)
+    return len(text_only.split())
 
 
 @activity.defn
@@ -141,200 +82,119 @@ async def analyze_article_sections(
     """
     Analyze article structure for sequential image generation.
 
-    This activity:
-    1. Extracts H2 sections from markdown
-    2. Analyzes sentiment and narrative flow
-    3. Identifies provocative moments (sentiment shifts)
-    4. Auto-decides which 3-5 sections should get images
-
-    Args:
-        content: Full article markdown content
-        title: Article title for context
-        app: Application context (placement, relocation, etc.)
-
-    Returns:
-        ArticleAnalysis dict with sections and image placement recommendations
+    Uses direct Anthropic SDK instead of pydantic_ai to avoid validation issues.
     """
     activity.logger.info(f"Analyzing sections for article: {title}")
 
-    # Extract raw sections
-    raw_sections = extract_h2_sections(content)
+    # Extract sections
+    raw_sections = extract_sections(content)
 
     if not raw_sections:
-        activity.logger.warning("No H2 sections found, using full content as single section")
-        raw_sections = [{
-            "title": title,
-            "content": content
-        }]
+        activity.logger.warning("No sections found, using full content")
+        raw_sections = [{"title": title, "content": content}]
 
-    # Count total words
     total_words = count_words(content)
+    activity.logger.info(f"Found {len(raw_sections)} sections, {total_words} words")
 
-    activity.logger.info(f"Found {len(raw_sections)} sections, {total_words} words total")
-
-    # Prepare section data for AI analysis
+    # Prepare section summaries for AI
     sections_text = "\n\n".join([
-        f"## {i+1}. {s['title']}\n{s['content'][:300]}..."  # First 300 chars
+        f"## {i+1}. {s['title']}\n{s['content'][:300]}..."
         for i, s in enumerate(raw_sections)
     ])
 
-    # Determine app-specific context
-    app_context = {
-        "placement": "corporate finance, M&A, private equity, executive recruitment - professional, analytical",
-        "relocation": "international relocation, lifestyle, travel, cultural adaptation - aspirational, practical",
-        "chief-of-staff": "executive leadership, C-suite, strategic operations - authoritative, professional",
-        "consultancy": "business consulting, strategy, transformation - analytical, advisory"
-    }.get(app, "professional business content")
+    try:
+        # Use Anthropic SDK directly
+        client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
 
-    # Use AI to analyze narrative structure
-    provider, model_name = config.get_ai_model()
-    model_str = model_name if provider == "google" else f"{provider}:{model_name}"
+        prompt = f"""Analyze this article for image generation. Return a JSON object.
 
-    agent = Agent(
-        model=model_str,
-        result_type=ArticleAnalysis,
-        system_prompt=f"""You are an expert content analyst specializing in narrative structure
-        and visual storytelling for {app_context} content.
-
-        CRITICAL CONTEXT AWARENESS:
-        You MUST detect business context and match visual tone accordingly:
-
-        - LAYOFFS/REDUNDANCIES → Somber, serious imagery (NO smiling executives!)
-        - ACQUISITIONS/DEALS → Professional optimism, handshakes, positive but measured
-        - DISTRESSED SALES → Tense, uncertain, serious boardroom atmosphere
-        - IPO/SUCCESS → Celebratory but professional, achievement moments
-        - CRISIS/PROBLEMS → Serious, analytical, problem-solving imagery
-        - GROWTH/EXPANSION → Optimistic, forward-looking, professional energy
-
-        3-STAGE SENTIMENT ANALYSIS FOR IMAGES:
-        Analyze sentiment at THREE key stages:
-        1. OPENING: Sets the tone and context (first section or two)
-        2. MIDDLE: Where story develops, transitions, or shifts (core sections)
-        3. CLIMAX/RESOLUTION: Peak moment or conclusion (how it ends)
-
-        Also provide OVERALL sentiment of the entire article for context.
-
-        For each section, analyze:
-        1. Business context (layoffs, acquisition, deal, crisis, success, etc.)
-        2. Appropriate visual tone (somber-serious, professional-optimistic, celebratory, etc.)
-        3. Sentiment that MATCHES the context
-        4. Visual moment that reflects the REALITY of the situation
-
-        CRITICAL RULES:
-        ❌ NO happy/smiling imagery for negative news (layoffs, crisis, failure)
-        ❌ NO somber imagery for positive news (success, deals, growth)
-        ✅ MATCH tone to reality: layoffs = serious faces, acquisitions = professional handshakes
-
-        For visual moments, be specific AND context-appropriate:
-        ❌ "Executive in office" (too generic)
-        ❌ "Smiling CEO announcing layoffs" (WRONG TONE!)
-        ✅ "Somber boardroom meeting, executives with serious expressions discussing difficult decision"
-        ✅ "Professional handshake sealing acquisition deal, confident but measured optimism"
-
-        Recommend 3-5 images, distributed across the 3 stages:
-        - 1-2 images for opening stage
-        - 1-2 images for middle/transition stage
-        - 1-2 images for climax/resolution stage
-
-        This ensures visual coverage of the complete narrative arc.
-        """
-    )
-
-    # Construct analysis prompt
-    prompt = f"""Analyze this article for sequential image generation:
-
-Title: {title}
-Total Word Count: {total_words}
+Article Title: {title}
+Total Words: {total_words}
 Number of Sections: {len(raw_sections)}
 
 Sections:
 {sections_text}
 
-For each section, provide:
-- Business context (layoffs, acquisition, deal, etc.)
-- Sentiment analysis (matching the context)
-- Visual tone (somber-serious, professional-optimistic, etc.)
-- Visual moment description (for AI image generation, tone-appropriate)
-- Whether it should get an image
+Return this exact JSON structure:
+{{
+  "sections": [
+    {{
+      "index": 0,
+      "title": "Section title",
+      "sentiment": "positive/negative/neutral/tense",
+      "sentiment_intensity": 0.7,
+      "visual_moment": "Description for image generation matching the tone",
+      "should_generate_image": true
+    }}
+  ],
+  "recommended_image_count": 4,
+  "narrative_arc": "problem-solution/chronological/guide/etc",
+  "key_sentiment_shifts": [1, 3]
+}}
 
-Then provide:
-1. OVERALL SENTIMENT of the entire article
-2. THREE-STAGE sentiment analysis:
-   - Opening sentiment (first 1-2 sections)
-   - Middle sentiment (core sections, transitions)
-   - Climax sentiment (conclusion/resolution)
-3. Primary business context
-4. Recommended number of images (3-5)
-5. Which sections should get images (distributed across 3 stages)
+Rules:
+- Analyze each section's sentiment and tone
+- Recommend 3-5 images distributed across the article
+- visual_moment should describe an appropriate image for that section
+- Match tone to context (somber for layoffs, professional for deals)
+- Only return valid JSON, no other text"""
 
-Base recommendations on:
-- Article length ({total_words} words)
-- Number of sections ({len(raw_sections)})
-- Narrative complexity
-- Sentiment variation across the 3 stages
+        message = client.messages.create(
+            model="claude-sonnet-4-5-20250929",
+            max_tokens=2048,
+            messages=[{"role": "user", "content": prompt}]
+        )
 
-Return complete analysis with all sections analyzed."""
+        response_text = message.content[0].text
 
-    try:
-        # Run AI analysis
-        result = await agent.run(prompt)
+        # Parse JSON from response
+        # Find JSON in response (may have markdown code blocks)
+        json_match = re.search(r'\{[\s\S]*\}', response_text)
+        if json_match:
+            analysis = json.loads(json_match.group())
+        else:
+            raise ValueError("No JSON found in response")
 
-        analysis = result.data
-
-        # Ensure we have correct number of sections
-        if len(analysis.sections) != len(raw_sections):
-            activity.logger.warning(
-                f"AI returned {len(analysis.sections)} sections but we have {len(raw_sections)}. Adjusting..."
+        # Build result with full section content
+        result_sections = []
+        for i, raw_section in enumerate(raw_sections):
+            # Find matching analysis section
+            ai_section = next(
+                (s for s in analysis.get("sections", []) if s.get("index") == i),
+                None
             )
-            # Take first N sections or pad if needed
-            if len(analysis.sections) > len(raw_sections):
-                analysis.sections = analysis.sections[:len(raw_sections)]
 
-        # Add word counts from raw sections
-        for i, section in enumerate(analysis.sections):
-            if i < len(raw_sections):
-                section.word_count = count_words(raw_sections[i]["content"])
-                # Ensure index is set
-                section.index = i
+            result_sections.append({
+                "index": i,
+                "title": raw_section["title"],
+                "content": raw_section["content"],
+                "word_count": count_words(raw_section["content"]),
+                "sentiment": ai_section.get("sentiment", "neutral") if ai_section else "neutral",
+                "sentiment_intensity": ai_section.get("sentiment_intensity", 0.5) if ai_section else 0.5,
+                "visual_moment": ai_section.get("visual_moment", f"Professional image for {raw_section['title']}") if ai_section else f"Professional image for {raw_section['title']}",
+                "should_generate_image": ai_section.get("should_generate_image", False) if ai_section else False
+            })
 
-        # Convert to dict for return
-        result_dict = {
-            "sections": [
-                {
-                    "index": s.index,
-                    "title": s.title,
-                    "content": raw_sections[s.index]["content"] if s.index < len(raw_sections) else "",
-                    "word_count": s.word_count,
-                    "sentiment": s.sentiment,
-                    "sentiment_intensity": s.sentiment_intensity,
-                    "visual_moment": s.visual_moment,
-                    "should_generate_image": s.should_generate_image
-                }
-                for s in analysis.sections
-            ],
+        result = {
+            "sections": result_sections,
             "total_word_count": total_words,
-            "recommended_image_count": analysis.recommended_image_count,
-            "narrative_arc": analysis.narrative_arc,
-            "key_sentiment_shifts": analysis.key_sentiment_shifts
+            "recommended_image_count": analysis.get("recommended_image_count", 4),
+            "narrative_arc": analysis.get("narrative_arc", "unknown"),
+            "key_sentiment_shifts": analysis.get("key_sentiment_shifts", [])
         }
 
-        # Count how many images recommended
-        image_sections = [s for s in result_dict["sections"] if s["should_generate_image"]]
+        image_count = sum(1 for s in result_sections if s["should_generate_image"])
+        activity.logger.info(f"Analysis complete: {image_count} sections marked for images")
 
-        activity.logger.info(
-            f"Analysis complete: {len(image_sections)} sections marked for images "
-            f"(recommended: {analysis.recommended_image_count})"
-        )
-        activity.logger.info(f"Narrative arc: {analysis.narrative_arc}")
-        activity.logger.info(f"Sentiment shifts at sections: {analysis.key_sentiment_shifts}")
-
-        return result_dict
+        return result
 
     except Exception as e:
         activity.logger.error(f"Failed to analyze sections: {e}")
 
-        # Fallback: simple structure
+        # Fallback: simple structure with first, middle, last sections getting images
         fallback_sections = []
+        image_indices = [0, len(raw_sections) // 2, len(raw_sections) - 1]
+
         for i, raw_section in enumerate(raw_sections):
             fallback_sections.append({
                 "index": i,
@@ -343,22 +203,14 @@ Return complete analysis with all sections analyzed."""
                 "word_count": count_words(raw_section["content"]),
                 "sentiment": "neutral",
                 "sentiment_intensity": 0.5,
-                "visual_moment": f"Professional illustration representing {raw_section['title']}",
-                "should_generate_image": i in [0, len(raw_sections) // 2, len(raw_sections) - 1]  # First, middle, last
+                "visual_moment": f"Professional illustration for {raw_section['title']}",
+                "should_generate_image": i in image_indices
             })
-
-        # Calculate recommended images (3-5 based on length)
-        if total_words < 800:
-            recommended = 3
-        elif total_words < 1500:
-            recommended = 4
-        else:
-            recommended = 5
 
         return {
             "sections": fallback_sections,
             "total_word_count": total_words,
-            "recommended_image_count": recommended,
-            "narrative_arc": "unknown (fallback mode)",
+            "recommended_image_count": min(3, len(raw_sections)),
+            "narrative_arc": "unknown (fallback)",
             "key_sentiment_shifts": []
         }

@@ -18,6 +18,7 @@ load_dotenv()
 # Import workflows
 from src.workflows.company_creation import CompanyCreationWorkflow
 from src.workflows.article_creation import ArticleCreationWorkflow
+from src.workflows.news_monitor import NewsMonitorWorkflow
 
 # Import all activities
 from src.activities.normalize import (
@@ -29,6 +30,12 @@ from src.activities.research.serper import (
     fetch_company_news,
     fetch_targeted_research,
     serper_httpx_deep_articles,  # Deep article crawling with httpx
+)
+
+from src.activities.research.news_monitor import (
+    fetch_news_for_keywords,
+    assess_news_batch,
+    get_recent_articles_from_neon,
 )
 
 from src.activities.research.crawl import (
@@ -72,6 +79,10 @@ from src.activities.media.flux_api_client import (
 from src.activities.media.sequential_images import (
     generate_sequential_article_images,
     generate_company_contextual_images,
+)
+
+from src.activities.media.prompt_images import (
+    generate_article_images_from_prompts,
 )
 
 from src.activities.articles.analyze_sections import (
@@ -191,7 +202,7 @@ async def main():
     worker = Worker(
         client,
         task_queue=config.TEMPORAL_TASK_QUEUE,
-        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow],
+        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow, NewsMonitorWorkflow],
         activities=[
             # Normalization
             normalize_company_url,
@@ -201,6 +212,9 @@ async def main():
             fetch_company_news,
             fetch_targeted_research,
             serper_httpx_deep_articles,  # Deep article crawling with httpx
+            fetch_news_for_keywords,  # News monitor
+            assess_news_batch,  # News monitor
+            get_recent_articles_from_neon,  # News monitor
             httpx_crawl,
             crawl4ai_service_crawl,  # External Crawl4AI service (browser automation)
             firecrawl_crawl,  # Keep for backward compatibility
@@ -221,6 +235,7 @@ async def main():
             generate_flux_image,
             generate_sequential_article_images,
             generate_company_contextual_images,
+            generate_article_images_from_prompts,
             analyze_article_sections,
 
             # Generation
@@ -261,6 +276,7 @@ async def main():
     print("\n📋 Registered Workflows:")
     print("   - CompanyCreationWorkflow")
     print("   - ArticleCreationWorkflow")
+    print("   - NewsMonitorWorkflow (Scheduled)")
 
     print("\n📋 Registered Activities:")
     activity_groups = [

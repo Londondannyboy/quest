@@ -111,52 +111,20 @@ async def trigger_article_workflow(
     # Generate workflow ID
     workflow_id = f"article-{request.app}-{uuid4()}"
 
-    # Get task queue from environment
-    task_queue = os.getenv("TEMPORAL_TASK_QUEUE", "quest-content-queue")
+    # Use company-worker queue for ArticleCreationWorkflow
+    task_queue = "quest-company-queue"
 
     try:
-        # Route to dedicated workflow if available, otherwise use NewsroomWorkflow
-        workflow_name = "NewsroomWorkflow"
-        workflow_args = [
-            request.topic,
-            request.target_word_count,
-            request.auto_approve,
-            request.app,
-        ]
-
-        # Use dedicated workflows for specific apps
-        if request.app == "placement":
-            workflow_name = "PlacementWorkflow"
-            workflow_args = [
-                request.topic,
-                request.target_word_count,
-                request.auto_approve,
-                True,  # skip_zep_check
-            ]
-        elif request.app == "relocation":
-            workflow_name = "RelocationWorkflow"
-            workflow_args = [
-                request.topic,
-                request.target_word_count,
-                request.auto_approve,
-                True,  # skip_zep_check
-            ]
-        elif request.app == "chief-of-staff":
-            workflow_name = "ChiefOfStaffWorkflow"
-            workflow_args = [
-                request.topic,
-                request.target_word_count,
-                request.auto_approve,
-                True,  # skip_zep_check
-            ]
-        elif request.app == "gtm":
-            workflow_name = "GTMWorkflow"
-            workflow_args = [
-                request.topic,
-                request.target_word_count,
-                request.auto_approve,
-                True,  # skip_zep_check
-            ]
+        # Use ArticleCreationWorkflow for all article generation
+        workflow_name = "ArticleCreationWorkflow"
+        workflow_args = [{
+            "topic": request.topic,
+            "article_type": "news",
+            "app": request.app,
+            "target_word_count": request.target_word_count,
+            "generate_images": True,
+            "num_research_sources": 5
+        }]
 
         # Start workflow execution
         handle = await client.start_workflow(
@@ -214,21 +182,20 @@ async def trigger_article_research_workflow(
     # Generate workflow ID
     workflow_id = f"article-research-{request.app}-{uuid4()}"
 
-    # Get task queue from environment
-    task_queue = os.getenv("TEMPORAL_TASK_QUEUE", "quest-content-queue")
+    # Use company-worker queue for ArticleCreationWorkflow
+    task_queue = "quest-company-queue"
 
     try:
-        # Always use ArticleWorkflow for research-based articles
-        workflow_name = "ArticleWorkflow"
-        workflow_args = [
-            request.topic,
-            request.app,
-            request.target_word_count,
-            request.num_research_sources,
-            request.deep_crawl_enabled,
-            request.skip_zep_sync,
-            request.article_format,
-        ]
+        # Use ArticleCreationWorkflow for all article generation
+        workflow_name = "ArticleCreationWorkflow"
+        workflow_args = [{
+            "topic": request.topic,
+            "article_type": request.article_format if request.article_format != "listicle" else "guide",
+            "app": request.app,
+            "target_word_count": request.target_word_count,
+            "generate_images": not request.skip_zep_sync,  # Generate images unless skipping
+            "num_research_sources": request.num_research_sources
+        }]
 
         # Start workflow execution
         handle = await client.start_workflow(
@@ -618,6 +585,91 @@ async def trigger_article_creation_workflow(
             topic=request.topic,
             app=request.app,
             message=f"Article creation workflow started on {task_queue}. Expected completion: 5-12 minutes. Use workflow_id to check status.",
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start workflow: {str(e)}",
+        )
+
+
+# ============================================================================
+# NEWS MONITOR WORKFLOW ENDPOINT
+# ============================================================================
+
+class NewsMonitorRequest(BaseModel):
+    """Request to trigger NewsMonitorWorkflow"""
+    app: str = Field(default="placement", description="App: placement, relocation")
+    min_relevance_score: float = Field(default=0.7, ge=0.0, le=1.0, description="Minimum relevance score")
+    auto_create_articles: bool = Field(default=True, description="Auto-create articles for relevant stories")
+    max_articles_to_create: int = Field(default=3, ge=1, le=10, description="Max articles to create")
+
+
+@router.post("/news-monitor", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED)
+async def trigger_news_monitor_workflow(
+    request: NewsMonitorRequest,
+    api_key: str = Depends(validate_api_key),
+) -> WorkflowResponse:
+    """
+    Trigger NewsMonitorWorkflow for scheduled news monitoring
+
+    Monitors news for an app and automatically creates articles:
+    1. Fetch news from Serper (using app keywords + geographic focus)
+    2. Get recently published from Neon (duplicate check)
+    3. AI assessment (relevance, priority, exclusions)
+    4. Spawn ArticleCreationWorkflow for top stories
+
+    Timeline: 2-15 minutes (depends on articles created)
+    Cost: ~$0.01 + article costs
+
+    Requires X-API-Key header for authentication.
+
+    Args:
+        request: News monitoring parameters
+        api_key: Validated API key from header
+
+    Returns:
+        Workflow execution details with workflow_id for status tracking
+    """
+    # Get Temporal client
+    try:
+        client = await TemporalClientManager.get_client()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Failed to connect to Temporal: {str(e)}",
+        )
+
+    # Generate workflow ID
+    workflow_id = f"news-monitor-{request.app}-{uuid4()}"
+
+    # Use company-worker task queue
+    task_queue = os.getenv("COMPANY_WORKER_TASK_QUEUE", "quest-company-queue")
+
+    try:
+        # Prepare workflow input
+        workflow_input = {
+            "app": request.app,
+            "min_relevance_score": request.min_relevance_score,
+            "auto_create_articles": request.auto_create_articles,
+            "max_articles_to_create": request.max_articles_to_create
+        }
+
+        # Start workflow execution
+        handle = await client.start_workflow(
+            "NewsMonitorWorkflow",
+            workflow_input,
+            id=workflow_id,
+            task_queue=task_queue,
+        )
+
+        return WorkflowResponse(
+            workflow_id=handle.id,
+            status="started",
+            started_at=datetime.utcnow(),
+            app=request.app,
+            message=f"News monitoring started for {request.app}. Will create up to {request.max_articles_to_create} articles. Use workflow_id to check status.",
         )
 
     except Exception as e:
