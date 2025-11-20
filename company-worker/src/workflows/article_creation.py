@@ -276,11 +276,14 @@ class ArticleCreationWorkflow:
 
             # Content images (up to 5)
             for i in range(1, 6):
-                url_key = f"content_image{i}_url"
-                alt_key = f"content_image{i}_alt"
-                if images_result.get(url_key):
-                    article[url_key] = images_result[url_key]
-                    article[alt_key] = images_result.get(alt_key)
+                url_key = f"content_image_{i}_url"
+                alt_key = f"content_image_{i}_alt"
+                # Image generator uses different key format
+                gen_url_key = f"content_image{i}_url"
+                gen_alt_key = f"content_image{i}_alt"
+                if images_result.get(gen_url_key):
+                    article[url_key] = images_result[gen_url_key]
+                    article[alt_key] = images_result.get(gen_alt_key)
 
             article["image_count"] = images_result.get("images_generated", 0)
 
