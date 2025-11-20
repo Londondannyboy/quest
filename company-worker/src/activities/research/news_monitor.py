@@ -202,7 +202,7 @@ Respond with JSON only:
 }}"""
 
             response = client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model="claude-3-5-haiku-20241022",  # Much cheaper than Sonnet for classification
                 max_tokens=500,
                 messages=[{"role": "user", "content": prompt}]
             )

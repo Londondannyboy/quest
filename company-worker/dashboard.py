@@ -228,6 +228,14 @@ with tab_article:
         key="article_jurisdiction"
     )
 
+    # Custom slug (optional - for SEO)
+    custom_slug = st.text_input(
+        "Custom URL Slug (optional)",
+        placeholder="my-article-title",
+        help="Leave empty to auto-generate from title. Use for SEO or fixing broken Google-indexed URLs.",
+        key="article_slug"
+    )
+
     # Options
     st.divider()
     col1, col2 = st.columns(2)
@@ -289,21 +297,28 @@ with tab_article:
             with st.spinner(f"📝 Creating article... This takes {time_estimate}"):
                 try:
                     # Call Gateway API for article creation
+                    # Build request payload
+                    request_payload = {
+                        "topic": topic,
+                        "article_type": article_type,
+                        "app": article_app,
+                        "target_word_count": target_word_count,
+                        "jurisdiction": article_jurisdiction,
+                        "generate_images": generate_images,
+                        "num_research_sources": num_research_sources
+                    }
+
+                    # Add custom slug if provided
+                    if custom_slug and custom_slug.strip():
+                        request_payload["slug"] = custom_slug.strip()
+
                     response = requests.post(
                         f"{GATEWAY_URL}/v1/workflows/article-creation",
                         headers={
                             "Content-Type": "application/json",
                             "X-API-Key": API_KEY
                         },
-                        json={
-                            "topic": topic,
-                            "article_type": article_type,
-                            "app": article_app,
-                            "target_word_count": target_word_count,
-                            "jurisdiction": article_jurisdiction,
-                            "generate_images": generate_images,
-                            "num_research_sources": num_research_sources
-                        },
+                        json=request_payload,
                         timeout=30
                     )
 
