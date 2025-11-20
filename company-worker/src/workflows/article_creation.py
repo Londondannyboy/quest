@@ -258,12 +258,12 @@ class ArticleCreationWorkflow:
                     article["content"],
                     app,
                     "kontext-pro",
-                    True,  # generate_featured (also used as hero)
-                    False, # generate_hero (reuse featured)
-                    0,     # min_content_images (add manually after publishing)
-                    0      # max_content_images
+                    True,  # generate_featured
+                    True,  # generate_hero
+                    1,     # min_content_images
+                    1      # max_content_images
                 ],
-                start_to_close_timeout=timedelta(minutes=5)  # Faster with just 1 image
+                start_to_close_timeout=timedelta(minutes=8)
             )
 
             # Update article with image URLs and metadata
