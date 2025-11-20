@@ -37,8 +37,8 @@ async def generate_article_content(
         # pydantic_ai just wants the model name for Google
         model_str = model_name if provider == "google" else f'{provider}:{model_name}'
         agent = Agent(
-            model=model_str,
-            result_type=ArticleOutput,
+            model_str,
+            output_type=ArticleOutput,
             system_prompt=f"""You are an expert journalist. Write a {target_word_count}-word {article_type} article for the {app} industry.
 
 Output your article in markdown format with:
@@ -55,7 +55,7 @@ Just write the article. Nothing else."""
 
         # Generate
         result = await agent.run(prompt)
-        article_text = result.data.article
+        article_text = result.output.article
 
         # Parse title from first line
         lines = article_text.strip().split('\n')
