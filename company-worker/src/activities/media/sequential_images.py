@@ -276,7 +276,7 @@ async def generate_sequential_article_images(
             featured_result = await generate_flux_image(
                 prompt=featured_prompt,
                 context_image_url=None,  # No context for first image
-                aspect_ratio="1200:630",  # Social sharing dimensions
+                aspect_ratio="16:9",  # Social sharing dimensions (close to 1200x630)
                 model=model,
                 cloudinary_folder=f"quest-articles/{article_id}",
                 cloudinary_public_id=f"{article_id}-featured"
@@ -486,7 +486,7 @@ async def generate_company_contextual_images(
         featured_result = await generate_flux_image(
             prompt=featured_prompt,
             context_image_url=logo_url,  # Use logo as brand context
-            aspect_ratio="1200:630",
+            aspect_ratio="16:9",  # Social sharing dimensions
             model=featured_model,  # KONTEXT MAX for companies
             cloudinary_folder=f"companies/{company_id}",
             cloudinary_public_id=f"{company_id}-featured"

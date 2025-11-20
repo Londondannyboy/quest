@@ -255,7 +255,7 @@ async def get_recent_articles_from_neon(
     Returns:
         List of recent articles
     """
-    import asyncpg
+    import psycopg
     from datetime import datetime, timedelta
 
     activity.logger.info(f"Fetching recent articles for {app} (last {days} days)")
@@ -265,36 +265,36 @@ async def get_recent_articles_from_neon(
         return []
 
     try:
-        conn = await asyncpg.connect(config.DATABASE_URL)
+        async with await psycopg.AsyncConnection.connect(config.DATABASE_URL) as conn:
+            async with conn.cursor() as cur:
+                cutoff = datetime.utcnow() - timedelta(days=days)
 
-        cutoff = datetime.utcnow() - timedelta(days=days)
+                await cur.execute(
+                    """
+                    SELECT id, title, slug, article_type, created_at
+                    FROM articles
+                    WHERE app = %s
+                    AND created_at >= %s
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """,
+                    (app, cutoff, limit)
+                )
 
-        rows = await conn.fetch(
-            """
-            SELECT id, title, slug, article_type, created_at
-            FROM articles
-            WHERE app = $1
-            AND created_at >= $2
-            ORDER BY created_at DESC
-            LIMIT $3
-            """,
-            app, cutoff, limit
-        )
+                rows = await cur.fetchall()
 
-        await conn.close()
+                articles = []
+                for row in rows:
+                    articles.append({
+                        "id": str(row[0]),
+                        "title": row[1],
+                        "slug": row[2],
+                        "article_type": row[3],
+                        "created_at": row[4].isoformat() if row[4] else None
+                    })
 
-        articles = []
-        for row in rows:
-            articles.append({
-                "id": str(row["id"]),
-                "title": row["title"],
-                "slug": row["slug"],
-                "article_type": row["article_type"],
-                "created_at": row["created_at"].isoformat() if row["created_at"] else None
-            })
-
-        activity.logger.info(f"Found {len(articles)} recent articles")
-        return articles
+                activity.logger.info(f"Found {len(articles)} recent articles")
+                return articles
 
     except Exception as e:
         activity.logger.error(f"Failed to fetch recent articles: {e}")

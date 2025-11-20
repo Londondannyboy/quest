@@ -264,22 +264,31 @@ class ArticleCreationWorkflow:
                 start_to_close_timeout=timedelta(minutes=10)
             )
 
-            # Update article with image URLs
+            # Update article with image URLs and metadata
             article["featured_image_url"] = images_result.get("featured_image_url")
             article["featured_image_alt"] = images_result.get("featured_image_alt")
+            article["featured_image_title"] = images_result.get("featured_image_title")
+            article["featured_image_description"] = images_result.get("featured_image_description")
             article["hero_image_url"] = images_result.get("hero_image_url")
             article["hero_image_alt"] = images_result.get("hero_image_alt")
+            article["hero_image_title"] = images_result.get("hero_image_title")
+            article["hero_image_description"] = images_result.get("hero_image_description")
 
-            # Content images - collect URLs
+            # Content images - collect URLs and all metadata
             content_images = []
             for i in range(1, 6):
-                url_key = f"content_image_{i}_url"
-                alt_key = f"content_image_{i}_alt"
                 gen_url_key = f"content_image{i}_url"
                 gen_alt_key = f"content_image{i}_alt"
+                gen_title_key = f"content_image{i}_title"
+                gen_desc_key = f"content_image{i}_description"
+
                 if images_result.get(gen_url_key):
-                    article[url_key] = images_result[gen_url_key]
-                    article[alt_key] = images_result.get(gen_alt_key)
+                    # Save with underscore format to article payload
+                    article[f"content_image_{i}_url"] = images_result[gen_url_key]
+                    article[f"content_image_{i}_alt"] = images_result.get(gen_alt_key)
+                    article[f"content_image_{i}_title"] = images_result.get(gen_title_key)
+                    article[f"content_image_{i}_description"] = images_result.get(gen_desc_key)
+
                     content_images.append({
                         "url": images_result[gen_url_key],
                         "alt": images_result.get(gen_alt_key, f"Article image {i}")
