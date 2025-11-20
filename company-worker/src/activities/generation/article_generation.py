@@ -39,15 +39,15 @@ async def generate_article_content(
         agent = Agent(
             model_str,
             output_type=ArticleOutput,
-            system_prompt=f"""You are an expert journalist. Write a {target_word_count}-word {article_type} article for the {app} industry.
+            instructions=f"""You are an expert journalist writing for the {app} industry.
 
-Output your article in markdown format with:
-- A title on the first line (no # prefix)
-- Sections using ## headings
-- Professional, engaging prose
-- Facts and figures from the research
+Generate a {target_word_count}-word {article_type} article in markdown format.
 
-Just write the article. Nothing else."""
+The article field should contain:
+- Title on first line
+- Sections with ## headings
+- Professional, engaging content
+- Facts from the research provided"""
         )
 
         # Build simple prompt
