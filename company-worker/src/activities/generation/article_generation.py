@@ -344,7 +344,7 @@ def build_article_context(
         for i, result in enumerate(exa_results[:5], 1):
             title = result.get('title', 'Untitled')
             url = result.get('url', '')
-            content = result.get('text', '')
+            content = result.get('content', '') or result.get('text', '')  # Exa uses 'content'
             score = result.get('score', 0.0)
 
             lines.append(f"{i}. {title} (relevance: {score:.2f})")
