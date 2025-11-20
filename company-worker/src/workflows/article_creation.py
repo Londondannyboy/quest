@@ -270,7 +270,8 @@ class ArticleCreationWorkflow:
             article["hero_image_url"] = images_result.get("hero_image_url")
             article["hero_image_alt"] = images_result.get("hero_image_alt")
 
-            # Content images
+            # Content images - collect URLs
+            content_images = []
             for i in range(1, 6):
                 url_key = f"content_image_{i}_url"
                 alt_key = f"content_image_{i}_alt"
@@ -279,8 +280,40 @@ class ArticleCreationWorkflow:
                 if images_result.get(gen_url_key):
                     article[url_key] = images_result[gen_url_key]
                     article[alt_key] = images_result.get(gen_alt_key)
+                    content_images.append({
+                        "url": images_result[gen_url_key],
+                        "alt": images_result.get(gen_alt_key, f"Article image {i}")
+                    })
 
             article["image_count"] = images_result.get("images_generated", 0)
+
+            # Embed images into content at strategic positions
+            if content_images:
+                content = article["content"]
+                paragraphs = content.split('</p>')
+
+                if len(paragraphs) > 3:
+                    # Calculate insertion points (after intro, middle, near-end)
+                    total = len(paragraphs)
+                    insert_points = [2, total // 2, total - 2]
+
+                    new_paragraphs = []
+                    img_index = 0
+
+                    for i, para in enumerate(paragraphs):
+                        new_paragraphs.append(para)
+                        if para.strip():
+                            new_paragraphs.append('</p>')
+
+                        # Insert image at strategic points
+                        if i in insert_points and img_index < len(content_images):
+                            img = content_images[img_index]
+                            img_html = f'\n\n<div class="my-8"><img src="{img["url"]}" alt="{img["alt"]}" class="w-full rounded-lg shadow-md" loading="lazy" /></div>\n\n'
+                            new_paragraphs.append(img_html)
+                            img_index += 1
+
+                    article["content"] = ''.join(new_paragraphs)
+                    workflow.logger.info(f"Embedded {img_index} images into content")
 
             workflow.logger.info(
                 f"Images generated: {article['image_count']}, "
