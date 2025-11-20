@@ -188,9 +188,10 @@ async def analyze_article_sections(
 
     # Use AI to analyze narrative structure
     provider, model_name = config.get_ai_model()
+    model_str = model_name if provider == "google" else f"{provider}:{model_name}"
 
     agent = Agent(
-        model=f"{provider}:{model_name}",
+        model=model_str,
         result_type=ArticleAnalysis,
         system_prompt=f"""You are an expert content analyst specializing in narrative structure
         and visual storytelling for {app_context} content.

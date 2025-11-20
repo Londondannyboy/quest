@@ -34,8 +34,10 @@ async def generate_article_content(
         activity.logger.info(f"Using AI: {provider}:{model_name}")
 
         # Simplest possible agent - just output one string
+        # pydantic_ai just wants the model name for Google
+        model_str = model_name if provider == "google" else f'{provider}:{model_name}'
         agent = Agent(
-            model=f'{provider}:{model_name}',
+            model=model_str,
             result_type=ArticleOutput,
             system_prompt=f"""You are an expert journalist. Write a {target_word_count}-word {article_type} article for the {app} industry.
 

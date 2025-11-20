@@ -43,8 +43,9 @@ async def generate_company_profile_v2(
         activity.logger.info(f"Using AI provider: {provider}:{model_name}")
 
         # Create Pydantic AI agent
+        model_str = model_name if provider == "google" else f'{provider}:{model_name}'
         company_agent = Agent(
-            f'{provider}:{model_name}',
+            model_str,
             output_type=CompanyPayload,
             instructions="""You are an expert company profiler who creates rich, narrative company profiles.
 
