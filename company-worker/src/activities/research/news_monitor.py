@@ -218,15 +218,27 @@ Respond with JSON only:
             else:
                 assessment = {"is_relevant": False, "relevance_score": 0.0}
 
-            if assessment.get("is_relevant") and assessment.get("relevance_score", 0) >= min_relevance_score:
+            # Handle string "true"/"false" values
+            is_relevant = assessment.get("is_relevant", False)
+            if isinstance(is_relevant, str):
+                is_relevant = is_relevant.lower() == "true"
+
+            relevance_score = float(assessment.get("relevance_score", 0))
+
+            activity.logger.info(
+                f"Story: {story.get('title', '')[:40]}... "
+                f"relevant={is_relevant}, score={relevance_score}"
+            )
+
+            if is_relevant and relevance_score >= min_relevance_score:
                 relevant_stories.append({
                     "story": story,
-                    "relevance_score": assessment.get("relevance_score", 0),
+                    "relevance_score": relevance_score,
                     "priority": assessment.get("priority", "low"),
                     "reasoning": assessment.get("reasoning", ""),
                     "suggested_angle": assessment.get("suggested_angle", "")
                 })
-                activity.logger.info(f"Relevant: {story.get('title', '')[:50]}...")
+                activity.logger.info(f"✅ Added as relevant: {story.get('title', '')[:50]}...")
 
         except Exception as e:
             activity.logger.error(f"Assessment error: {e}")
