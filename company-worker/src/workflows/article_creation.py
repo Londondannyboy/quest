@@ -258,12 +258,12 @@ class ArticleCreationWorkflow:
                     article["content"],
                     app,
                     "kontext-pro",
-                    True,  # generate_featured
-                    True,  # generate_hero
-                    3,     # min_content_images
-                    5      # max_content_images
+                    True,  # generate_featured (also used as hero)
+                    False, # generate_hero (reuse featured)
+                    0,     # min_content_images (add manually after publishing)
+                    0      # max_content_images
                 ],
-                start_to_close_timeout=timedelta(minutes=10)
+                start_to_close_timeout=timedelta(minutes=5)  # Faster with just 1 image
             )
 
             # Update article with image URLs and metadata
@@ -271,10 +271,11 @@ class ArticleCreationWorkflow:
             article["featured_image_alt"] = images_result.get("featured_image_alt")
             article["featured_image_title"] = images_result.get("featured_image_title")
             article["featured_image_description"] = images_result.get("featured_image_description")
-            article["hero_image_url"] = images_result.get("hero_image_url")
-            article["hero_image_alt"] = images_result.get("hero_image_alt")
-            article["hero_image_title"] = images_result.get("hero_image_title")
-            article["hero_image_description"] = images_result.get("hero_image_description")
+            # Reuse featured as hero (cost saving)
+            article["hero_image_url"] = images_result.get("featured_image_url")
+            article["hero_image_alt"] = images_result.get("featured_image_alt")
+            article["hero_image_title"] = images_result.get("featured_image_title")
+            article["hero_image_description"] = images_result.get("featured_image_description")
 
             # Content images - collect URLs and all metadata
             content_images = []
