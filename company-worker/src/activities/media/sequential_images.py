@@ -250,52 +250,8 @@ async def generate_sequential_article_images(
         # Limit to max_content_images
         image_sections = image_sections[:max_content_images]
 
-        # Step 2: Generate featured image (if enabled)
+        # Step 2: Generate hero image first (used for both hero and featured to save cost)
         previous_image_url = None
-
-        if generate_featured:
-            activity.logger.info("Generating featured image...")
-
-            # Use first section or article summary for featured
-            first_section = sections[0] if sections else {
-                "title": title,
-                "visual_moment": f"Professional illustration representing {title}",
-                "sentiment": "professional"
-            }
-
-            # Create featured-specific prompt (social sharing focus)
-            featured_section = first_section.copy()
-            featured_section["visual_moment"] = f"Wide establishing shot: {first_section.get('visual_moment', title)}. Social media hero image style."
-
-            featured_prompt = build_sequential_prompt(
-                section=featured_section,
-                app=app,
-                is_first=True
-            )
-
-            featured_result = await generate_flux_image(
-                prompt=featured_prompt,
-                context_image_url=None,  # No context for first image
-                aspect_ratio="16:9",  # Social sharing dimensions (close to 1200x630)
-                model=model,
-                cloudinary_folder=f"quest-articles/{article_id}",
-                cloudinary_public_id=f"{article_id}-featured"
-            )
-
-            if featured_result.get("success"):
-                result["featured_image_url"] = featured_result["cloudinary_url"]
-                result["featured_image_alt"] = f"{title} - Featured image"
-                result["featured_image_description"] = first_section.get("visual_moment", title)
-                result["featured_image_title"] = title
-                result["total_cost"] += featured_result.get("cost", 0)
-                result["images_generated"] += 1
-
-                # Use this as context for hero image
-                previous_image_url = featured_result["cloudinary_url"]
-
-                activity.logger.info("Featured image generated successfully")
-            else:
-                result["errors"].append(f"Featured image failed: {featured_result.get('error')}")
 
         # Step 3: Generate hero image (if enabled)
         if generate_hero:
@@ -329,17 +285,25 @@ async def generate_sequential_article_images(
             )
 
             if hero_result.get("success"):
+                # Set hero fields
                 result["hero_image_url"] = hero_result["cloudinary_url"]
                 result["hero_image_alt"] = f"{title} - Hero image"
                 result["hero_image_description"] = hero_section.get("visual_moment", title)
                 result["hero_image_title"] = title
+
+                # Also use hero as featured (same image, saves cost)
+                result["featured_image_url"] = hero_result["cloudinary_url"]
+                result["featured_image_alt"] = f"{title} - Featured image"
+                result["featured_image_description"] = hero_section.get("visual_moment", title)
+                result["featured_image_title"] = title
+
                 result["total_cost"] += hero_result.get("cost", 0)
                 result["images_generated"] += 1
 
                 # Use this as context for content images
                 previous_image_url = hero_result["cloudinary_url"]
 
-                activity.logger.info("Hero image generated successfully")
+                activity.logger.info("Hero image generated successfully (also used as featured)")
             else:
                 result["errors"].append(f"Hero image failed: {hero_result.get('error')}")
 

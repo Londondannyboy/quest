@@ -173,12 +173,24 @@ Snippet: {story.get('snippet', '')}
 
 APP CONTEXT:
 Target Audience: {target_audience}
-Keywords: {', '.join(keywords[:5])}
-Topics to Prioritize: {', '.join(interests[:5])}
-Topics to EXCLUDE (mark NOT relevant): {', '.join(exclusions)}
 
-RECENT ARTICLES (avoid duplicates):
+WHAT IS RELEVANT (mark as relevant if story is about ANY of these):
+- Private placements (companies raising capital via private placement)
+- Fund placements and fundraising
+- Placement agents and their deals
+- LP commitments and institutional investments
+- Private equity fundraising
+- Capital raising announcements
+
+Keywords to look for: {', '.join(keywords[:5])}
+
+Topics to EXCLUDE (mark NOT relevant if story is primarily about):
+{', '.join(exclusions)}
+
+RECENT ARTICLES (avoid exact duplicates):
 {chr(10).join([f"- {a.get('title', '')}" for a in recent_articles[:5]])}
+
+Be INCLUSIVE - if the story mentions private placement, fundraising, or capital raising, it IS relevant.
 
 Respond with JSON only:
 {{

@@ -55,10 +55,13 @@ async def generate_article_content(
     article_type: str,
     app: str,
     research_context: Dict[str, Any],
-    target_word_count: int = 1500
+    target_word_count: int = 1500,
+    custom_slug: str = None
 ) -> Dict[str, Any]:
     """Generate article content using Anthropic SDK directly."""
     activity.logger.info(f"Generating {article_type} article: {topic}")
+    if custom_slug:
+        activity.logger.info(f"Using custom slug: {custom_slug}")
 
     try:
         # Get model config
@@ -192,8 +195,8 @@ Output ONLY the title on line 1, then the HTML content. No other text or explana
         # Extract image prompts from content
         content, featured_prompt, section_prompts = extract_image_prompts(raw_content)
 
-        # Generate metadata
-        slug = slugify(title, max_length=100)
+        # Generate metadata - use custom slug if provided
+        slug = custom_slug if custom_slug else slugify(title, max_length=100)
 
         # Count words (strip HTML tags for accurate count)
         text_only = re.sub(r'<[^>]+>', '', content)

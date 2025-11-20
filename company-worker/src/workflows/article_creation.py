@@ -41,7 +41,8 @@ class ArticleCreationWorkflow:
                 "target_word_count": 1500,
                 "jurisdiction": "UK",  # Optional for geo-targeting
                 "generate_images": True,
-                "num_research_sources": 10
+                "num_research_sources": 10,
+                "slug": "custom-url-slug"  # Optional - if not provided, generated from title
             }
 
         Returns:
@@ -54,6 +55,7 @@ class ArticleCreationWorkflow:
         jurisdiction = input_dict.get("jurisdiction", "UK")
         generate_images = input_dict.get("generate_images", True)
         num_sources = input_dict.get("num_research_sources", 10)
+        custom_slug = input_dict.get("slug")  # Optional custom slug for SEO
 
         workflow.logger.info(f"Creating {article_type} article: {topic}")
 
@@ -214,7 +216,7 @@ class ArticleCreationWorkflow:
 
         article_result = await workflow.execute_activity(
             "generate_article_content",
-            args=[topic, article_type, app, research_context, target_word_count],
+            args=[topic, article_type, app, research_context, target_word_count, custom_slug],
             start_to_close_timeout=timedelta(minutes=3)
         )
 

@@ -514,6 +514,7 @@ class ArticleCreationRequest(BaseModel):
     num_research_sources: int = Field(default=10, ge=3, le=15, description="Number of research sources")
     generate_images: bool = Field(default=False, description="Generate contextual images (adds 5-8 min)")
     skip_zep_sync: bool = Field(default=False, description="Skip Zep knowledge graph sync")
+    slug: Optional[str] = Field(default=None, description="Custom URL slug for SEO (e.g., 'my-article-title'). If not provided, generated from title.")
 
 
 @router.post("/article-creation", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED)
@@ -568,6 +569,7 @@ async def trigger_article_creation_workflow(
             "jurisdiction": request.jurisdiction,
             "num_research_sources": request.num_research_sources,
             "generate_images": request.generate_images,
+            "slug": request.slug,  # Optional custom slug for SEO
         }
 
         # Start workflow execution
