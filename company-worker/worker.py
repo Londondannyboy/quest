@@ -85,6 +85,18 @@ from src.activities.media.prompt_images import (
     generate_article_images_from_prompts,
 )
 
+from src.activities.media.video_generation import (
+    generate_article_video,
+    get_video_cost_estimate,
+)
+
+from src.activities.media.mux_client import (
+    upload_video_to_mux,
+    upload_video_file_to_mux,
+    delete_mux_asset,
+    get_mux_asset_info,
+)
+
 from src.activities.articles.analyze_sections import (
     analyze_article_sections,
 )
@@ -237,6 +249,13 @@ async def main():
             generate_company_contextual_images,
             generate_article_images_from_prompts,
             analyze_article_sections,
+            # Video
+            generate_article_video,
+            get_video_cost_estimate,
+            upload_video_to_mux,
+            upload_video_file_to_mux,
+            delete_mux_asset,
+            get_mux_asset_info,
 
             # Generation
             generate_company_profile_v2,

@@ -84,6 +84,10 @@ class Config:
 
     FLUX_API_KEY: Optional[str] = os.getenv("FLUX_API_KEY")  # Black Forest Labs direct API
 
+    # ===== VIDEO SERVICES =====
+    MUX_TOKEN_ID: Optional[str] = os.getenv("MUX_TOKEN_ID")
+    MUX_TOKEN_SECRET: Optional[str] = os.getenv("MUX_TOKEN_SECRET")
+
     # ===== KNOWLEDGE GRAPH =====
     ZEP_API_KEY: Optional[str] = os.getenv("ZEP_API_KEY")
 
@@ -191,6 +195,7 @@ class Config:
             "has_zep": bool(cls.ZEP_API_KEY),
             "has_replicate": bool(cls.REPLICATE_API_TOKEN),
             "has_cloudinary": bool(cls.CLOUDINARY_URL),
+            "has_mux": bool(cls.MUX_TOKEN_ID and cls.MUX_TOKEN_SECRET),
             "has_ai": bool(cls.GOOGLE_API_KEY or cls.OPENAI_API_KEY or cls.ANTHROPIC_API_KEY),
         }
 

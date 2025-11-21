@@ -328,7 +328,12 @@ async def save_article_to_neon(
     featured_image_url: Optional[str] = None,
     hero_image_url: Optional[str] = None,
     mentioned_companies: Optional[list] = None,
-    status: str = "draft"
+    status: str = "draft",
+    video_url: Optional[str] = None,
+    video_playback_id: Optional[str] = None,
+    video_asset_id: Optional[str] = None,
+    video_gif_url: Optional[str] = None,
+    video_thumbnail_url: Optional[str] = None
 ) -> str:
     """
     Save or update article in Neon database.
@@ -344,6 +349,11 @@ async def save_article_to_neon(
         hero_image_url: URL to hero image
         mentioned_companies: List of company mentions with relevance scores
         status: Article status (draft, published, archived)
+        video_url: Mux HLS stream URL
+        video_playback_id: Mux playback ID
+        video_asset_id: Mux asset ID
+        video_gif_url: Animated GIF URL for collections
+        video_thumbnail_url: Primary thumbnail URL
 
     Returns:
         Article ID (str)
@@ -379,6 +389,11 @@ async def save_article_to_neon(
                             hero_image_url = %s,
                             payload = %s,
                             status = %s,
+                            video_url = %s,
+                            video_playback_id = %s,
+                            video_asset_id = %s,
+                            video_gif_url = %s,
+                            video_thumbnail_url = %s,
                             updated_at = NOW()
                         WHERE id = %s
                         RETURNING id
@@ -395,6 +410,11 @@ async def save_article_to_neon(
                         hero_image_url,
                         json.dumps(payload),
                         status,
+                        video_url,
+                        video_playback_id,
+                        video_asset_id,
+                        video_gif_url,
+                        video_thumbnail_url,
                         article_id
                     ))
 
@@ -419,10 +439,15 @@ async def save_article_to_neon(
                             hero_image_url,
                             payload,
                             status,
+                            video_url,
+                            video_playback_id,
+                            video_asset_id,
+                            video_gif_url,
+                            video_thumbnail_url,
                             created_at,
                             updated_at
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
                         ON CONFLICT (slug)
                         DO UPDATE SET
                             title = EXCLUDED.title,
@@ -435,6 +460,11 @@ async def save_article_to_neon(
                             hero_image_url = EXCLUDED.hero_image_url,
                             payload = EXCLUDED.payload,
                             status = EXCLUDED.status,
+                            video_url = EXCLUDED.video_url,
+                            video_playback_id = EXCLUDED.video_playback_id,
+                            video_asset_id = EXCLUDED.video_asset_id,
+                            video_gif_url = EXCLUDED.video_gif_url,
+                            video_thumbnail_url = EXCLUDED.video_thumbnail_url,
                             updated_at = NOW()
                         RETURNING id
                     """, (
@@ -449,7 +479,12 @@ async def save_article_to_neon(
                         featured_image_url,
                         hero_image_url,
                         json.dumps(payload),
-                        status
+                        status,
+                        video_url,
+                        video_playback_id,
+                        video_asset_id,
+                        video_gif_url,
+                        video_thumbnail_url
                     ))
 
                     result = await cur.fetchone()

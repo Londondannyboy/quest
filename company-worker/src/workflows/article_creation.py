@@ -41,6 +41,8 @@ class ArticleCreationWorkflow:
                 "target_word_count": 1500,
                 "jurisdiction": "UK",  # Optional for geo-targeting
                 "generate_images": True,
+                "video_quality": None,  # None, "low", "medium", "high" - if set, generates video for hero
+                "content_images": "with_content",  # "with_content" or "without_content"
                 "num_research_sources": 10,
                 "slug": "custom-url-slug"  # Optional - if not provided, generated from title
             }
@@ -54,6 +56,8 @@ class ArticleCreationWorkflow:
         target_word_count = input_dict.get("target_word_count", 1500)
         jurisdiction = input_dict.get("jurisdiction", "UK")
         generate_images = input_dict.get("generate_images", True)
+        video_quality = input_dict.get("video_quality")  # None, "low", "medium", "high"
+        content_images = input_dict.get("content_images", "with_content")  # "with_content" or "without_content"
         num_sources = input_dict.get("num_research_sources", 10)
         custom_slug = input_dict.get("slug")  # Optional custom slug for SEO
 
@@ -233,6 +237,9 @@ class ArticleCreationWorkflow:
             f"{article['section_count']} sections"
         )
 
+        # Initialize video_result for use in Phase 7 save
+        video_result = None
+
         # ===== PHASE 5: ANALYZE SECTIONS (for images) =====
         if generate_images:
             workflow.logger.info("Phase 5: Analyzing sections for image generation")
@@ -247,35 +254,91 @@ class ArticleCreationWorkflow:
                 f"Section analysis: {section_analysis['recommended_image_count']} images recommended"
             )
 
-            # ===== PHASE 6: GENERATE SEQUENTIAL IMAGES =====
-            workflow.logger.info("Phase 6: Generating sequential contextual images")
+            # ===== PHASE 6: GENERATE VIDEO OR IMAGES =====
+            if video_quality:
+                # Generate video for hero/featured
+                workflow.logger.info(f"Phase 6a: Generating video ({video_quality} quality)")
 
-            images_result = await workflow.execute_activity(
-                "generate_sequential_article_images",
-                args=[
-                    article["slug"],
-                    article["title"],
-                    article["content"],
-                    app,
-                    "kontext-pro",
-                    True,  # generate_featured
-                    True,  # generate_hero
-                    1,     # min_content_images
-                    1      # max_content_images
-                ],
-                start_to_close_timeout=timedelta(minutes=8)
+                video_gen_result = await workflow.execute_activity(
+                    "generate_article_video",
+                    args=[
+                        article["title"],
+                        article["content"],
+                        app,
+                        video_quality,
+                        3,  # duration in seconds
+                        "16:9"  # aspect ratio
+                    ],
+                    start_to_close_timeout=timedelta(minutes=5)
+                )
+
+                workflow.logger.info(f"Video generated: {video_gen_result.get('video_url', '')[:50]}...")
+
+                # Upload to Mux
+                workflow.logger.info("Phase 6b: Uploading video to Mux")
+
+                mux_result = await workflow.execute_activity(
+                    "upload_video_to_mux",
+                    args=[video_gen_result["video_url"], True],  # public=True
+                    start_to_close_timeout=timedelta(minutes=3)
+                )
+
+                # Store video data
+                video_result = {
+                    "video_url": mux_result.get("stream_url"),
+                    "video_playback_id": mux_result.get("playback_id"),
+                    "video_asset_id": mux_result.get("asset_id"),
+                    "video_gif_url": mux_result.get("gif_url"),
+                    "video_thumbnail_url": mux_result.get("thumbnail_url"),
+                }
+
+                # Use video thumbnail as featured/hero image
+                article["featured_image_url"] = mux_result.get("thumbnail_featured")
+                article["hero_image_url"] = mux_result.get("thumbnail_hero")
+
+                workflow.logger.info(
+                    f"Video uploaded to Mux: {mux_result.get('playback_id')}, "
+                    f"cost: ${video_gen_result.get('cost', 0):.3f}"
+                )
+
+            # Generate content images if requested (even with video)
+            should_generate_content_images = (
+                content_images == "with_content" or
+                (not video_quality and generate_images)
             )
 
-            # Update article with image URLs and metadata
-            article["featured_image_url"] = images_result.get("featured_image_url")
-            article["featured_image_alt"] = images_result.get("featured_image_alt")
-            article["featured_image_title"] = images_result.get("featured_image_title")
-            article["featured_image_description"] = images_result.get("featured_image_description")
-            # Reuse featured as hero (cost saving)
-            article["hero_image_url"] = images_result.get("featured_image_url")
-            article["hero_image_alt"] = images_result.get("featured_image_alt")
-            article["hero_image_title"] = images_result.get("featured_image_title")
-            article["hero_image_description"] = images_result.get("featured_image_description")
+            if should_generate_content_images:
+                workflow.logger.info("Phase 6c: Generating content images")
+
+                images_result = await workflow.execute_activity(
+                    "generate_sequential_article_images",
+                    args=[
+                        article["slug"],
+                        article["title"],
+                        article["content"],
+                        app,
+                        "kontext-pro",
+                        not video_quality,  # generate_featured only if no video
+                        not video_quality,  # generate_hero only if no video
+                        1 if video_quality else 1,  # min_content_images
+                        2 if video_quality else 1   # max_content_images
+                    ],
+                    start_to_close_timeout=timedelta(minutes=8)
+                )
+            else:
+                images_result = {"images_generated": 0, "total_cost": 0}
+
+            # Update article with image URLs and metadata (only if no video)
+            if not video_quality:
+                article["featured_image_url"] = images_result.get("featured_image_url")
+                article["featured_image_alt"] = images_result.get("featured_image_alt")
+                article["featured_image_title"] = images_result.get("featured_image_title")
+                article["featured_image_description"] = images_result.get("featured_image_description")
+                # Reuse featured as hero (cost saving)
+                article["hero_image_url"] = images_result.get("featured_image_url")
+                article["hero_image_alt"] = images_result.get("featured_image_alt")
+                article["hero_image_title"] = images_result.get("featured_image_title")
+                article["hero_image_description"] = images_result.get("featured_image_description")
 
             # Content images - collect URLs and all metadata
             content_images = []
@@ -353,7 +416,12 @@ class ArticleCreationWorkflow:
                 article.get("featured_image_url"),
                 article.get("hero_image_url"),
                 [],  # mentioned_companies (extracted by Zep)
-                "draft"  # status
+                "draft",  # status
+                video_result.get("video_url") if video_result else None,
+                video_result.get("video_playback_id") if video_result else None,
+                video_result.get("video_asset_id") if video_result else None,
+                video_result.get("video_gif_url") if video_result else None,
+                video_result.get("video_thumbnail_url") if video_result else None
             ],
             start_to_close_timeout=timedelta(seconds=30)
         )

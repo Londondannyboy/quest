@@ -1,0 +1,253 @@
+"""
+Mux client activity for video upload and URL generation.
+"""
+
+import os
+import time
+import tempfile
+import requests
+import mux_python
+from temporalio import activity
+from typing import Dict, Any, Optional
+
+
+def get_mux_client():
+    """Get configured Mux API client."""
+    configuration = mux_python.Configuration()
+    configuration.username = os.environ.get("MUX_TOKEN_ID")
+    configuration.password = os.environ.get("MUX_TOKEN_SECRET")
+
+    if not configuration.username or not configuration.password:
+        raise ValueError("MUX_TOKEN_ID and MUX_TOKEN_SECRET must be set")
+
+    return mux_python.ApiClient(configuration)
+
+
+@activity.defn
+async def upload_video_to_mux(
+    video_url: str,
+    public: bool = True
+) -> Dict[str, Any]:
+    """
+    Upload a video to Mux from a URL.
+
+    Args:
+        video_url: URL of the video file to upload
+        public: Whether the video should be publicly accessible
+
+    Returns:
+        Dict with asset_id, playback_id, duration, and all generated URLs
+    """
+    activity.logger.info(f"Uploading video to Mux: {video_url[:50]}...")
+
+    client = get_mux_client()
+    assets_api = mux_python.AssetsApi(client)
+
+    # Create asset from URL
+    playback_policy = [mux_python.PlaybackPolicy.PUBLIC] if public else [mux_python.PlaybackPolicy.SIGNED]
+
+    create_asset_request = mux_python.CreateAssetRequest(
+        input=[mux_python.InputSettings(url=video_url)],
+        playback_policy=playback_policy,
+    )
+
+    asset = assets_api.create_asset(create_asset_request)
+    asset_id = asset.data.id
+
+    activity.logger.info(f"Asset created: {asset_id}, waiting for processing...")
+
+    # Wait for asset to be ready
+    max_attempts = 60  # 2 minutes max
+    for attempt in range(max_attempts):
+        asset_status = assets_api.get_asset(asset_id)
+
+        if asset_status.data.status == "ready":
+            playback_id = asset_status.data.playback_ids[0].id
+            duration = asset_status.data.duration
+
+            activity.logger.info(f"Asset ready! Playback ID: {playback_id}")
+
+            # Generate all URLs
+            urls = generate_mux_urls(playback_id, duration)
+
+            return {
+                "asset_id": asset_id,
+                "playback_id": playback_id,
+                "duration": duration,
+                "status": "ready",
+                **urls
+            }
+        elif asset_status.data.status == "errored":
+            errors = asset_status.data.errors
+            raise RuntimeError(f"Mux asset processing failed: {errors}")
+
+        activity.heartbeat()
+        time.sleep(2)
+
+    raise TimeoutError(f"Mux asset processing timed out after {max_attempts * 2} seconds")
+
+
+@activity.defn
+async def upload_video_file_to_mux(
+    video_path: str,
+    public: bool = True
+) -> Dict[str, Any]:
+    """
+    Upload a local video file to Mux using direct upload.
+
+    Args:
+        video_path: Local path to video file
+        public: Whether the video should be publicly accessible
+
+    Returns:
+        Dict with asset_id, playback_id, duration, and all generated URLs
+    """
+    activity.logger.info(f"Uploading local file to Mux: {video_path}")
+
+    client = get_mux_client()
+    uploads_api = mux_python.DirectUploadsApi(client)
+    assets_api = mux_python.AssetsApi(client)
+
+    # Create direct upload
+    playback_policy = [mux_python.PlaybackPolicy.PUBLIC] if public else [mux_python.PlaybackPolicy.SIGNED]
+
+    create_upload_request = mux_python.CreateUploadRequest(
+        new_asset_settings=mux_python.CreateAssetRequest(
+            playback_policy=playback_policy,
+        ),
+        cors_origin="*"
+    )
+
+    upload = uploads_api.create_direct_upload(create_upload_request)
+    upload_url = upload.data.url
+    upload_id = upload.data.id
+
+    # Upload file
+    with open(video_path, 'rb') as f:
+        response = requests.put(
+            upload_url,
+            data=f,
+            headers={'Content-Type': 'video/mp4'}
+        )
+        response.raise_for_status()
+
+    activity.logger.info("File uploaded, waiting for processing...")
+
+    # Wait for asset to be ready
+    max_attempts = 60
+    for attempt in range(max_attempts):
+        upload_status = uploads_api.get_direct_upload(upload_id)
+
+        if upload_status.data.asset_id:
+            asset_id = upload_status.data.asset_id
+            asset = assets_api.get_asset(asset_id)
+
+            if asset.data.status == "ready":
+                playback_id = asset.data.playback_ids[0].id
+                duration = asset.data.duration
+
+                urls = generate_mux_urls(playback_id, duration)
+
+                return {
+                    "asset_id": asset_id,
+                    "playback_id": playback_id,
+                    "duration": duration,
+                    "status": "ready",
+                    **urls
+                }
+            elif asset.data.status == "errored":
+                raise RuntimeError(f"Mux processing failed: {asset.data.errors}")
+
+        activity.heartbeat()
+        time.sleep(2)
+
+    raise TimeoutError("Mux processing timed out")
+
+
+def generate_mux_urls(playback_id: str, duration: float = 3.0) -> Dict[str, str]:
+    """
+    Generate all useful Mux URLs from a playback ID.
+
+    Args:
+        playback_id: Mux playback ID
+        duration: Video duration in seconds
+
+    Returns:
+        Dict with stream, gif, thumbnail URLs
+    """
+    image_base = f"https://image.mux.com/{playback_id}"
+    stream_base = f"https://stream.mux.com/{playback_id}"
+
+    # Calculate GIF end time (use full duration up to 5s)
+    gif_end = min(duration, 5.0)
+
+    return {
+        # Streaming URL (HLS)
+        "stream_url": f"{stream_base}.m3u8",
+
+        # Animated previews
+        "gif_url": f"{image_base}/animated.gif?start=0&end={gif_end:.1f}&width=480&fps=15",
+        "gif_webp_url": f"{image_base}/animated.webp?start=0&end={gif_end:.1f}&width=480&fps=15",
+
+        # Thumbnails at different times
+        "thumbnail_url": f"{image_base}/thumbnail.jpg?time=0&width=640",
+        "thumbnail_start": f"{image_base}/thumbnail.jpg?time=0&width=640",
+        "thumbnail_middle": f"{image_base}/thumbnail.jpg?time={duration/2:.1f}&width=640",
+        "thumbnail_end": f"{image_base}/thumbnail.jpg?time={duration-0.5:.1f}&width=640",
+
+        # High-res versions for article hero
+        "thumbnail_hero": f"{image_base}/thumbnail.jpg?time={duration/2:.1f}&width=1920&height=1080&fit_mode=smartcrop",
+
+        # Featured image (1200x630 for social sharing)
+        "thumbnail_featured": f"{image_base}/thumbnail.jpg?time={duration/2:.1f}&width=1200&height=630&fit_mode=smartcrop",
+    }
+
+
+@activity.defn
+async def delete_mux_asset(asset_id: str) -> bool:
+    """
+    Delete a Mux asset.
+
+    Args:
+        asset_id: Mux asset ID to delete
+
+    Returns:
+        True if deleted successfully
+    """
+    activity.logger.info(f"Deleting Mux asset: {asset_id}")
+
+    client = get_mux_client()
+    assets_api = mux_python.AssetsApi(client)
+
+    try:
+        assets_api.delete_asset(asset_id)
+        activity.logger.info(f"Asset {asset_id} deleted")
+        return True
+    except mux_python.rest.ApiException as e:
+        activity.logger.error(f"Failed to delete asset: {e}")
+        return False
+
+
+@activity.defn
+async def get_mux_asset_info(asset_id: str) -> Dict[str, Any]:
+    """
+    Get information about a Mux asset.
+
+    Args:
+        asset_id: Mux asset ID
+
+    Returns:
+        Dict with asset information
+    """
+    client = get_mux_client()
+    assets_api = mux_python.AssetsApi(client)
+
+    asset = assets_api.get_asset(asset_id)
+
+    return {
+        "asset_id": asset.data.id,
+        "status": asset.data.status,
+        "duration": asset.data.duration,
+        "playback_ids": [p.id for p in asset.data.playback_ids] if asset.data.playback_ids else [],
+        "created_at": str(asset.data.created_at) if asset.data.created_at else None,
+    }
