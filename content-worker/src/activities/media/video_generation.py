@@ -104,10 +104,11 @@ async def generate_article_video(
 
 def generate_video_prompt(title: str, content: str, app: str) -> str:
     """
-    Generate a video prompt based on article content.
+    Generate a video prompt based on article content with sentiment analysis.
 
     Creates a cinematic prompt that captures the essence of the article
     without attempting to include text (which AI video models struggle with).
+    Includes Quest branding in kinetic white illuminated background.
     """
     # App-specific visual themes
     app_themes = {
@@ -120,6 +121,11 @@ def generate_video_prompt(title: str, content: str, app: str) -> str:
             "style": "travel, international, lifestyle",
             "elements": "cityscapes, airports, modern apartments, diverse cultures",
             "mood": "adventurous, hopeful, cosmopolitan"
+        },
+        "pe_news": {
+            "style": "investment, deal-making, finance",
+            "elements": "modern boardroom, handshakes, deal negotiations, growth charts",
+            "mood": "ambitious, strategic, triumphant"
         },
         "rainmaker": {
             "style": "sales, technology, growth",
@@ -135,23 +141,50 @@ def generate_video_prompt(title: str, content: str, app: str) -> str:
 
     theme = app_themes.get(app, app_themes["placement"])
 
-    # Extract key concepts from title
+    # Analyze content sentiment (simple keyword analysis)
+    content_lower = content.lower()
+    sentiment_keywords = {
+        "positive": ["growth", "success", "gain", "profit", "rise", "up", "strong", "opportunity", "expansion"],
+        "negative": ["decline", "loss", "down", "challenge", "risk", "fall", "weak", "downturn"],
+        "neutral": ["report", "announce", "statement", "update", "change"]
+    }
+
+    sentiment = "neutral"
+    for category, keywords in sentiment_keywords.items():
+        if any(keyword in content_lower for keyword in keywords):
+            sentiment = category
+            break
+
+    # Sentiment-based mood adjustment
+    if sentiment == "positive":
+        theme_mood = theme['mood'] + ", optimistic, upward momentum"
+    elif sentiment == "negative":
+        theme_mood = theme['mood'] + ", analytical, problem-solving focus"
+    else:
+        theme_mood = theme['mood']
+
+    # Extract key concepts from title for context
     title_clean = title.lower()
 
-    # Generate contextual prompt
-    prompt = f"""Cinematic {theme['style']} scene, {theme['mood']} atmosphere.
+    # Generate contextual prompt with Quest branding
+    prompt = f"""Cinematic {theme['style']} scene, {theme_mood} atmosphere.
 {theme['elements']}, natural lighting, shallow depth of field,
-smooth camera movement, high production value, 4K quality"""
+smooth camera movement, high production value, 4K quality.
+Background: kinetic white illuminated "Quest" text in large capital letters,
+subtly glowing and moving dynamically behind the main action. Quest branding
+serves as professional backdrop without overwhelming the scene."""
 
     # Add title-specific context
     if "visa" in title_clean or "immigration" in title_clean:
         prompt += ", passport stamps, international travel, new beginnings"
     elif "startup" in title_clean or "funding" in title_clean:
         prompt += ", startup office, investors meeting, growth charts"
-    elif "tax" in title_clean or "finance" in title_clean:
-        prompt += ", financial documents, calculator, professional consultation"
+    elif "tax" in title_clean or "finance" in title_clean or "investment" in title_clean or "deal" in title_clean:
+        prompt += ", financial documents, calculator, professional consultation, deal negotiation"
     elif "guide" in title_clean or "how to" in title_clean:
         prompt += ", step-by-step process, helpful visual metaphors"
+    elif "private equity" in title_clean or "pe " in title_clean:
+        prompt += ", investment office, deal closing, acquisition celebration"
 
     return prompt
 
