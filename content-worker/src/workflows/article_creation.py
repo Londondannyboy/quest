@@ -238,7 +238,7 @@ class ArticleCreationWorkflow:
                         video_model,  # seedance or wan-2.5
                         video_prompt  # custom prompt (or None for auto-generated)
                     ],
-                    start_to_close_timeout=timedelta(minutes=5)
+                    start_to_close_timeout=timedelta(minutes=15)
                 )
 
                 workflow.logger.info(f"Video generated: {video_gen_result.get('video_url', '')[:50]}...")
@@ -249,7 +249,7 @@ class ArticleCreationWorkflow:
                 mux_result = await workflow.execute_activity(
                     "upload_video_to_mux",
                     args=[video_gen_result["video_url"], True],  # public=True
-                    start_to_close_timeout=timedelta(minutes=3)
+                    start_to_close_timeout=timedelta(minutes=10)
                 )
 
                 # Store video data
