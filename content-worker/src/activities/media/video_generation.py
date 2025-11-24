@@ -58,7 +58,11 @@ async def generate_article_video(
         Dict with video_url, quality, duration, cost
     """
     activity.logger.info(f"Generating video for article: {title[:50]}...")
-    activity.logger.info(f"Model: {video_model}, Quality: {quality}")
+    activity.logger.info(f"Model: {video_model}, Quality: {quality}, Duration: {duration}s")
+    activity.logger.info(f"✓ Received parameters: app={app}, aspect_ratio={aspect_ratio}")
+    activity.logger.info(f"✓ video_prompt is {'PROVIDED' if video_prompt else 'NOT PROVIDED (will auto-generate)'}")
+    if video_prompt:
+        activity.logger.info(f"  Custom prompt: {video_prompt[:80]}...")
 
     # Get quality configuration
     quality_config = VIDEO_QUALITY_MODELS.get(quality, VIDEO_QUALITY_MODELS["medium"])
