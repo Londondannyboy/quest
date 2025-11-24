@@ -232,6 +232,16 @@ class ArticleCreationWorkflow:
                 # Set duration based on video model
                 video_duration = 5 if video_model == "wan-2.5" else 3  # WAN 2.5: 5s, Seedance/Lightstream: 3s
 
+                # Debug: Log what we're about to pass
+                workflow.logger.info(f"DEBUG: About to call generate_article_video with:")
+                workflow.logger.info(f"  title: {article['title'][:40]}...")
+                workflow.logger.info(f"  app: {app}")
+                workflow.logger.info(f"  quality: {video_quality}")
+                workflow.logger.info(f"  duration: {video_duration}")
+                workflow.logger.info(f"  model: {video_model}")
+                workflow.logger.info(f"  video_prompt type: {type(video_prompt)}")
+                workflow.logger.info(f"  video_prompt value: {video_prompt[:50] if video_prompt else 'None/Empty'}...")
+
                 video_gen_result = await workflow.execute_activity(
                     "generate_article_video",
                     args=[
