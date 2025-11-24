@@ -168,6 +168,71 @@ RELOCATION_CONFIG = AppConfig(
 )
 
 
+PE_NEWS_CONFIG = AppConfig(
+    name="pe_news",
+    display_name="PE News Monitor",
+    description="Private equity industry news and deal coverage",
+
+    keywords=[
+        "private equity",
+        "private equity Asia",
+        "buyout fund",
+        "LBO",
+        "private equity exit",
+        "PE fundraising",
+        "portfolio company acquisition",
+        "private equity investment",
+        "GP stakes",
+        "secondary PE"
+    ],
+
+    exclusions=[
+        "private equity jobs",
+        "private equity career",
+        "PE interview tips",
+        "how to get into PE",
+        "private equity salary",
+        "consulting commentary",
+        "market outlook predictions",
+        "cryptocurrency",
+        "crypto fund",
+        "bitcoin",
+        "pornography",
+        "gambling"
+    ],
+
+    priority_sources=[
+        "Private Equity International",
+        "PE Hub",
+        "PitchBook",
+        "Preqin",
+        "Buyouts Insider",
+        "Private Equity Wire",
+        "Bloomberg",
+        "Reuters",
+        "Financial Times",
+        "Wall Street Journal"
+    ],
+
+    interests=[
+        "PE deal announcements",
+        "Fund closes and launches",
+        "Exit transactions",
+        "LP commitments",
+        "Firm hirings and departures",
+        "Regulatory changes",
+        "Market trends",
+        "Cross-border deals",
+        "Sector-specific PE activity"
+    ],
+
+    target_audience="Private equity professionals, institutional investors, fund managers, LPs",
+    content_tone="News-focused, deal-centric, market intelligence",
+
+    geographic_focus=["UK", "US", "SG"]
+)
+
+
 # ============================================================================
 # APP REGISTRY
 # ============================================================================
@@ -175,6 +240,7 @@ RELOCATION_CONFIG = AppConfig(
 APP_CONFIGS: Dict[str, AppConfig] = {
     "placement": PLACEMENT_CONFIG,
     "relocation": RELOCATION_CONFIG,
+    "pe_news": PE_NEWS_CONFIG,
 }
 
 

@@ -4,10 +4,12 @@ News Monitor Workflow
 SCHEDULED workflow that runs daily to find and create news articles.
 
 Pipeline:
-1. Fetch news for app-specific keywords (Serper)
-2. Get recent articles (Neon) for duplicate check
-3. AI assessment: relevance, priority
-4. Spawn ArticleCreationWorkflow for relevant stories
+1. Fetch news from DataForSEO (primary - ISO timestamps)
+2. Fetch news from Serper (supplementary)
+3. Deduplicate and merge results
+4. Get recent articles (Neon) for duplicate check
+5. AI assessment: relevance, priority
+6. Spawn ArticleCreationWorkflow for relevant stories
 """
 
 from temporalio import workflow
@@ -63,17 +65,67 @@ class NewsMonitorWorkflow:
         workflow.logger.info(f"Keywords: {keywords[:3]}...")
         workflow.logger.info(f"Geographic focus: {geographic_focus}")
 
-        # ===== PHASE 1: FETCH NEWS =====
-        workflow.logger.info("Phase 1: Fetching news from Serper")
+        # ===== PHASE 1A: FETCH NEWS FROM DATAFORSEO (PRIMARY) =====
+        workflow.logger.info("Phase 1a: Fetching news from DataForSEO (primary)")
 
-        news_result = await workflow.execute_activity(
-            "fetch_news_for_keywords",
-            args=[keywords, geographic_focus, 20],
+        # Map geographic focus to DataForSEO region codes
+        dataforseo_regions = []
+        for geo in geographic_focus:
+            if geo.upper() in ["UK", "US", "SG", "EU", "ASIA"]:
+                if geo.upper() == "ASIA":
+                    dataforseo_regions.append("SG")
+                elif geo.upper() == "EU":
+                    dataforseo_regions.append("UK")  # Use UK as EU proxy
+                else:
+                    dataforseo_regions.append(geo.upper())
+
+        if not dataforseo_regions:
+            dataforseo_regions = ["UK", "US", "SG"]
+
+        dataforseo_result = await workflow.execute_activity(
+            "dataforseo_news_search",
+            args=[keywords[:5], dataforseo_regions, 100, "past_24_hours"],
+            start_to_close_timeout=timedelta(minutes=3)
+        )
+
+        dataforseo_articles = dataforseo_result.get("articles", [])
+        workflow.logger.info(f"DataForSEO: {len(dataforseo_articles)} results")
+
+        # ===== PHASE 1B: FETCH NEWS FROM SERPER (SUPPLEMENTARY) =====
+        workflow.logger.info("Phase 1b: Fetching news from Serper (supplementary)")
+
+        serper_result = await workflow.execute_activity(
+            "serper_news_search",
+            args=[keywords, geographic_focus, 30],
             start_to_close_timeout=timedelta(minutes=2)
         )
 
-        stories = news_result.get("articles", [])
-        workflow.logger.info(f"Found {len(stories)} news stories")
+        serper_articles = serper_result.get("articles", [])
+        workflow.logger.info(f"Serper: {len(serper_articles)} results")
+
+        # ===== PHASE 1C: DEDUPLICATE AND MERGE =====
+        workflow.logger.info("Phase 1c: Deduplicating and merging results")
+
+        # Deduplicate by URL, prioritizing DataForSEO (has timestamps)
+        seen_urls = set()
+        stories = []
+
+        # Add DataForSEO first (has ISO timestamps)
+        for article in dataforseo_articles:
+            url = article.get("url", "").lower().replace("www.", "").split("?")[0]
+            if url and url not in seen_urls:
+                seen_urls.add(url)
+                stories.append(article)
+
+        # Add Serper (supplementary)
+        for article in serper_articles:
+            url = article.get("url", "").lower().replace("www.", "").split("?")[0]
+            if url and url not in seen_urls:
+                seen_urls.add(url)
+                stories.append(article)
+
+        total_cost = dataforseo_result.get("cost", 0) + serper_result.get("cost", 0)
+        workflow.logger.info(f"Total unique stories: {len(stories)} (cost: ${total_cost:.3f})")
 
         if not stories:
             return {
@@ -88,7 +140,7 @@ class NewsMonitorWorkflow:
         workflow.logger.info("Phase 2: Getting recently published from Neon")
 
         recent_articles = await workflow.execute_activity(
-            "get_recent_articles_from_neon",
+            "neon_get_recent_articles",
             args=[app, 7, 50],
             start_to_close_timeout=timedelta(seconds=30)
         )
@@ -108,7 +160,7 @@ class NewsMonitorWorkflow:
         }
 
         assessment_result = await workflow.execute_activity(
-            "assess_news_batch",
+            "claude_assess_news",
             args=[
                 stories,
                 app,
@@ -199,5 +251,7 @@ class NewsMonitorWorkflow:
             "high_priority_count": assessment_result.get("total_high_priority", 0),
             "medium_priority_count": assessment_result.get("total_medium_priority", 0),
             "low_priority_count": assessment_result.get("total_low_priority", 0),
-            "cost": news_result.get("cost", 0.0)
+            "cost": total_cost,
+            "dataforseo_count": len(dataforseo_articles),
+            "serper_count": len(serper_articles)
         }

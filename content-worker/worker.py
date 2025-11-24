@@ -32,6 +32,11 @@ from src.activities.research.serper import (
     serper_httpx_deep_articles,  # Deep article crawling with httpx
 )
 
+from src.activities.research.dataforseo import (
+    dataforseo_news_search,
+    dataforseo_serp_search,
+)
+
 from src.activities.research.news_monitor import (
     fetch_news_for_keywords,
     assess_news_batch,
@@ -220,10 +225,16 @@ async def main():
             normalize_company_url,
             check_company_exists,
 
-            # Research
+            # Research - Serper
             fetch_company_news,
             fetch_targeted_research,
             serper_httpx_deep_articles,  # Deep article crawling with httpx
+
+            # Research - DataForSEO
+            dataforseo_news_search,
+            dataforseo_serp_search,
+
+            # Research - News Monitor
             fetch_news_for_keywords,  # News monitor
             assess_news_batch,  # News monitor
             get_recent_articles_from_neon,  # News monitor
@@ -300,14 +311,18 @@ async def main():
     print("\n📋 Registered Activities:")
     activity_groups = [
         ("Normalization", ["normalize_company_url", "check_company_exists"]),
-        ("Research", [
+        ("Research - Serper", [
             "fetch_company_news",
             "fetch_targeted_research",
             "serper_httpx_deep_articles",
+        ]),
+        ("Research - DataForSEO", [
+            "dataforseo_news_search",
+            "dataforseo_serp_search",
+        ]),
+        ("Research - Other", [
             "httpx_crawl",
             "crawl4ai_service_crawl",
-            # "firecrawl_crawl",  # Disabled
-            # "firecrawl_httpx_discover",  # Disabled
             "exa_research_company",
             "exa_find_similar_companies",
         ]),

@@ -70,7 +70,7 @@ class ArticleCreationWorkflow:
 
         # Serper news search
         news_task = workflow.execute_activity(
-            "fetch_company_news",  # Reuse! Works for any topic
+            "serper_search",  # Reuse! Works for any topic
             args=[
                 "",  # No domain for articles
                 topic,  # Company name field = topic

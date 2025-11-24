@@ -20,7 +20,7 @@ class Config:
     TEMPORAL_ADDRESS: str = os.getenv("TEMPORAL_ADDRESS", "localhost:7233")
     TEMPORAL_NAMESPACE: str = os.getenv("TEMPORAL_NAMESPACE", "default")
     TEMPORAL_API_KEY: Optional[str] = os.getenv("TEMPORAL_API_KEY")
-    TEMPORAL_TASK_QUEUE: str = os.getenv("TEMPORAL_TASK_QUEUE", "quest-company-queue")
+    TEMPORAL_TASK_QUEUE: str = os.getenv("TEMPORAL_TASK_QUEUE", "quest-content-queue")
 
     @staticmethod
     def _parse_cloudinary_url() -> tuple[Optional[str], Optional[str], Optional[str]]:
@@ -60,6 +60,8 @@ class Config:
     ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY")
 
     # ===== SEARCH & RESEARCH =====
+    DATAFORSEO_LOGIN: Optional[str] = os.getenv("DATAFORSEO_LOGIN")
+    DATAFORSEO_PASSWORD: Optional[str] = os.getenv("DATAFORSEO_PASSWORD")
     SERPER_API_KEY: Optional[str] = os.getenv("SERPER_API_KEY")
     EXA_API_KEY: Optional[str] = os.getenv("EXA_API_KEY")
     LINKUP_API_KEY: Optional[str] = os.getenv("LINKUP_API_KEY")
@@ -190,6 +192,7 @@ class Config:
             "environment": cls.ENVIRONMENT,
             "default_app": cls.DEFAULT_APP,
             "has_database": bool(cls.DATABASE_URL),
+            "has_dataforseo": bool(cls.DATAFORSEO_LOGIN and cls.DATAFORSEO_PASSWORD),
             "has_serper": bool(cls.SERPER_API_KEY),
             "has_exa": bool(cls.EXA_API_KEY),
             "has_zep": bool(cls.ZEP_API_KEY),

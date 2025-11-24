@@ -32,7 +32,7 @@ GEO_MAP = {
 }
 
 
-@activity.defn
+@activity.defn(name="serper_search")
 async def fetch_company_news(
     domain: str,
     company_name: str,
@@ -186,7 +186,7 @@ async def fetch_company_news(
         }
 
 
-@activity.defn
+@activity.defn(name="serper_targeted_search")
 async def fetch_targeted_research(
     domain: str,
     refined_query: str,

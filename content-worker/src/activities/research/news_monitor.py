@@ -30,7 +30,7 @@ GEO_MAP = {
 # NEWS FETCH ACTIVITY
 # ============================================================================
 
-@activity.defn
+@activity.defn(name="serper_news_search")
 async def fetch_news_for_keywords(
     keywords: List[str],
     geographic_focus: List[str],
@@ -120,7 +120,7 @@ async def fetch_news_for_keywords(
 # NEWS ASSESSMENT ACTIVITY
 # ============================================================================
 
-@activity.defn
+@activity.defn(name="claude_assess_news")
 async def assess_news_batch(
     stories: List[Dict[str, Any]],
     app: str,
@@ -262,7 +262,7 @@ Respond with JSON only:
 # RECENT ARTICLES CHECK
 # ============================================================================
 
-@activity.defn
+@activity.defn(name="neon_get_recent_articles")
 async def get_recent_articles_from_neon(
     app: str,
     days: int = 7,

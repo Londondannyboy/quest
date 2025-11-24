@@ -80,7 +80,7 @@ class CompanyCreationWorkflow:
 
         # Launch all research activities in parallel
         news_task = workflow.execute_activity(
-            "fetch_company_news",
+            "serper_search",
             args=[
                 normalized["domain"],
                 normalized["company_name_guess"],
@@ -130,7 +130,7 @@ class CompanyCreationWorkflow:
         # NEW: Deep crawl news articles found by Serper
         workflow.logger.info("Phase 2b: Deep crawling news articles")
         deep_articles_data = await workflow.execute_activity(
-            "serper_httpx_deep_articles",
+            "serper_crawl4ai_deep_articles",
             args=[news_data.get("articles", []), 4],
             start_to_close_timeout=timedelta(minutes=2)
         )
@@ -176,7 +176,7 @@ class CompanyCreationWorkflow:
 
             # Re-scrape with refined queries (parallel)
             news_refined_task = workflow.execute_activity(
-                "fetch_targeted_research",
+                "serper_targeted_search",
                 args=[normalized["domain"], refined_query, input_data.jurisdiction],
                 start_to_close_timeout=timedelta(minutes=2)
             )

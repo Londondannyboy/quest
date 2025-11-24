@@ -49,7 +49,7 @@ class CompanyWorkflowRequest(BaseModel):
 
 
 class CompanyWorkerRequest(BaseModel):
-    """Request to trigger CompanyCreationWorkflow (company-worker service)"""
+    """Request to trigger CompanyCreationWorkflow (content-worker service)"""
     url: str = Field(..., description="Company website URL", min_length=5)
     category: str = Field(..., description="Company category: placement_agent, relocation_provider, recruiter")
     jurisdiction: str = Field(..., description="Primary jurisdiction: UK, US, SG, EU, etc.")
@@ -111,8 +111,8 @@ async def trigger_article_workflow(
     # Generate workflow ID
     workflow_id = f"article-{request.app}-{uuid4()}"
 
-    # Use company-worker queue for ArticleCreationWorkflow
-    task_queue = "quest-company-queue"
+    # Use content-worker queue for ArticleCreationWorkflow
+    task_queue = "quest-content-queue"
 
     try:
         # Use ArticleCreationWorkflow for all article generation
@@ -182,8 +182,8 @@ async def trigger_article_research_workflow(
     # Generate workflow ID
     workflow_id = f"article-research-{request.app}-{uuid4()}"
 
-    # Use company-worker queue for ArticleCreationWorkflow
-    task_queue = "quest-company-queue"
+    # Use content-worker queue for ArticleCreationWorkflow
+    task_queue = "quest-content-queue"
 
     try:
         # Use ArticleCreationWorkflow for all article generation
@@ -408,7 +408,7 @@ async def trigger_company_workflow(
         )
 
 
-@router.post("/company-worker", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/content-worker", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED)
 async def trigger_company_worker_workflow(
     request: CompanyWorkerRequest,
     api_key: str = Depends(validate_api_key),
@@ -438,7 +438,7 @@ async def trigger_company_worker_workflow(
         Workflow execution details with workflow_id for status tracking
 
     Example:
-        POST /v1/workflows/company-worker
+        POST /v1/workflows/content-worker
         {
             "url": "https://evercore.com",
             "category": "placement_agent",
@@ -455,14 +455,14 @@ async def trigger_company_worker_workflow(
             detail=f"Failed to connect to Temporal: {str(e)}",
         )
 
-    # Use CompanyCreationWorkflow on quest-company-queue
+    # Use CompanyCreationWorkflow on quest-content-queue
     workflow_name = "CompanyCreationWorkflow"
 
     # Generate workflow ID
-    workflow_id = f"company-worker-{request.app}-{uuid4()}"
+    workflow_id = f"content-worker-{request.app}-{uuid4()}"
 
-    # Get task queue for company-worker (different from content queue!)
-    task_queue = os.getenv("COMPANY_WORKER_TASK_QUEUE", "quest-company-queue")
+    # Get task queue for content-worker (different from content queue!)
+    task_queue = os.getenv("CONTENT_WORKER_TASK_QUEUE", "quest-content-queue")
 
     try:
         # Prepare workflow input matching CompanyInput model
@@ -505,7 +505,7 @@ async def trigger_company_worker_workflow(
 # ============================================================================
 
 class ArticleCreationRequest(BaseModel):
-    """Request to trigger ArticleCreationWorkflow (company-worker service)"""
+    """Request to trigger ArticleCreationWorkflow (content-worker service)"""
     topic: str = Field(..., description="Article topic or subject", min_length=5)
     article_type: str = Field(default="news", description="Type: news, guide, comparison")
     app: str = Field(default="placement", description="App context: placement, relocation, chief-of-staff, gtm, newsroom")
@@ -559,8 +559,8 @@ async def trigger_article_creation_workflow(
     # Generate workflow ID
     workflow_id = f"article-creation-{request.app}-{uuid4()}"
 
-    # Use company-worker task queue (same as CompanyCreationWorkflow)
-    task_queue = os.getenv("COMPANY_WORKER_TASK_QUEUE", "quest-company-queue")
+    # Use content-worker task queue (same as CompanyCreationWorkflow)
+    task_queue = os.getenv("CONTENT_WORKER_TASK_QUEUE", "quest-content-queue")
     workflow_name = "ArticleCreationWorkflow"
 
     try:
@@ -654,8 +654,8 @@ async def trigger_news_monitor_workflow(
     # Generate workflow ID
     workflow_id = f"news-monitor-{request.app}-{uuid4()}"
 
-    # Use company-worker task queue
-    task_queue = os.getenv("COMPANY_WORKER_TASK_QUEUE", "quest-company-queue")
+    # Use content-worker task queue
+    task_queue = os.getenv("CONTENT_WORKER_TASK_QUEUE", "quest-content-queue")
 
     try:
         # Prepare workflow input
