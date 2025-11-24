@@ -105,8 +105,8 @@ class ArticleCreationWorkflow:
             f"{len(exa_data.get('results', []))} Exa results"
         )
 
-        # ===== PHASE 2: CRAWL DISCOVERED URLs (Crawl4AI + Firecrawl) =====
-        workflow.logger.info("Phase 2: Crawling discovered URLs with Crawl4AI + Firecrawl (redundancy)")
+        # ===== PHASE 2: CRAWL DISCOVERED URLs =====
+        workflow.logger.info("Phase 2: Crawling discovered URLs with Crawl4AI")
 
         # Collect URLs from news + Exa
         urls_to_crawl = []
@@ -124,16 +124,12 @@ class ArticleCreationWorkflow:
         # Deduplicate URLs
         urls_to_crawl = list(dict.fromkeys(urls_to_crawl))[:num_sources]
 
-        workflow.logger.info(f"Crawling {len(urls_to_crawl)} discovered URLs with both crawlers")
+        workflow.logger.info(f"Crawling {len(urls_to_crawl)} discovered URLs")
 
-        # Launch BOTH Crawl4AI and Firecrawl in parallel for redundancy
-        # At least one should work for each URL (paywalls, JS-heavy sites, etc.)
-
+        # Launch Crawl4AI tasks (with httpx fallback)
         crawl4ai_tasks = []
-        firecrawl_tasks = []
 
         for url in urls_to_crawl:
-            # Crawl4AI task
             crawl4ai_task = workflow.execute_activity(
                 "crawl4ai_crawl",
                 args=[url],
@@ -141,56 +137,25 @@ class ArticleCreationWorkflow:
             )
             crawl4ai_tasks.append(crawl4ai_task)
 
-            # Firecrawl task
-            firecrawl_task = workflow.execute_activity(
-                "firecrawl_crawl",
-                args=[url],
-                start_to_close_timeout=timedelta(minutes=2)
-            )
-            firecrawl_tasks.append(firecrawl_task)
-
         # Execute all in parallel
-        all_tasks = crawl4ai_tasks + firecrawl_tasks
-        if all_tasks:
-            all_results = await asyncio.gather(*all_tasks, return_exceptions=True)
+        if crawl4ai_tasks:
+            crawl4ai_results = await asyncio.gather(*crawl4ai_tasks, return_exceptions=True)
         else:
-            all_results = []
+            crawl4ai_results = []
 
-        # Split results
-        crawl4ai_results = all_results[:len(crawl4ai_tasks)]
-        firecrawl_results = all_results[len(crawl4ai_tasks):]
-
-        # Extract pages from successful crawls (merge from both crawlers)
+        # Extract pages from successful crawls
         crawled_pages = []
         crawl4ai_success = 0
-        firecrawl_success = 0
 
-        # Crawl4AI results
         for result in crawl4ai_results:
             if not isinstance(result, Exception) and result.get("success"):
                 pages = result.get("pages", [])
                 crawled_pages.extend(pages)
                 crawl4ai_success += 1
 
-        # Firecrawl results
-        for result in firecrawl_results:
-            if not isinstance(result, Exception) and result.get("success"):
-                # Firecrawl returns different structure - adapt
-                if result.get("content"):
-                    crawled_pages.append({
-                        "url": result.get("url", ""),
-                        "title": result.get("title", ""),
-                        "content": result.get("content", "")
-                    })
-                    firecrawl_success += 1
-                elif result.get("pages"):
-                    crawled_pages.extend(result.get("pages", []))
-                    firecrawl_success += 1
-
         workflow.logger.info(
             f"Crawled {len(crawled_pages)} pages "
-            f"(Crawl4AI: {crawl4ai_success}/{len(urls_to_crawl)}, "
-            f"Firecrawl: {firecrawl_success}/{len(urls_to_crawl)})"
+            f"(Crawl4AI: {crawl4ai_success}/{len(urls_to_crawl)})"
         )
 
         # ===== PHASE 3: ZEP CONTEXT =====

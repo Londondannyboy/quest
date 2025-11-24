@@ -73,9 +73,9 @@ async def call_crawl4ai_service(base_url: str) -> Dict[str, Any]:
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         try:
-            # Call the crawl endpoint
+            # Call the scrape endpoint (matches job-worker pattern)
             response = await client.post(
-                f"{service_url}/crawl",
+                f"{service_url}/scrape",
                 json={"url": base_url},
                 headers={"Content-Type": "application/json"}
             )

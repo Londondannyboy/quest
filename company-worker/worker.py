@@ -40,8 +40,8 @@ from src.activities.research.news_monitor import (
 
 from src.activities.research.crawl import (
     httpx_crawl,
-    firecrawl_crawl,  # Keep for backward compatibility
-    firecrawl_httpx_discover,  # Intelligent URL discovery with Firecrawl + httpx
+    # firecrawl_crawl,  # Disabled - out of credit
+    # firecrawl_httpx_discover,  # Disabled - out of credit
 )
 
 from src.activities.research.crawl4ai_service import (
@@ -229,8 +229,8 @@ async def main():
             get_recent_articles_from_neon,  # News monitor
             httpx_crawl,
             crawl4ai_service_crawl,  # External Crawl4AI service (browser automation)
-            firecrawl_crawl,  # Keep for backward compatibility
-            firecrawl_httpx_discover,  # Intelligent URL discovery with Firecrawl + httpx
+            # firecrawl_crawl,  # Disabled - out of credit
+            # firecrawl_httpx_discover,  # Disabled - out of credit
             exa_research_company,
             exa_find_similar_companies,
 
@@ -306,8 +306,8 @@ async def main():
             "serper_httpx_deep_articles",
             "httpx_crawl",
             "crawl4ai_service_crawl",
-            "firecrawl_crawl",
-            "firecrawl_httpx_discover",
+            # "firecrawl_crawl",  # Disabled
+            # "firecrawl_httpx_discover",  # Disabled
             "exa_research_company",
             "exa_find_similar_companies",
         ]),

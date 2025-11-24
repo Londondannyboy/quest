@@ -76,9 +76,9 @@ class CompanyCreationWorkflow:
             workflow.logger.info("New company - creating from scratch")
 
         # ===== PHASE 2: PARALLEL RESEARCH =====
-        workflow.logger.info("Phase 2: Parallel research (Serper + Crawl4AI + Firecrawl + Exa + Logo)")
+        workflow.logger.info("Phase 2: Parallel research (Serper + Crawl4AI + Exa + Logo)")
 
-        # Launch all research activities in parallel (now with separate crawlers!)
+        # Launch all research activities in parallel
         news_task = workflow.execute_activity(
             "fetch_company_news",
             args=[
@@ -93,13 +93,6 @@ class CompanyCreationWorkflow:
         # Use Crawl4AI service (with fallback to httpx if service unavailable)
         crawl4ai_task = workflow.execute_activity(
             "crawl4ai_crawl",  # Alias name for crawl4ai_service_crawl
-            args=[normalized["normalized_url"]],
-            start_to_close_timeout=timedelta(minutes=3)
-        )
-
-        # Intelligent URL discovery - Firecrawl discovers URLs, then scrapes them
-        firecrawl_task = workflow.execute_activity(
-            "firecrawl_crawl4ai_discover_and_scrape",  # Alias name for firecrawl_httpx_discover
             args=[normalized["normalized_url"]],
             start_to_close_timeout=timedelta(minutes=3)
         )
@@ -122,18 +115,17 @@ class CompanyCreationWorkflow:
 
         # Wait for all to complete (graceful failures - continue with whatever succeeds)
         results = await asyncio.gather(
-            news_task, crawl4ai_task, firecrawl_task, exa_task, logo_task,
+            news_task, crawl4ai_task, exa_task, logo_task,
             return_exceptions=True  # Don't crash if one fails
         )
 
         # Unpack results and handle failures gracefully
         news_data = results[0] if not isinstance(results[0], Exception) else {"articles": [], "error": str(results[0])}
         crawl4ai_data = results[1] if not isinstance(results[1], Exception) else {"success": False, "pages": [], "error": str(results[1])}
-        firecrawl_data = results[2] if not isinstance(results[2], Exception) else {"success": False, "pages": [], "error": str(results[2])}
-        exa_data = results[3] if not isinstance(results[3], Exception) else {"results": [], "error": str(results[3])}
-        logo_data = results[4] if not isinstance(results[4], Exception) else {"logo_url": None, "error": str(results[4])}
+        exa_data = results[2] if not isinstance(results[2], Exception) else {"results": [], "error": str(results[2])}
+        logo_data = results[3] if not isinstance(results[3], Exception) else {"logo_url": None, "error": str(results[3])}
 
-        workflow.logger.info(f"Research results - News: {len(news_data.get('articles', []))}, Crawl4AI: {crawl4ai_data.get('success')}, Firecrawl: {firecrawl_data.get('success')}, Exa: {len(exa_data.get('results', []))}")
+        workflow.logger.info(f"Research results - News: {len(news_data.get('articles', []))}, Crawl4AI: {crawl4ai_data.get('success')}, Exa: {len(exa_data.get('results', []))}")
 
         # NEW: Deep crawl news articles found by Serper
         workflow.logger.info("Phase 2b: Deep crawling news articles")
@@ -151,16 +143,12 @@ class CompanyCreationWorkflow:
 
         # Combine crawler results
         website_data = {
-            "pages": crawl4ai_data.get("pages", []) + firecrawl_data.get("pages", []),
+            "pages": crawl4ai_data.get("pages", []),
             "crawl4ai_pages": len(crawl4ai_data.get("pages", [])),
-            "firecrawl_pages": firecrawl_data.get("firecrawl_pages", 0),
-            "discovered_pages": firecrawl_data.get("httpx_discovered_pages", 0),
-            "discovered_urls": firecrawl_data.get("discovered_urls", []),
             "crawl4ai_success": crawl4ai_data.get("success", False),
-            "firecrawl_success": firecrawl_data.get("success", False),
-            "crawler_used": crawl4ai_data.get("crawler", "unknown"),  # crawl4ai_service, httpx_fallback, etc.
-            "cost": firecrawl_data.get("cost", 0.0),
-            "crawlers_used": [crawl4ai_data.get("crawler", "unknown")] + firecrawl_data.get("crawlers_used", [])
+            "crawler_used": crawl4ai_data.get("crawler", "unknown"),  # crawl4ai_service or httpx_fallback
+            "cost": 0.0,  # Crawl4AI is free
+            "crawlers_used": [crawl4ai_data.get("crawler", "unknown")]
         }
 
         workflow.logger.info("Phase 2 complete: All research gathered")
@@ -360,12 +348,8 @@ class CompanyCreationWorkflow:
             },
             "crawl4ai": {
                 "pages": website_data.get("crawl4ai_pages", 0),
-                "success": website_data.get("crawl4ai_success", False)
-            },
-            "firecrawl": {
-                "pages": website_data.get("firecrawl_pages", 0),
-                "cost": website_data.get("cost", 0.0),
-                "success": website_data.get("firecrawl_success", False)
+                "success": website_data.get("crawl4ai_success", False),
+                "crawler": website_data.get("crawler_used", "unknown")
             },
             "exa": {
                 "results": len(exa_data.get("results", [])),
@@ -377,7 +361,6 @@ class CompanyCreationWorkflow:
         workflow.logger.info(f"Completeness score: {completeness}%")
         workflow.logger.info(f"Data sources: Serper={payload['data_sources']['serper']['articles']} articles, "
                            f"Crawl4AI={payload['data_sources']['crawl4ai']['pages']} pages, "
-                           f"Firecrawl={payload['data_sources']['firecrawl']['pages']} pages, "
                            f"Exa={payload['data_sources']['exa']['results']} results")
 
         # ===== PHASE 8: SAVE TO NEON =====
