@@ -233,14 +233,16 @@ class ArticleCreationWorkflow:
                     "generate_article_video",
                     args=[
                         article["title"],
-                        article["content"],
-                        app,
-                        video_quality,
-                        3,  # duration in seconds
-                        "16:9",  # aspect ratio
-                        video_model,  # seedance or wan-2.5
-                        video_prompt  # custom prompt (or None for auto-generated)
+                        article["content"]
                     ],
+                    kwargs={
+                        "app": app,
+                        "quality": video_quality,
+                        "duration": 3,
+                        "aspect_ratio": "16:9",
+                        "video_model": video_model,
+                        "video_prompt": video_prompt
+                    },
                     start_to_close_timeout=timedelta(minutes=15)
                 )
 
