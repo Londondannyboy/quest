@@ -1,5 +1,6 @@
 [build]
 builder = "railpack"
+buildCommand = "cd content-worker && pip install -r requirements.txt"
 
 [deploy]
 startCommand = "cd content-worker && python worker.py"
