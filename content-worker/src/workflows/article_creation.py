@@ -229,6 +229,9 @@ class ArticleCreationWorkflow:
                 if video_prompt:
                     workflow.logger.info(f"Custom prompt: {video_prompt[:100]}...")
 
+                # Set duration based on video model
+                video_duration = 5 if video_model == "wan-2.5" else 3  # WAN 2.5: 5s, Seedance/Lightstream: 3s
+
                 video_gen_result = await workflow.execute_activity(
                     "generate_article_video",
                     args=[
@@ -236,7 +239,7 @@ class ArticleCreationWorkflow:
                         article["content"],
                         app,
                         video_quality,
-                        3,  # duration in seconds
+                        video_duration,  # duration in seconds (varies by model)
                         "16:9",  # aspect ratio
                         video_model,  # seedance or wan-2.5
                         video_prompt  # custom prompt (or None for auto-generated)
