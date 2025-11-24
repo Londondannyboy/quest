@@ -225,6 +225,9 @@ class ArticleCreationWorkflow:
             if video_quality:
                 # Generate video for hero/featured
                 workflow.logger.info(f"Phase 6a: Generating video ({video_quality} quality, model={video_model})")
+                workflow.logger.info(f"Video prompt provided: {bool(video_prompt)}")
+                if video_prompt:
+                    workflow.logger.info(f"Custom prompt: {video_prompt[:100]}...")
 
                 video_gen_result = await workflow.execute_activity(
                     "generate_article_video",
