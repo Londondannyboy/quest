@@ -291,28 +291,60 @@ with tab_article:
         )
 
     with col2:
-        generate_images = st.checkbox(
-            "Generate Images",
-            value=False,
-            help="Generate AI images (adds 5-8 min, ~$0.10)"
+        # Video Quality
+        video_quality = st.selectbox(
+            "Video Quality",
+            ["None", "low", "medium", "high"],
+            index=0,
+            help="None: No video\nlow: 480p ($0.045)\nmedium: 720p ($0.075)\nhigh: Premium (coming soon)",
+            key="video_quality"
         )
 
-        if generate_images:
-            st.caption("⏱️ +5-8 minutes for images")
-            st.caption("💰 ~$0.10 for 3-5 images")
+        # Content Images
+        content_images = st.selectbox(
+            "Content Images",
+            ["with_content", "without_content"],
+            index=0,
+            help="with_content: Include images in article body\nwithout_content: Video/hero only",
+            key="content_images"
+        )
+
+        # Legacy checkbox for backward compatibility
+        generate_images = video_quality != "None" or content_images == "with_content"
 
     # Cost estimate
     st.divider()
     estimated_cost = 0.04 + 0.04 + 0.015  # Serper + Exa + AI
-    if generate_images:
-        estimated_cost += 0.10
+
+    # Video cost
+    video_cost = 0
+    if video_quality == "low":
+        video_cost = 0.045
+    elif video_quality == "medium":
+        video_cost = 0.075
+    elif video_quality == "high":
+        video_cost = 0.90
+
+    # Image cost
+    image_cost = 0
+    if content_images == "with_content":
+        image_cost = 0.05  # 1-2 content images
+
+    estimated_cost += video_cost + image_cost
 
     st.caption(f"💰 **Estimated cost:** ${estimated_cost:.2f}")
 
+    # Time estimate
     time_estimate = "3-5 minutes"
-    if generate_images:
+    if video_quality != "None":
+        time_estimate = "6-8 minutes"
+    if content_images == "with_content":
         time_estimate = "8-13 minutes"
     st.caption(f"⏱️ **Estimated time:** {time_estimate}")
+
+    # Show breakdown
+    if video_quality != "None" or content_images == "with_content":
+        st.caption(f"📹 Video: ${video_cost:.3f} | 🖼️ Images: ${image_cost:.2f}")
 
     # Submit button
     st.divider()
@@ -336,7 +368,9 @@ with tab_article:
                         "target_word_count": target_word_count,
                         "jurisdiction": article_jurisdiction,
                         "generate_images": generate_images,
-                        "num_research_sources": num_research_sources
+                        "num_research_sources": num_research_sources,
+                        "video_quality": video_quality if video_quality != "None" else None,
+                        "content_images": content_images
                     }
 
                     # Add custom slug if provided
@@ -376,16 +410,23 @@ with tab_article:
 
                         # Instructions
                         st.divider()
-                        st.markdown(f"""
+                        steps = """
                         **What's happening:**
                         1. 🔍 Researching topic (Serper + Exa)
                         2. 📥 Crawling discovered URLs (Crawl4AI)
                         3. 🧠 Querying Zep knowledge graph
-                        4. ✍️ Generating article content (Gemini 2.5 Flash)
-                        {"5. 🎨 Generating images (Flux Kontext)" if generate_images else ""}
+                        4. ✍️ Generating article content (Haiku)"""
 
-                        **Estimated time:** {time_estimate}
-                        """)
+                        step_num = 5
+                        if video_quality != "None":
+                            steps += f"\n                        {step_num}. 📹 Generating video (Seedance + Mux)"
+                            step_num += 1
+                        if content_images == "with_content":
+                            steps += f"\n                        {step_num}. 🎨 Generating images (Flux Kontext)"
+
+                        steps += f"\n\n                        **Estimated time:** {time_estimate}"
+
+                        st.markdown(steps)
 
                     else:
                         # Error response
