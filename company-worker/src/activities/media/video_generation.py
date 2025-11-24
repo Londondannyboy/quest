@@ -37,7 +37,9 @@ async def generate_article_video(
     app: str = "placement",
     quality: str = "medium",
     duration: int = 3,
-    aspect_ratio: str = "16:9"
+    aspect_ratio: str = "16:9",
+    video_model: str = "seedance",
+    video_prompt: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Generate a video for an article using AI video generation.
@@ -49,32 +51,45 @@ async def generate_article_video(
         quality: Video quality tier (high, medium, low)
         duration: Video duration in seconds (default 3)
         aspect_ratio: Video aspect ratio (default 16:9)
+        video_model: Model to use (seedance, wan-2.5)
+        video_prompt: Custom prompt (if None, auto-generated)
 
     Returns:
         Dict with video_url, quality, duration, cost
     """
     activity.logger.info(f"Generating video for article: {title[:50]}...")
+    activity.logger.info(f"Model: {video_model}, Quality: {quality}")
 
     # Get quality configuration
     quality_config = VIDEO_QUALITY_MODELS.get(quality, VIDEO_QUALITY_MODELS["medium"])
-    model = quality_config["model"]
     resolution = quality_config["resolution"]
 
-    # Generate prompt from article content
-    prompt = generate_video_prompt(title, content, app)
-    activity.logger.info(f"Generated prompt: {prompt[:100]}...")
-
-    # Generate video based on model
-    if "gemini" in model.lower():
-        video_url = await generate_with_gemini(prompt, duration, resolution, aspect_ratio)
+    # Use custom prompt if provided, otherwise generate from content
+    if video_prompt and video_prompt.strip():
+        prompt = video_prompt.strip()
+        activity.logger.info(f"Using custom prompt: {prompt[:100]}...")
     else:
-        video_url = await generate_with_seedance(prompt, duration, resolution, aspect_ratio)
+        prompt = generate_video_prompt(title, content, app)
+        activity.logger.info(f"Generated prompt: {prompt[:100]}...")
 
-    # Calculate cost
-    cost = quality_config["cost_per_second"] * duration
+    # Generate video based on selected model
+    if video_model == "wan-2.5":
+        video_url = await generate_with_wan(prompt, duration, resolution, aspect_ratio)
+        actual_model = "wan-video/wan-2.5-t2v"
+        # WAN 2.5 has different pricing
+        cost = 0.02 * duration  # ~$0.06 for 3s
+    elif "gemini" in video_model.lower():
+        video_url = await generate_with_gemini(prompt, duration, resolution, aspect_ratio)
+        actual_model = "google/gemini"
+        cost = quality_config["cost_per_second"] * duration
+    else:
+        # Default to Seedance
+        video_url = await generate_with_seedance(prompt, duration, resolution, aspect_ratio)
+        actual_model = "bytedance/seedance-1-pro-fast"
+        cost = quality_config["cost_per_second"] * duration
 
     activity.logger.info(f"Video generated: {video_url}")
-    activity.logger.info(f"Quality: {quality}, Cost: ${cost:.3f}")
+    activity.logger.info(f"Model: {actual_model}, Cost: ${cost:.3f}")
 
     return {
         "video_url": video_url,
@@ -82,7 +97,8 @@ async def generate_article_video(
         "resolution": resolution,
         "duration": duration,
         "cost": cost,
-        "model": model
+        "model": actual_model,
+        "prompt_used": prompt[:200]  # Return first 200 chars of prompt for debugging
     }
 
 
@@ -167,6 +183,48 @@ async def generate_with_seedance(
     )
 
     return output
+
+
+async def generate_with_wan(
+    prompt: str,
+    duration: int,
+    resolution: str,
+    aspect_ratio: str
+) -> str:
+    """Generate video using WAN 2.5 on Replicate.
+
+    WAN 2.5 has better text rendering and longer duration support.
+    """
+
+    replicate_token = os.environ.get("REPLICATE_API_TOKEN")
+    if not replicate_token:
+        raise ValueError("REPLICATE_API_TOKEN not set")
+
+    # Map resolution to WAN 2.5 size format
+    # WAN uses "width*height" format
+    size_map = {
+        "480p": "832*480",
+        "720p": "1280*720",
+    }
+    size = size_map.get(resolution, "832*480")
+
+    activity.logger.info(f"Calling WAN 2.5: {size}, {duration}s")
+
+    output = replicate.run(
+        "wan-video/wan-2.5-t2v",
+        input={
+            "size": size,
+            "prompt": prompt,
+            "duration": duration,
+            "negative_prompt": "blurry, low quality, distorted, amateur, grainy",
+            "enable_prompt_expansion": True
+        }
+    )
+
+    # WAN returns a FileOutput object, get the URL
+    if hasattr(output, 'url'):
+        return output.url
+    return str(output)
 
 
 async def generate_with_gemini(

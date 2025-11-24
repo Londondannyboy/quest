@@ -57,6 +57,8 @@ class ArticleCreationWorkflow:
         jurisdiction = input_dict.get("jurisdiction", "UK")
         generate_images = input_dict.get("generate_images", True)
         video_quality = input_dict.get("video_quality")  # None, "low", "medium", "high"
+        video_model = input_dict.get("video_model", "seedance")  # "seedance" or "wan-2.5"
+        video_prompt = input_dict.get("video_prompt")  # Optional custom prompt
         content_images = input_dict.get("content_images", "with_content")  # "with_content" or "without_content"
         num_sources = input_dict.get("num_research_sources", 10)
         custom_slug = input_dict.get("slug")  # Optional custom slug for SEO
@@ -222,7 +224,7 @@ class ArticleCreationWorkflow:
             # ===== PHASE 6: GENERATE VIDEO OR IMAGES =====
             if video_quality:
                 # Generate video for hero/featured
-                workflow.logger.info(f"Phase 6a: Generating video ({video_quality} quality)")
+                workflow.logger.info(f"Phase 6a: Generating video ({video_quality} quality, model={video_model})")
 
                 video_gen_result = await workflow.execute_activity(
                     "generate_article_video",
@@ -232,7 +234,9 @@ class ArticleCreationWorkflow:
                         app,
                         video_quality,
                         3,  # duration in seconds
-                        "16:9"  # aspect ratio
+                        "16:9",  # aspect ratio
+                        video_model,  # seedance or wan-2.5
+                        video_prompt  # custom prompt (or None for auto-generated)
                     ],
                     start_to_close_timeout=timedelta(minutes=5)
                 )

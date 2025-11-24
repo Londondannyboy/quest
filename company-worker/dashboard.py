@@ -300,6 +300,18 @@ with tab_article:
             key="video_quality"
         )
 
+        # Video Model (only show if video enabled)
+        if video_quality != "None":
+            video_model = st.selectbox(
+                "Video Model",
+                ["seedance", "wan-2.5"],
+                index=0,
+                help="seedance: Fast, good quality\nwan-2.5: Better text rendering, longer duration",
+                key="video_model"
+            )
+        else:
+            video_model = "seedance"
+
         # Content Images
         content_images = st.selectbox(
             "Content Images",
@@ -311,6 +323,29 @@ with tab_article:
 
         # Legacy checkbox for backward compatibility
         generate_images = video_quality != "None" or content_images == "with_content"
+
+    # Custom Video Prompt (only show if video enabled)
+    if video_quality != "None":
+        st.divider()
+        st.markdown("**Video Prompt** *(optional - leave empty for auto-generated)*")
+
+        # Generate default prompt based on topic and app
+        default_prompt = f"A professional scene related to {topic if topic else 'business'}, cinematic lighting, smooth camera movement"
+        if article_app == "relocation":
+            default_prompt = f"A young professional walking through a modern city with international flags and global landmarks, representing relocation and new beginnings, cinematic lighting"
+        elif article_app == "placement":
+            default_prompt = f"A modern financial district with skyscrapers and professional atmosphere, representing investment banking and private placements, cinematic lighting"
+
+        video_prompt = st.text_area(
+            "Custom Prompt",
+            value="",
+            placeholder=default_prompt,
+            help="Leave empty to auto-generate from article content. Or write your own prompt for the video.",
+            key="video_prompt",
+            height=100
+        )
+    else:
+        video_prompt = ""
 
     # Cost estimate
     st.divider()
@@ -370,6 +405,8 @@ with tab_article:
                         "generate_images": generate_images,
                         "num_research_sources": num_research_sources,
                         "video_quality": video_quality if video_quality != "None" else None,
+                        "video_model": video_model,
+                        "video_prompt": video_prompt if video_prompt.strip() else None,
                         "content_images": content_images
                     }
 
