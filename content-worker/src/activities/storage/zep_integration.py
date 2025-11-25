@@ -24,14 +24,25 @@ def get_graph_id_for_app(app: str) -> str:
     Map app type to Zep graph ID.
 
     Args:
-        app: Application type (placement, relocation, etc.)
+        app: Application type (placement, relocation, jobs, etc.)
 
     Returns:
-        Zep graph ID
+        Zep graph ID for the specific app's knowledge graph
     """
+    # Each app has its own Zep knowledge graph
     graph_mapping = {
+        # Finance/PE apps
         "placement": "finance-knowledge",
-        "relocation": "relocation"
+        "pe_news": "finance-knowledge",
+
+        # Relocation/mobility apps
+        "relocation": "relocation",
+
+        # Jobs/recruiting apps
+        "jobs": "jobs",
+        "recruiter": "jobs",
+        "chief-of-staff": "jobs",
+        "fractional-jobs": "jobs",
     }
 
     return graph_mapping.get(app, "finance-knowledge")

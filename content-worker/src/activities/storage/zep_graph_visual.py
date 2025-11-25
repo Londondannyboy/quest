@@ -14,8 +14,16 @@ from src.utils.config import config
 def get_graph_id_for_app(app: str) -> str:
     """Map app type to Zep graph ID."""
     graph_mapping = {
+        # Finance/PE apps
         "placement": "finance-knowledge",
-        "relocation": "relocation"
+        "pe_news": "finance-knowledge",
+        # Relocation/mobility apps
+        "relocation": "relocation",
+        # Jobs/recruiting apps
+        "jobs": "jobs",
+        "recruiter": "jobs",
+        "chief-of-staff": "jobs",
+        "fractional-jobs": "jobs",
     }
     return graph_mapping.get(app, "finance-knowledge")
 
