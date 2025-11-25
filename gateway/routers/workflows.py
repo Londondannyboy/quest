@@ -512,11 +512,12 @@ class ArticleCreationRequest(BaseModel):
     target_word_count: int = Field(default=1500, ge=500, le=3000, description="Target word count")
     jurisdiction: Optional[str] = Field(default="UK", description="Geo-targeting: UK, US, SG, EU, etc.")
     num_research_sources: int = Field(default=10, ge=3, le=15, description="Number of research sources")
-    generate_images: bool = Field(default=False, description="Generate contextual images (adds 5-8 min)")
+    generate_images: bool = Field(default=True, description="Generate contextual images")
     video_quality: Optional[str] = Field(default=None, description="Video quality: None, 'low', 'medium', 'high'. If set, generates video for hero")
     video_model: str = Field(default="seedance", description="Video model: 'seedance' or 'wan-2.5'")
     video_prompt: Optional[str] = Field(default=None, description="Custom video prompt. If not provided, auto-generated from article content")
-    content_images: str = Field(default="with_content", description="Content images: 'with_content' or 'without_content'")
+    video_count: int = Field(default=1, ge=1, le=3, description="Number of videos: 1 = hero only, 2-3 = hero + content videos")
+    content_images_count: int = Field(default=2, ge=0, le=5, description="Number of content images embedded in article")
     skip_zep_sync: bool = Field(default=False, description="Skip Zep knowledge graph sync")
     slug: Optional[str] = Field(default=None, description="Custom URL slug for SEO (e.g., 'my-article-title'). If not provided, generated from title.")
 
@@ -576,7 +577,8 @@ async def trigger_article_creation_workflow(
             "video_quality": request.video_quality,
             "video_model": request.video_model,
             "video_prompt": request.video_prompt,
-            "content_images": request.content_images,
+            "video_count": request.video_count,
+            "content_images_count": request.content_images_count,
             "slug": request.slug,  # Optional custom slug for SEO
         }
 

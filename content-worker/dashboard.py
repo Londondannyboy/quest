@@ -309,20 +309,32 @@ with tab_article:
                 help="seedance: Fast, good quality\nwan-2.5: Better text rendering, longer duration",
                 key="video_model"
             )
+
+            # Video Count (1 = hero only, 2-3 = hero + content videos)
+            video_count = st.slider(
+                "Videos",
+                min_value=1,
+                max_value=3,
+                value=1,
+                step=1,
+                help="1: Hero video only\n2-3: Hero + content videos embedded in article"
+            )
         else:
             video_model = "seedance"
+            video_count = 1
 
         # Content Images
-        content_images = st.selectbox(
+        content_images_count = st.slider(
             "Content Images",
-            ["with_content", "without_content"],
-            index=0,
-            help="with_content: Include images in article body\nwithout_content: Video/hero only",
-            key="content_images"
+            min_value=0,
+            max_value=5,
+            value=2,
+            step=1,
+            help="0: No content images\n2-5: Images embedded throughout article (uses video GIF as style context)"
         )
 
-        # Legacy checkbox for backward compatibility
-        generate_images = video_quality != "None" or content_images == "with_content"
+        # Generate images if count > 0
+        generate_images = content_images_count > 0
 
     # Custom Video Prompt (only show if video enabled)
     if video_quality != "None":
@@ -407,7 +419,8 @@ with tab_article:
                         "video_quality": video_quality if video_quality != "None" else None,
                         "video_model": video_model,
                         "video_prompt": video_prompt if video_prompt.strip() else None,
-                        "content_images": content_images
+                        "video_count": video_count,
+                        "content_images_count": content_images_count
                     }
 
                     # Add custom slug if provided
