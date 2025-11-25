@@ -346,3 +346,87 @@ async def crawl_with_httpx_fallback(base_url: str) -> Dict[str, Any]:
                 "error": str(e),
                 "crawler": "httpx_fallback"
             }
+
+
+@activity.defn(name="prefilter_urls_by_relevancy")
+async def prefilter_urls_by_relevancy(
+    url_candidates: list,
+    topic: str,
+    min_keyword_matches: int = 2,
+    max_urls: int = 30
+) -> Dict[str, Any]:
+    """
+    Pre-filter URLs by topic relevancy BEFORE crawling.
+
+    Checks if title/snippet contains topic keywords to avoid crawling irrelevant pages.
+    This saves crawl time and improves content quality.
+
+    Args:
+        url_candidates: List of dicts with {url, title, snippet, source}
+        topic: Article topic for keyword extraction
+        min_keyword_matches: Minimum keywords that must match (default 2)
+        max_urls: Maximum URLs to return (default 30)
+
+    Returns:
+        Dict with relevant_urls, skipped_count, stats
+    """
+    activity.logger.info(f"Pre-filtering {len(url_candidates)} URLs for topic: '{topic}'")
+
+    # Extract keywords from topic (words > 2 chars, lowercase)
+    topic_keywords = [w.lower() for w in topic.split() if len(w) > 2]
+    activity.logger.info(f"Topic keywords: {topic_keywords}")
+
+    def is_relevant(title: str, snippet: str) -> bool:
+        """Check if title/snippet mentions enough topic keywords."""
+        text = f"{title} {snippet}".lower()
+        matches = sum(1 for kw in topic_keywords if kw in text)
+        return matches >= min_keyword_matches
+
+    relevant_urls = []
+    skipped = []
+
+    for candidate in url_candidates:
+        url = candidate.get("url", "")
+        title = candidate.get("title", "")
+        snippet = candidate.get("snippet", "")
+        source = candidate.get("source", "unknown")
+
+        if not url:
+            continue
+
+        if is_relevant(title, snippet):
+            relevant_urls.append(url)
+        else:
+            skipped.append({
+                "url": url,
+                "title": title[:100],
+                "source": source,
+                "reason": "no_topic_match"
+            })
+
+    # Deduplicate while preserving order
+    seen = set()
+    unique_urls = []
+    for url in relevant_urls:
+        if url not in seen:
+            seen.add(url)
+            unique_urls.append(url)
+
+    # Cap at max_urls
+    capped = len(unique_urls) > max_urls
+    final_urls = unique_urls[:max_urls]
+
+    activity.logger.info(
+        f"Pre-filter result: {len(final_urls)} relevant (from {len(url_candidates)} candidates), "
+        f"{len(skipped)} skipped, capped={capped}"
+    )
+
+    return {
+        "relevant_urls": final_urls,
+        "skipped_count": len(skipped),
+        "skipped_samples": skipped[:5],  # First 5 for debugging
+        "total_candidates": len(url_candidates),
+        "unique_before_cap": len(unique_urls),
+        "capped": capped,
+        "keywords_used": topic_keywords
+    }

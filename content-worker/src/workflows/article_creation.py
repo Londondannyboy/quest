@@ -152,82 +152,67 @@ class ArticleCreationWorkflow:
             f"Research: {dataforseo_count} DataForSEO, {serper_count} Serper, {exa_count} Exa"
         )
 
-        # ===== PHASE 2: CRAWL DISCOVERED URLs =====
-        workflow.logger.info("Phase 2: Pre-filtering and crawling relevant URLs")
+        # ===== PHASE 2a: PRE-FILTER URLs BY RELEVANCY =====
+        workflow.logger.info("Phase 2a: Pre-filtering URLs by topic relevancy")
 
-        # Extract topic keywords for pre-filtering (lowercase, split on spaces)
-        topic_keywords = [w.lower() for w in topic.split() if len(w) > 2]
-
-        def is_relevant(title: str, snippet: str) -> bool:
-            """Check if title/snippet mentions topic keywords (at least 2 matches)."""
-            text = f"{title} {snippet}".lower()
-            matches = sum(1 for kw in topic_keywords if kw in text)
-            return matches >= 2
-
-        # Collect URLs with relevancy pre-filtering
-        url_candidates = []  # List of (url, title, snippet, source)
+        # Build URL candidates list with metadata
+        url_candidates = []
 
         # DataForSEO URLs
         if article_type == "news":
             for article in dataforseo_data.get("articles", []):
                 if article.get("url"):
-                    url_candidates.append((
-                        article["url"],
-                        article.get("title", ""),
-                        article.get("description", article.get("snippet", "")),
-                        "dataforseo"
-                    ))
+                    url_candidates.append({
+                        "url": article["url"],
+                        "title": article.get("title", ""),
+                        "snippet": article.get("description", article.get("snippet", "")),
+                        "source": "dataforseo"
+                    })
         else:
             for item in dataforseo_data.get("all_urls", []):
                 if item.get("url"):
-                    url_candidates.append((
-                        item["url"],
-                        item.get("title", ""),
-                        item.get("description", item.get("snippet", "")),
-                        "dataforseo"
-                    ))
+                    url_candidates.append({
+                        "url": item["url"],
+                        "title": item.get("title", ""),
+                        "snippet": item.get("description", item.get("snippet", "")),
+                        "source": "dataforseo"
+                    })
 
         # Serper URLs
         for article in serper_data.get("articles", []):
             if article.get("url"):
-                url_candidates.append((
-                    article["url"],
-                    article.get("title", ""),
-                    article.get("snippet", ""),
-                    "serper"
-                ))
+                url_candidates.append({
+                    "url": article["url"],
+                    "title": article.get("title", ""),
+                    "snippet": article.get("snippet", ""),
+                    "source": "serper"
+                })
 
         # Exa URLs (skip pseudo-URLs)
         for result in exa_data.get("results", []):
             url = result.get("url", "")
             if url and url.startswith("http"):
-                url_candidates.append((
-                    url,
-                    result.get("title", ""),
-                    result.get("text", "")[:500],  # Exa returns text, use first 500 chars
-                    "exa"
-                ))
+                url_candidates.append({
+                    "url": url,
+                    "title": result.get("title", ""),
+                    "snippet": result.get("text", "")[:500],
+                    "source": "exa"
+                })
 
-        # Pre-filter: only keep URLs where title/snippet mentions topic
-        relevant_urls = []
-        skipped_count = 0
-        for url, title, snippet, source in url_candidates:
-            if is_relevant(title, snippet):
-                relevant_urls.append(url)
-            else:
-                skipped_count += 1
+        # Call pre-filter activity (visible in Temporal UI)
+        prefilter_result = await workflow.execute_activity(
+            "prefilter_urls_by_relevancy",
+            args=[url_candidates, topic, 2, 30],  # min_matches=2, max_urls=30
+            start_to_close_timeout=timedelta(seconds=30)
+        )
 
-        workflow.logger.info(f"Pre-filter: {len(relevant_urls)} relevant, {skipped_count} skipped (no topic match)")
+        urls_to_crawl = prefilter_result.get("relevant_urls", [])
+        workflow.logger.info(
+            f"Pre-filter: {len(urls_to_crawl)} relevant from {prefilter_result.get('total_candidates', 0)} candidates, "
+            f"{prefilter_result.get('skipped_count', 0)} skipped"
+        )
 
-        # Deduplicate
-        urls_to_crawl = list(dict.fromkeys(relevant_urls))
-
-        # Smart cap: 30 URLs is enough for comprehensive research
-        MAX_CRAWL_URLS = 30
-        total_relevant = len(urls_to_crawl)
-        if total_relevant > MAX_CRAWL_URLS:
-            urls_to_crawl = urls_to_crawl[:MAX_CRAWL_URLS]
-            workflow.logger.info(f"Capped URLs from {total_relevant} to {MAX_CRAWL_URLS}")
+        # ===== PHASE 2b: CRAWL RELEVANT URLs =====
 
         workflow.logger.info(f"Batch crawling {len(urls_to_crawl)} URLs with topic filtering")
 
