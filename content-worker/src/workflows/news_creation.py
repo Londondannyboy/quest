@@ -77,7 +77,7 @@ class NewsCreationWorkflow:
             "relocation": "Digital Nomad Visa"
         }
         dataforseo_keyword = dataforseo_keywords_by_app.get(app, "private equity")
-        dataforseo_regions = ["UK", "US"]
+        dataforseo_regions = ["UK"]  # UK only - cost optimization
 
         workflow.logger.info(f"DataForSEO primary keyword: {dataforseo_keyword}")
 
