@@ -3,10 +3,13 @@ Research Curation Activity
 
 Stage 1 of article generation: Filter, dedupe, and summarize research sources
 before passing to article generation.
+
+Uses Gemini 2.5 Flash for curation (1M context window, cheap) while
+article generation uses Sonnet (better writing quality).
 """
 
 import os
-import anthropic
+import google.generativeai as genai
 from temporalio import activity
 from typing import Dict, Any, List
 
@@ -106,46 +109,55 @@ async def curate_research_sources(
             sources_text += f"Date: {s['date']}\n"
         sources_text += f"Content:\n{s['content']}\n"
 
-    prompt = f"""You are a research curator preparing sources for an article about: "{topic}"
+    prompt = f"""You are a research curator preparing sources for a COMPREHENSIVE 3000+ word article about: "{topic}"
 
-Analyze these {len(all_sources)} sources and provide:
+Analyze ALL {len(all_sources)} sources thoroughly and provide EXTENSIVE curation:
 
 1. **CURATED SOURCES** (top {max_sources} most relevant, no duplicates)
    For each source, provide:
    - source_id (from the SOURCE ID above)
    - relevance_score (1-10, where 10 is highly relevant)
-   - summary (2-3 sentences capturing key information)
-   - key_quote (one important quote if available)
+   - summary (3-5 sentences capturing ALL key information - be thorough)
+   - key_quote (one or two important quotes if available)
+   - key_facts_from_source (list of specific facts, numbers, dates from this source)
    - why_relevant (brief explanation)
 
-2. **KEY FACTS** (bullet points of verified facts from multiple sources)
+2. **KEY FACTS** (50+ bullet points of verified facts - BE EXHAUSTIVE)
+   - Extract EVERY statistic, date, name, amount, requirement, and specific detail
    - Facts that appear in multiple sources are more reliable
-   - Include statistics, dates, names, amounts
+   - Include: costs, timelines, requirements, eligibility criteria, process steps
+   - Include: historical context, recent changes, future implications
+   - Include: expert opinions, official statements, regulatory details
 
-3. **PERSPECTIVES** (different viewpoints on the topic)
+3. **PERSPECTIVES** (different viewpoints on the topic - at least 5-10)
    - Note any contradictions between sources
-   - Identify different stakeholder perspectives
+   - Identify different stakeholder perspectives (government, users, experts, critics)
+   - Include pros and cons, benefits and drawbacks
 
 4. **DUPLICATES** (sources covering the same story)
    - Group duplicates by story, keep the most detailed version
 
+5. **TIMELINE** (if applicable - chronological events related to topic)
+   - Key dates and milestones mentioned in sources
+
 Output as JSON:
 {{
   "curated_sources": [
-    {{"source_id": "crawl_0", "relevance_score": 9, "summary": "...", "key_quote": "...", "why_relevant": "..."}}
+    {{"source_id": "crawl_0", "relevance_score": 9, "summary": "...", "key_quote": "...", "key_facts_from_source": ["fact1", "fact2"], "why_relevant": "..."}}
   ],
-  "key_facts": ["fact 1", "fact 2"],
-  "perspectives": ["perspective 1", "perspective 2"],
-  "duplicate_groups": [["news_1", "news_5", "crawl_3"]]
+  "key_facts": ["fact 1", "fact 2", "... at least 50 facts"],
+  "perspectives": ["perspective 1", "perspective 2", "... at least 5-10 perspectives"],
+  "duplicate_groups": [["news_1", "news_5", "crawl_3"]],
+  "timeline": ["2024-01: Event 1", "2024-06: Event 2"]
 }}
 
 SOURCES:
 {sources_text}"""
 
-    # Call Haiku for curation (cheap and fast)
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    # Use Gemini 2.5 Flash for curation (1M context window, very cheap)
+    api_key = os.environ.get("GOOGLE_API_KEY")
     if not api_key:
-        activity.logger.error("ANTHROPIC_API_KEY not set")
+        activity.logger.error("GOOGLE_API_KEY not set for curation")
         # Fallback: return first N sources without curation
         return {
             "curated_sources": all_sources[:max_sources],
@@ -156,17 +168,20 @@ SOURCES:
             "error": "No API key, returned uncurated"
         }
 
-    client = anthropic.Anthropic(api_key=api_key)
+    genai.configure(api_key=api_key)
 
     try:
-        # Use Sonnet for better curation quality with higher token limit
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=16384,  # Much higher limit for comprehensive curation
-            messages=[{"role": "user", "content": prompt}]
+        # Gemini 2.5 Flash - massive context window, perfect for curation
+        model = genai.GenerativeModel("gemini-2.5-flash-preview-05-20")
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                max_output_tokens=16384,
+                temperature=0.3,  # Lower temp for more factual extraction
+            )
         )
 
-        response_text = message.content[0].text
+        response_text = response.text
 
         # Parse JSON response
         import json
@@ -211,7 +226,7 @@ SOURCES:
             "duplicate_groups": curation_result.get("duplicate_groups", []),
             "total_input": len(all_sources),
             "total_output": len(curated_with_content),
-            "model": "claude-sonnet-4-20250514"
+            "model": "gemini-2.5-flash-preview-05-20"
         }
 
     except Exception as e:

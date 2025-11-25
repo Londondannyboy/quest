@@ -95,9 +95,9 @@ TARGET AUDIENCE: {target_audience}
 CONTENT TONE: {content_tone}
 KEY INTERESTS: {interests}
 
-Write a COMPREHENSIVE {target_word_count}-word {article_type} article using HTML with Tailwind CSS classes.
+Write a COMPREHENSIVE {target_word_count}+ word {article_type} article using HTML with Tailwind CSS classes.
 
-CRITICAL: The article MUST be at least {target_word_count} words. This is a detailed, well-researched piece - not a summary. Expand on every point with analysis, context, and implications. Your readers are professionals who want depth, not surface-level coverage.
+CRITICAL: The article MUST be AT LEAST {target_word_count} words - aim for 3000-4000 words. This is a detailed, authoritative, well-researched piece - not a summary. You have extensive research material to work with. Expand on EVERY point with thorough analysis, historical context, practical implications, and expert insights. Your readers are professionals who want comprehensive depth, multiple perspectives, and actionable information - not surface-level coverage.
 
 ===== OUTPUT FORMAT =====
 
@@ -141,16 +141,18 @@ Then the full article body in HTML with Tailwind CSS:
    - MORE LINKS IS BETTER - aim for 2-3 links per paragraph
    - Each paragraph should have 100-150 words of substantive analysis
 
-3. **CRITICAL: Minimum Word Count ({target_word_count} words)**
-   - This article MUST be at least {target_word_count} words - COUNT THEM
-   - Do NOT write a summary - write a COMPREHENSIVE, DETAILED article
-   - Expand on ALL key points with thorough analysis
-   - Include context, background, implications, and practical advice
-   - Explain the "why" and "how", not just the "what"
-   - Use specific metrics, dates, requirements, and facts from research
-   - Add broader context and implications for readers
-   - Include multiple perspectives and expert insights
-   - If the research provides information, USE IT ALL - don't summarize
+3. **CRITICAL: Minimum Word Count ({target_word_count}+ words, aim for 3000-4000)**
+   - This article MUST be at least {target_word_count} words - aim for 3000-4000 words
+   - You have EXTENSIVE research material - USE ALL OF IT
+   - Do NOT write a summary - write a COMPREHENSIVE, AUTHORITATIVE article
+   - Expand on ALL key points with thorough analysis and multiple angles
+   - Include historical context, background, current state, and future implications
+   - Explain the "why", "how", "who benefits", "what are the risks"
+   - Use EVERY specific metric, date, requirement, quote, and fact from research
+   - Add broader industry context and implications for different stakeholders
+   - Include multiple perspectives, expert insights, and contrasting viewpoints
+   - Cover edge cases, exceptions, requirements, and practical considerations
+   - If the research provides information, USE ALL OF IT - integrate everything
 
 4. **Image Prompts (REQUIRED - 4 prompts minimum)**
    After the article content, add image generation prompts:
@@ -322,17 +324,24 @@ def build_prompt(topic: str, research_context: Dict[str, Any]) -> str:
 
     if curated:
         # Use curated sources (filtered, deduped, summarized)
-        parts.append("\n=== KEY FACTS (verified from multiple sources) ===")
-        for fact in key_facts[:20]:
+        parts.append("\n=== KEY FACTS (verified from multiple sources - USE ALL OF THESE) ===")
+        for fact in key_facts[:100]:  # Up to 100 facts for comprehensive articles
             parts.append(f"• {fact}")
 
         if perspectives:
-            parts.append("\n=== DIFFERENT PERSPECTIVES ===")
-            for perspective in perspectives[:5]:
+            parts.append("\n=== DIFFERENT PERSPECTIVES (include all viewpoints) ===")
+            for perspective in perspectives[:15]:  # More perspectives
                 parts.append(f"• {perspective}")
 
+        # Include timeline if available
+        timeline = research_context.get("timeline", [])
+        if timeline:
+            parts.append("\n=== TIMELINE (incorporate chronologically) ===")
+            for event in timeline[:20]:
+                parts.append(f"• {event}")
+
         parts.append("\n=== CURATED SOURCES (ranked by relevance) ===")
-        for source in curated[:20]:  # Use up to 20 curated sources
+        for source in curated[:30]:  # Use up to 30 curated sources for comprehensive articles
             parts.append(f"\n--- Source (relevance: {source.get('relevance_score', '?')}/10) ---")
             parts.append(f"Title: {source.get('title', '')}")
             parts.append(f"URL: {source.get('url', '')}")
@@ -340,16 +349,16 @@ def build_prompt(topic: str, research_context: Dict[str, Any]) -> str:
                 parts.append(f"Summary: {source['summary']}")
             if source.get('key_quote'):
                 parts.append(f"Key Quote: \"{source['key_quote']}\"")
-            # Include full content for top sources
-            if source.get('full_content') and source.get('relevance_score', 0) >= 7:
-                parts.append(f"Full Content:\n{source['full_content'][:3000]}")
+            # Include full content for sources with relevance 5+ (lowered from 7)
+            if source.get('full_content') and source.get('relevance_score', 0) >= 5:
+                parts.append(f"Full Content:\n{source['full_content'][:6000]}")  # 6k chars per source
 
     else:
-        # Fallback to old approach (uncurated sources)
+        # Fallback to old approach (uncurated sources) - increased limits
         news = research_context.get("news_articles", [])
         if news:
             parts.append("\n=== NEWS ===")
-            for a in news[:10]:
+            for a in news[:20]:  # Increased from 10 to 20
                 parts.append(f"\n{a.get('title', '')}")
                 parts.append(f"URL: {a.get('url', '')}")
                 if a.get('snippet'):
@@ -358,19 +367,19 @@ def build_prompt(topic: str, research_context: Dict[str, Any]) -> str:
         crawled = research_context.get("crawled_pages", [])
         if crawled:
             parts.append("\n=== SOURCES ===")
-            for p in crawled[:10]:  # Increased from 5 to 10
+            for p in crawled[:20]:  # Increased from 10 to 20
                 parts.append(f"\n{p.get('title', '')}")
-                content = p.get('content', '')[:3000]  # Increased from 2000 to 3000
+                content = p.get('content', '')[:6000]  # Increased from 3000 to 6000
                 if content:
                     parts.append(content)
 
         exa = research_context.get("exa_results", [])
         if exa:
             parts.append("\n=== RESEARCH ===")
-            for r in exa[:5]:
+            for r in exa[:10]:  # Increased from 5 to 10
                 parts.append(f"\n{r.get('title', '')}")
                 content = r.get('content', '') or r.get('text', '')
                 if content:
-                    parts.append(content[:3000])
+                    parts.append(content[:6000])  # Increased from 3000 to 6000
 
     return '\n'.join(parts)

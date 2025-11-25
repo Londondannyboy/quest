@@ -53,7 +53,7 @@ class ArticleCreationWorkflow:
         topic = input_dict["topic"]
         article_type = input_dict["article_type"]
         app = input_dict.get("app", "placement")
-        target_word_count = input_dict.get("target_word_count", 1500)
+        target_word_count = input_dict.get("target_word_count", 3000)  # Default to 3000 words
         jurisdiction = input_dict.get("jurisdiction", "UK")
         generate_images = input_dict.get("generate_images", True)
         video_quality = input_dict.get("video_quality")  # None, "low", "medium", "high"
