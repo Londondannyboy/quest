@@ -39,6 +39,10 @@ from src.activities.research.dataforseo import (
     dataforseo_serp_search,
 )
 
+from src.activities.research.news_assessment import (
+    assess_news_batch,
+)
+
 from src.activities.research.crawl import (
     httpx_crawl,
     # firecrawl_crawl,  # Disabled - out of credit
@@ -235,6 +239,9 @@ async def main():
             # Research - DataForSEO
             dataforseo_news_search,
             dataforseo_serp_search,
+
+            # News Assessment
+            assess_news_batch,
 
             # Research - Other
             httpx_crawl,
