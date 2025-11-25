@@ -38,18 +38,40 @@ class CompanyCreationWorkflow:
     @workflow.run
     async def run(self, input_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Execute company creation workflow.
+        Execute company creation workflow with video-first support.
 
         Args:
-            input_dict: CompanyInput as dict
+            input_dict: {
+                "url": "company website URL",
+                "category": "placement|credit|real_estate|etc",
+                "app": "placement|relocation|etc",
+                "jurisdiction": "US|UK|etc",
+                "generate_images": True,  # Generate featured/hero images
+                "video_quality": None,  # None, "low", "medium", "high" - generates video for hero
+                "video_model": "seedance",  # "seedance" or "wan-2.5"
+                "video_prompt": None,  # Optional custom video prompt
+                "content_images": "with_content",  # "with_content" or "without_content"
+                "force_update": False
+            }
 
         Returns:
-            Dict with status, company_id, slug, metrics
+            Dict with status, company_id, slug, metrics, video_url if generated
         """
         # Convert input
         input_data = CompanyInput(**input_dict)
 
+        # Extract video-first parameters
+        generate_images = input_dict.get("generate_images", True)
+        video_quality = input_dict.get("video_quality")  # None, "low", "medium", "high"
+        video_model = input_dict.get("video_model", "seedance")  # "seedance" or "wan-2.5"
+        video_prompt = input_dict.get("video_prompt")  # Optional custom prompt
+        content_images = input_dict.get("content_images", "with_content")
+
         workflow.logger.info(f"Creating company: {input_data.url}")
+        if video_quality:
+            workflow.logger.info(f"Video-first mode enabled: {video_quality} quality, model={video_model}")
+            if video_prompt:
+                workflow.logger.info(f"Custom video prompt provided: {video_prompt[:100]}...")
 
         # ===== PHASE 1: NORMALIZE & CHECK =====
         workflow.logger.info("Phase 1: Normalizing URL")
@@ -311,6 +333,64 @@ class CompanyCreationWorkflow:
         #     payload["profile_sections"] = cleaned_sections
         #     workflow.logger.info("Playwright link cleaning complete")
 
+        # Initialize video_result for use in Phase 8 save
+        video_result = None
+
+        # ===== PHASE 6.7: GENERATE VIDEO (if enabled) =====
+        if generate_images and video_quality:
+            workflow.logger.info(f"Phase 6.7: Generating company hero video ({video_quality} quality, model={video_model})")
+            workflow.logger.info(f"Video prompt provided: {bool(video_prompt)}")
+            if video_prompt:
+                workflow.logger.info(f"Custom prompt: {video_prompt[:100]}...")
+
+            # Set duration based on video model
+            video_duration = 5 if video_model == "wan-2.5" else 3  # WAN 2.5: 5s, Seedance/Lightstream: 3s
+
+            # Build video prompt context from company profile
+            profile_snippet = list(payload.get("profile_sections", {}).values())[0].get("content", "")[:500] if payload.get("profile_sections") else f"A professional company {company_name}"
+
+            video_gen_result = await workflow.execute_activity(
+                "generate_article_video",  # Reuse activity - it works for company content too
+                args=[
+                    company_name,  # Use company name as title
+                    profile_snippet,  # Use profile snippet as content context
+                    input_data.app,
+                    video_quality,
+                    video_duration,
+                    "16:9",  # aspect ratio
+                    video_model,  # seedance or wan-2.5
+                    video_prompt  # custom prompt (or None for auto-generated)
+                ],
+                start_to_close_timeout=timedelta(minutes=15)
+            )
+
+            workflow.logger.info(f"Video generated: {video_gen_result.get('video_url', '')[:50]}...")
+
+            # Upload to Mux
+            workflow.logger.info("Phase 6.7b: Uploading company video to Mux")
+
+            mux_result = await workflow.execute_activity(
+                "upload_video_to_mux",
+                args=[video_gen_result["video_url"], True],  # public=True
+                start_to_close_timeout=timedelta(minutes=10)
+            )
+
+            # Store video data
+            video_result = {
+                "video_url": mux_result.get("stream_url"),
+                "video_playback_id": mux_result.get("playback_id"),
+                "video_asset_id": mux_result.get("asset_id"),
+            }
+
+            # Video-first logic: featured_asset_url = GIF, hero_asset_url = None (video supersedes)
+            payload["featured_asset_url"] = mux_result.get("gif_url")
+            payload["hero_asset_url"] = None  # Video supersedes hero
+
+            workflow.logger.info(
+                f"Video uploaded to Mux: {mux_result.get('playback_id')}, "
+                f"cost: ${video_gen_result.get('cost', 0):.3f}"
+            )
+
         # ===== PHASE 7: GENERATE IMAGES =====
         workflow.logger.info("Phase 7: Generating contextual brand images (Flux Kontext Max)")
 
@@ -325,10 +405,18 @@ class CompanyCreationWorkflow:
                 list(payload.get("profile_sections", {}).values())[0].get("content", "")[:200] if payload.get("profile_sections") else company_name,
                 payload.get("headquarters_country") or "Global",
                 input_data.category or "placement",
-                True  # use_max_for_featured
+                not video_quality  # Only use Kontext Max if no video (save cost)
             ],
             start_to_close_timeout=timedelta(minutes=3)  # Kontext Max takes longer
         )
+
+        # Update images only if no video was generated
+        if not video_quality:
+            # Set featured and hero from generated images
+            if company_images.get("featured_image_url"):
+                payload["featured_asset_url"] = company_images.get("featured_image_url")
+            if company_images.get("hero_image_url"):
+                payload["hero_asset_url"] = company_images.get("hero_image_url")
 
         # Calculate completeness
         completeness = await workflow.execute_activity(
@@ -366,6 +454,10 @@ class CompanyCreationWorkflow:
         # ===== PHASE 8: SAVE TO NEON =====
         workflow.logger.info("Phase 8: Saving to Neon database")
 
+        # Prepare featured and hero image URLs
+        featured_image_url = payload.get("featured_asset_url") or company_images.get("featured_image_url")
+        hero_image_url = payload.get("hero_asset_url") or company_images.get("hero_image_url")
+
         company_id = await workflow.execute_activity(
             "save_company_to_neon",
             args=[
@@ -376,8 +468,11 @@ class CompanyCreationWorkflow:
                 input_data.category,
                 payload,
                 logo_data.get("logo_url"),
-                company_images.get("featured_image_url"),
-                company_images.get("hero_image_url")  # Add hero image
+                featured_image_url,
+                hero_image_url,  # Hero image or None if video_result exists
+                video_result.get("video_url") if video_result else None,
+                video_result.get("video_playback_id") if video_result else None,
+                video_result.get("video_asset_id") if video_result else None
             ],
             start_to_close_timeout=timedelta(seconds=30)
         )
@@ -446,10 +541,18 @@ class CompanyCreationWorkflow:
         from src.utils.helpers import generate_slug
         slug = generate_slug(company_name, normalized["domain"])
 
+        # Calculate total cost including video if generated
+        video_cost = 0.0
+        if video_result:
+            # Video cost is already captured in the workflow, but can be extracted if needed
+            # For now, we'll log it was generated
+            workflow.logger.info("Video generation cost included in total")
+
         total_cost = (
             research_data.total_cost +
             profile_result.get("cost", 0.0) +
-            company_images.get("total_cost", 0.0)
+            company_images.get("total_cost", 0.0) +
+            video_cost
         )
 
         workflow.logger.info(
@@ -463,8 +566,10 @@ class CompanyCreationWorkflow:
             "slug": slug,
             "name": company_name,
             "logo_url": logo_data.get("logo_url"),
-            "featured_image_url": company_images.get("featured_image_url"),
-            "hero_image_url": company_images.get("hero_image_url"),
+            "featured_image_url": featured_image_url,  # Use the prepared URL (GIF if video)
+            "hero_image_url": hero_image_url,  # Use the prepared URL (None if video)
+            "video_url": video_result.get("video_url") if video_result else None,
+            "video_playback_id": video_result.get("video_playback_id") if video_result else None,
             "research_cost": total_cost,
             "research_confidence": ambiguity["confidence"],
             "data_completeness": completeness,

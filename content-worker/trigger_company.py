@@ -23,12 +23,17 @@ async def main():
     # Import workflow
     from src.workflows.company_creation import CompanyCreationWorkflow
 
-    # Workflow input
+    # Workflow input - with video-first configuration
     workflow_input = {
         "url": "https://www.firstavenue.com/",
         "category": "placement",
         "app": "placement",
         "jurisdiction": "US",
+        "generate_images": True,
+        "video_quality": None,  # None, "low", "medium", "high" - generates video for hero
+        "video_model": "seedance",  # "seedance" or "wan-2.5"
+        "video_prompt": None,  # Optional custom prompt for video generation
+        "content_images": "with_content",  # "with_content" or "without_content"
         "force_update": False
     }
 
@@ -52,11 +57,20 @@ async def main():
     print("="*70)
     print(f"\n🆔 Company ID: {result['company_id']}")
     print(f"🔗 Slug: {result['slug']}")
-    print(f"\n🎨 SEMI-CARTOON IMAGES:")
-    print(f"   Featured: {result.get('featured_image_url', 'N/A')}")
-    print(f"   Hero: {result.get('hero_image_url', 'N/A')}")
+
+    # Show video or images depending on what was generated
+    if result.get('video_url'):
+        print(f"\n🎬 VIDEO-FIRST ASSETS:")
+        print(f"   Video Playback ID: {result.get('video_playback_id', 'N/A')}")
+        print(f"   Featured GIF: {result.get('featured_image_url', 'N/A')}")
+    else:
+        print(f"\n🎨 CONTEXTUAL BRAND IMAGES:")
+        print(f"   Featured: {result.get('featured_image_url', 'N/A')}")
+        print(f"   Hero: {result.get('hero_image_url', 'N/A')}")
+
     print(f"\n💰 Cost: ${result.get('research_cost', 0):.4f}")
-    print(f"📊 Confidence: {result.get('research_confidence', 0):.2%}\n")
+    print(f"📊 Confidence: {result.get('research_confidence', 0):.2%}")
+    print(f"📈 Data Completeness: {result.get('data_completeness', 0)}%\n")
 
     return result
 
