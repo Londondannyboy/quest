@@ -25,8 +25,11 @@ async def save_company_to_neon(
     category: str,
     payload: Dict[str, Any],
     logo_url: Optional[str],
-    featured_image_url: Optional[str],
-    hero_image_url: Optional[str] = None
+    featured_asset_url: Optional[str],
+    hero_asset_url: Optional[str] = None,
+    video_url: Optional[str] = None,
+    video_playback_id: Optional[str] = None,
+    video_asset_id: Optional[str] = None
 ) -> str:
     """
     Save or update company profile in Neon database.
@@ -39,8 +42,11 @@ async def save_company_to_neon(
         category: Company category
         payload: Full CompanyPayload as dict
         logo_url: URL to company logo
-        featured_image_url: URL to featured image
-        hero_image_url: URL to hero image
+        featured_asset_url: URL to featured asset (GIF when video exists, image otherwise)
+        hero_asset_url: URL to hero asset (null when video exists - video supersedes)
+        video_url: Mux HLS stream URL
+        video_playback_id: Mux playback ID for generating thumbnails/GIFs
+        video_asset_id: Mux asset ID for management
 
     Returns:
         Company ID (str)
@@ -121,10 +127,13 @@ async def save_company_to_neon(
                             app = %s,
                             description = %s,
                             overview = %s,
-                            featured_image_url = %s,
-                            hero_image_url = %s,
+                            featured_asset_url = %s,
+                            hero_asset_url = %s,
                             meta_description = %s,
                             payload = %s,
+                            video_url = %s,
+                            video_playback_id = %s,
+                            video_asset_id = %s,
                             updated_at = NOW()
                         WHERE id = %s
                         RETURNING id
@@ -134,10 +143,13 @@ async def save_company_to_neon(
                         app,
                         description,
                         overview,
-                        featured_image_url,
-                        hero_image_url,
+                        featured_asset_url,
+                        hero_asset_url,
                         meta_description,
                         json.dumps(payload),
+                        video_url,
+                        video_playback_id,
+                        video_asset_id,
                         company_id
                     ))
 
@@ -155,23 +167,29 @@ async def save_company_to_neon(
                             app,
                             description,
                             overview,
-                            featured_image_url,
-                            hero_image_url,
+                            featured_asset_url,
+                            hero_asset_url,
                             meta_description,
                             payload,
+                            video_url,
+                            video_playback_id,
+                            video_asset_id,
                             created_at,
                             updated_at
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
                         ON CONFLICT (slug)
                         DO UPDATE SET
                             name = EXCLUDED.name,
                             description = EXCLUDED.description,
                             overview = EXCLUDED.overview,
-                            featured_image_url = EXCLUDED.featured_image_url,
-                            hero_image_url = EXCLUDED.hero_image_url,
+                            featured_asset_url = EXCLUDED.featured_asset_url,
+                            hero_asset_url = EXCLUDED.hero_asset_url,
                             meta_description = EXCLUDED.meta_description,
                             payload = EXCLUDED.payload,
+                            video_url = EXCLUDED.video_url,
+                            video_playback_id = EXCLUDED.video_playback_id,
+                            video_asset_id = EXCLUDED.video_asset_id,
                             updated_at = NOW()
                         RETURNING id
                     """, (
@@ -180,10 +198,13 @@ async def save_company_to_neon(
                         app,
                         description,
                         overview,
-                        featured_image_url,
-                        hero_image_url,
+                        featured_asset_url,
+                        hero_asset_url,
                         meta_description,
-                        json.dumps(payload)
+                        json.dumps(payload),
+                        video_url,
+                        video_playback_id,
+                        video_asset_id
                     ))
 
                     result = await cur.fetchone()
@@ -225,8 +246,8 @@ async def update_company_metadata(
                 # Build SET clause dynamically
                 # Note: logo_url is stored in payload JSONB, not as a column
                 allowed_fields = [
-                    'featured_image_url', 'meta_description',
-                    'status', 'visibility'
+                    'featured_asset_url', 'hero_asset_url', 'meta_description',
+                    'status', 'visibility', 'video_url', 'video_playback_id', 'video_asset_id'
                 ]
 
                 set_parts = []
@@ -284,11 +305,14 @@ async def get_company_by_id(company_id: str) -> Optional[Dict[str, Any]]:
                         slug,
                         name,
                         app,
-                        featured_image_url,
+                        featured_asset_url,
+                        hero_asset_url,
                         meta_description,
                         payload,
                         created_at,
-                        updated_at
+                        updated_at,
+                        video_url,
+                        video_playback_id
                     FROM companies
                     WHERE id = %s
                 """, (company_id,))
@@ -298,18 +322,21 @@ async def get_company_by_id(company_id: str) -> Optional[Dict[str, Any]]:
                 if not row:
                     return None
 
-                payload = row[6]
+                payload = row[7]
                 return {
                     "id": str(row[0]),
                     "slug": row[1],
                     "name": row[2],
                     "app": row[3],
                     "logo_url": payload.get("logo_url") if payload else None,
-                    "featured_image_url": row[4],
-                    "meta_description": row[5],
+                    "featured_asset_url": row[4],
+                    "hero_asset_url": row[5],
+                    "meta_description": row[6],
                     "payload": payload,
-                    "created_at": row[7].isoformat() if row[7] else None,
-                    "updated_at": row[8].isoformat() if row[8] else None,
+                    "created_at": row[8].isoformat() if row[8] else None,
+                    "updated_at": row[9].isoformat() if row[9] else None,
+                    "video_url": row[10],
+                    "video_playback_id": row[11],
                 }
 
     except Exception as e:
