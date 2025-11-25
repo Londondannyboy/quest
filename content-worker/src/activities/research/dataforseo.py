@@ -132,18 +132,24 @@ async def dataforseo_news_search(
 async def dataforseo_serp_search(
     query: str,
     region: str = "UK",
-    depth: int = 100
+    depth: int = 100,
+    include_ai_overview: bool = True,
+    people_also_ask_depth: int = 4,
+    time_range: str = None
 ) -> dict[str, Any]:
     """
-    Search organic SERP results using DataForSEO
+    Search organic SERP results using DataForSEO with AI Overview and People Also Ask
 
     Args:
         query: Search query
         region: Region code (UK, US, SG, etc.)
-        depth: Number of results (max 100)
+        depth: Number of results (max 100, ~10 per page, so 70 = 7 pages)
+        include_ai_overview: Include Google AI Overview results
+        people_also_ask_depth: Depth for "People also ask" results (0-4)
+        time_range: Optional time filter (e.g., "past_24_hours", "past_week")
 
     Returns:
-        Dict with organic results and metadata
+        Dict with organic results, AI overview, people also ask, and metadata
     """
     url = "https://api.dataforseo.com/v3/serp/google/organic/live/advanced"
     auth = get_auth_header()
@@ -153,9 +159,18 @@ async def dataforseo_serp_search(
         "keyword": query,
         "location_code": location_code,
         "language_code": "en",
+        "device": "desktop",
+        "os": "windows",
         "depth": depth,
+        "group_organic_results": True,
+        "load_async_ai_overview": include_ai_overview,
+        "people_also_ask_click_depth": people_also_ask_depth,
         "calculate_rectangles": False
     }]
+
+    # Add time range if specified
+    if time_range:
+        payload[0]["filters"] = [["serp_date", ">=", time_range]]
 
     async with aiohttp.ClientSession() as session:
         try:

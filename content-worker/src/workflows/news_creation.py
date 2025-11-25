@@ -70,28 +70,40 @@ class NewsCreationWorkflow:
         # ===== PHASE 1A: FETCH NEWS FROM DATAFORSEO (PRIMARY) =====
         workflow.logger.info("Phase 1a: Fetching news from DataForSEO (primary)")
 
-        # Map geographic focus to DataForSEO region codes
-        dataforseo_regions = []
-        for geo in geographic_focus:
-            if geo.upper() in ["UK", "US", "SG", "EU", "ASIA"]:
-                if geo.upper() == "ASIA":
-                    dataforseo_regions.append("SG")
-                elif geo.upper() == "EU":
-                    dataforseo_regions.append("UK")  # Use UK as EU proxy
-                else:
-                    dataforseo_regions.append(geo.upper())
-
-        if not dataforseo_regions:
-            dataforseo_regions = ["UK", "US", "SG"]
+        # For placement: Use only "private equity" keyword, UK and US regions
+        dataforseo_keyword = "private equity"
+        dataforseo_regions = ["UK", "US"]
 
         dataforseo_result = await workflow.execute_activity(
             "dataforseo_news_search",
-            args=[keywords[:5], dataforseo_regions, 100, "past_24_hours"],
-            start_to_close_timeout=timedelta(minutes=10)  # Increased from 3 to 10 - DataForSEO can be slow with large result sets
+            args=[[dataforseo_keyword], dataforseo_regions, 100, "past_24_hours"],
+            start_to_close_timeout=timedelta(minutes=10)
         )
 
         dataforseo_articles = dataforseo_result.get("articles", [])
-        workflow.logger.info(f"DataForSEO: {len(dataforseo_articles)} results")
+        workflow.logger.info(f"DataForSEO news: {len(dataforseo_articles)} results")
+
+        # ===== PHASE 1A2: FETCH ORGANIC SERP WITH AI OVERVIEW & PEOPLE ALSO ASK =====
+        workflow.logger.info("Phase 1a2: Fetching organic SERP with AI Overview and People Also Ask")
+
+        # Fetch organic results with AI Overview and People Also Ask for each region
+        organic_articles = []
+        for region in dataforseo_regions:
+            organic_result = await workflow.execute_activity(
+                "dataforseo_serp_search",
+                args=[
+                    dataforseo_keyword,  # "private equity"
+                    region,  # UK or US
+                    10,  # depth: 10 for now (1 page), can scale to 70 for 7 pages
+                    True,  # include_ai_overview
+                    4,  # people_also_ask_depth
+                    "past_24_hours"
+                ],
+                start_to_close_timeout=timedelta(minutes=5)
+            )
+            organic_articles.extend(organic_result.get("results", []))
+
+        workflow.logger.info(f"DataForSEO organic + AI overview: {len(organic_articles)} results")
 
         # ===== PHASE 1B: FETCH NEWS FROM SERPER (SUPPLEMENTARY) =====
         workflow.logger.info("Phase 1b: Fetching news from Serper (supplementary)")
@@ -106,14 +118,21 @@ class NewsCreationWorkflow:
         workflow.logger.info(f"Serper: {len(serper_articles)} results")
 
         # ===== PHASE 1C: DEDUPLICATE AND MERGE =====
-        workflow.logger.info("Phase 1c: Deduplicating and merging results")
+        workflow.logger.info("Phase 1c: Deduplicating and merging results (news + organic + AI overview)")
 
-        # Deduplicate by URL, prioritizing DataForSEO (has timestamps)
+        # Deduplicate by URL, prioritizing DataForSEO news (has timestamps)
         seen_urls = set()
         stories = []
 
-        # Add DataForSEO first (has ISO timestamps)
+        # Add DataForSEO news first (has ISO timestamps)
         for article in dataforseo_articles:
+            url = article.get("url", "").lower().replace("www.", "").split("?")[0]
+            if url and url not in seen_urls:
+                seen_urls.add(url)
+                stories.append(article)
+
+        # Add organic SERP results with AI Overview and People Also Ask
+        for article in organic_articles:
             url = article.get("url", "").lower().replace("www.", "").split("?")[0]
             if url and url not in seen_urls:
                 seen_urls.add(url)
@@ -127,7 +146,7 @@ class NewsCreationWorkflow:
                 stories.append(article)
 
         total_cost = dataforseo_result.get("cost", 0) + serper_result.get("cost", 0)
-        workflow.logger.info(f"Total unique stories: {len(stories)} (cost: ${total_cost:.3f})")
+        workflow.logger.info(f"Total unique stories: {len(stories)} (news: {len(dataforseo_articles)}, organic: {len(organic_articles)}, serper: {len(serper_articles)}) (cost: ${total_cost:.3f})")
 
         if not stories:
             return {
