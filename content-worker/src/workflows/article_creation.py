@@ -287,14 +287,73 @@ class ArticleCreationWorkflow:
         # ===== PHASE 5: GENERATE ARTICLE CONTENT =====
         workflow.logger.info("Phase 5: Generating article content with AI")
 
-        # Build research context using CURATED sources
+        # Build consolidated URL list from ALL sources (for citations)
+        # This gives Sonnet explicit access to all available URLs
+        all_source_urls = []
+
+        # From curated sources (highest quality)
+        for source in curation_result.get("curated_sources", []):
+            if source.get("url"):
+                all_source_urls.append({
+                    "url": source["url"],
+                    "title": source.get("title", ""),
+                    "type": "curated",
+                    "authority": source.get("authority", "standard")
+                })
+
+        # From high authority sources (prioritize these)
+        for source in curation_result.get("high_authority_sources", []):
+            if isinstance(source, dict) and source.get("url"):
+                all_source_urls.append({
+                    "url": source["url"],
+                    "title": source.get("title", ""),
+                    "type": "high_authority",
+                    "authority": source.get("authority", "official")
+                })
+
+        # From raw news articles (backup)
+        for article in all_news_articles[:30]:
+            if article.get("url") and article["url"] not in [s["url"] for s in all_source_urls]:
+                all_source_urls.append({
+                    "url": article["url"],
+                    "title": article.get("title", ""),
+                    "type": "news",
+                    "authority": "news"
+                })
+
+        # From crawled pages (backup)
+        for page in crawled_pages[:20]:
+            if page.get("url") and page["url"] not in [s["url"] for s in all_source_urls]:
+                all_source_urls.append({
+                    "url": page["url"],
+                    "title": page.get("title", ""),
+                    "type": "crawled",
+                    "authority": "standard"
+                })
+
+        # From Exa results (backup)
+        for result in exa_data.get("results", [])[:15]:
+            if result.get("url") and result["url"] not in [s["url"] for s in all_source_urls]:
+                all_source_urls.append({
+                    "url": result["url"],
+                    "title": result.get("title", ""),
+                    "type": "exa",
+                    "authority": "research"
+                })
+
+        workflow.logger.info(f"Consolidated {len(all_source_urls)} source URLs for article generation")
+
+        # Build research context using CURATED sources + consolidated URLs
         research_context = {
             "curated_sources": curation_result.get("curated_sources", []),
             "key_facts": curation_result.get("key_facts", []),
             "perspectives": curation_result.get("perspectives", []),
-            "news_articles": all_news_articles[:10],  # Keep some raw news for reference
-            "crawled_pages": crawled_pages[:5],  # Keep some raw pages for reference
-            "exa_results": exa_data.get("results", [])[:5],
+            "high_authority_sources": curation_result.get("high_authority_sources", []),
+            "article_outline": curation_result.get("article_outline", []),
+            "all_source_urls": all_source_urls,  # NEW: consolidated URL list for citations
+            "news_articles": all_news_articles[:20],  # Increased from 10
+            "crawled_pages": crawled_pages[:15],  # Increased from 5
+            "exa_results": exa_data.get("results", [])[:10],  # Increased from 5
             "zep_context": zep_context
         }
 

@@ -511,6 +511,16 @@ def build_prompt(topic: str, research_context: Dict[str, Any]) -> str:
     key_facts = research_context.get("key_facts", [])
 
     if curated:
+        # === ALL SOURCE URLs - USE THESE FOR CITATIONS ===
+        all_urls = research_context.get("all_source_urls", [])
+        if all_urls:
+            parts.append("\n=== AVAILABLE SOURCE URLS FOR CITATIONS (USE THESE - copy URLs exactly) ===")
+            parts.append("CRITICAL: Use these URLs in your <a href='...'> tags. High authority sources should appear in first paragraphs.")
+            for source in all_urls[:50]:
+                authority_tag = f"[{source.get('authority', 'standard').upper()}]" if source.get('authority') in ['official', 'high_authority'] else ""
+                parts.append(f"• {authority_tag} {source.get('title', 'Source')[:60]}")
+                parts.append(f"  URL: {source.get('url', '')}")
+
         # === KEY FACTS - the backbone of the article ===
         if key_facts:
             parts.append("\n=== KEY FACTS (USE ALL OF THESE - specific numbers, dates, costs, requirements) ===")
