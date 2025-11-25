@@ -343,7 +343,8 @@ The media prompts section is MANDATORY - without it, no video/images can be gene
         content, featured_prompt, section_prompts = extract_media_prompts(raw_content)
 
         # Generate metadata - use custom slug if provided
-        slug = custom_slug if custom_slug else slugify(title, max_length=100)
+        # Shorter slugs for cleaner URLs - 60 chars is enough for SEO
+        slug = custom_slug if custom_slug else slugify(title, max_length=60)
 
         # Count words (strip HTML tags for accurate count)
         text_only = re.sub(r'<[^>]+>', '', content)
