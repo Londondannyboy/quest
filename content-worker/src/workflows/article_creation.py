@@ -7,6 +7,7 @@ Timeline: 5-10 minutes
 """
 
 from temporalio import workflow
+from temporalio.common import RetryPolicy
 from datetime import timedelta
 import asyncio
 from typing import Dict, Any
@@ -343,35 +344,44 @@ class ArticleCreationWorkflow:
 
         workflow.logger.info(f"Consolidated {len(all_source_urls)} source URLs for article generation")
 
-        # ===== PHASE 4b: VALIDATE SOURCE URLs BEFORE ARTICLE GENERATION =====
+        # ===== PHASE 4b: VALIDATE SOURCE URLs BEFORE ARTICLE GENERATION (NON-BLOCKING) =====
         # Validate URLs BEFORE giving to Sonnet so it only cites working sources
-        workflow.logger.info("Phase 4b: Validating source URLs (before article generation)")
+        # This is NON-BLOCKING - if validation fails, we continue with unvalidated URLs
+        workflow.logger.info("Phase 4b: Validating source URLs (non-blocking)")
 
         urls_to_validate = [s["url"] for s in all_source_urls if s.get("url")]
+        validated_source_urls = all_source_urls  # Default: use all if validation fails
 
         if urls_to_validate:
-            validation_result = await workflow.execute_activity(
-                "playwright_url_cleanse",
-                args=[urls_to_validate[:50], False],  # use_browser=False for speed (HEAD requests)
-                start_to_close_timeout=timedelta(seconds=60)
-            )
+            try:
+                validation_result = await workflow.execute_activity(
+                    "playwright_url_cleanse",
+                    args=[urls_to_validate[:50], False],  # use_browser=False for speed (HEAD requests)
+                    start_to_close_timeout=timedelta(seconds=45),  # Shorter timeout
+                    retry_policy=RetryPolicy(
+                        maximum_attempts=1,  # Don't retry - non-blocking
+                        initial_interval=timedelta(seconds=1)
+                    )
+                )
 
-            valid_url_set = set(validation_result.get("valid_urls", []))
-            invalid_count = len(validation_result.get("invalid_urls", []))
+                valid_url_set = set(validation_result.get("valid_urls", []))
+                invalid_count = len(validation_result.get("invalid_urls", []))
 
-            # Filter all_source_urls to only include validated URLs
-            validated_source_urls = [s for s in all_source_urls if s.get("url") in valid_url_set]
+                # Filter all_source_urls to only include validated URLs
+                if valid_url_set:
+                    validated_source_urls = [s for s in all_source_urls if s.get("url") in valid_url_set]
+                    workflow.logger.info(
+                        f"URL validation: {len(validated_source_urls)} valid, {invalid_count} filtered"
+                    )
+                else:
+                    # No valid URLs returned - use original list
+                    workflow.logger.warning("URL validation returned no valid URLs - using original list")
+                    validated_source_urls = all_source_urls
 
-            workflow.logger.info(
-                f"URL validation: {len(validated_source_urls)} valid, {invalid_count} invalid/broken"
-            )
-
-            # Log what was filtered out
-            if invalid_count > 0:
-                for item in validation_result.get("invalid_urls", [])[:5]:
-                    workflow.logger.info(f"  Filtered: {item.get('url', '')[:60]} - {item.get('reason', 'unknown')}")
-        else:
-            validated_source_urls = all_source_urls
+            except Exception as e:
+                # Non-blocking: log warning and continue with unvalidated URLs
+                workflow.logger.warning(f"URL validation failed (non-blocking): {e}")
+                workflow.logger.info("Continuing with unvalidated URLs - Phase 5b will catch broken links")
 
         # Build research context using CURATED sources + VALIDATED URLs
         research_context = {
