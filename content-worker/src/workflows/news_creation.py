@@ -77,21 +77,25 @@ class NewsCreationWorkflow:
             "relocation": "Digital Nomad Visa"
         }
         dataforseo_keyword = dataforseo_keywords_by_app.get(app, "private equity")
-        dataforseo_regions = ["UK"]  # UK only - cost optimization
+
+        # News search - UK only (cost optimization)
+        dataforseo_news_regions = ["UK"]
+        # Organic SERP - both UK & US (higher value data with AI Overview & PAA)
+        dataforseo_organic_regions = ["UK", "US"]
 
         workflow.logger.info(f"DataForSEO primary keyword: {dataforseo_keyword}")
 
         dataforseo_result = await workflow.execute_activity(
             "dataforseo_news_search",
-            args=[[dataforseo_keyword], dataforseo_regions, 70],
+            args=[[dataforseo_keyword], dataforseo_news_regions, 70],
             start_to_close_timeout=timedelta(minutes=10)
         )
 
         dataforseo_articles = dataforseo_result.get("articles", [])
-        workflow.logger.info(f"DataForSEO news: {len(dataforseo_articles)} results")
+        workflow.logger.info(f"DataForSEO news (UK only): {len(dataforseo_articles)} results")
 
         # ===== PHASE 1A2: FETCH ORGANIC SERP WITH AI OVERVIEW & PEOPLE ALSO ASK =====
-        workflow.logger.info("Phase 1a2: Fetching organic SERP with AI Overview and People Also Ask (depth 70 = 7 pages)")
+        workflow.logger.info("Phase 1a2: Fetching organic SERP with AI Overview and People Also Ask (UK + US, depth 70 = 7 pages)")
 
         # Use Semaphore to rate-limit organic searches (max 2 concurrent requests)
         semaphore = asyncio.Semaphore(2)
@@ -111,7 +115,7 @@ class NewsCreationWorkflow:
                 )
 
         # Fetch organic results for each region with rate limiting
-        organic_tasks = [fetch_organic_with_semaphore(region) for region in dataforseo_regions]
+        organic_tasks = [fetch_organic_with_semaphore(region) for region in dataforseo_organic_regions]
         organic_results = await asyncio.gather(*organic_tasks, return_exceptions=True)
 
         organic_articles = []
