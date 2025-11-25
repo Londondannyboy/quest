@@ -197,7 +197,7 @@ async def crawl4ai_batch_crawl(urls: list, topic: str = "", keywords: list = Non
 
     service_url = config.CRAWL4AI_SERVICE_URL.rstrip("/")
 
-    async with httpx.AsyncClient(timeout=300.0) as client:  # 5 min timeout for article research
+    async with httpx.AsyncClient(timeout=420.0) as client:  # 7 min timeout for article research
         try:
             # Use /crawl-articles if topic provided, else /crawl-many
             if topic:
