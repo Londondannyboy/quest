@@ -312,14 +312,24 @@ Then the full article body in HTML with Tailwind CSS:
    - Match tone to context (don't be celebratory about job losses)
    - Include relevant industry context and implications
 
+CRITICAL: SOURCE LINKS ARE MANDATORY
+Every paragraph MUST contain at least one <a href="URL"> link to a source from the research.
+- Use the URLs provided in the research context (look for "URL:" lines)
+- Format: <a href="https://..." class="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener">Source Name</a>
+- Minimum 15 links throughout the article
+- ALWAYS end with a "Sources & References" section listing all URLs used
+- Articles without source links will be REJECTED
+
 CRITICAL OUTPUT FORMAT:
 1. Title on first line (specific to THIS topic, not an example)
-2. Full HTML article content
-3. ---MEDIA PROMPTS--- section at the end (REQUIRED - do not skip!)
+2. Full HTML article content WITH INLINE SOURCE LINKS IN EVERY PARAGRAPH
+3. Sources & References section with all URLs used
+4. ---MEDIA PROMPTS--- section at the end (REQUIRED - do not skip!)
    - FEATURED: [80-120 word prompt for hero video]
    - SECTION 1-4: [prompts for content media]
 
-The media prompts section is MANDATORY - without it, no video/images can be generated."""
+The media prompts section is MANDATORY - without it, no video/images can be generated.
+Source links are MANDATORY - articles without <a href> tags will be rejected."""
 
         # Haiku max is 8192, Sonnet/Opus can do more
         # Use 8192 for compatibility with all models
@@ -341,6 +351,20 @@ The media prompts section is MANDATORY - without it, no video/images can be gene
 
         # Extract media prompts from content (FEATURED for hero, SECTION N for content)
         content, featured_prompt, section_prompts = extract_media_prompts(raw_content)
+
+        # Check for source links - warn if missing (critical for SEO)
+        link_count = content.count('<a href')
+        if link_count == 0:
+            activity.logger.warning(f"⚠️ Article has NO source links! This is bad for SEO.")
+        elif link_count < 10:
+            activity.logger.warning(f"⚠️ Article has only {link_count} links (should have 15+)")
+        else:
+            activity.logger.info(f"✅ Article has {link_count} source links")
+
+        # Check for Sources section
+        has_sources_section = 'Sources' in content or 'References' in content
+        if not has_sources_section:
+            activity.logger.warning(f"⚠️ Article missing Sources & References section")
 
         # Generate metadata - use custom slug if provided
         # Shorter slugs for cleaner URLs - 60 chars is enough for SEO
