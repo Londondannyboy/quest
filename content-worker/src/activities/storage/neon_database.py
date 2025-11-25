@@ -358,7 +358,8 @@ async def save_article_to_neon(
     status: str = "draft",
     video_url: Optional[str] = None,
     video_playback_id: Optional[str] = None,
-    video_asset_id: Optional[str] = None
+    video_asset_id: Optional[str] = None,
+    raw_research: Optional[str] = None
 ) -> str:
     """
     Save or update article in Neon database.
@@ -377,6 +378,7 @@ async def save_article_to_neon(
         video_url: Mux HLS stream URL
         video_playback_id: Mux playback ID for generating thumbnails/GIFs
         video_asset_id: Mux asset ID for management
+        raw_research: Full raw research data (unlimited TEXT)
 
     Returns:
         Article ID (str)
@@ -415,6 +417,7 @@ async def save_article_to_neon(
                             video_url = %s,
                             video_playback_id = %s,
                             video_asset_id = %s,
+                            raw_research = %s,
                             updated_at = NOW()
                         WHERE id = %s
                         RETURNING id
@@ -434,6 +437,7 @@ async def save_article_to_neon(
                         video_url,
                         video_playback_id,
                         video_asset_id,
+                        raw_research,
                         article_id
                     ))
 
@@ -461,10 +465,11 @@ async def save_article_to_neon(
                             video_url,
                             video_playback_id,
                             video_asset_id,
+                            raw_research,
                             created_at,
                             updated_at
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
                         ON CONFLICT (slug)
                         DO UPDATE SET
                             title = EXCLUDED.title,
@@ -480,6 +485,7 @@ async def save_article_to_neon(
                             video_url = EXCLUDED.video_url,
                             video_playback_id = EXCLUDED.video_playback_id,
                             video_asset_id = EXCLUDED.video_asset_id,
+                            raw_research = EXCLUDED.raw_research,
                             updated_at = NOW()
                         RETURNING id
                     """, (
@@ -497,7 +503,8 @@ async def save_article_to_neon(
                         status,
                         video_url,
                         video_playback_id,
-                        video_asset_id
+                        video_asset_id,
+                        raw_research
                     ))
 
                     result = await cur.fetchone()

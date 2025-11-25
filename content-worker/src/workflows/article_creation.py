@@ -464,6 +464,41 @@ class ArticleCreationWorkflow:
         # ===== PHASE 7: SAVE TO DATABASE =====
         workflow.logger.info("Phase 7: Saving article to database")
 
+        # Build raw_research string (full research data for Neon - no size limit)
+        import json as json_module
+        raw_research_data = {
+            "topic": topic,
+            "dataforseo": {
+                "articles": dataforseo_data.get("articles", [])[:50],
+                "all_urls": dataforseo_data.get("all_urls", [])[:100],
+            },
+            "serper": {
+                "articles": serper_data.get("articles", [])[:50],
+            },
+            "exa": {
+                "results": exa_data.get("results", [])[:20],
+            },
+            "crawled_pages": [
+                {"url": p.get("url"), "title": p.get("title"), "content": p.get("content", "")[:5000]}
+                for p in crawled_pages[:50]
+            ],
+            "curation": {
+                "curated_sources": curation_result.get("curated_sources", []),
+                "key_facts": curation_result.get("key_facts", []),
+                "perspectives": curation_result.get("perspectives", []),
+                "duplicate_groups": curation_result.get("duplicate_groups", []),
+            },
+            "stats": {
+                "dataforseo_count": dataforseo_count,
+                "serper_count": serper_count,
+                "exa_count": exa_count,
+                "crawled_pages_count": len(crawled_pages),
+                "curated_sources_count": curation_result.get("total_output", 0),
+            }
+        }
+        raw_research = json_module.dumps(raw_research_data)
+        workflow.logger.info(f"Raw research: {len(raw_research)} chars")
+
         # Save article to Neon database
         article_id = await workflow.execute_activity(
             "save_article_to_neon",
@@ -480,7 +515,8 @@ class ArticleCreationWorkflow:
                 "draft",  # status
                 video_result.get("video_url") if video_result else None,
                 video_result.get("video_playback_id") if video_result else None,
-                video_result.get("video_asset_id") if video_result else None
+                video_result.get("video_asset_id") if video_result else None,
+                raw_research  # Full research data
             ],
             start_to_close_timeout=timedelta(seconds=30)
         )
