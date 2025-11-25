@@ -36,8 +36,7 @@ def get_auth_header() -> str:
 async def dataforseo_news_search(
     keywords: list[str],
     regions: list[str] = None,
-    depth: int = 100,
-    time_range: str = "past_24_hours"
+    depth: int = 70
 ) -> dict[str, Any]:
     """
     Search news using DataForSEO Google News API
@@ -45,8 +44,7 @@ async def dataforseo_news_search(
     Args:
         keywords: List of search keywords
         regions: List of region codes (UK, US, SG, etc.)
-        depth: Number of results per query (max 100)
-        time_range: Time filter (past_24_hours, past_week, etc.)
+        depth: Number of results per query (1-200, default 10, recommended 70)
 
     Returns:
         Dict with articles list and metadata
@@ -70,7 +68,6 @@ async def dataforseo_news_search(
                     "location_code": location_code,
                     "language_code": "en",
                     "depth": depth,
-                    "time_range": time_range,
                     "calculate_rectangles": False
                 }]
 
@@ -132,10 +129,9 @@ async def dataforseo_news_search(
 async def dataforseo_serp_search(
     query: str,
     region: str = "UK",
-    depth: int = 100,
+    depth: int = 70,
     include_ai_overview: bool = True,
-    people_also_ask_depth: int = 4,
-    time_range: str = None
+    people_also_ask_depth: int = 4
 ) -> dict[str, Any]:
     """
     Search organic SERP results using DataForSEO with AI Overview and People Also Ask
@@ -143,10 +139,9 @@ async def dataforseo_serp_search(
     Args:
         query: Search query
         region: Region code (UK, US, SG, etc.)
-        depth: Number of results (max 100, ~10 per page, so 70 = 7 pages)
+        depth: Number of results (1-200, default 10, recommended 70 for 7 pages)
         include_ai_overview: Include Google AI Overview results
         people_also_ask_depth: Depth for "People also ask" results (0-4)
-        time_range: Optional time filter (e.g., "past_24_hours", "past_week")
 
     Returns:
         Dict with organic results, AI overview, people also ask, and metadata
@@ -167,10 +162,6 @@ async def dataforseo_serp_search(
         "people_also_ask_click_depth": people_also_ask_depth,
         "calculate_rectangles": False
     }]
-
-    # Add time range if specified
-    if time_range:
-        payload[0]["filters"] = [["serp_date", ">=", time_range]]
 
     async with aiohttp.ClientSession() as session:
         try:

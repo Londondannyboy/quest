@@ -83,7 +83,7 @@ class NewsCreationWorkflow:
 
         dataforseo_result = await workflow.execute_activity(
             "dataforseo_news_search",
-            args=[[dataforseo_keyword], dataforseo_regions, 70, "past_24_hours"],
+            args=[[dataforseo_keyword], dataforseo_regions, 70],
             start_to_close_timeout=timedelta(minutes=10)
         )
 
@@ -103,10 +103,9 @@ class NewsCreationWorkflow:
                     args=[
                         dataforseo_keyword,  # "private equity"
                         region,  # UK or US
-                        70,  # depth: 70 = 7 pages (sweet spot)
+                        70,  # depth: 70 results (sweet spot)
                         True,  # include_ai_overview
-                        4,  # people_also_ask_depth
-                        "past_24_hours"
+                        4  # people_also_ask_depth
                     ],
                     start_to_close_timeout=timedelta(minutes=5)
                 )
