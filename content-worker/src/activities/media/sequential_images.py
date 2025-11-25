@@ -125,7 +125,8 @@ async def generate_sequential_article_images(
     generate_hero: bool = True,
     min_content_images: int = 3,
     max_content_images: int = 5,
-    video_context_url: str = None  # Video thumbnail/GIF for style matching
+    video_context_url: str = None,  # Video thumbnail/GIF for style matching
+    custom_prompts: List[str] = None  # Clean Sonnet-generated prompts (section_asset_prompts)
 ) -> Dict[str, Any]:
     """
     Generate complete image suite for article with contextual consistency.
@@ -170,14 +171,14 @@ async def generate_sequential_article_images(
     )
 
     result = {
-        "featured_image_url": None,
-        "featured_image_alt": None,
-        "featured_image_description": None,
-        "featured_image_title": None,
-        "hero_image_url": None,
-        "hero_image_alt": None,
-        "hero_image_description": None,
-        "hero_image_title": None,
+        "featured_asset_url": None,
+        "featured_asset_alt": None,
+        "featured_asset_description": None,
+        "featured_asset_title": None,
+        "hero_asset_url": None,
+        "hero_asset_alt": None,
+        "hero_asset_description": None,
+        "hero_asset_title": None,
         "total_cost": 0.0,
         "images_generated": 0,
         "success": True,
@@ -267,17 +268,17 @@ async def generate_sequential_article_images(
             )
 
             if hero_result.get("success"):
-                # Set hero fields
-                result["hero_image_url"] = hero_result["cloudinary_url"]
-                result["hero_image_alt"] = f"{title} - Hero image"
-                result["hero_image_description"] = hero_section.get("visual_moment", title)
-                result["hero_image_title"] = title
+                # Set hero fields (using asset terminology to match Neon schema)
+                result["hero_asset_url"] = hero_result["cloudinary_url"]
+                result["hero_asset_alt"] = f"{title} - Hero image"
+                result["hero_asset_description"] = hero_section.get("visual_moment", title)
+                result["hero_asset_title"] = title
 
                 # Also use hero as featured (same image, saves cost)
-                result["featured_image_url"] = hero_result["cloudinary_url"]
-                result["featured_image_alt"] = f"{title} - Featured image"
-                result["featured_image_description"] = hero_section.get("visual_moment", title)
-                result["featured_image_title"] = title
+                result["featured_asset_url"] = hero_result["cloudinary_url"]
+                result["featured_asset_alt"] = f"{title} - Featured image"
+                result["featured_asset_description"] = hero_section.get("visual_moment", title)
+                result["featured_asset_title"] = title
 
                 result["total_cost"] += hero_result.get("cost", 0)
                 result["images_generated"] += 1
@@ -285,12 +286,23 @@ async def generate_sequential_article_images(
                 # Use this as context for content images
                 previous_image_url = hero_result["cloudinary_url"]
 
-                activity.logger.info("Hero image generated successfully (also used as featured)")
+                activity.logger.info("Hero asset generated successfully (also used as featured)")
             else:
-                result["errors"].append(f"Hero image failed: {hero_result.get('error')}")
+                result["errors"].append(f"Hero asset failed: {hero_result.get('error')}")
 
         # Step 4: Generate content images sequentially (THE KEY FEATURE!)
-        # Perspective variations for visual diversity
+        # Use custom_prompts (from Sonnet) if provided, otherwise use section analysis
+
+        # Determine how many images to generate
+        if custom_prompts:
+            # Use clean Sonnet prompts - limit to max_content_images
+            num_to_generate = min(len(custom_prompts), max_content_images)
+            activity.logger.info(f"Using {num_to_generate} Sonnet-generated custom prompts")
+        else:
+            num_to_generate = min(len(image_sections), max_content_images)
+            activity.logger.info(f"Using {num_to_generate} section-analyzed prompts (fallback)")
+
+        # Perspective variations for fallback prompts only
         perspective_variations = [
             "Medium shot showing",
             "Detail close-up of",
@@ -299,23 +311,33 @@ async def generate_sequential_article_images(
             "Bird's eye view of"
         ]
 
-        for i, section in enumerate(image_sections, start=1):
-            if i > max_content_images:
-                break
+        for i in range(1, num_to_generate + 1):
+            activity.logger.info(f"Generating content image {i}/{num_to_generate}...")
 
-            activity.logger.info(f"Generating content image {i}/{len(image_sections)}...")
+            # Use custom prompt if available, otherwise build from section analysis
+            if custom_prompts and i <= len(custom_prompts):
+                # Clean Sonnet-generated prompt
+                content_prompt = build_sequential_prompt(
+                    section={},  # Not used when custom_prompt provided
+                    app=app,
+                    is_first=(previous_image_url is None),
+                    previous_description=None,
+                    custom_prompt=custom_prompts[i - 1]  # Pass clean prompt
+                )
+                activity.logger.info(f"Content image {i} using Sonnet prompt: {custom_prompts[i-1][:80]}...")
+            else:
+                # Fallback: build from section analysis
+                section = image_sections[i - 1] if i <= len(image_sections) else image_sections[-1]
+                content_section = section.copy()
+                perspective = perspective_variations[(i - 1) % len(perspective_variations)]
+                content_section["visual_moment"] = f"{perspective} {section.get('visual_moment', title)}. Content image {i} of {num_to_generate}."
 
-            # Create varied prompt for each content image
-            content_section = section.copy()
-            perspective = perspective_variations[(i - 1) % len(perspective_variations)]
-            content_section["visual_moment"] = f"{perspective} {section.get('visual_moment', title)}. Content image {i} of {len(image_sections)}."
-
-            content_prompt = build_sequential_prompt(
-                section=content_section,
-                app=app,
-                is_first=(previous_image_url is None),
-                previous_description=section.get("visual_moment")
-            )
+                content_prompt = build_sequential_prompt(
+                    section=content_section,
+                    app=app,
+                    is_first=(previous_image_url is None),
+                    previous_description=section.get("visual_moment")
+                )
 
             content_result = await generate_flux_image(
                 prompt=content_prompt,
@@ -329,9 +351,20 @@ async def generate_sequential_article_images(
             if content_result.get("success"):
                 # Store in result dict
                 result[f"content_image{i}_url"] = content_result["cloudinary_url"]
-                result[f"content_image{i}_alt"] = f"{section.get('title', title)} - {section.get('sentiment')}"
-                result[f"content_image{i}_description"] = section.get("visual_moment", "")
-                result[f"content_image{i}_title"] = section.get("title", f"Section {i}")
+
+                # Get metadata from section if available, otherwise use defaults
+                if custom_prompts and i <= len(custom_prompts):
+                    # Custom prompts - use prompt as description
+                    result[f"content_image{i}_alt"] = f"{title} - Content image {i}"
+                    result[f"content_image{i}_description"] = custom_prompts[i - 1][:200]
+                    result[f"content_image{i}_title"] = f"Section {i}"
+                else:
+                    # Section analysis - use section metadata
+                    section = image_sections[i - 1] if i <= len(image_sections) else {}
+                    result[f"content_image{i}_alt"] = f"{section.get('title', title)} - {section.get('sentiment', 'neutral')}"
+                    result[f"content_image{i}_description"] = section.get("visual_moment", "")
+                    result[f"content_image{i}_title"] = section.get("title", f"Section {i}")
+
                 result["total_cost"] += content_result.get("cost", 0)
                 result["images_generated"] += 1
 

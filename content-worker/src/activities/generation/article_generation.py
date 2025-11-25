@@ -391,8 +391,8 @@ The media prompts section is MANDATORY - without it, no video/images can be gene
                 "author": "Quest Editorial Team",
                 "status": "draft",
                 "confidence_score": 1.0,
-                "featured_image_prompt": featured_prompt,
-                "section_image_prompts": section_prompts
+                "featured_asset_prompt": featured_prompt,
+                "section_asset_prompts": section_prompts
             },
             "cost": cost,
             "model_used": f"{provider}:{model_name}",

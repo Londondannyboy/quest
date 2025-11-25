@@ -326,7 +326,7 @@ class ArticleCreationWorkflow:
 
                 # Use the Sonnet-generated media prompt (FEATURED) if no custom prompt provided
                 # This is the proper prompt from article generation, NOT the full article content
-                hero_video_prompt = video_prompt or article.get("featured_image_prompt")
+                hero_video_prompt = video_prompt or article.get("featured_asset_prompt")
 
                 workflow.logger.info(f"Video prompt source: {'custom' if video_prompt else 'Sonnet-generated FEATURED'}")
                 if hero_video_prompt:
@@ -400,7 +400,7 @@ class ArticleCreationWorkflow:
 
             if video_quality and video_context_url and content_video_count > 0:
                 # Get section prompts from article (Sonnet generates these)
-                section_prompts = article.get("section_image_prompts", [])
+                section_prompts = article.get("section_asset_prompts", [])
 
                 if section_prompts:
                     # Use first N section prompts for content videos
@@ -449,7 +449,6 @@ class ArticleCreationWorkflow:
                 # For images-only: generate 2-3 images
                 if content_media_strategy == "hybrid" and video_quality:
                     # Use remaining prompts (3-4) for images
-                    section_prompts = article.get("section_image_prompts", [])
                     min_images = 2
                     max_images = 2
                     workflow.logger.info("Phase 6d: Generating 2 content images (hybrid with videos)")
@@ -457,6 +456,11 @@ class ArticleCreationWorkflow:
                     min_images = 2 if video_quality else 2
                     max_images = 3 if video_quality else 2
                     workflow.logger.info(f"Phase 6c: Generating {max_images} content images")
+
+                # Get clean Sonnet-generated prompts for images (same as videos)
+                image_prompts = article.get("section_asset_prompts", [])
+                if image_prompts:
+                    workflow.logger.info(f"Using {len(image_prompts)} Sonnet-generated section prompts for images")
 
                 images_result = await workflow.execute_activity(
                     "generate_sequential_article_images",
@@ -470,22 +474,23 @@ class ArticleCreationWorkflow:
                         not video_quality,  # generate_hero only if no video
                         min_images,
                         max_images,
-                        video_context_url   # Video GIF for style matching!
+                        video_context_url,  # Video GIF for style matching!
+                        image_prompts       # Clean Sonnet prompts for images
                     ],
                     start_to_close_timeout=timedelta(minutes=8)
                 )
 
             # Update article with asset URLs and metadata (only if no video)
             if not video_quality:
-                article["featured_asset_url"] = images_result.get("featured_image_url")
-                article["featured_asset_alt"] = images_result.get("featured_image_alt")
-                article["featured_asset_title"] = images_result.get("featured_image_title")
-                article["featured_asset_description"] = images_result.get("featured_image_description")
+                article["featured_asset_url"] = images_result.get("featured_asset_url")
+                article["featured_asset_alt"] = images_result.get("featured_asset_alt")
+                article["featured_asset_title"] = images_result.get("featured_asset_title")
+                article["featured_asset_description"] = images_result.get("featured_asset_description")
                 # Reuse featured as hero (cost saving)
-                article["hero_asset_url"] = images_result.get("featured_image_url")
-                article["hero_asset_alt"] = images_result.get("featured_image_alt")
-                article["hero_asset_title"] = images_result.get("featured_image_title")
-                article["hero_asset_description"] = images_result.get("featured_image_description")
+                article["hero_asset_url"] = images_result.get("hero_asset_url")
+                article["hero_asset_alt"] = images_result.get("hero_asset_alt")
+                article["hero_asset_title"] = images_result.get("hero_asset_title")
+                article["hero_asset_description"] = images_result.get("hero_asset_description")
 
             # Content images - collect URLs and all metadata
             content_images = []

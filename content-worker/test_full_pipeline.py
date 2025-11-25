@@ -199,13 +199,13 @@ async def test_article_generation(curation_result: dict = None):
 
     # Show media prompts
     print_section("Media Prompts Extracted")
-    featured = article.get("featured_image_prompt", "")
+    featured = article.get("featured_asset_prompt", "")
     if featured:
         print(f"  FEATURED: {featured[:150]}...")
     else:
         print(f"  ❌ No FEATURED prompt found!")
 
-    section_prompts = article.get("section_image_prompts", [])
+    section_prompts = article.get("section_asset_prompts", [])
     for i, prompt in enumerate(section_prompts[:4]):
         print(f"  SECTION {i+1}: {prompt[:100]}...")
 
@@ -310,7 +310,7 @@ async def test_full_pipeline():
     article = article_result.get("article", {})
 
     # 3. Video generation (using FEATURED prompt)
-    featured_prompt = article.get("featured_image_prompt")
+    featured_prompt = article.get("featured_asset_prompt")
     if featured_prompt:
         video_result = await test_video_generation(featured_prompt)
     else:
@@ -318,7 +318,7 @@ async def test_full_pipeline():
         video_result = None
 
     # 4. Image generation (using section prompts)
-    section_prompts = article.get("section_image_prompts", [])
+    section_prompts = article.get("section_asset_prompts", [])
     if section_prompts:
         image_result = await test_image_generation(section_prompts[:3])
     else:
