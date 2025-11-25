@@ -80,7 +80,9 @@ class NewsCreationWorkflow:
 
         workflow.logger.info(f"DataForSEO primary keyword: {dataforseo_keyword}")
 
-        # ===== PHASE 1A1: FETCH NEWS =====
+        # ===== PHASE 1A: FETCH NEWS FROM DATAFORSEO =====
+        workflow.logger.info("Phase 1a: Fetching news from DataForSEO (UK)")
+
         dataforseo_result = await workflow.execute_activity(
             "dataforseo_news_search",
             args=[[dataforseo_keyword], ["UK"], 70],
@@ -88,27 +90,7 @@ class NewsCreationWorkflow:
         )
 
         dataforseo_articles = dataforseo_result.get("articles", [])
-        workflow.logger.info(f"DataForSEO news (UK): {len(dataforseo_articles)} results")
-
-        # ===== PHASE 1A2: FETCH ORGANIC SERP WITH AI OVERVIEW & PEOPLE ALSO ASK =====
-        workflow.logger.info("Phase 1a2: Fetching organic SERP with AI Overview and People Also Ask (UK, depth 70 = 7 pages)")
-
-        # Fetch organic results for UK
-        organic_result = await workflow.execute_activity(
-            "dataforseo_serp_search",
-            args=[
-                dataforseo_keyword,  # "private equity"
-                "UK",  # UK only
-                70,  # depth: 70 results (sweet spot)
-                True,  # include_ai_overview
-                4  # people_also_ask_depth
-            ],
-            start_to_close_timeout=timedelta(minutes=5)
-        )
-
-        organic_articles = organic_result.get("results", [])
-
-        workflow.logger.info(f"DataForSEO organic + AI overview (UK): {len(organic_articles)} results")
+        workflow.logger.info(f"DataForSEO news: {len(dataforseo_articles)} results")
 
         # ===== PHASE 1B: FETCH NEWS FROM SERPER (SUPPLEMENTARY) =====
         workflow.logger.info("Phase 1b: Fetching news from Serper (supplementary) - past 24 hours")
@@ -136,13 +118,6 @@ class NewsCreationWorkflow:
                 seen_urls.add(url)
                 stories.append(article)
 
-        # Add organic SERP results with AI Overview and People Also Ask
-        for article in organic_articles:
-            url = article.get("url", "").lower().replace("www.", "").split("?")[0]
-            if url and url not in seen_urls:
-                seen_urls.add(url)
-                stories.append(article)
-
         # Add Serper (supplementary)
         for article in serper_articles:
             url = article.get("url", "").lower().replace("www.", "").split("?")[0]
@@ -151,7 +126,7 @@ class NewsCreationWorkflow:
                 stories.append(article)
 
         total_cost = dataforseo_result.get("cost", 0) + serper_result.get("cost", 0)
-        workflow.logger.info(f"Total unique stories: {len(stories)} (news: {len(dataforseo_articles)}, organic: {len(organic_articles)}, serper: {len(serper_articles)}) (cost: ${total_cost:.3f})")
+        workflow.logger.info(f"Total unique stories: {len(stories)} (dataforseo: {len(dataforseo_articles)}, serper: {len(serper_articles)}) (cost: ${total_cost:.3f})")
 
         if not stories:
             return {
