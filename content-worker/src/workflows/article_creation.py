@@ -305,9 +305,30 @@ class ArticleCreationWorkflow:
         # Initialize video_result for use in Phase 7 save
         video_result = None
 
-        # ===== PHASE 5: ANALYZE SECTIONS (for images) =====
+        # ===== PHASE 5c: GENERATE MEDIA PROMPTS (separate step for reliability) =====
+        # Generate clean, focused video and image prompts AFTER article generation
+        # This is more reliable than trying to extract prompts from article content
+        media_prompts_result = None
+        if generate_images or video_quality:
+            workflow.logger.info("Phase 5c: Generating media prompts (separate step)")
+
+            media_prompts_result = await workflow.execute_activity(
+                "generate_media_prompts",
+                args=[article["title"], topic, app, 4],  # 4 image prompts
+                start_to_close_timeout=timedelta(seconds=60)
+            )
+
+            if media_prompts_result.get("success"):
+                workflow.logger.info(
+                    f"Media prompts generated: video={bool(media_prompts_result.get('video_prompt'))}, "
+                    f"images={len(media_prompts_result.get('image_prompts', []))}"
+                )
+            else:
+                workflow.logger.warning(f"Media prompt generation failed: {media_prompts_result.get('error')}")
+
+        # ===== PHASE 5d: ANALYZE SECTIONS (for images) =====
         if generate_images:
-            workflow.logger.info("Phase 5: Analyzing sections for image generation")
+            workflow.logger.info("Phase 5d: Analyzing sections for image generation")
 
             section_analysis = await workflow.execute_activity(
                 "analyze_article_sections",
@@ -324,11 +345,19 @@ class ArticleCreationWorkflow:
                 # Generate video for hero/featured
                 workflow.logger.info(f"Phase 6a: Generating video ({video_quality} quality, model={video_model})")
 
-                # Use the Sonnet-generated media prompt (FEATURED) if no custom prompt provided
-                # This is the proper prompt from article generation, NOT the full article content
-                hero_video_prompt = video_prompt or article.get("featured_asset_prompt")
+                # Use prompts from dedicated media prompt generation step
+                # Priority: custom > media_prompts_result > fallback to topic
+                if video_prompt:
+                    hero_video_prompt = video_prompt
+                    prompt_source = "custom"
+                elif media_prompts_result and media_prompts_result.get("video_prompt"):
+                    hero_video_prompt = media_prompts_result["video_prompt"]
+                    prompt_source = "dedicated media prompt"
+                else:
+                    hero_video_prompt = None
+                    prompt_source = "auto-generated"
 
-                workflow.logger.info(f"Video prompt source: {'custom' if video_prompt else 'Sonnet-generated FEATURED'}")
+                workflow.logger.info(f"Video prompt source: {prompt_source}")
                 if hero_video_prompt:
                     workflow.logger.info(f"Hero video prompt: {hero_video_prompt[:120]}...")
                 else:
@@ -399,8 +428,11 @@ class ArticleCreationWorkflow:
             content_video_count = max(0, video_count - 1)  # Subtract hero video
 
             if video_quality and video_context_url and content_video_count > 0:
-                # Get section prompts from article (Sonnet generates these)
-                section_prompts = article.get("section_asset_prompts", [])
+                # Get section prompts from dedicated media prompt generation
+                if media_prompts_result and media_prompts_result.get("image_prompts"):
+                    section_prompts = media_prompts_result["image_prompts"]
+                else:
+                    section_prompts = []
 
                 if section_prompts:
                     # Use first N section prompts for content videos
@@ -457,10 +489,13 @@ class ArticleCreationWorkflow:
                     max_images = 3 if video_quality else 2
                     workflow.logger.info(f"Phase 6c: Generating {max_images} content images")
 
-                # Get clean Sonnet-generated prompts for images (same as videos)
-                image_prompts = article.get("section_asset_prompts", [])
-                if image_prompts:
-                    workflow.logger.info(f"Using {len(image_prompts)} Sonnet-generated section prompts for images")
+                # Get clean prompts from dedicated media prompt generation step
+                if media_prompts_result and media_prompts_result.get("image_prompts"):
+                    image_prompts = media_prompts_result["image_prompts"]
+                    workflow.logger.info(f"Using {len(image_prompts)} dedicated media prompts for images")
+                else:
+                    image_prompts = []
+                    workflow.logger.info("No dedicated image prompts - will use section analysis")
 
                 images_result = await workflow.execute_activity(
                     "generate_sequential_article_images",

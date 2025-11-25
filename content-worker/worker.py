@@ -125,6 +125,10 @@ from src.activities.generation.research_curation import (
     curate_research_sources,
 )
 
+from src.activities.generation.media_prompts import (
+    generate_media_prompts,
+)
+
 from src.activities.generation.completeness import (
     calculate_completeness_score,
     get_missing_fields,
@@ -292,6 +296,7 @@ async def main():
             # Generation
             generate_company_profile_v2,
             generate_article_content,
+            generate_media_prompts,  # Separate media prompt generation
             curate_research_sources,
             calculate_completeness_score,
             get_missing_fields,
