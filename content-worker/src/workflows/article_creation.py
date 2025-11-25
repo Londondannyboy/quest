@@ -231,6 +231,45 @@ class ArticleCreationWorkflow:
             f"{len(curation_result.get('key_facts', []))} facts extracted"
         )
 
+        # ===== PHASE 3b: BUILD RAW RESEARCH (early - preserve even if article gen fails) =====
+        # Build raw_research JSON immediately after curation so we don't lose it
+        # This includes full URLs for source attribution in article generation
+        import json as json_module
+        raw_research_data = {
+            "topic": topic,
+            "dataforseo": {
+                "articles": dataforseo_data.get("articles", [])[:50],
+                "all_urls": dataforseo_data.get("all_urls", [])[:100],
+            },
+            "serper": {
+                "articles": serper_data.get("articles", [])[:50],
+            },
+            "exa": {
+                "results": exa_data.get("results", [])[:20],
+            },
+            "crawled_pages": [
+                {"url": p.get("url"), "title": p.get("title"), "content": p.get("content", "")[:5000]}
+                for p in crawled_pages[:50]
+            ],
+            "curation": {
+                "curated_sources": curation_result.get("curated_sources", []),
+                "key_facts": curation_result.get("key_facts", []),
+                "perspectives": curation_result.get("perspectives", []),
+                "high_authority_sources": curation_result.get("high_authority_sources", []),
+                "article_outline": curation_result.get("article_outline", []),
+                "duplicate_groups": curation_result.get("duplicate_groups", []),
+            },
+            "stats": {
+                "dataforseo_count": dataforseo_count,
+                "serper_count": serper_count,
+                "exa_count": exa_count,
+                "crawled_pages_count": len(crawled_pages),
+                "curated_sources_count": curation_result.get("total_output", 0),
+            }
+        }
+        raw_research = json_module.dumps(raw_research_data)
+        workflow.logger.info(f"Phase 3b: Raw research built ({len(raw_research)} chars, {len(curation_result.get('curated_sources', []))} curated sources with URLs)")
+
         # ===== PHASE 4: ZEP CONTEXT =====
         workflow.logger.info("Phase 4: Querying Zep for context")
 
@@ -313,41 +352,8 @@ class ArticleCreationWorkflow:
 
         # ===== PHASE 6: SAVE TO DATABASE (early - article is safe even if media fails) =====
         workflow.logger.info("Phase 6: Saving article to database (before media generation)")
-
-        # Build raw_research string (full research data for Neon - no size limit)
-        import json as json_module
-        raw_research_data = {
-            "topic": topic,
-            "dataforseo": {
-                "articles": dataforseo_data.get("articles", [])[:50],
-                "all_urls": dataforseo_data.get("all_urls", [])[:100],
-            },
-            "serper": {
-                "articles": serper_data.get("articles", [])[:50],
-            },
-            "exa": {
-                "results": exa_data.get("results", [])[:20],
-            },
-            "crawled_pages": [
-                {"url": p.get("url"), "title": p.get("title"), "content": p.get("content", "")[:5000]}
-                for p in crawled_pages[:50]
-            ],
-            "curation": {
-                "curated_sources": curation_result.get("curated_sources", []),
-                "key_facts": curation_result.get("key_facts", []),
-                "perspectives": curation_result.get("perspectives", []),
-                "duplicate_groups": curation_result.get("duplicate_groups", []),
-            },
-            "stats": {
-                "dataforseo_count": dataforseo_count,
-                "serper_count": serper_count,
-                "exa_count": exa_count,
-                "crawled_pages_count": len(crawled_pages),
-                "curated_sources_count": curation_result.get("total_output", 0),
-            }
-        }
-        raw_research = json_module.dumps(raw_research_data)
-        workflow.logger.info(f"Raw research: {len(raw_research)} chars")
+        # raw_research was already built in Phase 3b (immediately after curation)
+        workflow.logger.info(f"Using raw_research from Phase 3b ({len(raw_research)} chars)")
 
         # Initial save - no video/images yet (they'll be added later)
         article_id = await workflow.execute_activity(
