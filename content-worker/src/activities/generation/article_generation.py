@@ -164,34 +164,49 @@ Then the full article body in HTML with Tailwind CSS:
    - Cover edge cases, exceptions, requirements, and practical considerations
    - If the research provides information, USE ALL OF IT - integrate everything
 
-4. **Image Prompts (REQUIRED - 4 prompts minimum)**
-   After the article content, add image generation prompts:
+4. **Media Prompts (REQUIRED - 4 prompts minimum for video/image generation)**
+   After the article content, add prompts for video and image generation:
 
-   ---IMAGE PROMPTS---
-   FEATURED: [Vivid cinematic description for hero image - must include specific story elements like golf course, boardroom, etc]
-   SECTION 1: [First content image - opening scene establishing context]
-   SECTION 2: [Second content image - development/action scene]
-   SECTION 3: [Third content image - different angle/moment]
-   SECTION 4: [Fourth content image - resolution/implications scene]
+   ---MEDIA PROMPTS---
+   FEATURED: [Hero scene - the defining visual moment of this story]
+   SECTION 1: [Opening - establishing context and setting]
+   SECTION 2: [Development - action, progress, or key moment]
+   SECTION 3: [Different angle - alternative perspective or detail]
+   SECTION 4: [Resolution - implications, outcome, or emotional payoff]
 
-   Rules for image prompts:
-   - MUST include 4+ prompts (FEATURED + 3-4 SECTION prompts)
-   - Match tone to article sentiment (somber for layoffs, celebratory for deals)
-   - MEDIA STYLE FOR THIS APP: {media_style}
-   - DETAILED STYLE GUIDE: {media_style_details}
-   - Include SPECIFIC visual elements from the story (Mediterranean coastline for Cyprus visa, laptop at beach cafe for digital nomad, etc)
-   - Each image should show DIFFERENT scene/angle - visual progression telling the story
-   - Be vivid and specific - describe scenes, emotions, lighting, atmosphere in detail
+   **PROMPT FORMULA (use this structure for EVERY prompt):**
+   [Subject] + [Action] + [Scene] + [Camera Movement] + [Style/Atmosphere]
 
-   CRITICAL - AVOID CONTENT FILTER:
-   - NEVER ask to show logos, brand marks, or trademarked visual elements
-   - WRONG: "Callaway logo", "Nike swoosh", "show the Apple logo"
-   - Company names for CONTEXT are OK: "executives from the golf company celebrating"
-   - But NOT for visual replication: "logo on the wall", "branded equipment"
-   - Focus on scenes, people, emotions, locations - NOT brand identity or logos
-   - For people: describe the SCENE and EMOTION, not specific individuals
+   **CAMERA LANGUAGE (include one per prompt):**
+   - Movement: "camera pushes in slowly", "pulls back to reveal", "orbits around subject"
+   - Tracking: "camera follows", "tracks alongside", "pans across"
+   - Angles: "low angle looking up", "aerial view", "eye-level intimate shot"
+   - Shots: "wide establishing shot", "medium shot", "close-up on hands/face", "macro detail"
 
-   DO NOT include any {{IMAGE_N}} placeholders in the article content. Images will be inserted automatically.
+   **SEQUENTIAL ACTIONS (describe motion chronologically):**
+   - GOOD: "Woman opens laptop, takes a sip of coffee, looks up and smiles at the view"
+   - BAD: "Woman working at laptop" (static, no motion)
+
+   **LIGHTING & ATMOSPHERE:**
+   - Time: "golden hour warm light", "soft morning glow", "dramatic sunset"
+   - Quality: "natural light filtering through", "soft diffused lighting", "cinematic contrast"
+   - Color: "warm amber tones", "cool Mediterranean blues", "rich saturated colors"
+
+   **APP STYLE GUIDE:**
+   - TONE: {media_style}
+   - DETAILS: {media_style_details}
+
+   **EXAMPLE PROMPT (follow this level of detail):**
+   "Young professional opens laptop at seaside cafe, takes a sip of coffee, looks up and smiles at the Mediterranean view. Camera pushes in slowly from wide to medium shot. Golden hour lighting, warm amber tones transitioning to soft blues, shallow depth of field, cinematic travel documentary style."
+
+   **WHAT TO AVOID (negative prompt elements):**
+   - NO text, words, letters, typography, watermarks
+   - NO logos, brand marks, trademarked elements
+   - NO stock-photo poses, fake smiles, staged corporate shots
+   - NO generic scenes - be SPECIFIC to THIS article's topic and location
+   - NO static descriptions - include MOTION and CAMERA MOVEMENT
+
+   DO NOT include any {{IMAGE_N}} placeholders in the article content. Media will be inserted automatically.
 
 5. **Structure**
    - Strong lead paragraph (who, what, when, where, why)
