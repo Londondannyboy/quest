@@ -39,12 +39,6 @@ from src.activities.research.dataforseo import (
     dataforseo_serp_search,
 )
 
-from src.activities.research.news_monitor import (
-    fetch_news_for_keywords,
-    assess_news_batch,
-    get_recent_articles_from_neon,
-)
-
 from src.activities.research.crawl import (
     httpx_crawl,
     # firecrawl_crawl,  # Disabled - out of credit
@@ -242,10 +236,7 @@ async def main():
             dataforseo_news_search,
             dataforseo_serp_search,
 
-            # Research - News Monitor
-            fetch_news_for_keywords,  # News monitor
-            assess_news_batch,  # News monitor
-            get_recent_articles_from_neon,  # News monitor
+            # Research - Other
             httpx_crawl,
             crawl4ai_service_crawl,  # External Crawl4AI service (browser automation)
             # firecrawl_crawl,  # Disabled - out of credit
