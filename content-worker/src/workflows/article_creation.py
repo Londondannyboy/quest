@@ -188,11 +188,11 @@ class ArticleCreationWorkflow:
 
         # Use batch crawl with BM25 topic filtering
         # Extracts only content relevant to the article topic
+        # Note: No heartbeat_timeout - Crawl4AI is a single long HTTP call to external service
         crawl_result = await workflow.execute_activity(
             "crawl4ai_batch",
             args=[urls_to_crawl, topic, []],  # urls, topic, keywords
-            start_to_close_timeout=timedelta(minutes=5),
-            heartbeat_timeout=timedelta(seconds=60)
+            start_to_close_timeout=timedelta(minutes=5)
         )
 
         crawled_pages = crawl_result.get("pages", [])
