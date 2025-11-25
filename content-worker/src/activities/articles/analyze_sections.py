@@ -137,6 +137,7 @@ Rules:
 - Recommend 3-5 images distributed across the article
 - visual_moment should describe an appropriate image for that section
 - Match tone to context (somber for layoffs, professional for deals)
+- IMPORTANT: visual_moment descriptions must be purely visual - NO text, words, signs, or typography
 - Only return valid JSON, no other text"""
 
         message = client.messages.create(

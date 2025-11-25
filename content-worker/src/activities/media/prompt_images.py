@@ -19,7 +19,8 @@ BASE_STYLE = (
     "Semi-cartoon illustration style, stylized NOT photorealistic. "
     "Clean lines, professional but approachable, digital art aesthetic. "
     "Corporate navy blue, charcoal gray, tech blue accents. "
-    "IMPORTANT: Include specific visual elements from the prompt context."
+    "IMPORTANT: Include specific visual elements from the prompt context. "
+    "CRITICAL: NO TEXT, NO WORDS, NO LETTERS, NO WRITING, NO TYPOGRAPHY in the image - purely visual illustration only."
 )
 
 # Visual progression hints for sequential storytelling
