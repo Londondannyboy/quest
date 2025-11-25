@@ -95,6 +95,7 @@ from src.activities.media.prompt_images import (
 from src.activities.media.video_generation import (
     generate_article_video,
     get_video_cost_estimate,
+    generate_sequential_content_videos,
 )
 
 from src.activities.media.intelligent_prompt_builder import (
@@ -281,6 +282,7 @@ async def main():
             # Video
             build_intelligent_video_prompt,
             generate_article_video,
+            generate_sequential_content_videos,  # Sequential videos using GIF as context
             get_video_cost_estimate,
             upload_video_to_mux,
             upload_video_file_to_mux,

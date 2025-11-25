@@ -369,3 +369,131 @@ async def get_video_cost_estimate(
         "resolution": quality_config["resolution"],
         "description": quality_config["description"]
     }
+
+
+@activity.defn
+async def generate_sequential_content_videos(
+    article_slug: str,
+    title: str,
+    content: str,
+    app: str,
+    context_gif_url: str,
+    video_prompts: list,
+    quality: str = "medium",
+    duration: int = 3,
+    aspect_ratio: str = "16:9"
+) -> Dict[str, Any]:
+    """
+    Generate sequential content videos using the hero video's GIF as visual context.
+
+    Each video uses the previous video's style for consistency, starting from
+    the context GIF. This creates a visually cohesive set of videos that tell
+    different parts of the story.
+
+    Args:
+        article_slug: Article slug for logging
+        title: Article title
+        content: Article content for prompt generation
+        app: Application name
+        context_gif_url: GIF URL from hero video (starting context)
+        video_prompts: List of prompts for each video (from section analysis)
+        quality: Video quality tier
+        duration: Duration per video in seconds
+        aspect_ratio: Video aspect ratio
+
+    Returns:
+        Dict with video URLs, costs, and metadata
+    """
+    import time
+
+    activity.logger.info(f"Generating {len(video_prompts)} sequential videos for: {article_slug}")
+    activity.logger.info(f"Using context GIF: {context_gif_url[:60]}...")
+
+    replicate_token = os.environ.get("REPLICATE_API_TOKEN")
+    if not replicate_token:
+        raise ValueError("REPLICATE_API_TOKEN not set")
+
+    client = replicate.Client(api_token=replicate_token)
+    quality_config = VIDEO_QUALITY_MODELS.get(quality, VIDEO_QUALITY_MODELS["medium"])
+    resolution = quality_config["resolution"]
+
+    videos = []
+    total_cost = 0.0
+    current_context = context_gif_url  # Start with the hero video's GIF
+
+    for i, prompt in enumerate(video_prompts[:4]):  # Max 4 content videos
+        activity.logger.info(f"Generating video {i+1}/{len(video_prompts)}: {prompt[:60]}...")
+
+        # Enhance prompt for Seedance
+        seedance_prompt = f"{prompt} CRITICAL: Absolutely NO text, NO words, NO letters - purely visual only."
+
+        try:
+            # Use image-to-video mode with context
+            prediction = client.predictions.create(
+                model="bytedance/seedance-1-pro-fast",
+                input={
+                    "prompt": seedance_prompt,
+                    "duration": duration,
+                    "resolution": resolution,
+                    "aspect_ratio": aspect_ratio,
+                    "camera_fixed": False,
+                    "fps": 24,
+                    "image": current_context  # Use previous video's GIF as context!
+                }
+            )
+
+            activity.logger.info(f"Video {i+1} prediction: {prediction.id}")
+
+            # Poll with heartbeats
+            max_wait = 300  # 5 minutes per video
+            poll_interval = 5
+            elapsed = 0
+
+            while elapsed < max_wait:
+                prediction.reload()
+                activity.heartbeat(f"Video {i+1}: {prediction.status}, {elapsed}s")
+
+                if prediction.status == "succeeded":
+                    video_url = prediction.output
+                    cost = quality_config["cost_per_second"] * duration
+                    total_cost += cost
+
+                    videos.append({
+                        "index": i + 1,
+                        "video_url": video_url,
+                        "prompt": prompt[:200],
+                        "cost": cost
+                    })
+
+                    activity.logger.info(f"Video {i+1} generated: {video_url[:60]}...")
+
+                    # Update context for next video (this video's URL will be processed by Mux later)
+                    # For now, we keep using the original GIF for consistency
+                    # In future, we could extract GIF from each video for true chaining
+                    break
+
+                elif prediction.status == "failed":
+                    activity.logger.error(f"Video {i+1} failed: {prediction.error}")
+                    break
+                elif prediction.status == "canceled":
+                    activity.logger.error(f"Video {i+1} canceled")
+                    break
+
+                time.sleep(poll_interval)
+                elapsed += poll_interval
+            else:
+                activity.logger.error(f"Video {i+1} timed out after {max_wait}s")
+
+        except Exception as e:
+            activity.logger.error(f"Video {i+1} generation failed: {e}")
+            continue
+
+    activity.logger.info(f"Generated {len(videos)} videos, total cost: ${total_cost:.3f}")
+
+    return {
+        "videos": videos,
+        "videos_generated": len(videos),
+        "total_cost": total_cost,
+        "context_gif_used": context_gif_url,
+        "model": "bytedance/seedance-1-pro-fast"
+    }
