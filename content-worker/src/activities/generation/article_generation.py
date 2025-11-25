@@ -167,17 +167,21 @@ Then the full article body in HTML with Tailwind CSS:
    Rules for image prompts:
    - MUST include 4+ prompts (FEATURED + 3-4 SECTION prompts)
    - Match tone to article sentiment (somber for layoffs, celebratory for deals)
-   - Semi-cartoon illustration style, NOT photorealistic
-   - Include SPECIFIC visual elements from the story (golf course for golf deal, boardroom for M&A, etc)
+   - Style depends on app:
+     * RELOCATION: Cinematic, aspirational, lifestyle photography style. Beautiful locations, happy people enjoying life abroad, stunning cityscapes, cozy cafes, beach sunsets, modern apartments. Photorealistic, warm lighting, travel magazine quality. People should look natural and relatable.
+     * PLACEMENT/PE_NEWS: Professional, corporate, cinematic. Modern offices, deal celebrations, boardrooms, city skylines. Can be more stylized/illustrated for abstract concepts.
+     * DEFAULT: Cinematic, professional, high production value
+   - Include SPECIFIC visual elements from the story (Mediterranean coastline for Cyprus visa, laptop at beach cafe for digital nomad, etc)
    - Each image should show DIFFERENT scene/angle - visual progression telling the story
-   - Be vivid and specific - not generic "business meeting"
+   - Be vivid and specific - "young professional working from sunlit cafe overlooking the sea" NOT "person at computer"
 
    CRITICAL - AVOID CONTENT FILTER:
    - NEVER ask to show logos, brand marks, or trademarked visual elements
    - WRONG: "Callaway logo", "Nike swoosh", "show the Apple logo"
    - Company names for CONTEXT are OK: "executives from the golf company celebrating"
    - But NOT for visual replication: "logo on the wall", "branded equipment"
-   - Focus on scenes, people, emotions - NOT brand identity or logos
+   - Focus on scenes, people, emotions, locations - NOT brand identity or logos
+   - For people: describe the SCENE and EMOTION, not specific individuals
 
    DO NOT include any {{IMAGE_N}} placeholders in the article content. Images will be inserted automatically.
 
