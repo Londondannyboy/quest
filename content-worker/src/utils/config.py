@@ -167,9 +167,9 @@ class Config:
         Returns:
             Tuple of (provider, model_name)
         """
-        # Anthropic Claude for article generation (Haiku for cost savings)
+        # Anthropic Claude for article generation (Sonnet for comprehensive long-form content)
         if cls.ANTHROPIC_API_KEY:
-            return ("anthropic", "claude-3-5-haiku-20241022")
+            return ("anthropic", "claude-sonnet-4-20250514")
         elif cls.GOOGLE_API_KEY:
             return ("google-gla", "gemini-1.5-flash")
         elif cls.OPENAI_API_KEY:

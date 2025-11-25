@@ -47,20 +47,20 @@ async def curate_research_sources(
     # Combine all sources into unified format
     all_sources = []
 
-    # Add crawled pages (richest content)
-    for i, page in enumerate(crawled_pages[:50]):  # Up to 50 crawled pages
+    # Add crawled pages (richest content) - increased limits for comprehensive articles
+    for i, page in enumerate(crawled_pages[:75]):  # Up to 75 crawled pages
         if page.get("content"):
             all_sources.append({
                 "id": f"crawl_{i}",
                 "type": "crawled",
                 "url": page.get("url", ""),
                 "title": page.get("title", ""),
-                "content": page.get("content", "")[:4000],  # 4k chars per source
+                "content": page.get("content", "")[:8000],  # 8k chars per source for rich content
                 "source": page.get("source", "")
             })
 
     # Add news articles (metadata + snippets)
-    for i, article in enumerate(news_articles[:30]):  # Up to 30 news
+    for i, article in enumerate(news_articles[:50]):  # Up to 50 news articles
         all_sources.append({
             "id": f"news_{i}",
             "type": "news",
@@ -72,14 +72,14 @@ async def curate_research_sources(
         })
 
     # Add Exa results (research summaries)
-    for i, result in enumerate(exa_results[:10]):  # Up to 10 Exa
+    for i, result in enumerate(exa_results[:20]):  # Up to 20 Exa results
         content = result.get("content", "") or result.get("text", "")
         all_sources.append({
             "id": f"exa_{i}",
             "type": "research",
             "url": result.get("url", ""),
             "title": result.get("title", ""),
-            "content": content[:4000],
+            "content": content[:8000],  # 8k chars for rich research content
             "source": "exa"
         })
 
@@ -159,9 +159,10 @@ SOURCES:
     client = anthropic.Anthropic(api_key=api_key)
 
     try:
+        # Use Sonnet for better curation quality with higher token limit
         message = client.messages.create(
-            model="claude-3-5-haiku-20241022",
-            max_tokens=4096,
+            model="claude-sonnet-4-20250514",
+            max_tokens=16384,  # Much higher limit for comprehensive curation
             messages=[{"role": "user", "content": prompt}]
         )
 
@@ -210,7 +211,7 @@ SOURCES:
             "duplicate_groups": curation_result.get("duplicate_groups", []),
             "total_input": len(all_sources),
             "total_output": len(curated_with_content),
-            "model": "claude-3-5-haiku-20241022"
+            "model": "claude-sonnet-4-20250514"
         }
 
     except Exception as e:
