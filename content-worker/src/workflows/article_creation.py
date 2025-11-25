@@ -343,17 +343,47 @@ class ArticleCreationWorkflow:
 
         workflow.logger.info(f"Consolidated {len(all_source_urls)} source URLs for article generation")
 
-        # Build research context using CURATED sources + consolidated URLs
+        # ===== PHASE 4b: VALIDATE SOURCE URLs BEFORE ARTICLE GENERATION =====
+        # Validate URLs BEFORE giving to Sonnet so it only cites working sources
+        workflow.logger.info("Phase 4b: Validating source URLs (before article generation)")
+
+        urls_to_validate = [s["url"] for s in all_source_urls if s.get("url")]
+
+        if urls_to_validate:
+            validation_result = await workflow.execute_activity(
+                "playwright_url_cleanse",
+                args=[urls_to_validate[:50], False],  # use_browser=False for speed (HEAD requests)
+                start_to_close_timeout=timedelta(seconds=60)
+            )
+
+            valid_url_set = set(validation_result.get("valid_urls", []))
+            invalid_count = len(validation_result.get("invalid_urls", []))
+
+            # Filter all_source_urls to only include validated URLs
+            validated_source_urls = [s for s in all_source_urls if s.get("url") in valid_url_set]
+
+            workflow.logger.info(
+                f"URL validation: {len(validated_source_urls)} valid, {invalid_count} invalid/broken"
+            )
+
+            # Log what was filtered out
+            if invalid_count > 0:
+                for item in validation_result.get("invalid_urls", [])[:5]:
+                    workflow.logger.info(f"  Filtered: {item.get('url', '')[:60]} - {item.get('reason', 'unknown')}")
+        else:
+            validated_source_urls = all_source_urls
+
+        # Build research context using CURATED sources + VALIDATED URLs
         research_context = {
             "curated_sources": curation_result.get("curated_sources", []),
             "key_facts": curation_result.get("key_facts", []),
             "perspectives": curation_result.get("perspectives", []),
             "high_authority_sources": curation_result.get("high_authority_sources", []),
             "article_outline": curation_result.get("article_outline", []),
-            "all_source_urls": all_source_urls,  # NEW: consolidated URL list for citations
-            "news_articles": all_news_articles[:20],  # Increased from 10
-            "crawled_pages": crawled_pages[:15],  # Increased from 5
-            "exa_results": exa_data.get("results", [])[:10],  # Increased from 5
+            "all_source_urls": validated_source_urls,  # VALIDATED URLs only - Sonnet can cite with confidence
+            "news_articles": all_news_articles[:20],
+            "crawled_pages": crawled_pages[:15],
+            "exa_results": exa_data.get("results", [])[:10],
             "zep_context": zep_context
         }
 
