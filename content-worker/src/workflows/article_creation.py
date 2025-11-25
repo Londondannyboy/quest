@@ -68,14 +68,13 @@ class ArticleCreationWorkflow:
         # ===== PHASE 1: RESEARCH TOPIC =====
         workflow.logger.info("Phase 1: Parallel research (Serper + Exa)")
 
-        # Serper news search
+        # Serper article search
         news_task = workflow.execute_activity(
-            "serper_company_search",  # Reuse! Works for any topic with company research format
+            "serper_article_search",
             args=[
-                "",  # No domain for articles
-                topic,  # Company name field = topic
-                article_type,  # Category field = article type
-                jurisdiction
+                topic,
+                jurisdiction,
+                30  # depth
             ],
             start_to_close_timeout=timedelta(minutes=2)
         )

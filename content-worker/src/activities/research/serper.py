@@ -289,6 +289,97 @@ async def serper_news_search(
     }
 
 
+@activity.defn(name="serper_article_search")
+async def serper_article_search(
+    topic: str,
+    jurisdiction: str,
+    depth: int = 30
+) -> Dict[str, Any]:
+    """
+    Search for article content using Serper.dev for topic-based research (for article creation).
+
+    Used by ArticleCreationWorkflow to research topics for article content generation.
+
+    Args:
+        topic: Article topic/subject to research
+        jurisdiction: Country context for geo-targeted results (e.g., "UK", "US")
+        depth: Number of results per query (default 30)
+
+    Returns:
+        Dict with articles list and metadata
+    """
+    if not config.SERPER_API_KEY:
+        activity.logger.warning("SERPER_API_KEY not configured")
+        return {
+            "articles": [],
+            "topic": topic,
+            "jurisdiction": jurisdiction,
+            "cost": 0.0,
+            "error": "SERPER_API_KEY not configured"
+        }
+
+    gl = GEO_MAP.get(jurisdiction.upper(), "us")
+    all_results = []
+
+    activity.logger.info(f"Serper article search: '{topic}' in {jurisdiction}")
+
+    try:
+        async with httpx.AsyncClient() as client:
+            # Search for articles on the topic
+            payload = {
+                "q": topic,
+                "gl": gl,
+                "num": depth,
+                "type": "news"  # Focus on news/articles
+            }
+
+            response = await client.post(
+                "https://google.serper.dev/search",
+                headers={
+                    "X-API-KEY": config.SERPER_API_KEY,
+                    "Content-Type": "application/json"
+                },
+                json=payload,
+                timeout=30.0
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get("organic", [])
+                cost = data.get("searchParameters", {}).get("credits", 0) / 10000
+
+                for item in results:
+                    all_results.append({
+                        "title": item.get("title", ""),
+                        "url": item.get("link", ""),
+                        "source": item.get("domain", "").replace("www.", ""),
+                        "snippet": item.get("snippet", ""),
+                        "position": item.get("position", 0),
+                        "topic": topic,
+                        "jurisdiction": jurisdiction,
+                        "api_source": "serper"
+                    })
+
+                activity.logger.info(
+                    f"Serper article: {len(results)} results for '{topic}' in {jurisdiction}"
+                )
+            else:
+                activity.logger.error(
+                    f"Serper article error: {response.status_code} for '{topic}' in {jurisdiction}"
+                )
+
+    except Exception as e:
+        activity.logger.error(f"Serper article exception: {e}")
+
+    return {
+        "articles": all_results,
+        "topic": topic,
+        "jurisdiction": jurisdiction,
+        "total": len(all_results),
+        "cost": cost if response.status_code == 200 else 0.0
+    }
+
+
 @activity.defn(name="serper_targeted_search")
 async def fetch_targeted_research(
     domain: str,
