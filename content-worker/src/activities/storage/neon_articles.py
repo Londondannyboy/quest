@@ -20,7 +20,7 @@ async def get_recent_articles_from_neon(
     limit: int = 50
 ) -> List[Dict[str, Any]]:
     """
-    Get recently published articles from Neon database.
+    Get recently published articles from Neon database (graceful failure).
 
     Args:
         app: Application name (placement, relocation, etc.)
@@ -28,14 +28,15 @@ async def get_recent_articles_from_neon(
         limit: Maximum articles to return
 
     Returns:
-        List of recent articles with metadata
+        List of recent articles with metadata (empty list if unavailable)
     """
     activity.logger.info(f"Fetching recent articles for {app} from last {days} days (limit {limit})")
 
     if not config.DATABASE_URL:
-        activity.logger.warning("DATABASE_URL not configured")
+        activity.logger.warning("DATABASE_URL not configured - returning empty list")
         return []
 
+    conn = None
     try:
         conn = psycopg2.connect(config.DATABASE_URL)
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -55,16 +56,22 @@ async def get_recent_articles_from_neon(
             cur.execute(query, (app, days, limit))
             articles = cur.fetchall()
 
-            activity.logger.info(f"Found {len(articles)} articles for {app}")
+            activity.logger.info(f"✅ Found {len(articles)} recent articles for {app}")
 
             # Convert to dict list
             result = [dict(row) for row in articles]
             return result
 
+    except psycopg2.OperationalError as e:
+        activity.logger.warning(f"⚠️ Database connection failed - continuing without recent articles: {e}")
+        return []
     except Exception as e:
-        activity.logger.error(f"Failed to fetch recent articles: {e}")
+        activity.logger.warning(f"⚠️ Failed to fetch recent articles - continuing: {e}")
         return []
 
     finally:
         if conn:
-            conn.close()
+            try:
+                conn.close()
+            except Exception:
+                pass

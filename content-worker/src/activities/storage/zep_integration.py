@@ -44,10 +44,10 @@ async def query_zep_for_context(
     app: str = "placement"  # Default for backward compatibility
 ) -> Dict[str, Any]:
     """
-    Query Zep knowledge graph for existing company coverage.
+    Query Zep knowledge graph for existing company coverage (graceful).
 
     This checks if we have articles, deals, or other content
-    mentioning this company already.
+    mentioning this company already. Returns empty results if Zep is unavailable.
 
     Args:
         company_name: Company name
@@ -55,69 +55,87 @@ async def query_zep_for_context(
         app: Application type (placement, relocation) for graph selection
 
     Returns:
-        Dict with articles, deals, found_existing_coverage
+        Dict with articles, deals, found_existing_coverage (safe defaults if unavailable)
     """
     graph_id = get_graph_id_for_app(app)
-    activity.logger.info(f"Querying Zep graph '{graph_id}' for {company_name} context")
+    activity.logger.info(f"🔍 Querying Zep graph '{graph_id}' for: {company_name}")
 
     if not config.ZEP_API_KEY:
-        activity.logger.warning("ZEP_API_KEY not configured")
+        activity.logger.warning("⚠️ ZEP_API_KEY not configured - proceeding without Zep context")
         return {
             "articles": [],
             "deals": [],
+            "people": [],
             "found_existing_coverage": False,
-            "error": "ZEP_API_KEY not configured"
+            "available": False
         }
 
     try:
         client = AsyncZep(api_key=config.ZEP_API_KEY)
 
         # Search query combining company name and domain
-        search_query = f"{company_name} {domain}"
+        search_query = f"{company_name} {domain}".strip()
 
         # 1. Search episodes (narrative content)
-        activity.logger.info(f"Searching episodes for: {search_query}")
-        episode_results = await client.graph.search(
-            graph_id=graph_id,
-            query=search_query,
-            scope="episodes",  # Search narrative episodes
-            limit=20
-        )
+        try:
+            activity.logger.info(f"  Searching episodes...")
+            episode_results = await client.graph.search(
+                graph_id=graph_id,
+                query=search_query,
+                scope="episodes",  # Search narrative episodes
+                limit=20
+            )
+        except Exception as e:
+            activity.logger.warning(f"  ⚠️ Episode search failed: {e}")
+            episode_results = None
 
         # 2. Search nodes/entities (structured entities)
-        activity.logger.info(f"Searching entities for: {search_query}")
-        entity_results = await client.graph.search(
-            graph_id=graph_id,
-            query=search_query,
-            scope="nodes",  # Search structured entities
-            limit=20
-        )
+        try:
+            activity.logger.info(f"  Searching entities...")
+            entity_results = await client.graph.search(
+                graph_id=graph_id,
+                query=search_query,
+                scope="nodes",  # Search structured entities
+                limit=20
+            )
+        except Exception as e:
+            activity.logger.warning(f"  ⚠️ Entity search failed: {e}")
+            entity_results = None
 
         # Extract structured entities from episode data
         extracted_deals = []
         extracted_people = []
 
         # Parse episode data for extracted_entities
-        if hasattr(episode_results, 'edges'):
-            for edge in episode_results.edges:
-                if hasattr(edge, 'fact') and edge.fact:
-                    try:
-                        import json
-                        # Try to parse the fact as JSON
-                        fact_data = json.loads(edge.fact) if isinstance(edge.fact, str) else edge.fact
-                        if isinstance(fact_data, dict):
-                            # Extract entities if present
-                            entities = fact_data.get('extracted_entities', {})
-                            if entities.get('deals'):
-                                extracted_deals.extend(entities['deals'][:5])
-                            if entities.get('people'):
-                                extracted_people.extend(entities['people'][:5])
-                    except:
-                        pass
+        if episode_results and hasattr(episode_results, 'edges'):
+            try:
+                for edge in episode_results.edges:
+                    if hasattr(edge, 'fact') and edge.fact:
+                        try:
+                            import json
+                            # Try to parse the fact as JSON
+                            fact_data = json.loads(edge.fact) if isinstance(edge.fact, str) else edge.fact
+                            if isinstance(fact_data, dict):
+                                # Extract entities if present
+                                entities = fact_data.get('extracted_entities', {})
+                                if entities.get('deals'):
+                                    extracted_deals.extend(entities['deals'][:5])
+                                if entities.get('people'):
+                                    extracted_people.extend(entities['people'][:5])
+                        except Exception:
+                            pass
+            except Exception as e:
+                activity.logger.warning(f"  ⚠️ Failed to parse episodes: {e}")
 
         # Extract from nodes
-        articles = extract_articles_from_results(entity_results)
-        node_deals = extract_deals_from_results(entity_results)
+        articles = []
+        node_deals = []
+        if entity_results:
+            try:
+                articles = extract_articles_from_results(entity_results)
+                node_deals = extract_deals_from_results(entity_results)
+            except Exception as e:
+                activity.logger.warning(f"  ⚠️ Failed to extract from entities: {e}")
 
         # Combine deals from episodes and nodes
         all_deals = extracted_deals + node_deals
@@ -132,7 +150,7 @@ async def query_zep_for_context(
                 unique_deals.append(deal)
 
         activity.logger.info(
-            f"Zep context: {len(articles)} articles, {len(unique_deals)} deals, {len(extracted_people)} people"
+            f"✅ Zep context: {len(articles)} articles, {len(unique_deals)} deals, {len(extracted_people)} people"
         )
 
         return {
@@ -140,17 +158,19 @@ async def query_zep_for_context(
             "deals": unique_deals[:15],  # Return more deals
             "people": extracted_people[:10],
             "found_existing_coverage": len(articles) > 0 or len(unique_deals) > 0,
-            "total_episodes": len(episode_results.edges) if hasattr(episode_results, 'edges') else 0,
-            "total_entities": len(entity_results.nodes) if hasattr(entity_results, 'nodes') else 0
+            "total_episodes": len(episode_results.edges) if episode_results and hasattr(episode_results, 'edges') else 0,
+            "total_entities": len(entity_results.nodes) if entity_results and hasattr(entity_results, 'nodes') else 0,
+            "available": True
         }
 
     except Exception as e:
-        activity.logger.error(f"Zep query failed: {e}")
+        activity.logger.warning(f"⚠️ Zep query failed - continuing without context: {e}")
         return {
             "articles": [],
             "deals": [],
             "people": [],
             "found_existing_coverage": False,
+            "available": False,
             "error": str(e)
         }
 

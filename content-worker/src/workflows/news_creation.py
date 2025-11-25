@@ -137,16 +137,20 @@ class NewsCreationWorkflow:
                 "message": "No news stories found for today"
             }
 
-        # ===== PHASE 2: GET RECENT ARTICLES =====
-        workflow.logger.info("Phase 2: Getting recently published from Neon")
+        # ===== PHASE 2: GET RECENT ARTICLES (OPTIONAL) =====
+        workflow.logger.info("Phase 2: Getting recently published from Neon (optional - graceful if unavailable)")
 
-        recent_articles = await workflow.execute_activity(
-            "neon_get_recent_articles",
-            args=[app, 7, 50],
-            start_to_close_timeout=timedelta(seconds=30)
-        )
-
-        workflow.logger.info(f"Found {len(recent_articles)} recent articles")
+        recent_articles = []
+        try:
+            recent_articles = await workflow.execute_activity(
+                "neon_get_recent_articles",
+                args=[app, 7, 50],
+                start_to_close_timeout=timedelta(seconds=30)
+            )
+            workflow.logger.info(f"✅ Found {len(recent_articles)} recent articles from Neon")
+        except Exception as e:
+            workflow.logger.warning(f"⚠️ Could not fetch recent articles from Neon (optional) - continuing: {e}")
+            recent_articles = []
 
         # ===== PHASE 3: AI ASSESSMENT =====
         workflow.logger.info("Phase 3: AI assessment of story relevance")
@@ -204,15 +208,26 @@ class NewsCreationWorkflow:
 
                 workflow.logger.info(f"Creating article: {story_title[:50]}...")
 
-                # ===== PHASE 3.5: CHECK ZEP FOR EXISTING COVERAGE =====
+                # ===== PHASE 3.5: CHECK ZEP FOR EXISTING COVERAGE (OPTIONAL) =====
                 # Query Zep to see if this story already exists
-                zep_check = await workflow.execute_activity(
-                    "query_zep_for_context",
-                    args=[story_title, "", app],  # Story title as company_name, empty domain
-                    start_to_close_timeout=timedelta(seconds=30)
-                )
+                existing_articles = []
+                try:
+                    zep_check = await workflow.execute_activity(
+                        "query_zep_for_context",
+                        args=[story_title, "", app],  # Story title as company_name, empty domain
+                        start_to_close_timeout=timedelta(seconds=30)
+                    )
 
-                existing_articles = zep_check.get("articles", [])
+                    if zep_check.get("available", False):
+                        existing_articles = zep_check.get("articles", [])
+                        workflow.logger.info(f"  Zep checked: {len(existing_articles)} existing articles found")
+                    else:
+                        workflow.logger.info(f"  ⚠️ Zep not available (optional)")
+
+                except Exception as e:
+                    workflow.logger.warning(f"  ⚠️ Zep query failed (optional, continuing): {e}")
+                    existing_articles = []
+
                 if existing_articles:
                     # Check if it's a recent duplicate or old developing story
                     most_recent = existing_articles[0] if existing_articles else None
