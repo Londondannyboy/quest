@@ -18,6 +18,7 @@ from datetime import timedelta
 from typing import Dict, Any, List
 
 with workflow.unsafe.imports_passed_through():
+    import asyncio
     from src.config.app_config import get_app_config, get_all_apps
 
 
