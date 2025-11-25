@@ -268,18 +268,18 @@ class ArticleCreationWorkflow:
                     start_to_close_timeout=timedelta(minutes=10)
                 )
 
-                # Store video data
+                # Store video data (video-first: GIF for featured, video supersedes hero)
                 video_result = {
                     "video_url": mux_result.get("stream_url"),
                     "video_playback_id": mux_result.get("playback_id"),
                     "video_asset_id": mux_result.get("asset_id"),
-                    "video_gif_url": mux_result.get("gif_url"),
-                    "video_thumbnail_url": mux_result.get("thumbnail_url"),
                 }
 
-                # Use video thumbnail as featured/hero image
-                article["featured_image_url"] = mux_result.get("thumbnail_featured")
-                article["hero_image_url"] = mux_result.get("thumbnail_hero")
+                # Video-first logic:
+                # - featured_asset_url = GIF (for collection cards)
+                # - hero_asset_url = None (video_url supersedes in frontend)
+                article["featured_asset_url"] = mux_result.get("gif_url")
+                article["hero_asset_url"] = None  # Video supersedes hero
 
                 workflow.logger.info(
                     f"Video uploaded to Mux: {mux_result.get('playback_id')}, "
@@ -313,17 +313,17 @@ class ArticleCreationWorkflow:
             else:
                 images_result = {"images_generated": 0, "total_cost": 0}
 
-            # Update article with image URLs and metadata (only if no video)
+            # Update article with asset URLs and metadata (only if no video)
             if not video_quality:
-                article["featured_image_url"] = images_result.get("featured_image_url")
-                article["featured_image_alt"] = images_result.get("featured_image_alt")
-                article["featured_image_title"] = images_result.get("featured_image_title")
-                article["featured_image_description"] = images_result.get("featured_image_description")
+                article["featured_asset_url"] = images_result.get("featured_image_url")
+                article["featured_asset_alt"] = images_result.get("featured_image_alt")
+                article["featured_asset_title"] = images_result.get("featured_image_title")
+                article["featured_asset_description"] = images_result.get("featured_image_description")
                 # Reuse featured as hero (cost saving)
-                article["hero_image_url"] = images_result.get("featured_image_url")
-                article["hero_image_alt"] = images_result.get("featured_image_alt")
-                article["hero_image_title"] = images_result.get("featured_image_title")
-                article["hero_image_description"] = images_result.get("featured_image_description")
+                article["hero_asset_url"] = images_result.get("featured_image_url")
+                article["hero_asset_alt"] = images_result.get("featured_image_alt")
+                article["hero_asset_title"] = images_result.get("featured_image_title")
+                article["hero_asset_description"] = images_result.get("featured_image_description")
 
             # Content images - collect URLs and all metadata
             content_images = []
@@ -398,15 +398,13 @@ class ArticleCreationWorkflow:
                 app,
                 article_type,
                 article,  # Full payload
-                article.get("featured_image_url"),
-                article.get("hero_image_url"),
+                article.get("featured_asset_url"),  # GIF when video exists, image otherwise
+                article.get("hero_asset_url"),  # None when video exists (video supersedes)
                 [],  # mentioned_companies (extracted by Zep)
                 "draft",  # status
                 video_result.get("video_url") if video_result else None,
                 video_result.get("video_playback_id") if video_result else None,
-                video_result.get("video_asset_id") if video_result else None,
-                video_result.get("video_gif_url") if video_result else None,
-                video_result.get("video_thumbnail_url") if video_result else None
+                video_result.get("video_asset_id") if video_result else None
             ],
             start_to_close_timeout=timedelta(seconds=30)
         )
@@ -462,8 +460,10 @@ class ArticleCreationWorkflow:
             "word_count": article["word_count"],
             "section_count": article["section_count"],
             "image_count": article.get("image_count", 0),
-            "featured_image_url": article.get("featured_image_url"),
-            "hero_image_url": article.get("hero_image_url"),
+            "featured_asset_url": article.get("featured_asset_url"),
+            "hero_asset_url": article.get("hero_asset_url"),
+            "video_url": video_result.get("video_url") if video_result else None,
+            "video_playback_id": video_result.get("video_playback_id") if video_result else None,
             "research_cost": total_cost,
             "article": article  # Full payload for debugging
         }

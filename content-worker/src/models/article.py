@@ -35,23 +35,23 @@ class ArticlePayload(BaseModel):
     meta_description: str = Field(description="SEO meta description (150-160 chars)")
     tags: list[str] = Field(default_factory=list, description="Article tags")
 
-    # ===== VISUAL ASSETS (Populated by image generation activity) =====
-    # Featured (1200x630 - social sharing)
-    featured_image_url: Optional[str] = Field(default=None)
-    featured_image_alt: Optional[str] = Field(default=None)
-    featured_image_title: Optional[str] = Field(default=None)
-    featured_image_description: Optional[str] = Field(default=None)
+    # ===== VIDEO (Primary media - video-first architecture) =====
+    video_url: Optional[str] = Field(default=None, description="Mux HLS stream URL")
+    video_playback_id: Optional[str] = Field(default=None, description="Mux playback ID for thumbnails/GIFs")
+    video_asset_id: Optional[str] = Field(default=None, description="Mux asset ID")
 
-    # Hero (16:9 - article header)
-    hero_image_url: Optional[str] = Field(default=None)
-    hero_image_alt: Optional[str] = Field(default=None)
-    hero_image_title: Optional[str] = Field(default=None)
-    hero_image_description: Optional[str] = Field(default=None)
+    # ===== VISUAL ASSETS (GIF when video exists, image otherwise) =====
+    # Featured (for collection cards - GIF from Mux or static image)
+    featured_asset_url: Optional[str] = Field(default=None)
+    featured_asset_alt: Optional[str] = Field(default=None)
+    featured_asset_title: Optional[str] = Field(default=None)
+    featured_asset_description: Optional[str] = Field(default=None)
 
-    # Hero Video (optional)
-    hero_video_url: Optional[str] = Field(default=None)
-    hero_video_title: Optional[str] = Field(default=None)
-    hero_video_description: Optional[str] = Field(default=None)
+    # Hero (null when video exists - video supersedes)
+    hero_asset_url: Optional[str] = Field(default=None)
+    hero_asset_alt: Optional[str] = Field(default=None)
+    hero_asset_title: Optional[str] = Field(default=None)
+    hero_asset_description: Optional[str] = Field(default=None)
 
     # Content Images 1-3 (4:3 - in-article)
     content_image_1_url: Optional[str] = Field(default=None)

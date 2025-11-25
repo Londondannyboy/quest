@@ -46,7 +46,7 @@ async def fetch_related_articles(
                         a.title,
                         a.payload->>'excerpt' as excerpt,
                         a.published_at,
-                        a.featured_image_url,
+                        a.featured_asset_url,
                         ac.relevance_score
                     FROM articles a
                     INNER JOIN article_companies ac ON a.id = ac.article_id
@@ -66,7 +66,7 @@ async def fetch_related_articles(
                         "title": row[2],
                         "excerpt": row[3],
                         "published_at": row[4].isoformat() if row[4] else None,
-                        "featured_image_url": row[5],
+                        "featured_asset_url": row[5],
                         "relevance_score": float(row[6]) if row[6] else 0.0
                     })
 
@@ -164,7 +164,7 @@ async def get_article_timeline(
                         a.title,
                         a.payload->>'excerpt' as excerpt,
                         a.published_at,
-                        a.featured_image_url,
+                        a.featured_asset_url,
                         a.payload->>'reading_time_minutes' as reading_time,
                         ac.relevance_score,
                         -- Get mentioned companies
@@ -199,7 +199,7 @@ async def get_article_timeline(
                         "title": row[2],
                         "excerpt": row[3],
                         "published_at": row[4].isoformat() if row[4] else None,
-                        "featured_image_url": row[5],
+                        "featured_asset_url": row[5],
                         "reading_time_minutes": row[6],
                         "relevance_score": float(row[7]) if row[7] else 0.0,
                         "mentioned_companies": row[8] or []

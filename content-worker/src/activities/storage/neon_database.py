@@ -325,15 +325,13 @@ async def save_article_to_neon(
     app: str,
     article_type: str,
     payload: Dict[str, Any],
-    featured_image_url: Optional[str] = None,
-    hero_image_url: Optional[str] = None,
+    featured_asset_url: Optional[str] = None,
+    hero_asset_url: Optional[str] = None,
     mentioned_companies: Optional[list] = None,
     status: str = "draft",
     video_url: Optional[str] = None,
     video_playback_id: Optional[str] = None,
-    video_asset_id: Optional[str] = None,
-    video_gif_url: Optional[str] = None,
-    video_thumbnail_url: Optional[str] = None
+    video_asset_id: Optional[str] = None
 ) -> str:
     """
     Save or update article in Neon database.
@@ -345,15 +343,13 @@ async def save_article_to_neon(
         app: App context (placement, relocation, etc.)
         article_type: Type (news, guide, comparison) - stored in payload
         payload: Full ArticlePayload as dict
-        featured_image_url: URL to featured image
-        hero_image_url: URL to hero image
+        featured_asset_url: URL to featured asset (GIF when video exists, image otherwise)
+        hero_asset_url: URL to hero asset (null when video exists - video supersedes)
         mentioned_companies: List of company mentions with relevance scores
         status: Article status (draft, published, archived)
         video_url: Mux HLS stream URL
-        video_playback_id: Mux playback ID
-        video_asset_id: Mux asset ID
-        video_gif_url: Animated GIF URL for collections
-        video_thumbnail_url: Primary thumbnail URL
+        video_playback_id: Mux playback ID for generating thumbnails/GIFs
+        video_asset_id: Mux asset ID for management
 
     Returns:
         Article ID (str)
@@ -385,15 +381,13 @@ async def save_article_to_neon(
                             meta_description = %s,
                             word_count = %s,
                             article_angle = %s,
-                            featured_image_url = %s,
-                            hero_image_url = %s,
+                            featured_asset_url = %s,
+                            hero_asset_url = %s,
                             payload = %s,
                             status = %s,
                             video_url = %s,
                             video_playback_id = %s,
                             video_asset_id = %s,
-                            video_gif_url = %s,
-                            video_thumbnail_url = %s,
                             updated_at = NOW()
                         WHERE id = %s
                         RETURNING id
@@ -406,15 +400,13 @@ async def save_article_to_neon(
                         meta_description,
                         word_count,
                         article_angle,
-                        featured_image_url,
-                        hero_image_url,
+                        featured_asset_url,
+                        hero_asset_url,
                         json.dumps(payload),
                         status,
                         video_url,
                         video_playback_id,
                         video_asset_id,
-                        video_gif_url,
-                        video_thumbnail_url,
                         article_id
                     ))
 
@@ -435,19 +427,17 @@ async def save_article_to_neon(
                             meta_description,
                             word_count,
                             article_angle,
-                            featured_image_url,
-                            hero_image_url,
+                            featured_asset_url,
+                            hero_asset_url,
                             payload,
                             status,
                             video_url,
                             video_playback_id,
                             video_asset_id,
-                            video_gif_url,
-                            video_thumbnail_url,
                             created_at,
                             updated_at
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
                         ON CONFLICT (slug)
                         DO UPDATE SET
                             title = EXCLUDED.title,
@@ -456,15 +446,13 @@ async def save_article_to_neon(
                             meta_description = EXCLUDED.meta_description,
                             word_count = EXCLUDED.word_count,
                             article_angle = EXCLUDED.article_angle,
-                            featured_image_url = EXCLUDED.featured_image_url,
-                            hero_image_url = EXCLUDED.hero_image_url,
+                            featured_asset_url = EXCLUDED.featured_asset_url,
+                            hero_asset_url = EXCLUDED.hero_asset_url,
                             payload = EXCLUDED.payload,
                             status = EXCLUDED.status,
                             video_url = EXCLUDED.video_url,
                             video_playback_id = EXCLUDED.video_playback_id,
                             video_asset_id = EXCLUDED.video_asset_id,
-                            video_gif_url = EXCLUDED.video_gif_url,
-                            video_thumbnail_url = EXCLUDED.video_thumbnail_url,
                             updated_at = NOW()
                         RETURNING id
                     """, (
@@ -476,15 +464,13 @@ async def save_article_to_neon(
                         meta_description,
                         word_count,
                         article_angle,
-                        featured_image_url,
-                        hero_image_url,
+                        featured_asset_url,
+                        hero_asset_url,
                         json.dumps(payload),
                         status,
                         video_url,
                         video_playback_id,
-                        video_asset_id,
-                        video_gif_url,
-                        video_thumbnail_url
+                        video_asset_id
                     ))
 
                     result = await cur.fetchone()
@@ -564,8 +550,8 @@ async def get_article_by_slug(slug: str) -> Optional[Dict[str, Any]]:
                         app,
                         content,
                         excerpt,
-                        featured_image_url,
-                        hero_image_url,
+                        featured_asset_url,
+                        hero_asset_url,
                         meta_description,
                         word_count,
                         article_angle,
@@ -573,7 +559,9 @@ async def get_article_by_slug(slug: str) -> Optional[Dict[str, Any]]:
                         status,
                         published_at,
                         created_at,
-                        updated_at
+                        updated_at,
+                        video_url,
+                        video_playback_id
                     FROM articles
                     WHERE slug = %s
                 """, (slug,))
@@ -590,8 +578,8 @@ async def get_article_by_slug(slug: str) -> Optional[Dict[str, Any]]:
                     "app": row[3],
                     "content": row[4],
                     "excerpt": row[5],
-                    "featured_image_url": row[6],
-                    "hero_image_url": row[7],
+                    "featured_asset_url": row[6],
+                    "hero_asset_url": row[7],
                     "meta_description": row[8],
                     "word_count": row[9],
                     "article_angle": row[10],
@@ -600,6 +588,8 @@ async def get_article_by_slug(slug: str) -> Optional[Dict[str, Any]]:
                     "published_at": row[13].isoformat() if row[13] else None,
                     "created_at": row[14].isoformat() if row[14] else None,
                     "updated_at": row[15].isoformat() if row[15] else None,
+                    "video_url": row[16],
+                    "video_playback_id": row[17],
                 }
 
     except Exception as e:
