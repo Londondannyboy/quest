@@ -177,19 +177,25 @@ Then the full article body in HTML with Tailwind CSS:
    **PROMPT FORMULA (use this structure for EVERY prompt):**
    [Subject] + [Action] + [Scene] + [Camera Movement] + [Style/Atmosphere]
 
-   **CAMERA LANGUAGE (include one per prompt):**
-   - Movement: "camera pushes in slowly", "pulls back to reveal", "orbits around subject"
-   - Tracking: "camera follows", "tracks alongside", "pans across"
-   - Angles: "low angle looking up", "aerial view", "eye-level intimate shot"
-   - Shots: "wide establishing shot", "medium shot", "close-up on hands/face", "macro detail"
+   **CAMERA LANGUAGE (Seedance-specific - include one per prompt):**
+   - Movement: "camera pushes in slowly", "pulls back gently to reveal", "orbits smoothly around subject"
+   - Tracking: "camera follows closely", "tracks alongside", "pans across gradually"
+   - Types: "aerial shot", "handheld", "surround", "zoom", "lens switching"
+   - Shots: "wide establishing shot", "medium shot", "close-up", "macro detail"
 
    **SEQUENTIAL ACTIONS (describe motion chronologically):**
-   - GOOD: "Woman opens laptop, takes a sip of coffee, looks up and smiles at the view"
+   - Format: [Subject] + [Action 1] + [Action 2] + [Action 3]
+   - GOOD: "Woman opens laptop slowly, takes a sip of coffee, looks up and smiles warmly at the view"
    - BAD: "Woman working at laptop" (static, no motion)
 
-   **LIGHTING & ATMOSPHERE:**
-   - Time: "golden hour warm light", "soft morning glow", "dramatic sunset"
-   - Quality: "natural light filtering through", "soft diffused lighting", "cinematic contrast"
+   **DEGREE ADVERBS (critical for motion intensity - Seedance needs these!):**
+   - Speed: "quickly", "slowly", "gradually", "suddenly"
+   - Intensity: "gently", "violently", "softly", "dramatically"
+   - Examples: "waves crash violently", "light flickers gently", "camera pushes in slowly"
+
+   **LIGHTING & ATMOSPHERE (set the mood):**
+   - Time: "golden hour warm light", "soft early morning glow", "dramatic dusk"
+   - Quality: "natural light filtering through softly", "dim atmospheric lighting", "bright midday sun"
    - Color: "warm amber tones", "cool Mediterranean blues", "rich saturated colors"
 
    **APP STYLE GUIDE:**
@@ -197,14 +203,15 @@ Then the full article body in HTML with Tailwind CSS:
    - DETAILS: {media_style_details}
 
    **EXAMPLE PROMPT (follow this level of detail):**
-   "Young professional opens laptop at seaside cafe, takes a sip of coffee, looks up and smiles at the Mediterranean view. Camera pushes in slowly from wide to medium shot. Golden hour lighting, warm amber tones transitioning to soft blues, shallow depth of field, cinematic travel documentary style."
+   "Young professional in white linen shirt opens laptop slowly at seaside cafe, takes a gentle sip of coffee, looks up and smiles warmly at the Mediterranean view. Camera pushes in gradually from wide to medium shot. Golden hour lighting, warm amber tones, soft natural light filtering through olive trees, cinematic travel documentary style."
 
-   **WHAT TO AVOID (negative prompt elements):**
-   - NO text, words, letters, typography, watermarks
-   - NO logos, brand marks, trademarked elements
-   - NO stock-photo poses, fake smiles, staged corporate shots
-   - NO generic scenes - be SPECIFIC to THIS article's topic and location
-   - NO static descriptions - include MOTION and CAMERA MOVEMENT
+   **IMPORTANT - Seedance ignores negative prompts, so focus on what you WANT:**
+   - Describe ONLY desired elements (don't say "no text" - just don't mention text)
+   - Keep prompts simple - model expands your intent automatically
+   - Be SPECIFIC to THIS article's topic and location
+   - Always include MOTION and CAMERA MOVEMENT
+   - Add degree adverbs for intensity control
+   - Use characteristic details: "woman wearing sunglasses", "old weathered hands"
 
    DO NOT include any {{IMAGE_N}} placeholders in the article content. Media will be inserted automatically.
 
