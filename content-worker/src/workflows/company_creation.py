@@ -250,29 +250,38 @@ class CompanyCreationWorkflow:
             if result.get("url"):
                 all_source_urls.append(result["url"])
 
-        # Validate URLs with Playwright URL Cleanse
-        validation_result = await workflow.execute_activity(
-            "playwright_url_cleanse",
-            args=[all_source_urls],
-            start_to_close_timeout=timedelta(seconds=30)
-        )
+        # Validate URLs with Playwright URL Cleanse (non-blocking)
+        try:
+            validation_result = await workflow.execute_activity(
+                "playwright_url_cleanse",
+                args=[all_source_urls],
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=RetryPolicy(maximum_attempts=1)  # Don't retry - non-critical
+            )
 
-        # Filter out invalid URLs from research data
-        valid_urls_set = set(validation_result["valid_urls"])
-        news_data["articles"] = [
-            article for article in news_data.get("articles", [])
-            if article.get("url") in valid_urls_set
-        ]
-        exa_data["results"] = [
-            result for result in exa_data.get("results", [])
-            if result.get("url") in valid_urls_set
-        ]
+            # Filter out invalid URLs from research data
+            valid_urls_set = set(validation_result.get("valid_urls", []))
+            if valid_urls_set:
+                news_data["articles"] = [
+                    article for article in news_data.get("articles", [])
+                    if article.get("url") in valid_urls_set
+                ]
+                exa_data["results"] = [
+                    result for result in exa_data.get("results", [])
+                    if result.get("url") in valid_urls_set
+                ]
 
-        workflow.logger.info(
-            f"URL validation: {len(validation_result['valid_urls'])} valid, "
-            f"{len(validation_result['invalid_urls'])} invalid "
-            f"({validation_result['paywall_count']} paywalls)"
-        )
+                workflow.logger.info(
+                    f"URL validation: {len(validation_result.get('valid_urls', []))} valid, "
+                    f"{len(validation_result.get('invalid_urls', []))} invalid "
+                    f"({validation_result.get('paywall_count', 0)} paywalls)"
+                )
+            else:
+                workflow.logger.warning("URL validation returned no valid URLs - using all URLs")
+        except Exception as e:
+            # Non-blocking: log warning and continue with all URLs
+            workflow.logger.warning(f"URL validation failed (non-blocking): {e}")
+            workflow.logger.info("Continuing with unvalidated URLs")
 
         # ===== PHASE 6: GENERATE PROFILE (V2 - Narrative-First) =====
         workflow.logger.info("Phase 6: Generating company profile with V2 (Narrative-First)")
