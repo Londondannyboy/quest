@@ -18,14 +18,19 @@ class ArticleCreationWorkflow:
     Complete article creation workflow with parallel research.
 
     Phases:
-    1. Research Topic (60s) - Serper + Exa in parallel
+    1. Research Topic (60s) - DataForSEO + Serper + Exa in parallel
     2. Crawl Discovered URLs (90s) - Get full content
-    3. Query Zep Context (5s)
-    4. Generate Article (60s) - AI with rich context
-    5. Analyze Sections (10s) - For image generation
-    6. Generate Images (5-8min) - Sequential contextual
-    7. Save to Database (5s)
-    8. Sync to Zep (5s)
+    3. Curate Research Sources (30s) - AI filter, dedupe, summarize
+    4. Query Zep Context (5s)
+    5. Generate Article (180s) - AI with rich context
+    5b. Validate Links (30s)
+    6. SAVE TO DATABASE (5s) - Article safe before media generation
+    7. SYNC TO ZEP (5s) - Knowledge graph updated early
+    8. Generate Media Prompts (10s) - Dedicated prompts for video/images
+    9. Generate Video (5-15min) - Update article with video URLs
+    9c. Generate Content Videos (5-15min) - Sequential content videos
+    9e. Generate Content Images (5-8min) - Sequential contextual
+    10. Final Update (5s) - Embedded media in content
     """
 
     @workflow.run
@@ -302,10 +307,132 @@ class ArticleCreationWorkflow:
         else:
             workflow.logger.info("No external links to validate")
 
-        # Initialize video_result for use in Phase 7 save
+        # Initialize video_result
         video_result = None
 
-        # ===== PHASE 5c: GENERATE MEDIA PROMPTS (separate step for reliability) =====
+        # ===== PHASE 6: SAVE TO DATABASE (early - article is safe even if media fails) =====
+        workflow.logger.info("Phase 6: Saving article to database (before media generation)")
+
+        # Build raw_research string (full research data for Neon - no size limit)
+        import json as json_module
+        raw_research_data = {
+            "topic": topic,
+            "dataforseo": {
+                "articles": dataforseo_data.get("articles", [])[:50],
+                "all_urls": dataforseo_data.get("all_urls", [])[:100],
+            },
+            "serper": {
+                "articles": serper_data.get("articles", [])[:50],
+            },
+            "exa": {
+                "results": exa_data.get("results", [])[:20],
+            },
+            "crawled_pages": [
+                {"url": p.get("url"), "title": p.get("title"), "content": p.get("content", "")[:5000]}
+                for p in crawled_pages[:50]
+            ],
+            "curation": {
+                "curated_sources": curation_result.get("curated_sources", []),
+                "key_facts": curation_result.get("key_facts", []),
+                "perspectives": curation_result.get("perspectives", []),
+                "duplicate_groups": curation_result.get("duplicate_groups", []),
+            },
+            "stats": {
+                "dataforseo_count": dataforseo_count,
+                "serper_count": serper_count,
+                "exa_count": exa_count,
+                "crawled_pages_count": len(crawled_pages),
+                "curated_sources_count": curation_result.get("total_output", 0),
+            }
+        }
+        raw_research = json_module.dumps(raw_research_data)
+        workflow.logger.info(f"Raw research: {len(raw_research)} chars")
+
+        # Initial save - no video/images yet (they'll be added later)
+        article_id = await workflow.execute_activity(
+            "save_article_to_neon",
+            args=[
+                None,  # article_id (new article)
+                article["slug"],
+                article["title"],
+                app,
+                article_type,
+                article,  # Full payload (no media yet)
+                None,  # featured_asset_url (added after video/images)
+                None,  # hero_asset_url (added after video/images)
+                [],  # mentioned_companies (extracted by Zep)
+                "draft",  # status
+                None,  # video_url (added after video generation)
+                None,  # video_playback_id
+                None,  # video_asset_id
+                raw_research  # Full research data
+            ],
+            start_to_close_timeout=timedelta(seconds=30)
+        )
+
+        workflow.logger.info(f"Article saved to database with ID: {article_id}")
+
+        # ===== PHASE 7: SYNC TO ZEP (early - knowledge graph doesn't need media) =====
+        workflow.logger.info("Phase 7: Syncing article to Zep knowledge graph")
+
+        # Build curated summary for Zep (under 10,000 chars, no chunking needed)
+        zep_summary_parts = []
+        zep_summary_parts.append(f"ARTICLE: {article['title']}\n")
+        zep_summary_parts.append(f"TYPE: {article_type}\n")
+        zep_summary_parts.append(f"APP: {app}\n\n")
+
+        # Add key facts from curation (most valuable for knowledge graph)
+        key_facts = curation_result.get("key_facts", [])
+        if key_facts:
+            zep_summary_parts.append("KEY FACTS:\n")
+            for fact in key_facts[:15]:
+                zep_summary_parts.append(f"• {fact}\n")
+
+        # Add perspectives
+        perspectives = curation_result.get("perspectives", [])
+        if perspectives:
+            zep_summary_parts.append("\nPERSPECTIVES:\n")
+            for p in perspectives[:5]:
+                zep_summary_parts.append(f"• {p}\n")
+
+        # Add top source summaries
+        curated_sources = curation_result.get("curated_sources", [])
+        if curated_sources:
+            zep_summary_parts.append("\nSOURCES:\n")
+            for source in curated_sources[:10]:
+                if source.get("summary"):
+                    zep_summary_parts.append(f"• {source['summary'][:200]}\n")
+
+        # Add article excerpt
+        if article.get("excerpt"):
+            zep_summary_parts.append(f"\nEXCERPT: {article['excerpt']}\n")
+
+        zep_content = ''.join(zep_summary_parts)[:9500]  # Keep under 10k
+
+        zep_result = await workflow.execute_activity(
+            "sync_article_to_zep",
+            args=[
+                article_id,
+                article["title"],
+                article["slug"],
+                zep_content,  # Curated summary instead of full content
+                article.get("excerpt", ""),
+                article_type,
+                [],  # mentioned_companies (Zep extracts from content)
+                app
+            ],
+            start_to_close_timeout=timedelta(minutes=2)
+        )
+
+        if zep_result.get("success"):
+            workflow.logger.info(
+                f"Article synced to Zep: graph={zep_result.get('graph_id')}, "
+                f"companies={zep_result.get('companies_linked', 0)}"
+            )
+        else:
+            workflow.logger.warning(f"Zep sync failed: {zep_result.get('error')}")
+
+        # ===== PHASE 8: GENERATE MEDIA PROMPTS (separate step for reliability) =====
         # Generate clean, focused video and image prompts AFTER article generation
         # This is more reliable than trying to extract prompts from article content
         media_prompts_result = None
@@ -411,7 +538,31 @@ class ArticleCreationWorkflow:
                 f"cost: ${video_gen_result.get('cost', 0):.3f}"
             )
 
-        # ===== PHASE 6c: GENERATE CONTENT MEDIA (videos/images) =====
+            # Update article in database with video data
+            workflow.logger.info("Updating article with video data")
+            await workflow.execute_activity(
+                "save_article_to_neon",
+                args=[
+                    article_id,  # Update existing article
+                    article["slug"],
+                    article["title"],
+                    app,
+                    article_type,
+                    article,  # Full payload with featured_asset_url set
+                    article.get("featured_asset_url"),  # GIF from video
+                    article.get("hero_asset_url"),  # None (video supersedes)
+                    [],
+                    "draft",
+                    video_result.get("video_url"),
+                    video_result.get("video_playback_id"),
+                    video_result.get("video_asset_id"),
+                    None  # raw_research already saved
+                ],
+                start_to_close_timeout=timedelta(seconds=30)
+            )
+            workflow.logger.info("Article updated with video URLs")
+
+        # ===== PHASE 9c: GENERATE CONTENT MEDIA (videos/images) =====
         # Get content media strategy from input
         content_media_strategy = input_dict.get("content_media", "hybrid")  # "images", "videos", "hybrid"
 
@@ -635,127 +786,32 @@ class ArticleCreationWorkflow:
             f"cost: ${total_media_cost:.4f}"
         )
 
-        # ===== PHASE 7: SAVE TO DATABASE =====
-        workflow.logger.info("Phase 7: Saving article to database")
+        # ===== PHASE 10: FINAL UPDATE (with all media embedded in content) =====
+        # Update article with embedded media content (images/videos in HTML)
+        if images_result.get("images_generated", 0) > 0 or content_videos_result.get("videos_generated", 0) > 0:
+            workflow.logger.info("Phase 10: Final update with embedded media")
 
-        # Build raw_research string (full research data for Neon - no size limit)
-        import json as json_module
-        raw_research_data = {
-            "topic": topic,
-            "dataforseo": {
-                "articles": dataforseo_data.get("articles", [])[:50],
-                "all_urls": dataforseo_data.get("all_urls", [])[:100],
-            },
-            "serper": {
-                "articles": serper_data.get("articles", [])[:50],
-            },
-            "exa": {
-                "results": exa_data.get("results", [])[:20],
-            },
-            "crawled_pages": [
-                {"url": p.get("url"), "title": p.get("title"), "content": p.get("content", "")[:5000]}
-                for p in crawled_pages[:50]
-            ],
-            "curation": {
-                "curated_sources": curation_result.get("curated_sources", []),
-                "key_facts": curation_result.get("key_facts", []),
-                "perspectives": curation_result.get("perspectives", []),
-                "duplicate_groups": curation_result.get("duplicate_groups", []),
-            },
-            "stats": {
-                "dataforseo_count": dataforseo_count,
-                "serper_count": serper_count,
-                "exa_count": exa_count,
-                "crawled_pages_count": len(crawled_pages),
-                "curated_sources_count": curation_result.get("total_output", 0),
-            }
-        }
-        raw_research = json_module.dumps(raw_research_data)
-        workflow.logger.info(f"Raw research: {len(raw_research)} chars")
-
-        # Save article to Neon database
-        article_id = await workflow.execute_activity(
-            "save_article_to_neon",
-            args=[
-                None,  # article_id (new article)
-                article["slug"],
-                article["title"],
-                app,
-                article_type,
-                article,  # Full payload
-                article.get("featured_asset_url"),  # GIF when video exists, image otherwise
-                article.get("hero_asset_url"),  # None when video exists (video supersedes)
-                [],  # mentioned_companies (extracted by Zep)
-                "draft",  # status
-                video_result.get("video_url") if video_result else None,
-                video_result.get("video_playback_id") if video_result else None,
-                video_result.get("video_asset_id") if video_result else None,
-                raw_research  # Full research data
-            ],
-            start_to_close_timeout=timedelta(seconds=30)
-        )
-
-        workflow.logger.info(f"Article saved to database with ID: {article_id}")
-
-        # ===== PHASE 8: SYNC TO ZEP =====
-        workflow.logger.info("Phase 8: Syncing article to Zep knowledge graph")
-
-        # Build curated summary for Zep (under 10,000 chars, no chunking needed)
-        zep_summary_parts = []
-        zep_summary_parts.append(f"ARTICLE: {article['title']}\n")
-        zep_summary_parts.append(f"TYPE: {article_type}\n")
-        zep_summary_parts.append(f"APP: {app}\n\n")
-
-        # Add key facts from curation (most valuable for knowledge graph)
-        key_facts = curation_result.get("key_facts", [])
-        if key_facts:
-            zep_summary_parts.append("KEY FACTS:\n")
-            for fact in key_facts[:15]:
-                zep_summary_parts.append(f"• {fact}\n")
-
-        # Add perspectives
-        perspectives = curation_result.get("perspectives", [])
-        if perspectives:
-            zep_summary_parts.append("\nPERSPECTIVES:\n")
-            for p in perspectives[:5]:
-                zep_summary_parts.append(f"• {p}\n")
-
-        # Add top source summaries
-        curated_sources = curation_result.get("curated_sources", [])
-        if curated_sources:
-            zep_summary_parts.append("\nSOURCES:\n")
-            for source in curated_sources[:10]:
-                if source.get("summary"):
-                    zep_summary_parts.append(f"• {source['summary'][:200]}\n")
-
-        # Add article excerpt
-        if article.get("excerpt"):
-            zep_summary_parts.append(f"\nEXCERPT: {article['excerpt']}\n")
-
-        zep_content = ''.join(zep_summary_parts)[:9500]  # Keep under 10k
-
-        zep_result = await workflow.execute_activity(
-            "sync_article_to_zep",
-            args=[
-                article_id,
-                article["title"],
-                article["slug"],
-                zep_content,  # Curated summary instead of full content
-                article.get("excerpt", ""),
-                article_type,
-                [],  # mentioned_companies (Zep extracts from content)
-                app
-            ],
-            start_to_close_timeout=timedelta(minutes=2)
-        )
-
-        if zep_result.get("success"):
-            workflow.logger.info(
-                f"Article synced to Zep: graph={zep_result.get('graph_id')}, "
-                f"companies={zep_result.get('companies_linked', 0)}"
+            await workflow.execute_activity(
+                "save_article_to_neon",
+                args=[
+                    article_id,  # Update existing article
+                    article["slug"],
+                    article["title"],
+                    app,
+                    article_type,
+                    article,  # Full payload with embedded content
+                    article.get("featured_asset_url"),
+                    article.get("hero_asset_url"),
+                    [],
+                    "draft",
+                    video_result.get("video_url") if video_result else None,
+                    video_result.get("video_playback_id") if video_result else None,
+                    video_result.get("video_asset_id") if video_result else None,
+                    None  # raw_research already saved in Phase 6
+                ],
+                start_to_close_timeout=timedelta(seconds=30)
             )
-        else:
-            workflow.logger.warning(f"Zep sync failed: {zep_result.get('error')}")
+            workflow.logger.info("Article updated with embedded media content")
 
         # Calculate total cost
         total_cost = (
