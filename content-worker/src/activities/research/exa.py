@@ -12,7 +12,13 @@ from typing import Dict, Any
 from exa_py import Exa
 
 from src.utils.config import config
-from src.activities.research.linkup import linkup_deep_research
+
+# Optional LinkUp import - if not available, fallback won't work but Exa will
+linkup_deep_research = None
+try:
+    from src.activities.research.linkup import linkup_deep_research
+except ImportError:
+    pass
 
 
 @activity.defn
@@ -115,8 +121,8 @@ async def exa_research_company(
     except Exception as e:
         activity.logger.error(f"Exa research failed: {e}")
 
-        # Fallback to LinkUp if configured
-        if config.LINKUP_API_KEY:
+        # Fallback to LinkUp if configured and available
+        if config.LINKUP_API_KEY and linkup_deep_research:
             activity.logger.warning("Falling back to LinkUp Deep Research")
             try:
                 # Build query for LinkUp
@@ -141,7 +147,7 @@ async def exa_research_company(
                     "error": f"Exa failed: {str(e)}, LinkUp fallback failed: {str(linkup_error)}"
                 }
 
-        # No fallback available
+        # No fallback available or not installed
         return {
             "results": [],
             "cost": 0.04,  # Still charged even on error
