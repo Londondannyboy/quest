@@ -761,14 +761,26 @@ class ArticleCreationWorkflow:
 
             if len(paragraphs) > 3:
                 # Calculate insertion points spread throughout article
+                # First image should be after ~25% of content (not too close to hero video)
+                # Last image should be before ~90% (not at very end)
                 total = len(paragraphs)
                 num_media = len(content_media)
-                # Spread media evenly: after intro, then evenly through article
-                insert_points = [2]
-                if num_media > 1:
-                    spacing = (total - 4) // (num_media - 1) if num_media > 1 else total // 2
-                    for j in range(1, num_media):
-                        insert_points.append(min(2 + j * spacing, total - 2))
+
+                # Start first media at ~25% into article (after hero video has impact)
+                first_insert = max(4, total // 4)  # At least paragraph 4, or 25%
+                # End last media at ~85% (not at very bottom)
+                last_insert = min(total - 3, int(total * 0.85))
+
+                if num_media == 1:
+                    insert_points = [first_insert]
+                elif num_media == 2:
+                    insert_points = [first_insert, last_insert]
+                else:
+                    # Spread evenly between first and last positions
+                    spacing = (last_insert - first_insert) // (num_media - 1) if num_media > 1 else 0
+                    insert_points = [first_insert + i * spacing for i in range(num_media)]
+
+                workflow.logger.info(f"Media insertion points: {insert_points} (total paragraphs: {total})")
 
                 new_paragraphs = []
                 media_index = 0
