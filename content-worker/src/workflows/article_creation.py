@@ -269,6 +269,36 @@ class ArticleCreationWorkflow:
             f"{article['section_count']} sections"
         )
 
+        # ===== PHASE 5b: VALIDATE ARTICLE LINKS =====
+        workflow.logger.info("Phase 5b: Validating article links")
+
+        import re
+        # Extract all URLs from article content
+        url_pattern = r'href="(https?://[^"]+)"'
+        article_urls = list(set(re.findall(url_pattern, article.get("content", ""))))
+
+        if article_urls:
+            validation_result = await workflow.execute_activity(
+                "playwright_url_cleanse",
+                args=[article_urls],
+                start_to_close_timeout=timedelta(seconds=30)
+            )
+
+            invalid_urls = {item['url'] for item in validation_result.get('invalid_urls', [])}
+
+            if invalid_urls:
+                workflow.logger.info(f"Removing {len(invalid_urls)} broken/paywalled links")
+                content = article["content"]
+                for bad_url in invalid_urls:
+                    # Replace broken link with just the text
+                    pattern = rf'<a[^>]*href="{re.escape(bad_url)}"[^>]*>([^<]+)</a>'
+                    content = re.sub(pattern, r'\1', content)
+                article["content"] = content
+            else:
+                workflow.logger.info(f"All {len(article_urls)} links validated OK")
+        else:
+            workflow.logger.info("No external links to validate")
+
         # Initialize video_result for use in Phase 7 save
         video_result = None
 

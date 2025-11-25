@@ -141,9 +141,15 @@ Then the full article body in HTML with Tailwind CSS:
    - Use inline links: <a href="URL" class="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener">Source Name</a>
    - Cite specific numbers, dates, and facts from sources
    - Include at least 15-20 source links throughout the article
-   - Link to official sources, government sites, and authoritative references
    - MORE LINKS IS BETTER - aim for 2-3 links per paragraph
    - Each paragraph should have 100-150 words of substantive analysis
+
+   **HIGH AUTHORITY LINKS FIRST (Critical for SEO/Lighthouse):**
+   - Put highest authority sources in the FIRST 2-3 paragraphs (above the fold)
+   - Priority order: Government sites (.gov), Wikipedia, BBC, Reuters, official sources
+   - Example first paragraph: "According to the <a href="gov.uk">UK Government</a>, the visa requires..."
+   - This signals credibility to Google immediately
+   - Lower authority sources (blogs, smaller news) can appear later in the article
 
 3. **CRITICAL: Minimum Word Count ({target_word_count}+ words, aim for 3000-4000)**
    - This article MUST be at least {target_word_count} words - aim for 3000-4000 words
