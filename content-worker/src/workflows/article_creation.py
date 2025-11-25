@@ -153,44 +153,81 @@ class ArticleCreationWorkflow:
         )
 
         # ===== PHASE 2: CRAWL DISCOVERED URLs =====
-        workflow.logger.info("Phase 2: Batch crawling ALL discovered URLs with Crawl4AI")
+        workflow.logger.info("Phase 2: Pre-filtering and crawling relevant URLs")
 
-        # Collect ALL URLs from all sources - no limits, crawl everything
-        urls_to_crawl = []
+        # Extract topic keywords for pre-filtering (lowercase, split on spaces)
+        topic_keywords = [w.lower() for w in topic.split() if len(w) > 2]
 
-        # DataForSEO URLs - ALL of them (50+ from news or organic)
+        def is_relevant(title: str, snippet: str) -> bool:
+            """Check if title/snippet mentions topic keywords (at least 2 matches)."""
+            text = f"{title} {snippet}".lower()
+            matches = sum(1 for kw in topic_keywords if kw in text)
+            return matches >= 2
+
+        # Collect URLs with relevancy pre-filtering
+        url_candidates = []  # List of (url, title, snippet, source)
+
+        # DataForSEO URLs
         if article_type == "news":
-            # News search returns "articles"
             for article in dataforseo_data.get("articles", []):
                 if article.get("url"):
-                    urls_to_crawl.append(article["url"])
+                    url_candidates.append((
+                        article["url"],
+                        article.get("title", ""),
+                        article.get("description", article.get("snippet", "")),
+                        "dataforseo"
+                    ))
         else:
-            # Organic search returns "all_urls" (comprehensive list)
             for item in dataforseo_data.get("all_urls", []):
                 if item.get("url"):
-                    urls_to_crawl.append(item["url"])
+                    url_candidates.append((
+                        item["url"],
+                        item.get("title", ""),
+                        item.get("description", item.get("snippet", "")),
+                        "dataforseo"
+                    ))
 
-        # Serper URLs - ALL of them
+        # Serper URLs
         for article in serper_data.get("articles", []):
             if article.get("url"):
-                urls_to_crawl.append(article["url"])
+                url_candidates.append((
+                    article["url"],
+                    article.get("title", ""),
+                    article.get("snippet", ""),
+                    "serper"
+                ))
 
-        # Exa URLs - ALL of them (skip exa-research:// pseudo-URLs)
+        # Exa URLs (skip pseudo-URLs)
         for result in exa_data.get("results", []):
             url = result.get("url", "")
             if url and url.startswith("http"):
-                urls_to_crawl.append(url)
+                url_candidates.append((
+                    url,
+                    result.get("title", ""),
+                    result.get("text", "")[:500],  # Exa returns text, use first 500 chars
+                    "exa"
+                ))
 
-        # Deduplicate URLs
-        urls_to_crawl = list(dict.fromkeys(urls_to_crawl))
+        # Pre-filter: only keep URLs where title/snippet mentions topic
+        relevant_urls = []
+        skipped_count = 0
+        for url, title, snippet, source in url_candidates:
+            if is_relevant(title, snippet):
+                relevant_urls.append(url)
+            else:
+                skipped_count += 1
+
+        workflow.logger.info(f"Pre-filter: {len(relevant_urls)} relevant, {skipped_count} skipped (no topic match)")
+
+        # Deduplicate
+        urls_to_crawl = list(dict.fromkeys(relevant_urls))
 
         # Smart cap: 30 URLs is enough for comprehensive research
-        # More URLs = diminishing returns + longer crawl time
         MAX_CRAWL_URLS = 30
-        total_discovered = len(urls_to_crawl)
-        if total_discovered > MAX_CRAWL_URLS:
+        total_relevant = len(urls_to_crawl)
+        if total_relevant > MAX_CRAWL_URLS:
             urls_to_crawl = urls_to_crawl[:MAX_CRAWL_URLS]
-            workflow.logger.info(f"Capped URLs from {total_discovered} to {MAX_CRAWL_URLS} (smart limit)")
+            workflow.logger.info(f"Capped URLs from {total_relevant} to {MAX_CRAWL_URLS}")
 
         workflow.logger.info(f"Batch crawling {len(urls_to_crawl)} URLs with topic filtering")
 
