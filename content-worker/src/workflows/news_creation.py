@@ -83,7 +83,7 @@ class NewsCreationWorkflow:
 
         dataforseo_result = await workflow.execute_activity(
             "dataforseo_news_search",
-            args=[[dataforseo_keyword], dataforseo_regions, 100, "past_24_hours"],
+            args=[[dataforseo_keyword], dataforseo_regions, 70, "past_24_hours"],
             start_to_close_timeout=timedelta(minutes=10)
         )
 
