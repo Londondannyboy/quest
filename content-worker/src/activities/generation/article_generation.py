@@ -12,6 +12,7 @@ import anthropic
 import re
 
 from src.utils.config import config
+from src.config.app_config import get_app_config, APP_CONFIGS
 
 
 def extract_image_prompts(content: str) -> tuple:
@@ -74,20 +75,29 @@ async def generate_article_content(
         # Use Anthropic SDK directly - no pydantic_ai structured output
         client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
 
-        # App-specific descriptions
-        app_descriptions = {
-            "placement": "a professional platform covering private equity, M&A, corporate finance, and executive recruiting",
-            "relocation": "a comprehensive platform for professionals relocating internationally, covering visas, immigration, cost of living, and expat life",
-            "recruiter": "a platform for executive recruiters and headhunters covering talent acquisition, hiring trends, and HR technology",
-        }
-        app_desc = app_descriptions.get(app, f"a professional content platform called {app}")
+        # Get app config for rich context
+        app_config = APP_CONFIGS.get(app)
+        if app_config:
+            app_desc = app_config.description
+            target_audience = app_config.target_audience
+            content_tone = app_config.content_tone
+            interests = ", ".join(app_config.interests[:5])
+        else:
+            app_desc = f"a professional content platform called {app}"
+            target_audience = "professionals interested in this topic"
+            content_tone = "Professional, informative, authoritative"
+            interests = "industry news, trends, analysis"
 
-        # Build comprehensive system prompt
+        # Build comprehensive system prompt with app context
         system_prompt = f"""You are an expert journalist writing for {app} - {app_desc}.
+
+TARGET AUDIENCE: {target_audience}
+CONTENT TONE: {content_tone}
+KEY INTERESTS: {interests}
 
 Write a COMPREHENSIVE {target_word_count}-word {article_type} article using HTML with Tailwind CSS classes.
 
-CRITICAL: The article MUST be at least {target_word_count} words. This is a detailed, well-researched piece - not a summary. Expand on every point with analysis, context, and implications.
+CRITICAL: The article MUST be at least {target_word_count} words. This is a detailed, well-researched piece - not a summary. Expand on every point with analysis, context, and implications. Your readers are professionals who want depth, not surface-level coverage.
 
 ===== OUTPUT FORMAT =====
 
