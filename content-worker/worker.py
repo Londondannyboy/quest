@@ -126,7 +126,9 @@ from src.activities.generation.research_curation import (
 )
 
 from src.activities.generation.media_prompts import (
-    generate_media_prompts,
+    generate_media_prompts,  # Deprecated, kept for compatibility
+    generate_video_prompt,   # New: dedicated video prompt
+    generate_image_prompts,  # New: dedicated image prompts
 )
 
 from src.activities.generation.completeness import (
@@ -296,7 +298,9 @@ async def main():
             # Generation
             generate_company_profile_v2,
             generate_article_content,
-            generate_media_prompts,  # Separate media prompt generation
+            generate_media_prompts,  # Deprecated - kept for compatibility
+            generate_video_prompt,   # New: dedicated video prompt (model-aware)
+            generate_image_prompts,  # New: dedicated image prompts (style-matched)
             curate_research_sources,
             calculate_completeness_score,
             get_missing_fields,

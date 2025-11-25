@@ -1,46 +1,74 @@
 """
-Media Prompt Generation - Separate step after article generation
+Media Prompt Generation - Separate activities for video and images
 
-Generates clean, focused video and image prompts based on article title/topic.
-Much more reliable than extracting from article content.
+Split into two dedicated activities for cleaner separation:
+- generate_video_prompt: Focused on video, model-aware (Seedance/WAN)
+- generate_image_prompts: Focused on images, can match video style
 """
 
 from temporalio import activity
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import anthropic
 
 from src.utils.config import config
 from src.config.app_config import APP_CONFIGS
 
 
+# Model-specific knowledge for video prompt optimization
+VIDEO_MODEL_GUIDANCE = {
+    "seedance": {
+        "strengths": "Fast, good motion, cinematic quality",
+        "weaknesses": "Cannot render text at all - completely ignore any text requests",
+        "optimal_length": "60-100 words",
+        "tips": [
+            "Use degree adverbs for motion: slowly, gently, dramatically",
+            "Sequential actions work well: 'opens laptop, takes sip, looks up'",
+            "Avoid any text, words, or typography - purely visual",
+            "Camera movements: dolly, pan, track, orbit",
+        ]
+    },
+    "wan-2.5": {
+        "strengths": "Better text rendering (single words only), excellent depth/parallax",
+        "weaknesses": "Slower, struggles with multiple words",
+        "optimal_length": "80-120 words",
+        "tips": [
+            "Can include single-word text like 'Quest' branding",
+            "Emphasize depth: foreground/background layers",
+            "Film terminology works well: Kodak Portra, anamorphic",
+            "Parallax and depth effects are a strength",
+        ]
+    }
+}
+
+
 @activity.defn
-async def generate_media_prompts(
+async def generate_video_prompt(
     title: str,
     topic: str,
     app: str,
-    num_image_prompts: int = 4
+    video_model: str = "seedance"
 ) -> Dict[str, Any]:
     """
-    Generate video and image prompts for an article.
+    Generate a focused video prompt optimized for the target model.
 
-    Called AFTER article generation as a separate step.
-    Returns clean prompts ready for video/image generation.
+    Called BEFORE video generation. Model-aware prompt engineering.
 
     Args:
         title: Article title
         topic: Original topic/subject
         app: Application (relocation, placement, etc.)
-        num_image_prompts: Number of section image prompts to generate (default 4)
+        video_model: Target model (seedance, wan-2.5)
 
     Returns:
         {
-            "video_prompt": str,  # FEATURED/hero video prompt (80-120 words)
-            "image_prompts": List[str],  # Section image prompts
+            "prompt": str,  # The video prompt (60-120 words)
+            "model": str,   # Model it was optimized for
             "success": bool,
             "cost": float
         }
     """
-    activity.logger.info(f"Generating media prompts for: {title}")
+    activity.logger.info(f"Generating video prompt for: {title[:50]}...")
+    activity.logger.info(f"Target model: {video_model}")
 
     # Get app config for styling
     app_config = APP_CONFIGS.get(app)
@@ -51,68 +79,205 @@ async def generate_media_prompts(
         media_style = "Cinematic, professional, high production value"
         media_style_details = "High quality, visually compelling imagery."
 
-    system_prompt = f"""You are a visual storytelling expert creating prompts for AI video and image generation.
+    # Get model-specific guidance
+    model_info = VIDEO_MODEL_GUIDANCE.get(video_model, VIDEO_MODEL_GUIDANCE["seedance"])
+
+    system_prompt = f"""You are a video prompt engineer specializing in AI video generation.
+
+TARGET MODEL: {video_model}
+MODEL STRENGTHS: {model_info['strengths']}
+MODEL WEAKNESSES: {model_info['weaknesses']}
+OPTIMAL PROMPT LENGTH: {model_info['optimal_length']}
+
+MODEL-SPECIFIC TIPS:
+{chr(10).join(f"- {tip}" for tip in model_info['tips'])}
 
 APP STYLE: {media_style}
 DETAILS: {media_style_details}
 
-Generate prompts that are:
-1. SPECIFIC to the topic and location (not generic)
-2. Cinematic with clear camera movements and lighting
-3. 80-120 words each (optimal for video models)
-4. Varied in perspective and composition
-
 PROMPT FORMULA:
-[Subject + Description] + [Scene + Environment] + [Motion + Action] + [Camera Movement] + [Aesthetic/Style]
+[Subject + Action] + [Environment + Lighting] + [Camera Movement] + [Color/Mood]
 
 CAMERA LANGUAGE:
 - Push/Dolly: "camera pushes in slowly", "dolly out to reveal"
-- Pan/Tilt: "pan left across scene", "tilt up to sky"
-- Tracking: "camera follows closely", "tracks alongside subject"
+- Tracking: "camera follows closely", "tracks alongside"
 - Orbital: "orbits smoothly around subject"
 - Crane: "crane up dramatically"
 
-MOTION DESCRIPTORS:
-- Always include movement: "slowly", "gently", "dramatically"
-- Sequential actions: "opens laptop, takes sip of coffee, looks up and smiles"
-- Describe what's happening, not static scenes
+MOTION IS ESSENTIAL:
+- Always include movement adverbs: "slowly", "gently", "dramatically"
+- Sequential actions: "opens laptop, sips coffee, looks up and smiles"
+- Describe what's HAPPENING, not static scenes
 
-LIGHTING & COLOR:
-- "golden hour warm light", "soft morning glow"
-- "teal-and-orange color grade", "warm amber tones"
-- "shallow depth of field", "cinematic widescreen"
+Return ONLY the prompt text, no JSON, no explanation, no quotes around it."""
+
+    user_prompt = f"""Create a {model_info['optimal_length']} cinematic video prompt for:
+
+TITLE: {title}
+TOPIC: {topic}
+
+The prompt should capture the essence of this topic with:
+- Specific visual elements related to "{topic}"
+- Clear camera movement and motion
+- Cinematic lighting and color grading
+- Professional, engaging atmosphere
+
+{"CRITICAL: Absolutely NO text, words, or typography - the model cannot render text." if video_model == "seedance" else "You may include single-word branding like 'Quest' if appropriate."}
+
+Write the prompt now:"""
+
+    try:
+        client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+
+        message = client.messages.create(
+            model="claude-3-5-haiku-20241022",
+            max_tokens=500,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}]
+        )
+
+        prompt = message.content[0].text.strip()
+
+        # Remove any accidental quotes around the prompt
+        if prompt.startswith('"') and prompt.endswith('"'):
+            prompt = prompt[1:-1]
+        if prompt.startswith("'") and prompt.endswith("'"):
+            prompt = prompt[1:-1]
+
+        # Calculate cost (Haiku pricing)
+        input_tokens = message.usage.input_tokens
+        output_tokens = message.usage.output_tokens
+        cost = (input_tokens * 0.0008 + output_tokens * 0.004) / 1000
+
+        activity.logger.info(f"Generated video prompt: {len(prompt)} chars")
+        activity.logger.info(f"Prompt preview: {prompt[:100]}...")
+
+        return {
+            "prompt": prompt,
+            "model": video_model,
+            "success": True,
+            "cost": cost
+        }
+
+    except Exception as e:
+        activity.logger.error(f"Video prompt generation failed: {e}")
+        return {
+            "prompt": "",
+            "model": video_model,
+            "success": False,
+            "error": str(e),
+            "cost": 0
+        }
+
+
+@activity.defn
+async def generate_image_prompts(
+    title: str,
+    topic: str,
+    app: str,
+    num_prompts: int = 4,
+    video_gif_url: Optional[str] = None,
+    video_style_description: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Generate image prompts, optionally matching video style.
+
+    Called AFTER video generation (if video exists) so images match the video's style.
+
+    Args:
+        title: Article title
+        topic: Original topic/subject
+        app: Application (relocation, placement, etc.)
+        num_prompts: Number of image prompts to generate (default 4)
+        video_gif_url: Optional GIF URL from video for style reference
+        video_style_description: Optional description of video's visual style
+
+    Returns:
+        {
+            "prompts": List[str],  # Image prompts
+            "matched_video_style": bool,  # Whether style matching was applied
+            "success": bool,
+            "cost": float
+        }
+    """
+    activity.logger.info(f"Generating {num_prompts} image prompts for: {title[:50]}...")
+
+    # Get app config for styling
+    app_config = APP_CONFIGS.get(app)
+    if app_config:
+        media_style = app_config.media_style
+        media_style_details = app_config.media_style_details
+    else:
+        media_style = "Cinematic, professional, high production value"
+        media_style_details = "High quality, visually compelling imagery."
+
+    # Style matching context
+    style_context = ""
+    if video_style_description:
+        style_context = f"""
+IMPORTANT - MATCH VIDEO STYLE:
+The article has a hero video with this visual style:
+"{video_style_description}"
+
+Your image prompts should maintain visual consistency with this style:
+- Similar color grading and lighting
+- Complementary compositions
+- Consistent mood and atmosphere
+- Same level of professionalism
+"""
+    elif video_gif_url:
+        style_context = """
+IMPORTANT - STYLE CONSISTENCY:
+The article has a hero video. While you can't see it, ensure your image prompts:
+- Use professional, cinematic quality
+- Maintain consistent mood throughout
+- Complement rather than clash with video content
+"""
+
+    system_prompt = f"""You are an image prompt engineer for AI image generation (Flux Kontext Pro).
+
+APP STYLE: {media_style}
+DETAILS: {media_style_details}
+{style_context}
+
+IMAGE PROMPT GUIDELINES:
+1. Each prompt should be 40-80 words
+2. Include specific visual details and composition
+3. Vary perspectives: close-up, wide, overhead, environmental
+4. Describe lighting and atmosphere
+5. NO text or typography - purely visual
 
 OUTPUT FORMAT (JSON):
 {{
-  "video_prompt": "Your 80-120 word cinematic prompt for hero video...",
-  "image_prompts": [
-    "Section 1 prompt...",
-    "Section 2 prompt...",
-    "Section 3 prompt...",
-    "Section 4 prompt..."
+  "prompts": [
+    "First image prompt...",
+    "Second image prompt...",
+    "Third image prompt...",
+    "Fourth image prompt..."
   ]
 }}
 
 Return ONLY valid JSON, no markdown or explanations."""
 
-    user_prompt = f"""Generate media prompts for this article:
+    user_prompt = f"""Create {num_prompts} varied image prompts for this article:
 
 TITLE: {title}
 TOPIC: {topic}
 
-Create:
-1. ONE video_prompt (80-120 words) - the defining visual moment, cinematic and dynamic
-2. {num_image_prompts} image_prompts - varied perspectives covering different aspects
+Each prompt should:
+- Cover a different aspect or angle of the topic
+- Be specific to "{topic}" with real locations/details
+- Use varied compositions (close-up, wide, environmental, aerial)
+- Have professional, publication-ready quality
 
-Make prompts SPECIFIC to "{topic}" - include real locations, cultural details, and relevant imagery."""
+Generate the prompts now:"""
 
     try:
         client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
 
-        # Use Haiku for speed and cost - this is a simple structured task
         message = client.messages.create(
             model="claude-3-5-haiku-20241022",
-            max_tokens=2000,
+            max_tokens=1500,
             system=system_prompt,
             messages=[{"role": "user", "content": user_prompt}]
         )
@@ -130,21 +295,18 @@ Make prompts SPECIFIC to "{topic}" - include real locations, cultural details, a
             response_text = response_text.strip()
 
         result = json.loads(response_text)
-
-        video_prompt = result.get("video_prompt", "")
-        image_prompts = result.get("image_prompts", [])
+        prompts = result.get("prompts", [])
 
         # Calculate cost (Haiku pricing)
         input_tokens = message.usage.input_tokens
         output_tokens = message.usage.output_tokens
         cost = (input_tokens * 0.0008 + output_tokens * 0.004) / 1000
 
-        activity.logger.info(f"Generated video prompt: {len(video_prompt)} chars")
-        activity.logger.info(f"Generated {len(image_prompts)} image prompts")
+        activity.logger.info(f"Generated {len(prompts)} image prompts")
 
         return {
-            "video_prompt": video_prompt,
-            "image_prompts": image_prompts,
+            "prompts": prompts,
+            "matched_video_style": bool(video_style_description or video_gif_url),
             "success": True,
             "cost": cost
         }
@@ -153,18 +315,48 @@ Make prompts SPECIFIC to "{topic}" - include real locations, cultural details, a
         activity.logger.error(f"Failed to parse JSON response: {e}")
         activity.logger.error(f"Raw response: {response_text[:500]}")
         return {
-            "video_prompt": "",
-            "image_prompts": [],
+            "prompts": [],
+            "matched_video_style": False,
             "success": False,
             "error": f"JSON parse error: {e}",
             "cost": 0
         }
     except Exception as e:
-        activity.logger.error(f"Media prompt generation failed: {e}")
+        activity.logger.error(f"Image prompt generation failed: {e}")
         return {
-            "video_prompt": "",
-            "image_prompts": [],
+            "prompts": [],
+            "matched_video_style": False,
             "success": False,
             "error": str(e),
             "cost": 0
         }
+
+
+# ============================================================================
+# DEPRECATED - Keep for backwards compatibility, will be removed later
+# ============================================================================
+
+@activity.defn
+async def generate_media_prompts(
+    title: str,
+    topic: str,
+    app: str,
+    num_image_prompts: int = 4
+) -> Dict[str, Any]:
+    """
+    DEPRECATED: Use generate_video_prompt and generate_image_prompts separately.
+
+    Kept for backwards compatibility with existing workflows.
+    """
+    activity.logger.warning("generate_media_prompts is DEPRECATED - use generate_video_prompt and generate_image_prompts")
+
+    # Call the new separated functions
+    video_result = await generate_video_prompt(title, topic, app, "seedance")
+    image_result = await generate_image_prompts(title, topic, app, num_image_prompts)
+
+    return {
+        "video_prompt": video_result.get("prompt", ""),
+        "image_prompts": image_result.get("prompts", []),
+        "success": video_result.get("success", False) and image_result.get("success", False),
+        "cost": video_result.get("cost", 0) + image_result.get("cost", 0)
+    }

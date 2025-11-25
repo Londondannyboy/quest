@@ -26,11 +26,12 @@ class ArticleCreationWorkflow:
     5b. Validate Links (30s)
     6. SAVE TO DATABASE (5s) - Article safe before media generation
     7. SYNC TO ZEP (5s) - Knowledge graph updated early
-    8. Generate Media Prompts (10s) - Dedicated prompts for video/images
-    9. Generate Video (5-15min) - Update article with video URLs
-    9c. Generate Content Videos (5-15min) - Sequential content videos
-    9e. Generate Content Images (5-8min) - Sequential contextual
-    10. Final Update (5s) - Embedded media in content
+    8. Generate VIDEO Prompt (10s) - Model-aware (Seedance/WAN)
+    9. Generate Video (5-15min) - Upload to Mux
+    10. Generate IMAGE Prompts (10s) - Style-matched to video
+    10b. Generate Content Videos (if video_count > 1)
+    10c. Generate Content Images (Kontext Pro)
+    11. Final Update (5s) - Embedded media in content
     """
 
     @workflow.run
@@ -432,60 +433,35 @@ class ArticleCreationWorkflow:
         else:
             workflow.logger.warning(f"Zep sync failed: {zep_result.get('error')}")
 
-        # ===== PHASE 8: GENERATE MEDIA PROMPTS (separate step for reliability) =====
-        # Generate clean, focused video and image prompts AFTER article generation
-        # This is more reliable than trying to extract prompts from article content
-        media_prompts_result = None
-        if generate_images or video_quality:
-            workflow.logger.info("Phase 5c: Generating media prompts (separate step)")
-
-            media_prompts_result = await workflow.execute_activity(
-                "generate_media_prompts",
-                args=[article["title"], topic, app, 4],  # 4 image prompts
-                start_to_close_timeout=timedelta(seconds=60)
-            )
-
-            if media_prompts_result.get("success"):
-                workflow.logger.info(
-                    f"Media prompts generated: video={bool(media_prompts_result.get('video_prompt'))}, "
-                    f"images={len(media_prompts_result.get('image_prompts', []))}"
-                )
-            else:
-                workflow.logger.warning(f"Media prompt generation failed: {media_prompts_result.get('error')}")
-
-        # ===== PHASE 5d: ANALYZE SECTIONS (for images) =====
-        section_analysis = None
-        if generate_images:
-            workflow.logger.info("Phase 5d: Analyzing sections for image generation")
-
-            section_analysis = await workflow.execute_activity(
-                "analyze_article_sections",
-                args=[article["content"], article["title"], app],
-                start_to_close_timeout=timedelta(seconds=60)
-            )
-
-            workflow.logger.info(
-                f"Section analysis: {section_analysis['recommended_image_count']} images recommended"
-            )
-
-        # ===== PHASE 6: GENERATE VIDEO (independent of images) =====
+        # ===== PHASE 8: GENERATE VIDEO PROMPT (dedicated, model-aware) =====
+        # Generate video prompt BEFORE video generation - separate from images
+        video_prompt_result = None
         if video_quality:
-            # Generate video for hero/featured
-            workflow.logger.info(f"Phase 6a: Generating video ({video_quality} quality, model={video_model})")
+            workflow.logger.info(f"Phase 8: Generating video prompt (model={video_model})")
 
-            # Use prompts from dedicated media prompt generation step
-            # Priority: custom > media_prompts_result > fallback to topic
+            # Use custom prompt if provided, otherwise generate one
             if video_prompt:
-                hero_video_prompt = video_prompt
-                prompt_source = "custom"
-            elif media_prompts_result and media_prompts_result.get("video_prompt"):
-                hero_video_prompt = media_prompts_result["video_prompt"]
-                prompt_source = "dedicated media prompt"
+                workflow.logger.info("Using custom video prompt from input")
+                video_prompt_result = {"prompt": video_prompt, "success": True, "cost": 0}
             else:
-                hero_video_prompt = None
-                prompt_source = "auto-generated"
+                video_prompt_result = await workflow.execute_activity(
+                    "generate_video_prompt",
+                    args=[article["title"], topic, app, video_model],
+                    start_to_close_timeout=timedelta(seconds=60)
+                )
 
-            workflow.logger.info(f"Video prompt source: {prompt_source}")
+                if video_prompt_result.get("success"):
+                    workflow.logger.info(f"Video prompt generated: {video_prompt_result['prompt'][:80]}...")
+                else:
+                    workflow.logger.warning(f"Video prompt generation failed: {video_prompt_result.get('error')}")
+
+        # ===== PHASE 9: GENERATE VIDEO =====
+        if video_quality:
+            workflow.logger.info(f"Phase 9: Generating video ({video_quality} quality, model={video_model})")
+
+            # Get the video prompt
+            hero_video_prompt = video_prompt_result.get("prompt") if video_prompt_result else None
+
             if hero_video_prompt:
                 workflow.logger.info(f"Hero video prompt: {hero_video_prompt[:120]}...")
             else:
@@ -562,15 +538,50 @@ class ArticleCreationWorkflow:
             )
             workflow.logger.info("Article updated with video URLs")
 
-        # ===== PHASE 9c: GENERATE CONTENT MEDIA (videos/images) =====
+        # ===== PHASE 10: GENERATE IMAGE PROMPTS (after video, can match style) =====
+        # Generate image prompts AFTER video so they can reference the video's visual style
+        image_prompts_result = None
+        content_images_count = input_dict.get("content_images_count", 2)
+
+        if generate_images or (video_quality and video_count > 1):
+            workflow.logger.info("Phase 10: Generating image prompts (after video, style-aware)")
+
+            # Use video prompt as style reference if available
+            video_style_desc = None
+            if video_prompt_result and video_prompt_result.get("prompt"):
+                video_style_desc = video_prompt_result["prompt"][:200]  # First 200 chars as style hint
+
+            video_context_url = None
+            if video_quality and article.get("featured_asset_url"):
+                video_context_url = article["featured_asset_url"]
+
+            # Determine how many prompts we need
+            num_prompts_needed = max(content_images_count, video_count - 1, 4)
+
+            image_prompts_result = await workflow.execute_activity(
+                "generate_image_prompts",
+                args=[
+                    article["title"],
+                    topic,
+                    app,
+                    num_prompts_needed,
+                    video_context_url,  # GIF URL for visual reference
+                    video_style_desc    # Video prompt text for style matching
+                ],
+                start_to_close_timeout=timedelta(seconds=60)
+            )
+
+            if image_prompts_result.get("success"):
+                workflow.logger.info(
+                    f"Image prompts generated: {len(image_prompts_result.get('prompts', []))} prompts, "
+                    f"style_matched={image_prompts_result.get('matched_video_style')}"
+                )
+            else:
+                workflow.logger.warning(f"Image prompt generation failed: {image_prompts_result.get('error')}")
+
+        # ===== PHASE 10b: GENERATE CONTENT MEDIA (videos/images) =====
         # Get content media strategy from input
         content_media_strategy = input_dict.get("content_media", "hybrid")  # "images", "videos", "hybrid"
-
-        # Use video GIF/thumbnail as context so all images match video style
-        video_context_url = None
-        if video_quality and article.get("featured_asset_url"):
-            video_context_url = article["featured_asset_url"]  # GIF URL from Mux
-            workflow.logger.info(f"Using video GIF as style context: {video_context_url[:60]}...")
 
         # Initialize results
         content_videos_result = {"videos": [], "videos_generated": 0, "total_cost": 0}
@@ -581,11 +592,8 @@ class ArticleCreationWorkflow:
         content_video_count = max(0, video_count - 1)  # Subtract hero video
 
         if video_quality and video_context_url and content_video_count > 0:
-            # Get section prompts from dedicated media prompt generation
-            if media_prompts_result and media_prompts_result.get("image_prompts"):
-                section_prompts = media_prompts_result["image_prompts"]
-            else:
-                section_prompts = []
+            # Get section prompts from image prompts
+            section_prompts = image_prompts_result.get("prompts", []) if image_prompts_result else []
 
             if section_prompts:
                 # Use first N section prompts for content videos
@@ -644,10 +652,10 @@ class ArticleCreationWorkflow:
                 max_images = 3 if video_quality else 2
                 workflow.logger.info(f"Phase 6e: Generating {max_images} content images")
 
-            # Get clean prompts from dedicated media prompt generation step
-            if media_prompts_result and media_prompts_result.get("image_prompts"):
-                image_prompts = media_prompts_result["image_prompts"]
-                workflow.logger.info(f"Using {len(image_prompts)} dedicated media prompts for images")
+            # Get clean prompts from dedicated image prompt generation step
+            if image_prompts_result and image_prompts_result.get("prompts"):
+                image_prompts = image_prompts_result["prompts"]
+                workflow.logger.info(f"Using {len(image_prompts)} dedicated image prompts")
             else:
                 image_prompts = []
                 workflow.logger.info("No dedicated image prompts - will use section analysis")
