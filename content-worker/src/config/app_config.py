@@ -32,6 +32,10 @@ class AppConfig(BaseModel):
     # Geographic focus
     geographic_focus: List[str]
 
+    # Media style for images and videos
+    media_style: str = "Cinematic, professional, high production value"
+    media_style_details: str = ""
+
 
 # ============================================================================
 # APP CONFIGURATIONS
@@ -102,7 +106,14 @@ PLACEMENT_CONFIG = AppConfig(
     target_audience="Private equity fund managers, GPs, institutional LPs, placement professionals",
     content_tone="Professional, data-driven, industry insider",
 
-    geographic_focus=["UK", "US", "EU", "Asia"]
+    geographic_focus=["UK", "US", "EU", "Asia"],
+
+    media_style="Professional corporate cinema",
+    media_style_details="""Modern glass office buildings, sleek boardrooms with city skyline views,
+deal celebration moments, confident executives in contemporary settings.
+Clean, sophisticated aesthetic. Warm lighting through floor-to-ceiling windows.
+Can include stylized/illustrated elements for abstract financial concepts.
+Professional but not stuffy - dynamic and forward-looking."""
 )
 
 
@@ -164,7 +175,19 @@ RELOCATION_CONFIG = AppConfig(
     target_audience="HR leaders, global mobility managers, talent acquisition, relocation professionals",
     content_tone="Practical, compliance-aware, HR-focused",
 
-    geographic_focus=["US", "UK", "EU", "Asia", "Global"]
+    geographic_focus=["US", "UK", "EU", "Asia", "Global"],
+
+    media_style="Aspirational travel and lifestyle photography",
+    media_style_details="""Stunning, cinematic travel magazine quality. SELL THE DREAM.
+Beautiful destinations: Mediterranean coastlines, European old towns, Asian skylines,
+tropical beaches at golden hour, charming cobblestone streets, modern city apartments
+with incredible views. Happy people living their best life abroad - working from
+sunlit cafes overlooking the sea, exploring local markets, enjoying rooftop sunsets,
+remote working from beautiful locations. Rolling landscape shots, drone-style city
+reveals, warm golden hour lighting throughout. Real people, genuine smiles, authentic
+moments of joy and discovery. Make viewers want to pack their bags immediately.
+Photorealistic, aspirational, emotionally compelling. Think Conde Nast Traveller meets
+digital nomad lifestyle content."""
 )
 
 
@@ -229,7 +252,17 @@ PE_NEWS_CONFIG = AppConfig(
     target_audience="Private equity professionals, institutional investors, fund managers, LPs",
     content_tone="News-focused, deal-centric, market intelligence",
 
-    geographic_focus=["UK", "US", "SG"]
+    geographic_focus=["UK", "US", "SG"],
+
+    media_style="Dynamic financial news cinema",
+    media_style_details="""Fast-paced, Bloomberg/CNBC aesthetic meets cinematic quality.
+Deal announcements: handshakes in modern offices, signing ceremonies, celebration moments.
+Market activity: trading floors, data visualizations, city financial districts at night.
+Power players: confident executives, strategic meetings, global connectivity.
+High energy for deals and exits, thoughtful and analytical for market commentary.
+Can use stylized elements for abstract concepts (fund flows, market trends).
+Professional, authoritative, visually striking. Think Financial Times meets premium
+documentary cinematography."""
 )
 
 

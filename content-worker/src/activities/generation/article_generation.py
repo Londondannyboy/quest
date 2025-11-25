@@ -82,11 +82,15 @@ async def generate_article_content(
             target_audience = app_config.target_audience
             content_tone = app_config.content_tone
             interests = ", ".join(app_config.interests[:5])
+            media_style = app_config.media_style
+            media_style_details = app_config.media_style_details
         else:
             app_desc = f"a professional content platform called {app}"
             target_audience = "professionals interested in this topic"
             content_tone = "Professional, informative, authoritative"
             interests = "industry news, trends, analysis"
+            media_style = "Cinematic, professional, high production value"
+            media_style_details = "High quality, visually compelling imagery that matches the content tone."
 
         # Build comprehensive system prompt with app context
         system_prompt = f"""You are an expert journalist writing for {app} - {app_desc}.
@@ -167,13 +171,11 @@ Then the full article body in HTML with Tailwind CSS:
    Rules for image prompts:
    - MUST include 4+ prompts (FEATURED + 3-4 SECTION prompts)
    - Match tone to article sentiment (somber for layoffs, celebratory for deals)
-   - Style depends on app:
-     * RELOCATION: Cinematic, aspirational, lifestyle photography style. Beautiful locations, happy people enjoying life abroad, stunning cityscapes, cozy cafes, beach sunsets, modern apartments. Photorealistic, warm lighting, travel magazine quality. People should look natural and relatable.
-     * PLACEMENT/PE_NEWS: Professional, corporate, cinematic. Modern offices, deal celebrations, boardrooms, city skylines. Can be more stylized/illustrated for abstract concepts.
-     * DEFAULT: Cinematic, professional, high production value
+   - MEDIA STYLE FOR THIS APP: {media_style}
+   - DETAILED STYLE GUIDE: {media_style_details}
    - Include SPECIFIC visual elements from the story (Mediterranean coastline for Cyprus visa, laptop at beach cafe for digital nomad, etc)
    - Each image should show DIFFERENT scene/angle - visual progression telling the story
-   - Be vivid and specific - "young professional working from sunlit cafe overlooking the sea" NOT "person at computer"
+   - Be vivid and specific - describe scenes, emotions, lighting, atmosphere in detail
 
    CRITICAL - AVOID CONTENT FILTER:
    - NEVER ask to show logos, brand marks, or trademarked visual elements
