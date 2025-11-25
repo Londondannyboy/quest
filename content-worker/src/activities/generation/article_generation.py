@@ -116,12 +116,22 @@ Then the full article body in HTML with Tailwind CSS:
    - Link to EVERY source mentioned in the research
    - Use inline links: <a href="URL" class="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener">Source Name</a>
    - Cite specific numbers, dates, and facts from sources
-   - Include at least 10-15 source links throughout the article
+   - Include at least 15-20 source links throughout the article
    - Link company names to their websites when mentioned
    - Link to news sources, press releases, and industry reports
    - MORE LINKS IS BETTER - aim for 2-3 links per paragraph
+   - Each paragraph should have 100-150 words of substantive analysis
 
-3. **Image Prompts (REQUIRED - 4 prompts minimum)**
+3. **Depth and Detail Requirements**
+   - Expand on all key points with detailed analysis
+   - Include context about market conditions, timing, and significance
+   - Explain the "why" behind events, not just the "what"
+   - Use specific metrics, percentages, and dollar amounts from research
+   - Add industry implications and broader trends
+   - Include expert perspectives and stakeholder impacts
+   - Aim for 1500+ words with rich, comprehensive coverage
+
+4. **Image Prompts (REQUIRED - 4 prompts minimum)**
    After the article content, add image generation prompts:
 
    ---IMAGE PROMPTS---
@@ -148,7 +158,7 @@ Then the full article body in HTML with Tailwind CSS:
 
    DO NOT include any {{IMAGE_N}} placeholders in the article content. Images will be inserted automatically.
 
-4. **Structure**
+5. **Structure**
    - Strong lead paragraph (who, what, when, where, why)
    - 4-6 sections with h2 headings
    - Use blockquotes for key quotes or statistics
@@ -160,7 +170,7 @@ Then the full article body in HTML with Tailwind CSS:
        <li><a href="URL" class="text-blue-600 hover:text-blue-800 underline" target="_blank">Source Name</a> - Brief description</li>
      </ul>
 
-5. **Tailwind Classes to Use**
+6. **Tailwind Classes to Use**
    - Paragraphs: text-gray-700 leading-relaxed mb-4 (or mb-6 for spacing)
    - Headings: text-2xl font-bold text-gray-900 mt-8 mb-4
    - Links: text-blue-600 hover:text-blue-800 underline
@@ -169,7 +179,7 @@ Then the full article body in HTML with Tailwind CSS:
    - Bold: font-semibold
    - Images: my-8
 
-6. **Context Awareness**
+7. **Context Awareness**
    - Understand the story: Is this a deal? Layoffs? IPO? Crisis?
    - Match tone to context (don't be celebratory about job losses)
    - Include relevant industry context and implications
@@ -178,7 +188,7 @@ Output ONLY the title on line 1, then the HTML content. No other text or explana
 
         message = client.messages.create(
             model=model_name,
-            max_tokens=8192,
+            max_tokens=12000,
             system=system_prompt,
             messages=[
                 {"role": "user", "content": prompt}

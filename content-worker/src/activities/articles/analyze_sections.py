@@ -140,8 +140,8 @@ Rules:
 - Only return valid JSON, no other text"""
 
         message = client.messages.create(
-            model="claude-sonnet-4-5-20250929",
-            max_tokens=2048,
+            model="claude-3-5-haiku-20241022",
+            max_tokens=4096,
             messages=[{"role": "user", "content": prompt}]
         )
 
