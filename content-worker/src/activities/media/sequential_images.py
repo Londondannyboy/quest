@@ -149,18 +149,20 @@ async def generate_sequential_article_images(
     generate_featured: bool = True,
     generate_hero: bool = True,
     min_content_images: int = 3,
-    max_content_images: int = 5
+    max_content_images: int = 5,
+    video_context_url: str = None  # Video thumbnail/GIF for style matching
 ) -> Dict[str, Any]:
     """
     Generate complete image suite for article with contextual consistency.
 
     This activity:
     1. Analyzes article structure and sentiment (with business context awareness)
-    2. Generates featured image (social sharing, 1200x630)
-    3. Generates hero image (article header, 16:9) using featured as context
-    4. Generates 3-5 content images sequentially, each using previous as context
-    5. Ensures tone matches content (no smiling execs for layoffs!)
-    6. Returns all URLs and metadata for database storage
+    2. If video_context_url provided, uses it as style reference for ALL images
+    3. Generates featured image (social sharing, 1200x630)
+    4. Generates hero image (article header, 16:9) using featured as context
+    5. Generates 3-5 content images sequentially, each using previous as context
+    6. Ensures tone matches content (no smiling execs for layoffs!)
+    7. Returns all URLs and metadata for database storage
 
     CRITICAL: Always uses Kontext Pro for articles (not Max)
 
@@ -174,6 +176,7 @@ async def generate_sequential_article_images(
         generate_hero: Generate hero image
         min_content_images: Minimum content images (3)
         max_content_images: Maximum content images (5)
+        video_context_url: Video thumbnail or GIF URL to match image style to video
 
     Returns:
         Dict with all image URLs and metadata:
@@ -250,8 +253,12 @@ async def generate_sequential_article_images(
         # Limit to max_content_images
         image_sections = image_sections[:max_content_images]
 
-        # Step 2: Generate hero image first (used for both hero and featured to save cost)
-        previous_image_url = None
+        # Step 2: Set initial context - use video thumbnail/GIF if available for style matching
+        if video_context_url:
+            previous_image_url = video_context_url
+            activity.logger.info(f"Using video context for style matching: {video_context_url[:80]}...")
+        else:
+            previous_image_url = None
 
         # Step 3: Generate hero image (if enabled)
         if generate_hero:

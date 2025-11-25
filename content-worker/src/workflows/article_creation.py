@@ -358,6 +358,12 @@ class ArticleCreationWorkflow:
             if should_generate_content_images:
                 workflow.logger.info("Phase 6c: Generating content images")
 
+                # Use video GIF/thumbnail as context so images match video style
+                video_context_for_images = None
+                if video_quality and article.get("featured_asset_url"):
+                    video_context_for_images = article["featured_asset_url"]  # GIF URL from Mux
+                    workflow.logger.info(f"Using video GIF as image style context: {video_context_for_images[:60]}...")
+
                 images_result = await workflow.execute_activity(
                     "generate_sequential_article_images",
                     args=[
@@ -368,8 +374,9 @@ class ArticleCreationWorkflow:
                         "kontext-pro",
                         not video_quality,  # generate_featured only if no video
                         not video_quality,  # generate_hero only if no video
-                        1 if video_quality else 1,  # min_content_images
-                        2 if video_quality else 1   # max_content_images
+                        2 if video_quality else 2,  # min_content_images (increased)
+                        3 if video_quality else 2,  # max_content_images (increased)
+                        video_context_for_images   # Video GIF for style matching!
                     ],
                     start_to_close_timeout=timedelta(minutes=8)
                 )
