@@ -131,10 +131,50 @@ Then the full article body in HTML with Tailwind CSS:
 
 ===== CONTENT REQUIREMENTS =====
 
-1. **Professional Journalism Tone**
+1. **Professional Journalism Tone - Write Like a Human, Not an AI**
    - Write with authority and expertise on the topic
    - Authoritative but accessible to readers
    - Match the tone to the story context
+
+   **CRITICAL: Avoid AI-Sounding Writing**
+
+   BANNED WORDS (never use these):
+   - dive/dive into, delve, unlock, unleash, harness, leverage
+   - transformative, revolutionary, game-changing, cutting-edge
+   - robust, scalable, seamless, streamlined
+   - utilize (use "use"), opt (use "choose"), facilitate (use "help")
+   - tapestry, realm, landscape, paradigm, synergy
+   - meticulous, intricate, bustling, vibrant
+   - embark, navigate, foster, empower
+
+   BANNED PHRASES (never use these):
+   - "In today's world" / "In this day and age"
+   - "At the end of the day"
+   - "It's important to note" / "It's worth noting"
+   - "Let's dive in" / "Let's explore"
+   - "Unleash your potential"
+   - "Game-changing solution"
+   - "Best practices"
+   - "In order to" (just use "to")
+   - "On the other hand" (overused)
+   - "As previously mentioned"
+   - "To put it simply"
+   - "And honestly?" (AI giveaway)
+
+   PUNCTUATION RULES:
+   - NEVER use em dashes (—). Use commas, parentheses, or rewrite the sentence
+   - Avoid excessive colons in headings
+   - Don't overuse semicolons
+
+   WRITING STYLE:
+   - Use simple, direct language
+   - Vary sentence length - mix short punchy sentences with longer flowing ones
+   - Start some sentences with "And" or "But" (natural)
+   - Use contractions (it's, don't, won't) - sounds more human
+   - Be direct: "Here's how it works" not "Let's dive into how this works"
+   - Avoid hype and marketing language
+   - Reference real, specific details from research
+   - Use active voice primarily
 
 2. **Rich Source Attribution (CRITICAL - MANY LINKS)**
    - Link to EVERY source mentioned in the research
@@ -384,51 +424,114 @@ Output ONLY the title on line 1, then the HTML content. No other text or explana
 
 
 def build_prompt(topic: str, research_context: Dict[str, Any]) -> str:
-    """Build prompt with research - uses curated sources if available."""
+    """Build prompt with rich curated research from Gemini Pro analysis."""
     parts = [f"Write an article about: {topic}\n"]
 
-    # Check for curated sources (new two-stage approach)
+    # Check for curated sources (new two-stage approach with Gemini Pro)
     curated = research_context.get("curated_sources", [])
     key_facts = research_context.get("key_facts", [])
-    perspectives = research_context.get("perspectives", [])
 
     if curated:
-        # Use curated sources (filtered, deduped, summarized)
-        parts.append("\n=== KEY FACTS (verified from multiple sources - USE ALL OF THESE) ===")
-        for fact in key_facts[:100]:  # Up to 100 facts for comprehensive articles
-            parts.append(f"• {fact}")
+        # === KEY FACTS - the backbone of the article ===
+        if key_facts:
+            parts.append("\n=== KEY FACTS (USE ALL OF THESE - specific numbers, dates, costs, requirements) ===")
+            for fact in key_facts[:100]:
+                parts.append(f"• {fact}")
 
-        if perspectives:
-            parts.append("\n=== DIFFERENT PERSPECTIVES (include all viewpoints) ===")
-            for perspective in perspectives[:15]:  # More perspectives
-                parts.append(f"• {perspective}")
+        # === OPINIONS & SENTIMENT - add depth and nuance ===
+        opinions = research_context.get("opinions_and_sentiment", [])
+        if opinions:
+            parts.append("\n=== OPINIONS & SENTIMENT (weave these perspectives throughout) ===")
+            for opinion in opinions[:20]:
+                if isinstance(opinion, dict):
+                    parts.append(f"• [{opinion.get('sentiment', 'neutral')}] {opinion.get('source', 'source')}: {opinion.get('opinion', '')}")
+                else:
+                    parts.append(f"• {opinion}")
 
-        # Include timeline if available
+        # === UNIQUE ANGLES - make the article stand out ===
+        unique_angles = research_context.get("unique_angles", [])
+        if unique_angles:
+            parts.append("\n=== UNIQUE ANGLES (insights others miss - INCORPORATE THESE) ===")
+            for angle in unique_angles[:15]:
+                parts.append(f"• {angle}")
+
+        # === DIRECT QUOTES - add credibility and voice ===
+        direct_quotes = research_context.get("direct_quotes", [])
+        if direct_quotes:
+            parts.append("\n=== QUOTABLE QUOTES (use these for blockquotes) ===")
+            for quote in direct_quotes[:15]:
+                if isinstance(quote, dict):
+                    parts.append(f"• \"{quote.get('quote', '')}\" — {quote.get('attribution', 'source')}")
+                else:
+                    parts.append(f"• {quote}")
+
+        # === COMPARISONS - provide context ===
+        comparisons = research_context.get("comparisons", [])
+        if comparisons:
+            parts.append("\n=== COMPARISONS (help readers understand relative value) ===")
+            for comp in comparisons[:10]:
+                parts.append(f"• {comp}")
+
+        # === RECENT CHANGES - what's new ===
+        recent_changes = research_context.get("recent_changes", [])
+        if recent_changes:
+            parts.append("\n=== RECENT CHANGES (2024-2025 updates to highlight) ===")
+            for change in recent_changes[:15]:
+                parts.append(f"• {change}")
+
+        # === WARNINGS - important caveats ===
+        warnings = research_context.get("warnings_and_gotchas", [])
+        if warnings:
+            parts.append("\n=== WARNINGS & GOTCHAS (important caveats to include) ===")
+            for warning in warnings[:15]:
+                parts.append(f"• {warning}")
+
+        # === TIMELINE - chronological context ===
         timeline = research_context.get("timeline", [])
         if timeline:
             parts.append("\n=== TIMELINE (incorporate chronologically) ===")
             for event in timeline[:20]:
                 parts.append(f"• {event}")
 
-        parts.append("\n=== CURATED SOURCES (ranked by relevance) ===")
-        for source in curated[:30]:  # Use up to 30 curated sources for comprehensive articles
+        # === ARTICLE OUTLINE - suggested structure ===
+        outline = research_context.get("article_outline", [])
+        if outline:
+            parts.append("\n=== SUGGESTED ARTICLE STRUCTURE (follow this outline) ===")
+            for i, section in enumerate(outline):
+                if isinstance(section, dict):
+                    parts.append(f"\n{i+1}. {section.get('section', 'Section')}")
+                    for point in section.get('key_points', []):
+                        parts.append(f"   • {point}")
+                else:
+                    parts.append(f"• {section}")
+
+        # === HIGH AUTHORITY SOURCES - cite early ===
+        high_auth = research_context.get("high_authority_sources", [])
+        if high_auth:
+            parts.append("\n=== HIGH AUTHORITY SOURCES (cite these in first 2-3 paragraphs for SEO) ===")
+            for source in high_auth[:10]:
+                if isinstance(source, dict):
+                    parts.append(f"• {source.get('authority', 'official')}: {source.get('url', '')}")
+                else:
+                    parts.append(f"• {source}")
+
+        # === CURATED SOURCES with full content ===
+        parts.append("\n=== CURATED SOURCES (ranked by relevance - use for inline citations) ===")
+        for source in curated[:30]:
             parts.append(f"\n--- Source (relevance: {source.get('relevance_score', '?')}/10) ---")
             parts.append(f"Title: {source.get('title', '')}")
             parts.append(f"URL: {source.get('url', '')}")
-            if source.get('summary'):
-                parts.append(f"Summary: {source['summary']}")
-            if source.get('key_quote'):
-                parts.append(f"Key Quote: \"{source['key_quote']}\"")
-            # Include full content for sources with relevance 5+ (lowered from 7)
+            if source.get('unique_value'):
+                parts.append(f"Unique Value: {source['unique_value']}")
             if source.get('full_content') and source.get('relevance_score', 0) >= 5:
-                parts.append(f"Full Content:\n{source['full_content'][:6000]}")  # 6k chars per source
+                parts.append(f"Full Content:\n{source['full_content'][:6000]}")
 
     else:
-        # Fallback to old approach (uncurated sources) - increased limits
+        # Fallback to old approach (uncurated sources)
         news = research_context.get("news_articles", [])
         if news:
             parts.append("\n=== NEWS ===")
-            for a in news[:20]:  # Increased from 10 to 20
+            for a in news[:20]:
                 parts.append(f"\n{a.get('title', '')}")
                 parts.append(f"URL: {a.get('url', '')}")
                 if a.get('snippet'):
@@ -437,19 +540,19 @@ def build_prompt(topic: str, research_context: Dict[str, Any]) -> str:
         crawled = research_context.get("crawled_pages", [])
         if crawled:
             parts.append("\n=== SOURCES ===")
-            for p in crawled[:20]:  # Increased from 10 to 20
+            for p in crawled[:20]:
                 parts.append(f"\n{p.get('title', '')}")
-                content = p.get('content', '')[:6000]  # Increased from 3000 to 6000
+                content = p.get('content', '')[:6000]
                 if content:
                     parts.append(content)
 
         exa = research_context.get("exa_results", [])
         if exa:
             parts.append("\n=== RESEARCH ===")
-            for r in exa[:10]:  # Increased from 5 to 10
+            for r in exa[:10]:
                 parts.append(f"\n{r.get('title', '')}")
                 content = r.get('content', '') or r.get('text', '')
                 if content:
-                    parts.append(content[:6000])  # Increased from 3000 to 6000
+                    parts.append(content[:6000])
 
     return '\n'.join(parts)

@@ -1,13 +1,13 @@
 """
 Research Curation Activity
 
-Stage 1 of article generation: Filter, dedupe, and summarize research sources
+Stage 1 of article generation: Filter, dedupe, and deeply analyze research sources
 before passing to article generation.
 
-Uses Gemini 2.5 Flash for curation (1M context window, cheap) while
-article generation uses Sonnet (better writing quality).
-
-Now also generates article outline/structure to guide Sonnet.
+Uses Gemini 2.5 Pro for curation (1M context window, best reasoning/extraction).
+Pro is ~2x better at fact extraction (SimpleQA: 54.5% vs Flash's 29.7%).
+This ensures we capture all nuances, opinions, unique angles, and interesting facts
+that Sonnet needs to write a comprehensive, insightful article.
 """
 
 import os
@@ -111,15 +111,22 @@ async def curate_research_sources(
     max_sources: int = 20
 ) -> Dict[str, Any]:
     """
-    Curate and summarize research sources before article generation.
+    Deeply analyze and curate research sources before article generation.
 
-    Uses Gemini 2.5 Flash to:
+    Uses Gemini 2.5 Pro (best-in-class reasoning) to:
     1. Pre-filter obviously off-topic sources
     2. Remove duplicates (same story from multiple sources)
-    3. Score relevance to topic (0-10)
-    4. Extract key facts, quotes, statistics
-    5. Generate article outline with suggested sections
-    6. Identify high-authority sources for early placement
+    3. Extract ALL key facts, statistics, quotes, dates, costs
+    4. Identify opinions, sentiment, and unique perspectives
+    5. Find interesting nuances and angles others might miss
+    6. Generate article outline with suggested sections
+    7. Identify high-authority sources for credibility
+    8. Build timeline of events/changes
+
+    Pro is chosen over Flash because:
+    - 2x better at fact extraction (SimpleQA: 54.5% vs 29.7%)
+    - Better reasoning for nuance detection
+    - Cost is ~$0.40 vs $0.04 per curation - worth it for quality
 
     Args:
         topic: Article topic
@@ -129,7 +136,8 @@ async def curate_research_sources(
         max_sources: Maximum curated sources to return
 
     Returns:
-        Dict with curated_sources, key_facts, perspectives, article_outline, metadata
+        Dict with curated_sources, key_facts, perspectives, opinions,
+        unique_angles, article_outline, timeline, metadata
     """
     activity.logger.info(f"Curating research for: {topic}")
     activity.logger.info(
@@ -222,94 +230,107 @@ async def curate_research_sources(
             sources_text += f"Date: {s['date']}\n"
         sources_text += f"Content:\n{s['content']}\n"
 
-    # Simplified prompt with cleaner JSON structure
-    prompt = f"""You are a research curator preparing sources for a comprehensive article about: "{topic}"
+    # Deep analysis prompt for Pro model - extract everything Sonnet needs
+    prompt = f"""You are an expert research analyst preparing comprehensive source analysis for a professional writer.
 
-TASK: Analyze ALL {len(all_sources)} sources and extract:
-1. Key facts (specific numbers, dates, requirements, costs, steps)
-2. Different perspectives and viewpoints
-3. Suggested article structure with sections
-4. Best sources to cite (with URLs)
+TOPIC: "{topic}"
 
-IMPORTANT: Output ONLY valid JSON. No markdown, no explanation. Just the JSON object.
+YOUR TASK: Deeply analyze ALL {len(all_sources)} sources and extract EVERYTHING valuable:
+
+1. FACTS - Every specific number, date, cost, requirement, statistic, deadline
+2. OPINIONS - What do different stakeholders think? Controversies? Debates?
+3. SENTIMENT - How do people feel about this? Frustrations? Enthusiasm?
+4. UNIQUE ANGLES - What interesting perspectives or nuances might others miss?
+5. QUOTES - Direct quotes that add credibility or color
+6. COMPARISONS - How does this compare to alternatives?
+7. CHANGES - What's new in 2024-2025? What changed recently?
+8. GOTCHAS - Common mistakes, warnings, things people overlook
+
+Be EXHAUSTIVE. The writer needs EVERYTHING to create a comprehensive, insightful article.
+Missing a key fact or interesting angle = lower quality article.
+
+OUTPUT ONLY VALID JSON (no markdown, no explanation):
 
 {{
   "key_facts": [
-    "Fact 1 with specific detail",
-    "Fact 2 with numbers/dates",
-    "... extract 30-50 specific facts"
+    "Extract 40-60 specific facts with exact numbers/dates/costs",
+    "Include ALL requirements, steps, deadlines, fees mentioned",
+    "Be precise: '€3,500/month minimum' not 'income requirement'"
   ],
-  "perspectives": [
-    "Government perspective: ...",
-    "User/applicant perspective: ...",
-    "Expert perspective: ...",
-    "Pros: ...",
-    "Cons: ..."
+  "opinions_and_sentiment": [
+    {{"source": "expat forum", "sentiment": "frustrated", "opinion": "Processing takes 3-6 months despite 30-day promise"}},
+    {{"source": "government official", "sentiment": "positive", "opinion": "Program attracting high-quality applicants"}},
+    {{"source": "tax advisor", "sentiment": "cautious", "opinion": "Tax benefits often overstated, check your specific situation"}}
+  ],
+  "unique_angles": [
+    "Angle most articles miss: ...",
+    "Interesting nuance: ...",
+    "Counter-intuitive finding: ...",
+    "Lesser-known benefit/drawback: ..."
+  ],
+  "direct_quotes": [
+    {{"quote": "Exact quote from source", "attribution": "Who said it", "source_id": "crawl_0"}},
+    {{"quote": "Another valuable quote", "attribution": "Expert name", "source_id": "news_2"}}
+  ],
+  "comparisons": [
+    "Compared to Portugal: ...",
+    "Compared to previous version: ...",
+    "Compared to similar programs: ..."
+  ],
+  "recent_changes": [
+    "2025: What changed this year",
+    "2024: Previous changes",
+    "Upcoming: What's expected"
+  ],
+  "warnings_and_gotchas": [
+    "Common mistake: ...",
+    "Often overlooked: ...",
+    "Watch out for: ..."
   ],
   "article_outline": [
     {{
       "section": "Introduction",
-      "key_points": ["What is this topic", "Why it matters in 2025"],
-      "suggested_sources": ["crawl_0", "news_2"]
+      "key_points": ["Hook with surprising fact", "Why this matters now", "What reader will learn"],
+      "tone": "engaging, not generic",
+      "suggested_sources": ["crawl_0"]
     }},
     {{
-      "section": "Requirements and Eligibility",
-      "key_points": ["Income requirements", "Documents needed", "Who can apply"],
+      "section": "Section title based on topic",
+      "key_points": ["Specific points to cover"],
+      "facts_to_include": ["From key_facts above"],
       "suggested_sources": ["crawl_1", "crawl_3"]
-    }},
-    {{
-      "section": "Application Process",
-      "key_points": ["Step-by-step process", "Timeline", "Fees"],
-      "suggested_sources": ["crawl_0", "crawl_2"]
-    }},
-    {{
-      "section": "Benefits and Advantages",
-      "key_points": ["Tax benefits", "Lifestyle", "Family reunification"],
-      "suggested_sources": ["news_1"]
-    }},
-    {{
-      "section": "Limitations and Considerations",
-      "key_points": ["Restrictions", "Renewal", "What to watch out for"],
-      "suggested_sources": ["crawl_4"]
-    }},
-    {{
-      "section": "Conclusion",
-      "key_points": ["Summary", "Next steps"],
-      "suggested_sources": []
     }}
   ],
   "high_authority_sources": [
-    {{"id": "crawl_0", "url": "...", "authority": "government or official source"}},
-    {{"id": "crawl_1", "url": "...", "authority": "major news outlet"}}
+    {{"id": "crawl_0", "url": "...", "authority": "government/official", "why_cite": "Primary source for requirements"}},
+    {{"id": "news_1", "url": "...", "authority": "major outlet", "why_cite": "Recent coverage with expert quotes"}}
   ],
   "timeline": [
-    "2021-10: Program launched",
-    "2022-03: Cap increased to 500",
-    "2025-03: Applications reopened"
+    "YYYY-MM: Event/change with specific detail"
   ],
   "best_sources": [
-    {{"id": "crawl_0", "url": "...", "title": "...", "relevance": 9}},
-    {{"id": "crawl_1", "url": "...", "title": "...", "relevance": 8}}
+    {{"id": "crawl_0", "url": "...", "title": "...", "relevance": 9, "unique_value": "What this source adds"}},
+    {{"id": "crawl_1", "url": "...", "title": "...", "relevance": 8, "unique_value": "Different perspective"}}
   ]
 }}
 
-Generate the article_outline sections based on what makes sense for THIS specific topic.
-Include 4-6 sections that would create a comprehensive, well-structured article.
-For each section, suggest which source IDs contain relevant information.
+Generate 5-7 article_outline sections that create a COMPREHENSIVE article structure.
+Each section should have specific key_points, not generic placeholders.
 
 SOURCES TO ANALYZE:
 {sources_text}
 
-OUTPUT (JSON only, no markdown):"""
+OUTPUT (JSON only):"""
 
-    # Use Gemini 2.5 Flash for curation (1M context window, very cheap)
+    # Use Gemini 2.5 Pro for curation - best reasoning, 2x better fact extraction
     api_key = os.environ.get("GOOGLE_API_KEY")
     if not api_key:
         activity.logger.error("GOOGLE_API_KEY not set for curation")
         return {
             "curated_sources": all_sources[:max_sources],
             "key_facts": [],
-            "perspectives": [],
+            "opinions_and_sentiment": [],
+            "unique_angles": [],
             "article_outline": [],
             "total_input": len(all_sources),
             "total_output": min(len(all_sources), max_sources),
@@ -319,8 +340,9 @@ OUTPUT (JSON only, no markdown):"""
     genai.configure(api_key=api_key)
 
     try:
-        # Gemini 2.5 Flash - massive context window (1M tokens), perfect for curation
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        # Gemini 2.5 Pro - best reasoning, ~2x better at fact extraction than Flash
+        # Cost: ~$0.40 vs $0.04 per curation - worth it for quality
+        model = genai.GenerativeModel("gemini-2.5-pro-preview-06-05")
         response = model.generate_content(
             prompt,
             generation_config=genai.types.GenerationConfig(
@@ -380,29 +402,40 @@ OUTPUT (JSON only, no markdown):"""
                     "date": s.get("date", "")
                 })
 
+        # Extract all the rich analysis from Pro
         key_facts = curation_result.get("key_facts", [])
-        perspectives = curation_result.get("perspectives", [])
+        opinions_and_sentiment = curation_result.get("opinions_and_sentiment", [])
+        unique_angles = curation_result.get("unique_angles", [])
+        direct_quotes = curation_result.get("direct_quotes", [])
+        comparisons = curation_result.get("comparisons", [])
+        recent_changes = curation_result.get("recent_changes", [])
+        warnings = curation_result.get("warnings_and_gotchas", [])
         article_outline = curation_result.get("article_outline", [])
         high_authority = curation_result.get("high_authority_sources", [])
         timeline = curation_result.get("timeline", [])
 
         activity.logger.info(
             f"Curation complete: {len(curated_with_content)} sources, "
-            f"{len(key_facts)} facts, {len(perspectives)} perspectives, "
-            f"{len(article_outline)} outline sections"
+            f"{len(key_facts)} facts, {len(opinions_and_sentiment)} opinions, "
+            f"{len(unique_angles)} angles, {len(article_outline)} outline sections"
         )
 
         return {
             "curated_sources": curated_with_content,
             "key_facts": key_facts,
-            "perspectives": perspectives,
+            "opinions_and_sentiment": opinions_and_sentiment,
+            "unique_angles": unique_angles,
+            "direct_quotes": direct_quotes,
+            "comparisons": comparisons,
+            "recent_changes": recent_changes,
+            "warnings_and_gotchas": warnings,
             "article_outline": article_outline,
             "high_authority_sources": high_authority,
             "timeline": timeline,
             "total_input": len(all_sources),
             "total_output": len(curated_with_content),
             "filtered_count": filtered_count,
-            "model": "gemini-2.5-flash"
+            "model": "gemini-2.5-pro"
         }
 
     except Exception as e:
@@ -411,8 +444,15 @@ OUTPUT (JSON only, no markdown):"""
         return {
             "curated_sources": all_sources[:max_sources],
             "key_facts": [],
-            "perspectives": [],
+            "opinions_and_sentiment": [],
+            "unique_angles": [],
+            "direct_quotes": [],
+            "comparisons": [],
+            "recent_changes": [],
+            "warnings_and_gotchas": [],
             "article_outline": [],
+            "high_authority_sources": [],
+            "timeline": [],
             "total_input": len(all_sources),
             "total_output": min(len(all_sources), max_sources),
             "error": str(e)
