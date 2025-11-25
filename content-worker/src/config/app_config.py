@@ -109,11 +109,14 @@ PLACEMENT_CONFIG = AppConfig(
     geographic_focus=["UK", "US", "EU", "Asia"],
 
     media_style="Professional corporate cinema",
-    media_style_details="""Modern glass office buildings, sleek boardrooms with city skyline views,
-deal celebration moments, confident executives in contemporary settings.
-Clean, sophisticated aesthetic. Warm lighting through floor-to-ceiling windows.
-Can include stylized/illustrated elements for abstract financial concepts.
-Professional but not stuffy - dynamic and forward-looking."""
+    media_style_details="""TONE: Confident, sophisticated, deal-making energy.
+QUALITY: Cinematic, high production value, premium feel.
+LIGHTING: Clean, modern - daylight through glass or warm evening city lights.
+PEOPLE: Confident professionals, authentic moments of success and collaboration.
+FEEL: Dynamic and forward-looking, not stuffy or stock-photo generic.
+
+Base visuals on the SPECIFIC deal/story - golf deal = golf imagery, tech acquisition = tech setting.
+Let the article content drive specifics - this sets the professional MOOD only."""
 )
 
 
@@ -178,16 +181,17 @@ RELOCATION_CONFIG = AppConfig(
     geographic_focus=["US", "UK", "EU", "Asia", "Global"],
 
     media_style="Aspirational travel and lifestyle photography",
-    media_style_details="""Stunning, cinematic travel magazine quality. SELL THE DREAM.
-Beautiful destinations: Mediterranean coastlines, European old towns, Asian skylines,
-tropical beaches at golden hour, charming cobblestone streets, modern city apartments
-with incredible views. Happy people living their best life abroad - working from
-sunlit cafes overlooking the sea, exploring local markets, enjoying rooftop sunsets,
-remote working from beautiful locations. Rolling landscape shots, drone-style city
-reveals, warm golden hour lighting throughout. Real people, genuine smiles, authentic
-moments of joy and discovery. Make viewers want to pack their bags immediately.
-Photorealistic, aspirational, emotionally compelling. Think Conde Nast Traveller meets
-digital nomad lifestyle content."""
+    media_style_details="""TONE: Cinematic, aspirational, emotionally compelling. SELL THE DREAM.
+QUALITY: Photorealistic, travel magazine quality, Conde Nast Traveller aesthetic.
+LIGHTING: Golden hour warmth, natural light, inviting atmosphere.
+PEOPLE: Happy, genuine, relatable - living their best life. Real moments of joy.
+FEEL: Make viewers want to experience this place/lifestyle immediately.
+
+IMPORTANT: Base imagery on the SPECIFIC location/topic in the article.
+Cyprus article = Cyprus landscapes, Limassol marina, Paphos old town.
+Portugal article = Lisbon trams, Porto riverfront, Algarve coast.
+Dubai article = Dubai skyline, desert luxury, modern architecture.
+Let the article topic drive the specific visuals - this guide sets the MOOD only."""
 )
 
 
@@ -255,14 +259,14 @@ PE_NEWS_CONFIG = AppConfig(
     geographic_focus=["UK", "US", "SG"],
 
     media_style="Dynamic financial news cinema",
-    media_style_details="""Fast-paced, Bloomberg/CNBC aesthetic meets cinematic quality.
-Deal announcements: handshakes in modern offices, signing ceremonies, celebration moments.
-Market activity: trading floors, data visualizations, city financial districts at night.
-Power players: confident executives, strategic meetings, global connectivity.
-High energy for deals and exits, thoughtful and analytical for market commentary.
-Can use stylized elements for abstract concepts (fund flows, market trends).
-Professional, authoritative, visually striking. Think Financial Times meets premium
-documentary cinematography."""
+    media_style_details="""TONE: Authoritative, high-energy for deals, analytical for commentary.
+QUALITY: Bloomberg/CNBC meets premium documentary - visually striking.
+LIGHTING: Modern office daylight or dramatic city night scenes.
+PEOPLE: Power players, confident executives, strategic energy.
+FEEL: Fast-paced news urgency combined with cinematic polish.
+
+Match imagery to the SPECIFIC story - fund launch = celebration, market downturn = thoughtful.
+Can use stylized elements for abstract concepts. Article topic drives specifics."""
 )
 
 
