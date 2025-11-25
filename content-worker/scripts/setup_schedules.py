@@ -1,7 +1,8 @@
 """
-Setup Temporal Schedules for News Monitoring
+Setup Temporal Schedules for News Creation
 
-Creates daily schedules for each app to run NewsMonitorWorkflow.
+Creates daily schedules for each app to run NewsCreationWorkflow.
+Each app gets its own schedule with app-specific configuration.
 """
 
 import asyncio
@@ -12,9 +13,23 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# App configurations for scheduling
+APP_CONFIGS = {
+    "placement": {
+        "min_relevance_score": 0.7,
+        "max_articles_to_create": 3,
+        "note": "Daily news articles for placement agents - creates up to 3 articles"
+    },
+    "relocation": {
+        "min_relevance_score": 0.7,
+        "max_articles_to_create": 3,
+        "note": "Daily news articles for relocation - creates up to 3 articles"
+    }
+}
 
-async def create_news_monitor_schedule():
-    """Create daily schedule for placement news monitoring."""
+
+async def create_news_creation_schedule(app: str, config: dict):
+    """Create daily schedule for news creation workflow for a specific app."""
 
     # Connect to Temporal
     client = await Client.connect(
@@ -24,17 +39,17 @@ async def create_news_monitor_schedule():
         tls=True,
     )
 
-    task_queue = os.getenv("TEMPORAL_TASK_QUEUE", "quest-company-queue")
+    task_queue = os.getenv("TEMPORAL_TASK_QUEUE", "quest-content-queue")
 
     # Schedule ID
-    schedule_id = "daily-placement-news-monitor"
+    schedule_id = f"daily-{app}-news-creation"
 
-    # Workflow input
+    # Workflow input - with intelligent video prompts
     workflow_input = {
-        "app": "placement",
-        "min_relevance_score": 0.7,
+        "app": app,
+        "min_relevance_score": config["min_relevance_score"],
         "auto_create_articles": True,
-        "max_articles_to_create": 3
+        "max_articles_to_create": config["max_articles_to_create"]
     }
 
     try:
@@ -51,9 +66,9 @@ async def create_news_monitor_schedule():
             schedule_id,
             Schedule(
                 action=ScheduleActionStartWorkflow(
-                    "NewsMonitorWorkflow",
+                    "NewsCreationWorkflow",  # NEW: Updated workflow name
                     workflow_input,
-                    id=f"news-monitor-placement-scheduled",
+                    id=f"news-creation-{app}-scheduled",
                     task_queue=task_queue,
                 ),
                 spec=ScheduleSpec(
@@ -65,31 +80,38 @@ async def create_news_monitor_schedule():
                     ]
                 ),
                 state=ScheduleState(
-                    note="Daily placement news monitoring - creates up to 3 articles"
+                    note=config["note"]
                 )
             )
         )
 
         print(f"✅ Created schedule: {schedule_id}")
+        print(f"   App: {app}")
+        print(f"   Workflow: NewsCreationWorkflow")
         print(f"   Runs every 24 hours")
-        print(f"   First run in ~2 hours")
         print(f"   Task queue: {task_queue}")
-        print(f"   Max articles: 3")
+        print(f"   Max articles: {config['max_articles_to_create']}")
 
     except Exception as e:
-        print(f"❌ Failed to create schedule: {e}")
+        print(f"❌ Failed to create schedule for {app}: {e}")
         raise
 
 
 async def main():
-    print("=" * 60)
-    print("Setting up Temporal Schedules")
-    print("=" * 60)
+    print("=" * 70)
+    print("Setting up Temporal Schedules for News Creation")
+    print("=" * 70)
 
-    await create_news_monitor_schedule()
+    # Create schedules for all apps
+    for app, config in APP_CONFIGS.items():
+        print(f"\n📅 Setting up schedule for {app}...")
+        await create_news_creation_schedule(app, config)
 
-    print("\n✅ All schedules created!")
+    print("\n" + "=" * 70)
+    print("✅ All schedules created!")
     print("   View in Temporal Cloud UI")
+    print("   Workflows will run daily with intelligent video prompts")
+    print("=" * 70)
 
 
 if __name__ == "__main__":
