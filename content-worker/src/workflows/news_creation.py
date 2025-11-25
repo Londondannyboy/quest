@@ -87,7 +87,7 @@ class NewsCreationWorkflow:
         dataforseo_result = await workflow.execute_activity(
             "dataforseo_news_search",
             args=[keywords[:5], dataforseo_regions, 100, "past_24_hours"],
-            start_to_close_timeout=timedelta(minutes=3)
+            start_to_close_timeout=timedelta(minutes=10)  # Increased from 3 to 10 - DataForSEO can be slow with large result sets
         )
 
         dataforseo_articles = dataforseo_result.get("articles", [])
