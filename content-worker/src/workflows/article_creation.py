@@ -439,14 +439,26 @@ class ArticleCreationWorkflow:
         if video_quality:
             workflow.logger.info(f"Phase 8: Generating video prompt (model={video_model})")
 
-            # Use custom prompt if provided, otherwise generate one
-            if video_prompt:
-                workflow.logger.info("Using custom video prompt from input")
+            # Check if user provided a full prompt or just a hint/seed
+            # Full prompt = 60+ words, use verbatim
+            # Short hint = expand it with cinematic details
+            user_prompt_words = len(video_prompt.split()) if video_prompt else 0
+
+            if video_prompt and user_prompt_words >= 60:
+                # User provided a complete prompt - use verbatim
+                workflow.logger.info(f"Using complete custom prompt ({user_prompt_words} words)")
                 video_prompt_result = {"prompt": video_prompt, "success": True, "cost": 0}
             else:
+                # Generate prompt, using user's input as seed if provided
+                seed_hint = video_prompt if video_prompt else None
+                if seed_hint:
+                    workflow.logger.info(f"Expanding user hint into cinematic prompt: '{seed_hint[:50]}...'")
+                else:
+                    workflow.logger.info("Generating video prompt from article content")
+
                 video_prompt_result = await workflow.execute_activity(
                     "generate_video_prompt",
-                    args=[article["title"], topic, app, video_model],
+                    args=[article["title"], topic, app, video_model, seed_hint],
                     start_to_close_timeout=timedelta(seconds=60)
                 )
 

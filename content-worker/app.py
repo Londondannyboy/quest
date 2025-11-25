@@ -352,7 +352,7 @@ with tab_article:
             "Custom Prompt",
             value="",
             placeholder=default_prompt,
-            help="Leave empty to auto-generate from article content. Or write your own prompt for the video.",
+            help="Leave empty for auto-generated. Short hints (e.g., 'Cyprus beach sunset') will be expanded into full cinematic prompts. 60+ word prompts used verbatim.",
             key="video_prompt",
             height=100
         )

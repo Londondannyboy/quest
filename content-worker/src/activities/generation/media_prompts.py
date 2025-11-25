@@ -46,7 +46,8 @@ async def generate_video_prompt(
     title: str,
     topic: str,
     app: str,
-    video_model: str = "seedance"
+    video_model: str = "seedance",
+    seed_hint: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Generate a focused video prompt optimized for the target model.
@@ -58,6 +59,7 @@ async def generate_video_prompt(
         topic: Original topic/subject
         app: Application (relocation, placement, etc.)
         video_model: Target model (seedance, wan-2.5)
+        seed_hint: Optional user-provided hint to incorporate (e.g., "Cyprus beach sunset")
 
     Returns:
         {
@@ -69,6 +71,8 @@ async def generate_video_prompt(
     """
     activity.logger.info(f"Generating video prompt for: {title[:50]}...")
     activity.logger.info(f"Target model: {video_model}")
+    if seed_hint:
+        activity.logger.info(f"User seed hint: {seed_hint}")
 
     # Get app config for styling
     app_config = APP_CONFIGS.get(app)
@@ -111,11 +115,24 @@ MOTION IS ESSENTIAL:
 
 Return ONLY the prompt text, no JSON, no explanation, no quotes around it."""
 
+    # Build user prompt, incorporating seed hint if provided
+    seed_section = ""
+    if seed_hint:
+        seed_section = f"""
+USER'S CREATIVE DIRECTION:
+The user wants the video to focus on: "{seed_hint}"
+Incorporate this direction into your cinematic prompt while adding:
+- Professional camera movements
+- Cinematic lighting and atmosphere
+- Motion and action (not static scenes)
+- App-appropriate styling
+"""
+
     user_prompt = f"""Create a {model_info['optimal_length']} cinematic video prompt for:
 
 TITLE: {title}
 TOPIC: {topic}
-
+{seed_section}
 The prompt should capture the essence of this topic with:
 - Specific visual elements related to "{topic}"
 - Clear camera movement and motion
