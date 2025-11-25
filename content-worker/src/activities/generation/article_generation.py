@@ -105,8 +105,8 @@ CRITICAL: The article MUST be AT LEAST {target_word_count} words - aim for 3000-
 
 ===== OUTPUT FORMAT =====
 
-Start with the title on the first line (plain text, no HTML):
-Leonard Green Takes Control of Topgolf in $1.1bn Carve-Out
+Start with the title on the first line (plain text, no HTML).
+IMPORTANT: Generate a NEW title specific to the topic "{topic}" - do NOT copy any example.
 
 Then the full article body in HTML with Tailwind CSS:
 
@@ -312,13 +312,20 @@ Then the full article body in HTML with Tailwind CSS:
    - Match tone to context (don't be celebratory about job losses)
    - Include relevant industry context and implications
 
-Output ONLY the title on line 1, then the HTML content. No other text or explanation."""
+CRITICAL OUTPUT FORMAT:
+1. Title on first line (specific to THIS topic, not an example)
+2. Full HTML article content
+3. ---MEDIA PROMPTS--- section at the end (REQUIRED - do not skip!)
+   - FEATURED: [80-120 word prompt for hero video]
+   - SECTION 1-4: [prompts for content media]
+
+The media prompts section is MANDATORY - without it, no video/images can be generated."""
 
         # Haiku max is 8192, Sonnet/Opus can do more
         # Use 8192 for compatibility with all models
         message = client.messages.create(
             model=model_name,
-            max_tokens=8192,
+            max_tokens=16384,  # Increased to ensure room for media prompts after long articles
             system=system_prompt,
             messages=[
                 {"role": "user", "content": prompt}
