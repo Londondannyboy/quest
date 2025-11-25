@@ -77,6 +77,17 @@ async def generate_article_content(
 
         # Get app config for rich context
         app_config = APP_CONFIGS.get(app)
+
+        # Create display-friendly app name for editorial attribution
+        app_display_names = {
+            "relocation": "Relocation",
+            "placement": "Placement",
+            "chief-of-staff": "Chief of Staff",
+            "gtm": "GTM",
+            "newsroom": "Newsroom"
+        }
+        app_name = app_display_names.get(app, app.title())
+
         if app_config:
             app_desc = app_config.description
             target_audience = app_config.target_audience
@@ -308,6 +319,16 @@ Then the full article body in HTML with Tailwind CSS:
      <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
        <li><a href="URL" class="text-blue-600 hover:text-blue-800 underline" target="_blank">Source Name</a> - Brief description</li>
      </ul>
+
+   - ALWAYS end with an Editorial Footer (after Sources):
+     <hr class="my-8 border-gray-200" />
+     <div class="bg-gray-50 rounded-lg p-6 mt-8">
+       <p class="text-sm text-gray-500 mb-3">
+         <em>This article was written with AI assistance and curated by the Quest {app_name} editorial team.
+         While we strive for accuracy, please verify important details independently before making decisions.</em>
+       </p>
+       <p class="text-sm font-medium text-gray-700">Quest {app_name} Editorial Team</p>
+     </div>
 
 6. **Tailwind Classes to Use**
    - Paragraphs: text-gray-700 leading-relaxed mb-4 (or mb-6 for spacing)
