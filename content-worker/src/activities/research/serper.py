@@ -345,15 +345,17 @@ async def serper_article_search(
 
             if response.status_code == 200:
                 data = response.json()
-                results = data.get("organic", [])
+                # type: "news" returns results in "news" key, not "organic"
+                results = data.get("news", [])
                 cost = data.get("searchParameters", {}).get("credits", 0) / 10000
 
                 for item in results:
                     all_results.append({
                         "title": item.get("title", ""),
                         "url": item.get("link", ""),
-                        "source": item.get("domain", "").replace("www.", ""),
+                        "source": item.get("source", "").replace("www.", ""),
                         "snippet": item.get("snippet", ""),
+                        "date": item.get("date", ""),  # News results have date
                         "position": item.get("position", 0),
                         "topic": topic,
                         "jurisdiction": jurisdiction,
