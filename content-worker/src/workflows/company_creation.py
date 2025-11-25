@@ -102,7 +102,7 @@ class CompanyCreationWorkflow:
 
         # Launch all research activities in parallel
         news_task = workflow.execute_activity(
-            "serper_search",
+            "serper_company_search",
             args=[
                 normalized["domain"],
                 normalized["company_name_guess"],
