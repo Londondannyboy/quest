@@ -78,52 +78,37 @@ class NewsCreationWorkflow:
         }
         dataforseo_keyword = dataforseo_keywords_by_app.get(app, "private equity")
 
-        # News search - UK only (cost optimization)
-        dataforseo_news_regions = ["UK"]
-        # Organic SERP - both UK & US (higher value data with AI Overview & PAA)
-        dataforseo_organic_regions = ["UK", "US"]
-
         workflow.logger.info(f"DataForSEO primary keyword: {dataforseo_keyword}")
 
+        # ===== PHASE 1A1: FETCH NEWS =====
         dataforseo_result = await workflow.execute_activity(
             "dataforseo_news_search",
-            args=[[dataforseo_keyword], dataforseo_news_regions, 70],
+            args=[[dataforseo_keyword], ["UK"], 70],
             start_to_close_timeout=timedelta(minutes=10)
         )
 
         dataforseo_articles = dataforseo_result.get("articles", [])
-        workflow.logger.info(f"DataForSEO news (UK only): {len(dataforseo_articles)} results")
+        workflow.logger.info(f"DataForSEO news (UK): {len(dataforseo_articles)} results")
 
         # ===== PHASE 1A2: FETCH ORGANIC SERP WITH AI OVERVIEW & PEOPLE ALSO ASK =====
-        workflow.logger.info("Phase 1a2: Fetching organic SERP with AI Overview and People Also Ask (UK + US, depth 70 = 7 pages)")
+        workflow.logger.info("Phase 1a2: Fetching organic SERP with AI Overview and People Also Ask (UK, depth 70 = 7 pages)")
 
-        # Use Semaphore to rate-limit organic searches (max 2 concurrent requests)
-        semaphore = asyncio.Semaphore(2)
+        # Fetch organic results for UK
+        organic_result = await workflow.execute_activity(
+            "dataforseo_serp_search",
+            args=[
+                dataforseo_keyword,  # "private equity"
+                "UK",  # UK only
+                70,  # depth: 70 results (sweet spot)
+                True,  # include_ai_overview
+                4  # people_also_ask_depth
+            ],
+            start_to_close_timeout=timedelta(minutes=5)
+        )
 
-        async def fetch_organic_with_semaphore(region: str):
-            async with semaphore:
-                return await workflow.execute_activity(
-                    "dataforseo_serp_search",
-                    args=[
-                        dataforseo_keyword,  # "private equity"
-                        region,  # UK or US
-                        70,  # depth: 70 results (sweet spot)
-                        True,  # include_ai_overview
-                        4  # people_also_ask_depth
-                    ],
-                    start_to_close_timeout=timedelta(minutes=5)
-                )
+        organic_articles = organic_result.get("results", [])
 
-        # Fetch organic results for each region with rate limiting
-        organic_tasks = [fetch_organic_with_semaphore(region) for region in dataforseo_organic_regions]
-        organic_results = await asyncio.gather(*organic_tasks, return_exceptions=True)
-
-        organic_articles = []
-        for result in organic_results:
-            if not isinstance(result, Exception):
-                organic_articles.extend(result.get("results", []))
-
-        workflow.logger.info(f"DataForSEO organic + AI overview: {len(organic_articles)} results")
+        workflow.logger.info(f"DataForSEO organic + AI overview (UK): {len(organic_articles)} results")
 
         # ===== PHASE 1B: FETCH NEWS FROM SERPER (SUPPLEMENTARY) =====
         workflow.logger.info("Phase 1b: Fetching news from Serper (supplementary) - past 24 hours")
