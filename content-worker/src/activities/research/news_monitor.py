@@ -30,7 +30,7 @@ GEO_MAP = {
 # NEWS FETCH ACTIVITY
 # ============================================================================
 
-@activity.defn(name="serper_news_search")
+@activity.defn(name="fetch_news_for_keywords")
 async def fetch_news_for_keywords(
     keywords: List[str],
     geographic_focus: List[str],
