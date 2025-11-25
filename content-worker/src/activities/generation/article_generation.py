@@ -105,8 +105,15 @@ CRITICAL: The article MUST be AT LEAST {target_word_count} words - aim for 3000-
 
 ===== OUTPUT FORMAT =====
 
-Start with the title on the first line (plain text, no HTML).
-IMPORTANT: Generate a NEW title specific to the topic "{topic}" - do NOT copy any example.
+Start with this EXACT format for SEO metadata (3 lines):
+TITLE: [Your title here - MAX 70 characters, compelling and specific to "{topic}"]
+META: [Your meta description here - EXACTLY 150-160 characters, compelling summary with keywords]
+SLUG: [suggested-url-slug-here - lowercase, hyphens, 3-6 words, no stop words]
+
+IMPORTANT:
+- Title MUST be under 70 characters (Google truncates longer titles)
+- Meta description MUST be 150-160 characters (not truncated, deliberately written)
+- Slug should be clean, memorable, and SEO-friendly (e.g., "cyprus-digital-nomad-visa-2025")
 
 Then the full article body in HTML with Tailwind CSS:
 
@@ -344,10 +351,43 @@ Source links are MANDATORY - articles without <a href> tags will be rejected."""
 
         article_text = message.content[0].text
 
-        # Parse title from first line
+        # Parse SEO metadata from structured output
         lines = article_text.strip().split('\n')
-        title = lines[0].strip().lstrip('#').strip() if lines else topic
-        raw_content = '\n'.join(lines[1:]).strip() if len(lines) > 1 else article_text
+
+        # Extract TITLE:, META:, SLUG: from first lines
+        title = topic  # fallback
+        meta_description = None
+        ai_suggested_slug = None
+        content_start_idx = 0
+
+        for idx, line in enumerate(lines[:10]):  # Check first 10 lines for metadata
+            line_stripped = line.strip()
+            if line_stripped.startswith('TITLE:'):
+                title = line_stripped[6:].strip()
+                content_start_idx = idx + 1
+            elif line_stripped.startswith('META:'):
+                meta_description = line_stripped[5:].strip()
+                content_start_idx = idx + 1
+            elif line_stripped.startswith('SLUG:'):
+                ai_suggested_slug = line_stripped[5:].strip().lower().replace(' ', '-')
+                content_start_idx = idx + 1
+            elif line_stripped.startswith('<'):
+                # HTML content started
+                break
+
+        # Fallback: if no structured metadata, use first line as title
+        if title == topic and lines:
+            title = lines[0].strip().lstrip('#').strip()
+            content_start_idx = 1
+
+        raw_content = '\n'.join(lines[content_start_idx:]).strip()
+
+        # Log extracted metadata
+        activity.logger.info(f"SEO Metadata - Title ({len(title)} chars): {title[:70]}")
+        if meta_description:
+            activity.logger.info(f"SEO Metadata - Meta ({len(meta_description)} chars): {meta_description[:160]}")
+        if ai_suggested_slug:
+            activity.logger.info(f"SEO Metadata - AI Slug: {ai_suggested_slug}")
 
         # Extract media prompts from content (FEATURED for hero, SECTION N for content)
         content, featured_prompt, section_prompts = extract_media_prompts(raw_content)
@@ -366,22 +406,29 @@ Source links are MANDATORY - articles without <a href> tags will be rejected."""
         if not has_sources_section:
             activity.logger.warning(f"⚠️ Article missing Sources & References section")
 
-        # Generate metadata - use custom slug if provided
-        # Shorter slugs for cleaner URLs - 60 chars is enough for SEO
-        slug = custom_slug if custom_slug else slugify(title, max_length=60)
+        # Determine slug: custom > AI-suggested > auto-generated from title
+        if custom_slug:
+            slug = custom_slug
+        elif ai_suggested_slug:
+            slug = slugify(ai_suggested_slug, max_length=60)
+        else:
+            slug = slugify(title, max_length=60)
 
         # Count words (strip HTML tags for accurate count)
         text_only = re.sub(r'<[^>]+>', '', content)
         word_count = len(text_only.split())
 
-        # Extract first paragraph as excerpt (strip HTML)
-        # Find first <p> tag content
-        first_p_match = re.search(r'<p[^>]*>(.*?)</p>', content, re.DOTALL)
-        if first_p_match:
-            excerpt_html = first_p_match.group(1)
-            excerpt = re.sub(r'<[^>]+>', '', excerpt_html).strip()[:200]
-        else:
-            excerpt = f"Article about {topic}"
+        # Use AI-generated meta_description if available, else extract from content
+        if not meta_description:
+            # Fallback: extract first paragraph
+            first_p_match = re.search(r'<p[^>]*>(.*?)</p>', content, re.DOTALL)
+            if first_p_match:
+                excerpt_html = first_p_match.group(1)
+                meta_description = re.sub(r'<[^>]+>', '', excerpt_html).strip()[:160]
+            else:
+                meta_description = f"Article about {topic}"
+
+        excerpt = meta_description  # Use meta_description as excerpt
 
         activity.logger.info(f"Extracted media prompts: FEATURED={bool(featured_prompt)}, SECTIONS={len(section_prompts)}")
         if featured_prompt:
@@ -405,7 +452,7 @@ Source links are MANDATORY - articles without <a href> tags will be rejected."""
                 "excerpt": excerpt,
                 "app": app,
                 "article_type": article_type,
-                "meta_description": excerpt[:160],
+                "meta_description": meta_description,  # AI-generated 150-160 char description
                 "tags": [],
                 "word_count": word_count,
                 "reading_time_minutes": max(1, word_count // 200),
