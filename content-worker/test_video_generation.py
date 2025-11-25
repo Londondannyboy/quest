@@ -75,6 +75,36 @@ TEST_CASES = {
         "aspect_ratio": "16:9",
         "video_model": "seedance",
         "video_prompt": None  # Will auto-generate based on title/content/app
+    },
+    # NEW: Test relocation app with proper Sonnet-style media prompt
+    "cyprus_relocation": {
+        "title": "Cyprus Digital Nomad Visa 2025: Complete Guide to Living and Working",
+        "content": "<p>Cyprus has emerged as a top destination for digital nomads...</p>",
+        "app": "relocation",
+        "quality": "medium",
+        "duration": 3,
+        "aspect_ratio": "16:9",
+        "video_model": "seedance",
+        # Sonnet-style prompt with full formula: Subject + Action + Scene + Camera + Style
+        "video_prompt": """Young professional couple walks slowly along Limassol marina at golden hour,
+pausing to admire luxury yachts gently bobbing in the harbor, then turning to smile warmly at each other.
+Camera pushes in gradually from wide establishing shot to medium close-up.
+Warm Mediterranean sunset light, soft amber tones, crystal blue water reflections.
+Cinematic travel documentary style, shallow depth of field, aspirational lifestyle aesthetic,
+Conde Nast Traveller quality."""
+    },
+    # Test prompt transformation only (no API call)
+    "prompt_test": {
+        "title": "Test Prompt Transformation",
+        "content": "<p>Test content</p>",
+        "app": "relocation",
+        "quality": "low",
+        "duration": 3,
+        "aspect_ratio": "16:9",
+        "video_model": "seedance",
+        "video_prompt": """Digital nomad opens laptop slowly at seaside cafe, takes a gentle sip of espresso,
+looks up and smiles at the Mediterranean view. Camera tracks alongside smoothly.
+Golden hour lighting, warm tones, travel magazine aesthetic."""
     }
 }
 
@@ -331,6 +361,37 @@ async def verify_env_vars():
         return True
 
 
+async def test_prompt_transformation():
+    """Test prompt transformation without API calls - instant!"""
+    from src.activities.media.video_generation import (
+        transform_prompt_for_seedance,
+        transform_prompt_for_wan
+    )
+
+    print_header("PROMPT TRANSFORMATION TEST (No API calls)")
+
+    for name, test_data in TEST_CASES.items():
+        if not test_data.get("video_prompt"):
+            continue
+
+        print_section(f"Test Case: {name}")
+        original = test_data["video_prompt"]
+        print(f"Original ({len(original)} chars):")
+        print(f"  {original[:150]}...")
+
+        # Seedance transformation
+        seedance = transform_prompt_for_seedance(original)
+        print(f"\nSeedance ({len(seedance)} chars):")
+        print(f"  {seedance[:150]}...")
+
+        # WAN 2.5 transformation
+        wan_pos, wan_neg = transform_prompt_for_wan(original)
+        print(f"\nWAN 2.5 Positive ({len(wan_pos)} chars):")
+        print(f"  {wan_pos[:150]}...")
+        print(f"\nWAN 2.5 Negative:")
+        print(f"  {wan_neg}")
+
+
 async def main():
     """Main test runner."""
 
@@ -342,32 +403,42 @@ async def main():
     # Verify environment
     env_ok = await verify_env_vars()
 
-    if not env_ok:
-        print("\n❌ Cannot proceed without required environment variables")
-        sys.exit(1)
-
     print("\n📋 Available Tests:")
-    print("   1. Cost Estimates (quick)")
-    print("   2. Single Video Generation (real_madrid, low quality)")
-    print("   3. Full Pipeline (generate + upload to Mux)")
-    print("   4. Run all tests")
+    print("   prompt  - Test prompt transformation (instant, no API)")
+    print("   quick   - Cost Estimates")
+    print("   generate - Single Video Generation")
+    print("   cyprus  - Cyprus relocation video (Sonnet-style prompt)")
+    print("   full    - Full Pipeline (generate + upload to Mux)")
 
     # For automated testing, run full pipeline
     if len(sys.argv) > 1:
         test = sys.argv[1]
-        if test == "quick":
+        if test == "prompt":
+            await test_prompt_transformation()
+        elif test == "quick":
             await test_cost_estimates()
         elif test == "generate":
+            if not env_ok:
+                print("\n❌ Cannot proceed without required environment variables")
+                sys.exit(1)
             await test_video_generation("real_madrid", quality="low")
+        elif test == "cyprus":
+            if not env_ok:
+                print("\n❌ Cannot proceed without required environment variables")
+                sys.exit(1)
+            await test_video_generation("cyprus_relocation", quality="medium")
         elif test == "full":
+            if not env_ok:
+                print("\n❌ Cannot proceed without required environment variables")
+                sys.exit(1)
             await test_full_pipeline("real_madrid")
         else:
             print(f"Unknown test: {test}")
+            print("Available: prompt, quick, generate, cyprus, full")
     else:
-        # Interactive mode
-        print("\n→ Running full pipeline test (generate + upload to Mux)...")
-        print("  (This will take several minutes)")
-        await test_full_pipeline("real_madrid")
+        # Default: test prompt transformation (instant, no API)
+        print("\n→ Running prompt transformation test (instant, no API)...")
+        await test_prompt_transformation()
 
     print("\n" + "=" * 80)
     print("✅ Test suite complete!")

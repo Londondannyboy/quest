@@ -21,120 +21,95 @@ from temporalio import activity
 
 from src.activities.articles.analyze_sections import analyze_article_sections
 from src.activities.media.flux_api_client import generate_flux_image
+from src.config.app_config import get_app_config, APP_CONFIGS
 
 
 def build_sequential_prompt(
     section: Dict[str, Any],
     app: str,
     is_first: bool = False,
-    previous_description: Optional[str] = None
+    previous_description: Optional[str] = None,
+    custom_prompt: Optional[str] = None
 ) -> str:
     """
     Build Flux Kontext prompt for sequential storytelling.
 
-    Follows the prompting guide's three-part structure:
-    1. Establish reference (from previous image or first image context)
-    2. Specify transformation (new scene/section)
-    3. Preserve identity (maintain style, aesthetic, characters)
-
-    CRITICAL: Matches tone to business context (no smiling execs for layoffs!)
+    Uses app config for styling (media_style, media_style_details) instead of hardcoded styles.
 
     Args:
         section: Section dict with title, visual_moment, sentiment, visual_tone, business_context
         app: Application context (placement, relocation, etc.)
         is_first: If True, no context reference needed
         previous_description: Visual description from previous image
+        custom_prompt: If provided (from Sonnet), use this directly with app styling
 
     Returns:
-        Optimized Kontext prompt with appropriate tone
+        Optimized Kontext prompt using app config styling
     """
-    # CRITICAL: Semi-cartoon illustration style (NOT photorealistic!)
-    # This makes the context/sentiment immediately visually obvious
-    base_style = (
-        "Semi-cartoon illustration style, stylized NOT photorealistic. "
-        "Clean lines, professional but approachable, digital art aesthetic, business-appropriate cartoon. "
-        "Color palette: corporate navy blue, charcoal gray, tech blue accents, white/light backgrounds, "
-        "minimal use of warm colors. "
-        "Characters: Stylized cartoon business executives and professionals (NOT realistic people). "
-        "Setting: Modern corporate environments with glass walls, minimalist design, clean digital art. "
-        "IMPORTANT: Professional digital art for business article. Avoid cheesy realistic photography."
-    )
+    # Get app config for styling
+    app_config = APP_CONFIGS.get(app)
+    if app_config:
+        media_style = app_config.media_style
+        media_style_details = app_config.media_style_details
+    else:
+        media_style = "Cinematic, professional, high production value"
+        media_style_details = "High quality, visually compelling imagery."
 
-    # App-specific context (adds to base style)
-    app_context = {
-        "placement": "Private equity/M&A office settings, financial district aesthetics",
-        "relocation": "International relocation scenes, cultural transition moments",
-        "chief-of-staff": "C-suite executive environments, leadership settings",
-        "consultancy": "Strategic advisory settings, business transformation scenes"
-    }
+    # If we have a custom prompt (from Sonnet-generated media prompts), use it with app styling
+    if custom_prompt:
+        if is_first:
+            prompt = f"{custom_prompt} Style: {media_style}. {media_style_details}"
+        else:
+            prompt = (
+                f"Using the SAME visual style, color palette, and aesthetic as the previous image, "
+                f"now show: {custom_prompt} "
+                f"Maintain visual consistency with previous image."
+            )
+        return prompt
 
-    context_addition = app_context.get(app, app_context["placement"])
-
-    # Extract section details with context awareness
+    # Fallback: Build prompt from section analysis (legacy behavior)
     title = section.get("title", "")
     visual_moment = section.get("visual_moment", "")
     sentiment = section.get("sentiment", "neutral")
     visual_tone = section.get("visual_tone", "professional")
     business_context = section.get("business_context", "general")
 
-    # Build tone-appropriate description (EXAGGERATED for cartoon style)
-    # The semi-cartoon style lets us be more expressive and obvious about the context
+    # Tone guidance (context-appropriate, not cartoon-specific)
     tone_guidance = {
-        "somber-serious": "serious cartoon faces with furrowed brows, subdued colors, downward body language, "
-                         "heavy atmosphere visible in illustration (e.g., darker shading around characters)",
-        "professional-optimistic": "confident cartoon handshakes, slight smiles, positive energy shown through "
-                                  "bright accents, upward gestures, open body language in illustration",
-        "tense-uncertain": "worried cartoon expressions, question marks or concern symbols, uncertain postures, "
-                          "fragmented or angular illustration elements suggesting instability",
-        "celebratory": "joyful cartoon celebration, raised arms, confetti or achievement symbols, bright colors, "
-                      "triumphant poses in stylized digital art",
-        "analytical-neutral": "focused cartoon professionals with charts/graphs, neutral expressions, "
-                            "clean organized workspace, balanced composition"
+        "somber-serious": "serious expressions, subdued colors, contemplative atmosphere",
+        "professional-optimistic": "confident demeanor, positive energy, warm lighting",
+        "tense-uncertain": "concerned expressions, uncertain atmosphere, muted tones",
+        "celebratory": "joyful celebration, bright colors, triumphant energy",
+        "analytical-neutral": "focused professionals, clean workspace, balanced composition"
     }
 
-    tone_desc = tone_guidance.get(visual_tone, "professional cartoon demeanor")
+    tone_desc = tone_guidance.get(visual_tone, "professional demeanor")
 
     if is_first:
-        # First image: Set the visual foundation with appropriate tone
-        # EXAGGERATED so story is visually obvious (e.g., "that's about layoffs")
         prompt = (
             f"Scene: {visual_moment}. "
-            f"Style: {base_style} "
-            f"Context: {context_addition}. "
-            f"Tone/Mood: {tone_desc} "
-            f"Business context: {business_context} (make this visually obvious through exaggerated cartoon expression). "
-            f"Sentiment: {sentiment} - exaggerate this in the illustration style. "
-            f"CRITICAL: Semi-cartoon digital art, NOT realistic photography. Stylized business characters."
+            f"Style: {media_style}. "
+            f"{media_style_details} "
+            f"Tone/Mood: {tone_desc}. "
+            f"Business context: {business_context}. "
+            f"Sentiment: {sentiment}."
         )
     else:
-        # Subsequent images: Preserve previous context, add new scene, MAINTAIN CARTOON STYLE
-        # This is the KEY to Kontext's sequential power
         prompt = (
-            f"Using the SAME semi-cartoon illustration style, same stylized characters, "
-            f"same color palette (navy blue, charcoal gray, tech blue) as the previous image, "
+            f"Using the SAME visual style, color palette, and aesthetic as the previous image, "
             f"now show: {visual_moment}. "
             f"Scene: {title}. "
-            f"Tone/Mood: {tone_desc} "
-            f"Business context: {business_context} (exaggerate visually through cartoon expressions and setting). "
+            f"Tone/Mood: {tone_desc}. "
             f"Sentiment: {sentiment}. "
-            f"Maintain visual consistency with previous cartoon style - same character designs, same digital art aesthetic. "
-            f"IMPORTANT: Continue the semi-cartoon illustration style, NOT photorealistic. "
-            f"Professional digital art for business article."
+            f"Maintain visual consistency with previous image."
         )
 
-    # Keep under 512 token limit (roughly 400-450 words)
-    if len(prompt) > 2000:  # Rough character limit
-        # Simplify if too long BUT keep semi-cartoon style mandate
+    # Keep under reasonable length
+    if len(prompt) > 2000:
         if is_first:
-            prompt = (
-                f"{visual_moment}. Semi-cartoon illustration style, NOT photorealistic. "
-                f"Stylized business characters. {tone_desc} Mood: {sentiment}."
-            )
+            prompt = f"{visual_moment}. {media_style}. {tone_desc}."
         else:
-            prompt = (
-                f"Using the same semi-cartoon style and characters from previous image, show: {visual_moment}. "
-                f"Maintain cartoon illustration consistency. {tone_desc}"
-            )
+            prompt = f"Same style as previous, show: {visual_moment}. {tone_desc}."
 
     return prompt
 

@@ -15,13 +15,13 @@ from src.utils.config import config
 from src.config.app_config import get_app_config, APP_CONFIGS
 
 
-def extract_image_prompts(content: str) -> tuple:
+def extract_media_prompts(content: str) -> tuple:
     """
-    Extract image prompts from article content.
+    Extract media prompts from article content.
 
-    Looks for ---IMAGE PROMPTS--- section and extracts:
-    - FEATURED: prompt
-    - SECTION N: prompt
+    Looks for ---MEDIA PROMPTS--- section (or legacy ---IMAGE PROMPTS---) and extracts:
+    - FEATURED: prompt (for hero video/image)
+    - SECTION N: prompt (for content videos/images)
 
     Returns:
         Tuple of (cleaned_content, featured_prompt, section_prompts)
@@ -29,23 +29,23 @@ def extract_image_prompts(content: str) -> tuple:
     featured_prompt = ""
     section_prompts = []
 
-    # Find image prompts section
-    match = re.search(r'---\s*IMAGE PROMPTS\s*---\s*(.+)', content, re.DOTALL | re.IGNORECASE)
+    # Find media prompts section (support both new MEDIA and legacy IMAGE)
+    match = re.search(r'---\s*(MEDIA|IMAGE)\s*PROMPTS\s*---\s*(.+)', content, re.DOTALL | re.IGNORECASE)
 
     if match:
-        prompts_section = match.group(1)
+        prompts_section = match.group(2)
 
-        # Extract FEATURED: line
-        featured_match = re.search(r'FEATURED:\s*([^\n]+)', prompts_section)
+        # Extract FEATURED: line (can be multi-line prompt up to next SECTION or end)
+        featured_match = re.search(r'FEATURED:\s*(.+?)(?=SECTION\s*\d+:|$)', prompts_section, re.DOTALL)
         if featured_match:
-            featured_prompt = featured_match.group(1).strip().strip('[]')
+            featured_prompt = featured_match.group(1).strip().strip('[]').replace('\n', ' ')
 
-        # Extract SECTION N: lines
-        section_matches = re.findall(r'SECTION\s*\d+:\s*([^\n]+)', prompts_section)
-        section_prompts = [p.strip().strip('[]') for p in section_matches]
+        # Extract SECTION N: lines (can be multi-line prompts)
+        section_matches = re.findall(r'SECTION\s*\d+:\s*(.+?)(?=SECTION\s*\d+:|$)', prompts_section, re.DOTALL)
+        section_prompts = [p.strip().strip('[]').replace('\n', ' ') for p in section_matches]
 
         # Remove prompts section from article content
-        content = re.sub(r'---\s*IMAGE PROMPTS\s*---\s*.+', '', content, flags=re.DOTALL | re.IGNORECASE).strip()
+        content = re.sub(r'---\s*(MEDIA|IMAGE)\s*PROMPTS\s*---\s*.+', '', content, flags=re.DOTALL | re.IGNORECASE).strip()
 
     return content, featured_prompt, section_prompts
 
@@ -174,44 +174,75 @@ Then the full article body in HTML with Tailwind CSS:
    SECTION 3: [Different angle - alternative perspective or detail]
    SECTION 4: [Resolution - implications, outcome, or emotional payoff]
 
-   **PROMPT FORMULA (use this structure for EVERY prompt):**
-   [Subject] + [Action] + [Scene] + [Camera Movement] + [Style/Atmosphere]
+   **OPTIMAL LENGTH: 80-120 words per prompt** (works best for both Seedance and WAN 2.5)
 
-   **CAMERA LANGUAGE (Seedance-specific - include one per prompt):**
-   - Movement: "camera pushes in slowly", "pulls back gently to reveal", "orbits smoothly around subject"
-   - Tracking: "camera follows closely", "tracks alongside", "pans across gradually"
-   - Types: "aerial shot", "handheld", "surround", "zoom", "lens switching"
-   - Shots: "wide establishing shot", "medium shot", "close-up", "macro detail"
+   **UNIVERSAL PROMPT FORMULA (works for all video models):**
+   [Subject + Description] + [Scene + Environment] + [Motion + Action] + [Camera Movement] + [Aesthetic/Style]
 
-   **SEQUENTIAL ACTIONS (describe motion chronologically):**
+   ===== CAMERA LANGUAGE =====
+   **Movement Types:**
+   - Push/Dolly: "camera pushes in slowly", "dolly out to reveal", "camera moves closer gradually"
+   - Pan/Tilt: "pan left across scene", "tilt up to sky", "pan right following subject"
+   - Tracking: "camera follows closely", "tracks alongside subject", "smooth tracking shot"
+   - Orbital: "orbits smoothly around subject", "orbital arc reveals setting"
+   - Crane: "crane up dramatically", "crane down into scene"
+   - Static: "fixed camera", "static wide shot", "locked off frame"
+
+   **Shot Types:**
+   - "wide establishing shot", "medium shot", "close-up", "extreme close-up"
+   - "over-the-shoulder", "low angle looking up", "high angle looking down"
+   - "bird's eye aerial view", "macro detail shot"
+
+   ===== MOTION DESCRIPTORS =====
+   **Speed Modifiers:**
+   - "slowly", "quickly", "gradually", "suddenly", "gently"
+   - "slow-motion", "time-lapse", "whip-pan", "rapid"
+
+   **Intensity Adverbs (critical for AI video models):**
+   - "violently", "softly", "dramatically", "subtly", "gracefully"
+   - Examples: "waves crash violently", "leaves flutter gently", "camera pushes in slowly"
+
+   **Sequential Actions (describe motion chronologically):**
    - Format: [Subject] + [Action 1] + [Action 2] + [Action 3]
-   - GOOD: "Woman opens laptop slowly, takes a sip of coffee, looks up and smiles warmly at the view"
-   - BAD: "Woman working at laptop" (static, no motion)
+   - GOOD: "Woman opens laptop slowly, takes a gentle sip of coffee, looks up and smiles warmly"
+   - BAD: "Woman working at laptop" (static, no action sequence)
 
-   **DEGREE ADVERBS (critical for motion intensity - Seedance needs these!):**
-   - Speed: "quickly", "slowly", "gradually", "suddenly"
-   - Intensity: "gently", "violently", "softly", "dramatically"
-   - Examples: "waves crash violently", "light flickers gently", "camera pushes in slowly"
+   **Depth & Parallax (WAN 2.5 excels at this):**
+   - "Foreground grass sways while mountains remain still in background"
+   - "Foreground elements blur past while subject stays sharp"
 
-   **LIGHTING & ATMOSPHERE (set the mood):**
-   - Time: "golden hour warm light", "soft early morning glow", "dramatic dusk"
-   - Quality: "natural light filtering through softly", "dim atmospheric lighting", "bright midday sun"
-   - Color: "warm amber tones", "cool Mediterranean blues", "rich saturated colors"
+   ===== LIGHTING & ATMOSPHERE =====
+   **Time of Day:**
+   - "golden hour warm light", "soft early morning glow", "dramatic dusk"
+   - "volumetric dusk lighting", "harsh noon sun", "neon rim light at night"
 
-   **APP STYLE GUIDE:**
+   **Light Quality:**
+   - "dappled light through leaves", "god rays filtering through", "soft diffused lighting"
+   - "high contrast shadows", "soft ambient glow", "dramatic side lighting"
+
+   **Color Grading (film looks):**
+   - "teal-and-orange color grade", "warm amber tones", "cool Mediterranean blues"
+   - "Kodak Portra warmth", "bleach-bypass desaturated", "rich saturated colors"
+
+   **Lens Styles:**
+   - "anamorphic bokeh", "16mm film grain", "shallow depth of field"
+   - "cinematic widescreen", "documentary handheld", "clean digital look"
+
+   ===== APP STYLE GUIDE =====
    - TONE: {media_style}
    - DETAILS: {media_style_details}
 
-   **EXAMPLE PROMPT (follow this level of detail):**
-   "Young professional in white linen shirt opens laptop slowly at seaside cafe, takes a gentle sip of coffee, looks up and smiles warmly at the Mediterranean view. Camera pushes in gradually from wide to medium shot. Golden hour lighting, warm amber tones, soft natural light filtering through olive trees, cinematic travel documentary style."
+   ===== EXAMPLE PROMPT (80-120 words, follow this structure) =====
+   "Young professional in crisp white linen shirt opens MacBook slowly at seaside cafe terrace, takes a gentle sip of espresso, looks up and smiles warmly at the Mediterranean horizon. Camera pushes in gradually from wide establishing shot to medium close-up. Golden hour lighting with warm amber tones, dappled light filtering through olive tree canopy, soft shadows on sun-weathered stone table. Foreground coffee cup in soft focus while subject sharp. Cinematic travel documentary style, shallow depth of field, teal-and-orange color grade, Kodak Portra warmth."
 
-   **IMPORTANT - Seedance ignores negative prompts, so focus on what you WANT:**
-   - Describe ONLY desired elements (don't say "no text" - just don't mention text)
-   - Keep prompts simple - model expands your intent automatically
-   - Be SPECIFIC to THIS article's topic and location
-   - Always include MOTION and CAMERA MOVEMENT
-   - Add degree adverbs for intensity control
-   - Use characteristic details: "woman wearing sunglasses", "old weathered hands"
+   ===== IMPORTANT GUIDELINES =====
+   - Be SPECIFIC to THIS article's topic and location (Cyprus = Limassol marina, Portugal = Lisbon trams)
+   - Always include MOTION - never describe static scenes
+   - Use degree adverbs for intensity control (slowly, gently, dramatically)
+   - Include characteristic details: "woman wearing oversized sunglasses", "weathered fisherman's hands"
+   - Split motion deliberately: subject performs action WHILE camera moves separately
+   - Focus on what you WANT to see (models work better with positive descriptions)
+   - Lock the vibe: state a single dominant light source and clear atmosphere
 
    DO NOT include any {{IMAGE_N}} placeholders in the article content. Media will be inserted automatically.
 
@@ -261,8 +292,8 @@ Output ONLY the title on line 1, then the HTML content. No other text or explana
         title = lines[0].strip().lstrip('#').strip() if lines else topic
         raw_content = '\n'.join(lines[1:]).strip() if len(lines) > 1 else article_text
 
-        # Extract image prompts from content
-        content, featured_prompt, section_prompts = extract_image_prompts(raw_content)
+        # Extract media prompts from content (FEATURED for hero, SECTION N for content)
+        content, featured_prompt, section_prompts = extract_media_prompts(raw_content)
 
         # Generate metadata - use custom slug if provided
         slug = custom_slug if custom_slug else slugify(title, max_length=100)
@@ -280,7 +311,12 @@ Output ONLY the title on line 1, then the HTML content. No other text or explana
         else:
             excerpt = f"Article about {topic}"
 
-        activity.logger.info(f"Extracted {len(section_prompts)} section image prompts")
+        activity.logger.info(f"Extracted media prompts: FEATURED={bool(featured_prompt)}, SECTIONS={len(section_prompts)}")
+        if featured_prompt:
+            activity.logger.info(f"FEATURED prompt: {featured_prompt[:100]}...")
+        if section_prompts:
+            for i, sp in enumerate(section_prompts[:4]):
+                activity.logger.info(f"SECTION {i+1} prompt: {sp[:80]}...")
 
         activity.logger.info(f"Article generated: {word_count} words")
 

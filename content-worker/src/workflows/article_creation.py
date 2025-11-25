@@ -44,6 +44,7 @@ class ArticleCreationWorkflow:
                 "video_quality": None,  # None, "low", "medium", "high" - if set, generates video for hero
                 "video_model": "seedance",  # "seedance" or "wan-2.5"
                 "video_prompt": None,  # Optional custom prompt for hero video
+                "video_count": 1,  # Number of videos to generate: 1-3 (default 1 = hero only)
                 "content_media": "hybrid",  # "images", "videos", or "hybrid" (2 videos + 2 images)
                 "num_research_sources": 10,
                 "slug": "custom-url-slug"  # Optional - if not provided, generated from title
@@ -61,6 +62,7 @@ class ArticleCreationWorkflow:
         video_quality = input_dict.get("video_quality")  # None, "low", "medium", "high"
         video_model = input_dict.get("video_model", "seedance")  # "seedance" or "wan-2.5"
         video_prompt = input_dict.get("video_prompt")  # Optional custom prompt
+        video_count = input_dict.get("video_count", 1)  # Number of videos: 1-3 (default 1)
         content_images = input_dict.get("content_images", "with_content")  # "with_content" or "without_content"
         num_sources = input_dict.get("num_research_sources", 10)
         custom_slug = input_dict.get("slug")  # Optional custom slug for SEO
@@ -320,34 +322,31 @@ class ArticleCreationWorkflow:
             if video_quality:
                 # Generate video for hero/featured
                 workflow.logger.info(f"Phase 6a: Generating video ({video_quality} quality, model={video_model})")
-                workflow.logger.info(f"Video prompt provided: {bool(video_prompt)}")
-                if video_prompt:
-                    workflow.logger.info(f"Custom prompt: {video_prompt[:100]}...")
+
+                # Use the Sonnet-generated media prompt (FEATURED) if no custom prompt provided
+                # This is the proper prompt from article generation, NOT the full article content
+                hero_video_prompt = video_prompt or article.get("featured_image_prompt")
+
+                workflow.logger.info(f"Video prompt source: {'custom' if video_prompt else 'Sonnet-generated FEATURED'}")
+                if hero_video_prompt:
+                    workflow.logger.info(f"Hero video prompt: {hero_video_prompt[:120]}...")
+                else:
+                    workflow.logger.warning("No video prompt available - will use auto-generated")
 
                 # Set duration based on video model
                 video_duration = 5 if video_model == "wan-2.5" else 3  # WAN 2.5: 5s, Seedance/Lightstream: 3s
-
-                # Debug: Log what we're about to pass
-                workflow.logger.info(f"DEBUG: About to call generate_article_video with:")
-                workflow.logger.info(f"  title: {article['title'][:40]}...")
-                workflow.logger.info(f"  app: {app}")
-                workflow.logger.info(f"  quality: {video_quality}")
-                workflow.logger.info(f"  duration: {video_duration}")
-                workflow.logger.info(f"  model: {video_model}")
-                workflow.logger.info(f"  video_prompt type: {type(video_prompt)}")
-                workflow.logger.info(f"  video_prompt value: {video_prompt[:50] if video_prompt else 'None/Empty'}...")
 
                 video_gen_result = await workflow.execute_activity(
                     "generate_article_video",
                     args=[
                         article["title"],
-                        article["content"],
+                        article["content"],  # Only used as fallback if no prompt
                         app,
                         video_quality,
                         video_duration,  # duration in seconds (varies by model)
                         "16:9",  # aspect ratio
                         video_model,  # seedance or wan-2.5
-                        video_prompt  # custom prompt (or None for auto-generated)
+                        hero_video_prompt  # Sonnet-generated FEATURED prompt (or custom)
                     ],
                     start_to_close_timeout=timedelta(minutes=15)
                 )
@@ -394,17 +393,19 @@ class ArticleCreationWorkflow:
             content_videos_result = {"videos": [], "videos_generated": 0, "total_cost": 0}
             images_result = {"images_generated": 0, "total_cost": 0}
 
-            # Generate sequential content VIDEOS (if video hero exists and strategy allows)
-            if video_quality and video_context_url and content_media_strategy in ["videos", "hybrid"]:
+            # Generate sequential content VIDEOS (if video hero exists and video_count > 1)
+            # video_count: 1 = hero only, 2 = hero + 1 content, 3 = hero + 2 content
+            content_video_count = max(0, video_count - 1)  # Subtract hero video
+
+            if video_quality and video_context_url and content_video_count > 0:
                 # Get section prompts from article (Sonnet generates these)
                 section_prompts = article.get("section_image_prompts", [])
 
                 if section_prompts:
-                    # For hybrid: use first 2 prompts for videos
-                    # For videos-only: use all prompts for videos
-                    video_prompts = section_prompts[:2] if content_media_strategy == "hybrid" else section_prompts[:4]
+                    # Use first N section prompts for content videos
+                    video_prompts = section_prompts[:content_video_count]
 
-                    workflow.logger.info(f"Phase 6c: Generating {len(video_prompts)} sequential content videos")
+                    workflow.logger.info(f"Phase 6c: Generating {len(video_prompts)} sequential content videos (video_count={video_count})")
 
                     content_videos_result = await workflow.execute_activity(
                         "generate_sequential_content_videos",

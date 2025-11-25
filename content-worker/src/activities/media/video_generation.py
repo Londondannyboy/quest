@@ -106,6 +106,66 @@ async def generate_article_video(
     }
 
 
+def transform_prompt_for_seedance(prompt: str) -> str:
+    """
+    Transform a universal prompt for Seedance model.
+
+    Seedance specific optimizations:
+    - Ignores negative prompts, so remove any "no X" instructions
+    - Needs degree adverbs for motion intensity (slowly, gently, dramatically)
+    - Prefers sequential action format
+    - Keep prompts focused - model expands automatically
+    - Add explicit no-text instruction (only thing it respects)
+    """
+    # Remove any negative instructions (Seedance ignores them anyway)
+    import re
+    prompt = re.sub(r'\b(no|without|avoid|don\'t include)\s+\w+', '', prompt, flags=re.IGNORECASE)
+
+    # Ensure motion adverbs are present
+    motion_adverbs = ['slowly', 'gently', 'gradually', 'quickly', 'softly', 'dramatically']
+    has_adverb = any(adv in prompt.lower() for adv in motion_adverbs)
+
+    if not has_adverb:
+        # Add default motion adverb if missing
+        prompt = prompt.replace('camera ', 'camera moves slowly ')
+
+    # Add Seedance-specific instruction
+    seedance_prompt = f"{prompt.strip()} CRITICAL: Absolutely NO text, NO words, NO letters, NO typography - purely visual only."
+
+    return seedance_prompt
+
+
+def transform_prompt_for_wan(prompt: str) -> tuple[str, str]:
+    """
+    Transform a universal prompt for WAN 2.5 model.
+
+    WAN 2.5 specific optimizations:
+    - Supports negative prompts (return as separate parameter)
+    - Excels at depth/parallax - add foreground/background hints if missing
+    - 80-120 words optimal
+    - Film terminology works well (Kodak Portra, anamorphic, etc.)
+    - Can handle single-word text like "Quest"
+
+    Returns:
+        Tuple of (positive_prompt, negative_prompt)
+    """
+    # WAN 2.5 negative prompt for quality control
+    negative_prompt = "blurry, low quality, distorted, amateur, grainy, shaky, text, watermark, logo, multiple words, sentences"
+
+    # Add depth hint if not present (WAN excels at parallax)
+    depth_keywords = ['foreground', 'background', 'depth', 'parallax', 'layers']
+    has_depth = any(kw in prompt.lower() for kw in depth_keywords)
+
+    if not has_depth:
+        # Add subtle depth instruction
+        prompt = f"{prompt.strip()} Subtle depth with foreground elements soft-focused."
+
+    # Add single-word text allowance for Quest branding if desired
+    wan_prompt = f"{prompt.strip()} Only single-word text like 'Quest' is allowed."
+
+    return wan_prompt, negative_prompt
+
+
 def generate_video_prompt(title: str, content: str, app: str) -> str:
     """
     Generate a video prompt based on article content with sentiment analysis.
@@ -202,7 +262,7 @@ async def generate_with_seedance(
     """Generate video using Seedance on Replicate with heartbeats.
 
     Note: Seedance struggles with text rendering - only single words work reliably.
-    We add explicit no-text instructions except for "Quest" branding.
+    Uses model-specific prompt transformation for optimal results.
     """
     import time
 
@@ -210,10 +270,11 @@ async def generate_with_seedance(
     if not replicate_token:
         raise ValueError("REPLICATE_API_TOKEN not set")
 
-    # Seedance cannot handle ANY text - remove all text instructions
-    seedance_prompt = f"{prompt} CRITICAL: Absolutely NO text, NO words, NO letters, NO typography, NO writing of any kind in the video - purely visual only."
+    # Apply Seedance-specific prompt transformation
+    seedance_prompt = transform_prompt_for_seedance(prompt)
 
     activity.logger.info(f"Calling Seedance: {resolution}, {duration}s")
+    activity.logger.info(f"Transformed prompt: {seedance_prompt[:100]}...")
 
     # Create prediction (non-blocking)
     client = replicate.Client(api_token=replicate_token)
@@ -262,8 +323,12 @@ async def generate_with_wan(
 ) -> str:
     """Generate video using WAN 2.5 on Replicate with heartbeats.
 
-    WAN 2.5 can handle single words reliably (like "Quest" branding).
-    Any text beyond one word will likely render incorrectly.
+    WAN 2.5 specific strengths:
+    - Excellent depth/parallax effects
+    - Supports negative prompts for quality control
+    - 80-120 word prompts optimal
+    - Film terminology (Kodak Portra, anamorphic) works well
+    - Can handle single-word text like "Quest"
     """
     import time
 
@@ -278,10 +343,12 @@ async def generate_with_wan(
     }
     size = size_map.get(resolution, "832*480")
 
-    # WAN 2.5 can handle ONE WORD only - add instruction to limit text
-    wan_prompt = f"{prompt} IMPORTANT: Only single-word text like 'Quest' is allowed - no sentences, phrases, or multiple words."
+    # Apply WAN 2.5-specific prompt transformation
+    wan_prompt, negative_prompt = transform_prompt_for_wan(prompt)
 
     activity.logger.info(f"Calling WAN 2.5: {size}, {duration}s")
+    activity.logger.info(f"Transformed prompt: {wan_prompt[:100]}...")
+    activity.logger.info(f"Negative prompt: {negative_prompt[:60]}...")
 
     # Create prediction (non-blocking)
     client = replicate.Client(api_token=replicate_token)
@@ -291,8 +358,8 @@ async def generate_with_wan(
             "size": size,
             "prompt": wan_prompt,
             "duration": duration,
-            "negative_prompt": "blurry, low quality, distorted, amateur, grainy",
-            "enable_prompt_expansion": True
+            "negative_prompt": negative_prompt,
+            "enable_prompt_expansion": True  # Let WAN expand intent automatically
         }
     )
 
@@ -424,8 +491,9 @@ async def generate_sequential_content_videos(
     for i, prompt in enumerate(video_prompts[:4]):  # Max 4 content videos
         activity.logger.info(f"Generating video {i+1}/{len(video_prompts)}: {prompt[:60]}...")
 
-        # Enhance prompt for Seedance
-        seedance_prompt = f"{prompt} CRITICAL: Absolutely NO text, NO words, NO letters - purely visual only."
+        # Apply Seedance-specific prompt transformation
+        seedance_prompt = transform_prompt_for_seedance(prompt)
+        activity.logger.info(f"Transformed prompt: {seedance_prompt[:80]}...")
 
         try:
             # Use image-to-video mode with context
