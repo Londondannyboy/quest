@@ -199,12 +199,19 @@ async def generate_with_seedance(
     resolution: str,
     aspect_ratio: str
 ) -> str:
-    """Generate video using Seedance on Replicate with heartbeats."""
+    """Generate video using Seedance on Replicate with heartbeats.
+
+    Note: Seedance struggles with text rendering - only single words work reliably.
+    We add explicit no-text instructions except for "Quest" branding.
+    """
     import time
 
     replicate_token = os.environ.get("REPLICATE_API_TOKEN")
     if not replicate_token:
         raise ValueError("REPLICATE_API_TOKEN not set")
+
+    # Seedance cannot handle ANY text - remove all text instructions
+    seedance_prompt = f"{prompt} CRITICAL: Absolutely NO text, NO words, NO letters, NO typography, NO writing of any kind in the video - purely visual only."
 
     activity.logger.info(f"Calling Seedance: {resolution}, {duration}s")
 
@@ -213,7 +220,7 @@ async def generate_with_seedance(
     prediction = client.predictions.create(
         model="bytedance/seedance-1-pro-fast",
         input={
-            "prompt": prompt,
+            "prompt": seedance_prompt,
             "duration": duration,
             "resolution": resolution,
             "aspect_ratio": aspect_ratio,
@@ -255,7 +262,8 @@ async def generate_with_wan(
 ) -> str:
     """Generate video using WAN 2.5 on Replicate with heartbeats.
 
-    WAN 2.5 has better text rendering and longer duration support.
+    WAN 2.5 can handle single words reliably (like "Quest" branding).
+    Any text beyond one word will likely render incorrectly.
     """
     import time
 
@@ -270,6 +278,9 @@ async def generate_with_wan(
     }
     size = size_map.get(resolution, "832*480")
 
+    # WAN 2.5 can handle ONE WORD only - add instruction to limit text
+    wan_prompt = f"{prompt} IMPORTANT: Only single-word text like 'Quest' is allowed - no sentences, phrases, or multiple words."
+
     activity.logger.info(f"Calling WAN 2.5: {size}, {duration}s")
 
     # Create prediction (non-blocking)
@@ -278,7 +289,7 @@ async def generate_with_wan(
         model="wan-video/wan-2.5-t2v",
         input={
             "size": size,
-            "prompt": prompt,
+            "prompt": wan_prompt,
             "duration": duration,
             "negative_prompt": "blurry, low quality, distorted, amateur, grainy",
             "enable_prompt_expansion": True
