@@ -172,12 +172,13 @@ class ArticleCreationWorkflow:
         # Deduplicate URLs
         urls_to_crawl = list(dict.fromkeys(urls_to_crawl))
 
-        workflow.logger.info(f"Batch crawling {len(urls_to_crawl)} discovered URLs")
+        workflow.logger.info(f"Batch crawling {len(urls_to_crawl)} discovered URLs with topic filtering")
 
-        # Use batch crawl (single call to /crawl-many - much more efficient)
+        # Use batch crawl with BM25 topic filtering
+        # Extracts only content relevant to the article topic
         crawl_result = await workflow.execute_activity(
             "crawl4ai_batch",
-            args=[urls_to_crawl],
+            args=[urls_to_crawl, topic, []],  # urls, topic, keywords
             start_to_close_timeout=timedelta(minutes=5),
             heartbeat_timeout=timedelta(seconds=60)
         )

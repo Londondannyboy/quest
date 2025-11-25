@@ -151,14 +151,17 @@ async def call_crawl4ai_service(base_url: str) -> Dict[str, Any]:
 
 
 @activity.defn(name="crawl4ai_batch")
-async def crawl4ai_batch_crawl(urls: list) -> Dict[str, Any]:
+async def crawl4ai_batch_crawl(urls: list, topic: str = "", keywords: list = None) -> Dict[str, Any]:
     """
-    Batch crawl multiple URLs using Crawl4AI /crawl-many endpoint.
+    Batch crawl multiple URLs using Crawl4AI /crawl-articles endpoint.
 
-    Much more efficient than calling /scrape in a loop.
+    Uses BM25 content filtering to extract only topic-relevant content.
+    Falls back to /crawl-many if topic not provided.
 
     Args:
         urls: List of URLs to crawl
+        topic: Topic for BM25 relevance filtering (e.g., "Cyprus Digital Nomad Visa")
+        keywords: Additional keywords for filtering
 
     Returns:
         Dict with success, pages, stats
@@ -176,7 +179,7 @@ async def crawl4ai_batch_crawl(urls: list) -> Dict[str, Any]:
     if not valid_urls:
         return {"success": True, "pages": [], "stats": {"total": 0, "invalid": len(urls)}}
 
-    activity.logger.info(f"Crawl4AI batch crawl: {len(valid_urls)} URLs")
+    activity.logger.info(f"Crawl4AI batch crawl: {len(valid_urls)} URLs, topic: '{topic}'")
 
     if not config.CRAWL4AI_SERVICE_URL:
         activity.logger.warning("CRAWL4AI_SERVICE_URL not configured, falling back to httpx")
@@ -194,11 +197,31 @@ async def crawl4ai_batch_crawl(urls: list) -> Dict[str, Any]:
 
     service_url = config.CRAWL4AI_SERVICE_URL.rstrip("/")
 
-    async with httpx.AsyncClient(timeout=180.0) as client:  # 3 min timeout for batch
+    async with httpx.AsyncClient(timeout=300.0) as client:  # 5 min timeout for article research
         try:
+            # Use /crawl-articles if topic provided, else /crawl-many
+            if topic:
+                # Optimized article research with BM25 filtering
+                payload = {
+                    "urls": valid_urls,
+                    "topic": topic,
+                    "keywords": keywords or [],
+                    "parallel": 5,
+                    "min_word_count": 50,
+                    "use_pruning": True,
+                    "use_bm25": True
+                }
+                endpoint = f"{service_url}/crawl-articles"
+                activity.logger.info(f"Using /crawl-articles with BM25 filtering for: '{topic}'")
+            else:
+                # Basic batch crawl
+                payload = {"urls": valid_urls}
+                endpoint = f"{service_url}/crawl-many"
+                activity.logger.info("Using /crawl-many (no topic filtering)")
+
             response = await client.post(
-                f"{service_url}/crawl-many",
-                json={"urls": valid_urls},
+                endpoint,
+                json=payload,
                 headers={"Content-Type": "application/json"}
             )
 
@@ -213,11 +236,14 @@ async def crawl4ai_batch_crawl(urls: list) -> Dict[str, Any]:
                             "url": result.get("url"),
                             "title": result.get("title", ""),
                             "content": result.get("content", ""),
-                            "source": "crawl4ai_batch"
+                            "filtered": result.get("filtered", False),
+                            "source": "crawl4ai_articles" if topic else "crawl4ai_batch"
                         })
 
+                filters_used = data.get("filters_used", {})
                 activity.logger.info(
-                    f"Crawl4AI batch complete: {data.get('successful', 0)}/{data.get('total_urls', 0)} successful"
+                    f"Crawl4AI complete: {data.get('successful', 0)}/{data.get('total_urls', 0)} successful, "
+                    f"BM25={filters_used.get('bm25', False)}, Pruning={filters_used.get('pruning', False)}"
                 )
 
                 return {
@@ -227,25 +253,26 @@ async def crawl4ai_batch_crawl(urls: list) -> Dict[str, Any]:
                         "total": data.get("total_urls", 0),
                         "successful": data.get("successful", 0),
                         "failed": data.get("failed", 0),
-                        "crawler": "crawl4ai_batch"
+                        "crawler": "crawl4ai_articles" if topic else "crawl4ai_batch",
+                        "filters": filters_used
                     }
                 }
             else:
-                activity.logger.error(f"Crawl4AI batch failed: HTTP {response.status_code}")
+                activity.logger.error(f"Crawl4AI failed: HTTP {response.status_code}")
                 return {
                     "success": False,
                     "pages": [],
                     "error": f"HTTP {response.status_code}",
-                    "stats": {"crawler": "crawl4ai_batch"}
+                    "stats": {"crawler": "crawl4ai"}
                 }
 
         except Exception as e:
-            activity.logger.error(f"Crawl4AI batch error: {e}")
+            activity.logger.error(f"Crawl4AI error: {e}")
             return {
                 "success": False,
                 "pages": [],
                 "error": str(e),
-                "stats": {"crawler": "crawl4ai_batch"}
+                "stats": {"crawler": "crawl4ai"}
             }
 
 
