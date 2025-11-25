@@ -106,15 +106,17 @@ CRITICAL: The article MUST be AT LEAST {target_word_count} words - aim for 3000-
 ===== OUTPUT FORMAT =====
 
 Start with this EXACT format for SEO metadata (3 lines):
-TITLE: [STRICTLY UNDER 70 CHARACTERS - count carefully! Compelling, front-load keywords]
+TITLE: [Aim for ~60-70 chars, max 90. Snappy, compelling, front-load keywords]
 META: [EXACTLY 150-160 characters, compelling summary with keywords]
 SLUG: [lowercase-hyphens-3-6-words]
 
-CRITICAL SEO CONSTRAINTS:
-- Title HARD LIMIT: 70 characters including spaces. COUNT BEFORE WRITING. Google truncates at 70.
-- Good title example (62 chars): "Cyprus Digital Nomad Visa 2025: Requirements, Costs & How to Apply"
-- Bad title (too long): "Cyprus Digital Nomad Visa 2025: The Mediterranean Island That's Suddenly Europe's Hottest Remote Work Destination"
-- Meta description: 150-160 characters exactly (deliberately written, not truncated)
+TITLE GUIDELINES:
+- Aim for 60-70 characters (ideal for Google), but can extend to 90 if needed for readability
+- Must be snappy and complete - never awkwardly truncated
+- Front-load important keywords (topic first, hook second)
+- Good examples: "Cyprus Digital Nomad Visa 2025: Your Complete Guide to Mediterranean Remote Work"
+- Good examples: "Goldman Sachs Acquires AI Startup for $500M in Landmark Deal"
+- Meta description: 150-160 characters exactly (deliberately written)
 - Slug: clean, memorable, SEO-friendly (e.g., "cyprus-digital-nomad-visa-2025")
 
 Then the full article body in HTML with Tailwind CSS:
@@ -366,16 +368,25 @@ Source links are MANDATORY - articles without <a href> tags will be rejected."""
             line_stripped = line.strip()
             if line_stripped.startswith('TITLE:'):
                 title = line_stripped[6:].strip()
-                # Enforce 70 char hard limit for SEO
-                if len(title) > 70:
-                    activity.logger.warning(f"Title too long ({len(title)} chars), truncating to 70")
-                    # Try to truncate at word boundary
-                    truncated = title[:70]
-                    last_space = truncated.rfind(' ')
-                    if last_space > 50:  # Keep at least 50 chars
-                        title = truncated[:last_space].rstrip(':,-')
+                # Soft limit 90 chars - only truncate if way over, and only at natural breaks
+                if len(title) > 90:
+                    activity.logger.warning(f"Title too long ({len(title)} chars), truncating to ~90")
+                    # Try to truncate at colon (natural headline break)
+                    colon_pos = title[:90].rfind(':')
+                    if colon_pos > 40:
+                        # Keep the part before colon + colon itself
+                        title = title[:colon_pos + 1].strip()
                     else:
-                        title = truncated.rstrip()
+                        # No colon, try dash or em-dash
+                        dash_pos = max(title[:90].rfind(' - '), title[:90].rfind(' – '))
+                        if dash_pos > 40:
+                            title = title[:dash_pos].strip()
+                        else:
+                            # Last resort: just keep under 90 at word boundary
+                            truncated = title[:90]
+                            last_space = truncated.rfind(' ')
+                            if last_space > 60:
+                                title = truncated[:last_space].rstrip(':,-–')
                 content_start_idx = idx + 1
             elif line_stripped.startswith('META:'):
                 meta_description = line_stripped[5:].strip()
