@@ -171,8 +171,8 @@ SOURCES:
     genai.configure(api_key=api_key)
 
     try:
-        # Gemini 2.5 Flash - massive context window, perfect for curation
-        model = genai.GenerativeModel("gemini-2.5-flash-preview-05-20")
+        # Gemini 2.5 Flash - massive context window (1M tokens), perfect for curation
+        model = genai.GenerativeModel("gemini-2.5-flash")
         response = model.generate_content(
             prompt,
             generation_config=genai.types.GenerationConfig(
@@ -226,7 +226,7 @@ SOURCES:
             "duplicate_groups": curation_result.get("duplicate_groups", []),
             "total_input": len(all_sources),
             "total_output": len(curated_with_content),
-            "model": "gemini-2.5-flash-preview-05-20"
+            "model": "gemini-2.5-flash"
         }
 
     except Exception as e:
