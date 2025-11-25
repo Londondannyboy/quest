@@ -184,16 +184,24 @@ class ArticleCreationWorkflow:
         # Deduplicate URLs
         urls_to_crawl = list(dict.fromkeys(urls_to_crawl))
 
-        workflow.logger.info(f"Batch crawling {len(urls_to_crawl)} discovered URLs with topic filtering")
+        # Smart cap: 30 URLs is enough for comprehensive research
+        # More URLs = diminishing returns + longer crawl time
+        MAX_CRAWL_URLS = 30
+        total_discovered = len(urls_to_crawl)
+        if total_discovered > MAX_CRAWL_URLS:
+            urls_to_crawl = urls_to_crawl[:MAX_CRAWL_URLS]
+            workflow.logger.info(f"Capped URLs from {total_discovered} to {MAX_CRAWL_URLS} (smart limit)")
+
+        workflow.logger.info(f"Batch crawling {len(urls_to_crawl)} URLs with topic filtering")
 
         # Use batch crawl with BM25 topic filtering
         # Extracts only content relevant to the article topic
         # Note: No heartbeat_timeout - Crawl4AI is a single long HTTP call to external service
-        # 8 minute timeout to allow for slow sites and service load
+        # 5 minute timeout (30 URLs @ ~2s each with parallelism 5 = ~1-2 min typically)
         crawl_result = await workflow.execute_activity(
             "crawl4ai_batch",
             args=[urls_to_crawl, topic, []],  # urls, topic, keywords
-            start_to_close_timeout=timedelta(minutes=8)
+            start_to_close_timeout=timedelta(minutes=5)
         )
 
         crawled_pages = crawl_result.get("pages", [])
