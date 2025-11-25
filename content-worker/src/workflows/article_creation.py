@@ -200,9 +200,10 @@ class ArticleCreationWorkflow:
                 })
 
         # Call pre-filter activity (visible in Temporal UI)
+        # Soft filter: just 1 keyword match - removes obvious junk but keeps contextual articles
         prefilter_result = await workflow.execute_activity(
             "prefilter_urls_by_relevancy",
-            args=[url_candidates, topic, 2, 30],  # min_matches=2, max_urls=30
+            args=[url_candidates, topic, 1, 30],  # min_matches=1 (soft), max_urls=30
             start_to_close_timeout=timedelta(seconds=30)
         )
 
