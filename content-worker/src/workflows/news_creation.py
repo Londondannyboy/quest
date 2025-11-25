@@ -126,7 +126,7 @@ class NewsCreationWorkflow:
         workflow.logger.info("Phase 1b: Fetching news from Serper (supplementary)")
 
         serper_result = await workflow.execute_activity(
-            "serper_news_search",
+            "serper_search",
             args=[keywords, geographic_focus, 30],
             start_to_close_timeout=timedelta(minutes=2)
         )
