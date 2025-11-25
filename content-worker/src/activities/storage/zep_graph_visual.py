@@ -12,20 +12,27 @@ from src.utils.config import config
 
 
 def get_graph_id_for_app(app: str) -> str:
-    """Map app type to Zep graph ID."""
+    """Map app type to Zep graph ID (reads from env vars)."""
+    import os
+
+    # Get graph IDs from environment variables (with defaults)
+    finance_graph = os.getenv("ZEP_GRAPH_ID_FINANCE", "finance-knowledge")
+    relocation_graph = os.getenv("ZEP_GRAPH_ID_RELOCATION", "relocation")
+    jobs_graph = os.getenv("ZEP_GRAPH_ID_JOBS", "jobs")
+
     graph_mapping = {
         # Finance/PE apps
-        "placement": "finance-knowledge",
-        "pe_news": "finance-knowledge",
+        "placement": finance_graph,
+        "pe_news": finance_graph,
         # Relocation/mobility apps
-        "relocation": "relocation",
+        "relocation": relocation_graph,
         # Jobs/recruiting apps
-        "jobs": "jobs",
-        "recruiter": "jobs",
-        "chief-of-staff": "jobs",
-        "fractional-jobs": "jobs",
+        "jobs": jobs_graph,
+        "recruiter": jobs_graph,
+        "chief-of-staff": jobs_graph,
+        "fractional-jobs": jobs_graph,
     }
-    return graph_mapping.get(app, "finance-knowledge")
+    return graph_mapping.get(app, finance_graph)
 
 
 def _guess_node_type(edge_name: str, entity_name: str) -> str:
