@@ -199,7 +199,8 @@ async def generate_with_seedance(
     resolution: str,
     aspect_ratio: str
 ) -> str:
-    """Generate video using Seedance on Replicate."""
+    """Generate video using Seedance on Replicate with heartbeats."""
+    import time
 
     replicate_token = os.environ.get("REPLICATE_API_TOKEN")
     if not replicate_token:
@@ -207,19 +208,43 @@ async def generate_with_seedance(
 
     activity.logger.info(f"Calling Seedance: {resolution}, {duration}s")
 
-    output = replicate.run(
-        "bytedance/seedance-1-pro-fast",
+    # Create prediction (non-blocking)
+    client = replicate.Client(api_token=replicate_token)
+    prediction = client.predictions.create(
+        model="bytedance/seedance-1-pro-fast",
         input={
             "prompt": prompt,
             "duration": duration,
             "resolution": resolution,
             "aspect_ratio": aspect_ratio,
-            "camera_fixed": False,  # Allow some camera movement for dynamism
+            "camera_fixed": False,
             "fps": 24
         }
     )
 
-    return output
+    activity.logger.info(f"Prediction created: {prediction.id}")
+
+    # Poll with heartbeats
+    max_wait = 600  # 10 minutes max
+    poll_interval = 5  # Check every 5 seconds
+    elapsed = 0
+
+    while elapsed < max_wait:
+        prediction.reload()
+        activity.heartbeat(f"Status: {prediction.status}, elapsed: {elapsed}s")
+
+        if prediction.status == "succeeded":
+            activity.logger.info(f"Video generation succeeded after {elapsed}s")
+            return prediction.output
+        elif prediction.status == "failed":
+            raise RuntimeError(f"Seedance generation failed: {prediction.error}")
+        elif prediction.status == "canceled":
+            raise RuntimeError("Seedance generation was canceled")
+
+        time.sleep(poll_interval)
+        elapsed += poll_interval
+
+    raise TimeoutError(f"Seedance generation timed out after {max_wait}s")
 
 
 async def generate_with_wan(
@@ -228,17 +253,17 @@ async def generate_with_wan(
     resolution: str,
     aspect_ratio: str
 ) -> str:
-    """Generate video using WAN 2.5 on Replicate.
+    """Generate video using WAN 2.5 on Replicate with heartbeats.
 
     WAN 2.5 has better text rendering and longer duration support.
     """
+    import time
 
     replicate_token = os.environ.get("REPLICATE_API_TOKEN")
     if not replicate_token:
         raise ValueError("REPLICATE_API_TOKEN not set")
 
     # Map resolution to WAN 2.5 size format
-    # WAN uses "width*height" format
     size_map = {
         "480p": "832*480",
         "720p": "1280*720",
@@ -247,8 +272,10 @@ async def generate_with_wan(
 
     activity.logger.info(f"Calling WAN 2.5: {size}, {duration}s")
 
-    output = replicate.run(
-        "wan-video/wan-2.5-t2v",
+    # Create prediction (non-blocking)
+    client = replicate.Client(api_token=replicate_token)
+    prediction = client.predictions.create(
+        model="wan-video/wan-2.5-t2v",
         input={
             "size": size,
             "prompt": prompt,
@@ -258,10 +285,33 @@ async def generate_with_wan(
         }
     )
 
-    # WAN returns a FileOutput object, get the URL
-    if hasattr(output, 'url'):
-        return output.url
-    return str(output)
+    activity.logger.info(f"Prediction created: {prediction.id}")
+
+    # Poll with heartbeats
+    max_wait = 600  # 10 minutes max
+    poll_interval = 5
+    elapsed = 0
+
+    while elapsed < max_wait:
+        prediction.reload()
+        activity.heartbeat(f"Status: {prediction.status}, elapsed: {elapsed}s")
+
+        if prediction.status == "succeeded":
+            activity.logger.info(f"WAN video generation succeeded after {elapsed}s")
+            output = prediction.output
+            # WAN returns a FileOutput object, get the URL
+            if hasattr(output, 'url'):
+                return output.url
+            return str(output)
+        elif prediction.status == "failed":
+            raise RuntimeError(f"WAN generation failed: {prediction.error}")
+        elif prediction.status == "canceled":
+            raise RuntimeError("WAN generation was canceled")
+
+        time.sleep(poll_interval)
+        elapsed += poll_interval
+
+    raise TimeoutError(f"WAN generation timed out after {max_wait}s")
 
 
 async def generate_with_gemini(
