@@ -98,13 +98,14 @@ class ArticleCreationWorkflow:
                 start_to_close_timeout=timedelta(minutes=2)
             )
 
-        # Serper article search
+        # Serper news search (for article research)
         serper_task = workflow.execute_activity(
-            "serper_article_search",
+            "serper_news_search",
             args=[
-                topic,
-                jurisdiction,
-                30  # depth
+                [topic],  # keywords as list
+                [jurisdiction],  # geographic_focus as list
+                30,  # depth
+                "past_month"  # time_range - broader for article research
             ],
             start_to_close_timeout=timedelta(minutes=2)
         )
