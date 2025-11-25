@@ -122,7 +122,8 @@ async def test_curation():
     # Show extracted data
     print_section("Key Facts Extracted")
     for fact in result.get("key_facts", [])[:10]:
-        print(f"  • {fact[:100]}...")
+        fact_str = str(fact) if not isinstance(fact, str) else fact
+        print(f"  • {fact_str[:100]}...")
     print(f"  ... ({len(result.get('key_facts', []))} total)")
 
     print_section("Opinions & Sentiment")
@@ -134,7 +135,8 @@ async def test_curation():
 
     print_section("Unique Angles")
     for angle in result.get("unique_angles", [])[:5]:
-        print(f"  • {angle[:80]}...")
+        angle_str = str(angle) if not isinstance(angle, str) else angle
+        print(f"  • {angle_str[:80]}...")
 
     print_section("Article Outline")
     for section in result.get("article_outline", [])[:6]:
@@ -145,7 +147,8 @@ async def test_curation():
 
     print_section("Warnings & Gotchas")
     for warning in result.get("warnings_and_gotchas", [])[:5]:
-        print(f"  ⚠️  {warning[:80]}...")
+        warning_str = str(warning) if not isinstance(warning, str) else warning
+        print(f"  ⚠️  {warning_str[:80]}...")
 
     return result
 
