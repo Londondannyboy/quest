@@ -141,7 +141,7 @@ class ArticleCreationWorkflow:
         )
 
         # ===== PHASE 2: CRAWL DISCOVERED URLs =====
-        workflow.logger.info("Phase 2: Crawling ALL discovered URLs with Crawl4AI (free, parallel)")
+        workflow.logger.info("Phase 2: Batch crawling ALL discovered URLs with Crawl4AI")
 
         # Collect ALL URLs from all sources - no limits, crawl everything
         urls_to_crawl = []
@@ -163,46 +163,32 @@ class ArticleCreationWorkflow:
             if article.get("url"):
                 urls_to_crawl.append(article["url"])
 
-        # Exa URLs - ALL of them
+        # Exa URLs - ALL of them (skip exa-research:// pseudo-URLs)
         for result in exa_data.get("results", []):
-            if result.get("url"):
-                urls_to_crawl.append(result["url"])
+            url = result.get("url", "")
+            if url and url.startswith("http"):
+                urls_to_crawl.append(url)
 
-        # Deduplicate URLs only - no limit since crawling is free and parallel
+        # Deduplicate URLs
         urls_to_crawl = list(dict.fromkeys(urls_to_crawl))
 
-        workflow.logger.info(f"Crawling {len(urls_to_crawl)} discovered URLs")
+        workflow.logger.info(f"Batch crawling {len(urls_to_crawl)} discovered URLs")
 
-        # Launch Crawl4AI tasks (with httpx fallback)
-        crawl4ai_tasks = []
+        # Use batch crawl (single call to /crawl-many - much more efficient)
+        crawl_result = await workflow.execute_activity(
+            "crawl4ai_batch",
+            args=[urls_to_crawl],
+            start_to_close_timeout=timedelta(minutes=5),
+            heartbeat_timeout=timedelta(seconds=60)
+        )
 
-        for url in urls_to_crawl:
-            crawl4ai_task = workflow.execute_activity(
-                "crawl4ai_crawl",
-                args=[url],
-                start_to_close_timeout=timedelta(minutes=2)
-            )
-            crawl4ai_tasks.append(crawl4ai_task)
-
-        # Execute all in parallel
-        if crawl4ai_tasks:
-            crawl4ai_results = await asyncio.gather(*crawl4ai_tasks, return_exceptions=True)
-        else:
-            crawl4ai_results = []
-
-        # Extract pages from successful crawls
-        crawled_pages = []
-        crawl4ai_success = 0
-
-        for result in crawl4ai_results:
-            if not isinstance(result, Exception) and result.get("success"):
-                pages = result.get("pages", [])
-                crawled_pages.extend(pages)
-                crawl4ai_success += 1
+        crawled_pages = crawl_result.get("pages", [])
+        crawl_stats = crawl_result.get("stats", {})
 
         workflow.logger.info(
             f"Crawled {len(crawled_pages)} pages "
-            f"(Crawl4AI: {crawl4ai_success}/{len(urls_to_crawl)})"
+            f"({crawl_stats.get('successful', 0)}/{crawl_stats.get('total', 0)} successful, "
+            f"crawler: {crawl_stats.get('crawler', 'unknown')})"
         )
 
         # ===== PHASE 3: CURATE RESEARCH SOURCES =====

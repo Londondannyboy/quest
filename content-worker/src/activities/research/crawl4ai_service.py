@@ -150,6 +150,105 @@ async def call_crawl4ai_service(base_url: str) -> Dict[str, Any]:
             }
 
 
+@activity.defn(name="crawl4ai_batch")
+async def crawl4ai_batch_crawl(urls: list) -> Dict[str, Any]:
+    """
+    Batch crawl multiple URLs using Crawl4AI /crawl-many endpoint.
+
+    Much more efficient than calling /scrape in a loop.
+
+    Args:
+        urls: List of URLs to crawl
+
+    Returns:
+        Dict with success, pages, stats
+    """
+    if not urls:
+        return {"success": True, "pages": [], "stats": {"total": 0}}
+
+    # Normalize and filter URLs
+    valid_urls = []
+    for url in urls:
+        normalized = normalize_url(url)
+        if normalized:
+            valid_urls.append(normalized)
+
+    if not valid_urls:
+        return {"success": True, "pages": [], "stats": {"total": 0, "invalid": len(urls)}}
+
+    activity.logger.info(f"Crawl4AI batch crawl: {len(valid_urls)} URLs")
+
+    if not config.CRAWL4AI_SERVICE_URL:
+        activity.logger.warning("CRAWL4AI_SERVICE_URL not configured, falling back to httpx")
+        # Fallback: crawl each URL individually with httpx
+        pages = []
+        for url in valid_urls[:20]:  # Limit to 20 for httpx fallback
+            result = await crawl_with_httpx_fallback(url)
+            if result.get("success") and result.get("pages"):
+                pages.extend(result["pages"])
+        return {
+            "success": True,
+            "pages": pages,
+            "stats": {"total": len(valid_urls), "crawled": len(pages), "crawler": "httpx_fallback"}
+        }
+
+    service_url = config.CRAWL4AI_SERVICE_URL.rstrip("/")
+
+    async with httpx.AsyncClient(timeout=180.0) as client:  # 3 min timeout for batch
+        try:
+            response = await client.post(
+                f"{service_url}/crawl-many",
+                json={"urls": valid_urls},
+                headers={"Content-Type": "application/json"}
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+
+                # Transform results to pages format
+                pages = []
+                for result in data.get("results", []):
+                    if result.get("success"):
+                        pages.append({
+                            "url": result.get("url"),
+                            "title": result.get("title", ""),
+                            "content": result.get("content", ""),
+                            "source": "crawl4ai_batch"
+                        })
+
+                activity.logger.info(
+                    f"Crawl4AI batch complete: {data.get('successful', 0)}/{data.get('total_urls', 0)} successful"
+                )
+
+                return {
+                    "success": True,
+                    "pages": pages,
+                    "stats": {
+                        "total": data.get("total_urls", 0),
+                        "successful": data.get("successful", 0),
+                        "failed": data.get("failed", 0),
+                        "crawler": "crawl4ai_batch"
+                    }
+                }
+            else:
+                activity.logger.error(f"Crawl4AI batch failed: HTTP {response.status_code}")
+                return {
+                    "success": False,
+                    "pages": [],
+                    "error": f"HTTP {response.status_code}",
+                    "stats": {"crawler": "crawl4ai_batch"}
+                }
+
+        except Exception as e:
+            activity.logger.error(f"Crawl4AI batch error: {e}")
+            return {
+                "success": False,
+                "pages": [],
+                "error": str(e),
+                "stats": {"crawler": "crawl4ai_batch"}
+            }
+
+
 async def crawl_with_httpx_fallback(base_url: str) -> Dict[str, Any]:
     """
     Fallback crawling with httpx + BeautifulSoup (free, local).

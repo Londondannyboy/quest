@@ -51,6 +51,7 @@ from src.activities.research.crawl import (
 
 from src.activities.research.crawl4ai_service import (
     crawl4ai_service_crawl,  # External Railway Crawl4AI microservice (browser automation)
+    crawl4ai_batch_crawl,  # Batch crawl multiple URLs at once
 )
 
 from src.activities.research.exa import (
@@ -255,6 +256,7 @@ async def main():
             # Research - Other
             httpx_crawl,
             crawl4ai_service_crawl,  # External Crawl4AI service (browser automation)
+            crawl4ai_batch_crawl,  # Batch crawl multiple URLs
             # firecrawl_crawl,  # Disabled - out of credit
             # firecrawl_httpx_discover,  # Disabled - out of credit
             exa_research_company,
