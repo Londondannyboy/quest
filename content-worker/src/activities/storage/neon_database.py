@@ -629,3 +629,112 @@ async def get_article_by_slug(slug: str) -> Optional[Dict[str, Any]]:
     except Exception as e:
         activity.logger.error(f"Failed to fetch article: {e}")
         return None
+
+
+@activity.defn
+async def save_spawn_candidate(
+    spawn_opportunity: Dict[str, Any],
+    parent_article_id: str,
+    app: str
+) -> Optional[str]:
+    """
+    Save a spawn opportunity as a candidate article in the database.
+
+    Creates a minimal article record with spawn_status='candidate' for later
+    review and generation. The topic, confidence, and reason are stored.
+
+    Args:
+        spawn_opportunity: Dict with topic, reason, confidence, article_type, unique_angle
+        parent_article_id: ID of the parent article that spawned this candidate
+        app: App context (placement, relocation, etc.)
+
+    Returns:
+        Spawn candidate article ID (str) or None if failed
+    """
+    topic = spawn_opportunity.get("topic", "")
+    reason = spawn_opportunity.get("reason", "")
+    confidence = spawn_opportunity.get("confidence", 0.0)
+    article_type = spawn_opportunity.get("article_type", "guide")
+    unique_angle = spawn_opportunity.get("unique_angle", "")
+
+    activity.logger.info(f"Saving spawn candidate: '{topic}' (confidence: {confidence})")
+
+    if not topic:
+        activity.logger.warning("No topic provided for spawn candidate")
+        return None
+
+    try:
+        async with await psycopg.AsyncConnection.connect(
+            config.DATABASE_URL
+        ) as conn:
+            async with conn.cursor() as cur:
+                # Generate a slug from the topic
+                slug = generate_slug(topic, "spawn")
+
+                # Store spawn metadata in payload
+                payload = {
+                    "topic": topic,
+                    "article_type": article_type,
+                    "unique_angle": unique_angle,
+                    "spawn_metadata": {
+                        "reason": reason,
+                        "confidence": confidence,
+                        "parent_article_id": parent_article_id
+                    }
+                }
+
+                # Insert as candidate article
+                await cur.execute("""
+                    INSERT INTO articles (
+                        slug,
+                        title,
+                        app,
+                        content,
+                        excerpt,
+                        meta_description,
+                        word_count,
+                        article_angle,
+                        payload,
+                        status,
+                        spawn_status,
+                        parent_article_id,
+                        spawn_confidence,
+                        spawn_reason,
+                        created_at,
+                        updated_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                    ON CONFLICT (slug)
+                    DO UPDATE SET
+                        spawn_confidence = GREATEST(articles.spawn_confidence, EXCLUDED.spawn_confidence),
+                        spawn_reason = EXCLUDED.spawn_reason,
+                        updated_at = NOW()
+                    RETURNING id
+                """, (
+                    slug,
+                    topic,  # Use topic as title
+                    app,
+                    "",  # Empty content (not generated yet)
+                    f"Spawn candidate: {unique_angle}" if unique_angle else "",
+                    "",  # Empty meta description
+                    0,  # No word count yet
+                    article_type,
+                    json.dumps(payload),
+                    "draft",  # Status is draft
+                    "candidate",  # spawn_status = candidate
+                    parent_article_id,
+                    confidence,
+                    reason
+                ))
+
+                result = await cur.fetchone()
+                spawn_id = str(result[0]) if result else None
+
+                await conn.commit()
+
+                activity.logger.info(f"Saved spawn candidate: {slug} (ID: {spawn_id})")
+                return spawn_id
+
+    except Exception as e:
+        activity.logger.error(f"Failed to save spawn candidate: {e}")
+        return None

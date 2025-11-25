@@ -144,6 +144,7 @@ from src.activities.storage.neon_database import (
     get_company_by_id,
     save_article_to_neon,
     get_article_by_slug,
+    save_spawn_candidate,
 )
 
 from src.activities.storage.neon_articles import (
@@ -315,6 +316,7 @@ async def main():
             save_article_to_neon,
             get_article_by_slug,
             get_recent_articles_from_neon,
+            save_spawn_candidate,  # Article spawn candidates
 
             # Zep Integration
             query_zep_for_context,

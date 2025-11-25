@@ -303,6 +303,25 @@ class ArticleCreationWorkflow:
         raw_research = json_module.dumps(raw_research_data)
         workflow.logger.info(f"Phase 3b: Raw research built ({len(raw_research)} chars, {len(curation_result.get('curated_sources', []))} curated sources with URLs)")
 
+        # ===== PHASE 3c: IDENTIFY SPAWN CANDIDATES =====
+        # Identify high-confidence spawn opportunities (max 2) for saving after article_id is known
+        spawn_opportunities = curation_result.get("spawn_opportunities", [])
+        viable_spawns = []
+
+        if spawn_opportunities:
+            # Filter to high-confidence opportunities (0.7+), max 2
+            viable_spawns = [
+                s for s in spawn_opportunities
+                if s.get("confidence", 0) >= 0.7
+            ][:2]
+
+            if viable_spawns:
+                workflow.logger.info(f"Phase 3c: Found {len(viable_spawns)} viable spawn candidates: {[s.get('topic') for s in viable_spawns]}")
+            else:
+                workflow.logger.info("Phase 3c: No high-confidence spawn opportunities (need 0.7+)")
+        else:
+            workflow.logger.info("Phase 3c: No spawn opportunities found")
+
         # ===== PHASE 4: ZEP CONTEXT =====
         workflow.logger.info("Phase 4: Querying Zep for context")
 
@@ -515,6 +534,28 @@ class ArticleCreationWorkflow:
         )
 
         workflow.logger.info(f"Article saved to database with ID: {article_id}")
+
+        # ===== PHASE 6b: SAVE SPAWN CANDIDATES =====
+        # Now that we have article_id, save any spawn candidates with parent link
+        spawn_candidates_saved = 0
+
+        if viable_spawns:
+            workflow.logger.info(f"Phase 6b: Saving {len(viable_spawns)} spawn candidates")
+
+            for spawn in viable_spawns:
+                try:
+                    spawn_id = await workflow.execute_activity(
+                        "save_spawn_candidate",
+                        args=[spawn, article_id, app],  # Link to parent article
+                        start_to_close_timeout=timedelta(seconds=15)
+                    )
+                    if spawn_id:
+                        spawn_candidates_saved += 1
+                        workflow.logger.info(f"  Saved spawn candidate: {spawn.get('topic')} (ID: {spawn_id})")
+                except Exception as e:
+                    workflow.logger.warning(f"  Failed to save spawn candidate: {e}")
+
+            workflow.logger.info(f"Phase 6b: {spawn_candidates_saved}/{len(viable_spawns)} spawn candidates saved")
 
         # ===== PHASE 7: SYNC TO ZEP (early - knowledge graph doesn't need media) =====
         workflow.logger.info("Phase 7: Syncing article to Zep knowledge graph")
@@ -1017,5 +1058,6 @@ class ArticleCreationWorkflow:
             "video_url": video_result.get("video_url") if video_result else None,
             "video_playback_id": video_result.get("video_playback_id") if video_result else None,
             "research_cost": total_cost,
+            "spawn_candidates_saved": spawn_candidates_saved,  # Related article candidates
             "article": article  # Full payload for debugging
         }
