@@ -71,9 +71,15 @@ class NewsCreationWorkflow:
         # ===== PHASE 1A: FETCH NEWS FROM DATAFORSEO (PRIMARY) =====
         workflow.logger.info("Phase 1a: Fetching news from DataForSEO (primary)")
 
-        # For placement: Use only "private equity" keyword, UK and US regions
-        dataforseo_keyword = "private equity"
+        # App-specific primary keywords for DataForSEO research
+        dataforseo_keywords_by_app = {
+            "placement": "private equity",
+            "relocation": "Digital Nomad Visa"
+        }
+        dataforseo_keyword = dataforseo_keywords_by_app.get(app, "private equity")
         dataforseo_regions = ["UK", "US"]
+
+        workflow.logger.info(f"DataForSEO primary keyword: {dataforseo_keyword}")
 
         dataforseo_result = await workflow.execute_activity(
             "dataforseo_news_search",
