@@ -311,8 +311,17 @@ OUTPUT ONLY VALID JSON (no markdown, no explanation):
   "best_sources": [
     {{"id": "crawl_0", "url": "...", "title": "...", "relevance": 9, "unique_value": "What this source adds"}},
     {{"id": "crawl_1", "url": "...", "title": "...", "relevance": 8, "unique_value": "Different perspective"}}
+  ],
+  "spawn_opportunities": [
+    {{"topic": "Related topic that deserves its own article", "reason": "Why it merits a separate article (e.g., mentioned in 5+ sources)", "confidence": 0.85, "article_type": "guide", "unique_angle": "What makes this different from main article"}}
   ]
 }}
+
+SPAWN OPPORTUNITIES (max 2):
+Look for RELATED topics that appear frequently in sources but are DIFFERENT enough to merit their own articles:
+- Competing alternatives (if Cyprus visa, look for Malta/Portugal mentions)
+- Complementary topics (if visa, look for "tax residency", "cost of living" angles)
+- Only include if confidence >= 0.7 (mentioned substantially in multiple sources)
 
 Generate 5-7 article_outline sections that create a COMPREHENSIVE article structure.
 Each section should have specific key_points, not generic placeholders.
@@ -413,12 +422,17 @@ OUTPUT (JSON only):"""
         article_outline = curation_result.get("article_outline", [])
         high_authority = curation_result.get("high_authority_sources", [])
         timeline = curation_result.get("timeline", [])
+        spawn_opportunities = curation_result.get("spawn_opportunities", [])
 
         activity.logger.info(
             f"Curation complete: {len(curated_with_content)} sources, "
             f"{len(key_facts)} facts, {len(opinions_and_sentiment)} opinions, "
             f"{len(unique_angles)} angles, {len(article_outline)} outline sections"
         )
+
+        # Log spawn opportunities if found
+        if spawn_opportunities:
+            activity.logger.info(f"Found {len(spawn_opportunities)} spawn opportunities: {[s.get('topic') for s in spawn_opportunities]}")
 
         return {
             "curated_sources": curated_with_content,
@@ -432,6 +446,7 @@ OUTPUT (JSON only):"""
             "article_outline": article_outline,
             "high_authority_sources": high_authority,
             "timeline": timeline,
+            "spawn_opportunities": spawn_opportunities,
             "total_input": len(all_sources),
             "total_output": len(curated_with_content),
             "filtered_count": filtered_count,
@@ -453,6 +468,7 @@ OUTPUT (JSON only):"""
             "article_outline": [],
             "high_authority_sources": [],
             "timeline": [],
+            "spawn_opportunities": [],
             "total_input": len(all_sources),
             "total_output": min(len(all_sources), max_sources),
             "error": str(e)

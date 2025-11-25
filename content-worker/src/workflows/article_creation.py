@@ -457,24 +457,30 @@ class ArticleCreationWorkflow:
         article_urls = list(set(re.findall(url_pattern, article.get("content", ""))))
 
         if article_urls:
-            validation_result = await workflow.execute_activity(
-                "playwright_url_cleanse",
-                args=[article_urls],
-                start_to_close_timeout=timedelta(seconds=30)
-            )
+            try:
+                validation_result = await workflow.execute_activity(
+                    "playwright_url_cleanse",
+                    args=[article_urls],
+                    start_to_close_timeout=timedelta(seconds=30),
+                    retry_policy=RetryPolicy(maximum_attempts=1)  # Don't retry - non-critical
+                )
 
-            invalid_urls = {item['url'] for item in validation_result.get('invalid_urls', [])}
+                invalid_urls = {item['url'] for item in validation_result.get('invalid_urls', [])}
 
-            if invalid_urls:
-                workflow.logger.info(f"Removing {len(invalid_urls)} broken/paywalled links")
-                content = article["content"]
-                for bad_url in invalid_urls:
-                    # Replace broken link with just the text
-                    pattern = rf'<a[^>]*href="{re.escape(bad_url)}"[^>]*>([^<]+)</a>'
-                    content = re.sub(pattern, r'\1', content)
-                article["content"] = content
-            else:
-                workflow.logger.info(f"All {len(article_urls)} links validated OK")
+                if invalid_urls:
+                    workflow.logger.info(f"Removing {len(invalid_urls)} broken/paywalled links")
+                    content = article["content"]
+                    for bad_url in invalid_urls:
+                        # Replace broken link with just the text
+                        pattern = rf'<a[^>]*href="{re.escape(bad_url)}"[^>]*>([^<]+)</a>'
+                        content = re.sub(pattern, r'\1', content)
+                    article["content"] = content
+                else:
+                    workflow.logger.info(f"All {len(article_urls)} links validated OK")
+            except Exception as e:
+                # Graceful fail - link validation is not critical
+                workflow.logger.warning(f"Phase 5b: Link validation failed (non-critical): {e}")
+                workflow.logger.info("Continuing with unvalidated links")
         else:
             workflow.logger.info("No external links to validate")
 
