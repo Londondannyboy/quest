@@ -141,35 +141,35 @@ class ArticleCreationWorkflow:
         )
 
         # ===== PHASE 2: CRAWL DISCOVERED URLs =====
-        workflow.logger.info("Phase 2: Crawling discovered URLs with Crawl4AI")
+        workflow.logger.info("Phase 2: Crawling ALL discovered URLs with Crawl4AI (free, parallel)")
 
-        # Collect URLs from all sources - DataForSEO has priority (most comprehensive)
+        # Collect ALL URLs from all sources - no limits, crawl everything
         urls_to_crawl = []
 
-        # DataForSEO URLs (up to 20) - includes organic, AI overview, features
+        # DataForSEO URLs - ALL of them (50+ from news or organic)
         if article_type == "news":
             # News search returns "articles"
-            for article in dataforseo_data.get("articles", [])[:20]:
+            for article in dataforseo_data.get("articles", []):
                 if article.get("url"):
                     urls_to_crawl.append(article["url"])
         else:
             # Organic search returns "all_urls" (comprehensive list)
-            for item in dataforseo_data.get("all_urls", [])[:20]:
+            for item in dataforseo_data.get("all_urls", []):
                 if item.get("url"):
                     urls_to_crawl.append(item["url"])
 
-        # Serper URLs (up to 10)
-        for article in serper_data.get("articles", [])[:10]:
+        # Serper URLs - ALL of them
+        for article in serper_data.get("articles", []):
             if article.get("url"):
                 urls_to_crawl.append(article["url"])
 
-        # Exa URLs (up to 5)
-        for result in exa_data.get("results", [])[:5]:
+        # Exa URLs - ALL of them
+        for result in exa_data.get("results", []):
             if result.get("url"):
                 urls_to_crawl.append(result["url"])
 
-        # Deduplicate URLs and limit to num_sources
-        urls_to_crawl = list(dict.fromkeys(urls_to_crawl))[:num_sources]
+        # Deduplicate URLs only - no limit since crawling is free and parallel
+        urls_to_crawl = list(dict.fromkeys(urls_to_crawl))
 
         workflow.logger.info(f"Crawling {len(urls_to_crawl)} discovered URLs")
 
