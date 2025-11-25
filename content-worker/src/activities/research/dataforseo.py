@@ -129,22 +129,23 @@ async def dataforseo_news_search(
 async def dataforseo_serp_search(
     query: str,
     region: str = "UK",
-    depth: int = 70,
+    depth: int = 50,
     include_ai_overview: bool = True,
     people_also_ask_depth: int = 4
 ) -> dict[str, Any]:
     """
-    Search organic SERP results using DataForSEO with AI Overview and People Also Ask
+    Search organic SERP results using DataForSEO with AI Overview and People Also Ask.
+    Extracts URLs from ALL SERP features, not just organic results.
 
     Args:
         query: Search query
         region: Region code (UK, US, SG, etc.)
-        depth: Number of results (1-200, default 10, recommended 70 for 7 pages)
+        depth: Number of results (1-200, default 50 = ~5 pages)
         include_ai_overview: Include Google AI Overview results
         people_also_ask_depth: Depth for "People also ask" results (0-4)
 
     Returns:
-        Dict with organic results, AI overview, people also ask, and metadata
+        Dict with organic results, feature URLs, AI overview, and metadata
     """
     url = "https://api.dataforseo.com/v3/serp/google/organic/live/advanced"
     auth = get_auth_header()
@@ -177,7 +178,10 @@ async def dataforseo_serp_search(
                 if response.status == 200:
                     data = await response.json()
 
-                    results = []
+                    organic_results = []
+                    feature_urls = []  # URLs from SERP features
+                    ai_overview_urls = []
+                    paa_questions = []
                     cost = 0
 
                     if data.get("tasks") and data["tasks"][0].get("result"):
@@ -185,32 +189,123 @@ async def dataforseo_serp_search(
                         cost = data["tasks"][0].get("cost", 0)
 
                         for item in items:
-                            if item.get("type") == "organic":
-                                results.append({
+                            item_type = item.get("type", "")
+
+                            # Organic results - primary
+                            if item_type == "organic":
+                                organic_results.append({
                                     "title": item.get("title", ""),
                                     "url": item.get("url", ""),
                                     "source": item.get("domain", "").replace("www.", ""),
                                     "snippet": item.get("description", ""),
                                     "rank": item.get("rank_absolute", 0),
                                     "region": region,
+                                    "type": "organic",
                                     "api_source": "dataforseo"
                                 })
 
+                            # Featured snippet
+                            elif item_type == "featured_snippet":
+                                if item.get("url"):
+                                    feature_urls.append({
+                                        "url": item.get("url"),
+                                        "title": item.get("title", ""),
+                                        "type": "featured_snippet"
+                                    })
+
+                            # People Also Ask - extract URLs from expanded answers
+                            elif item_type == "people_also_ask":
+                                paa_items = item.get("items", [])
+                                for paa in paa_items:
+                                    paa_questions.append(paa.get("title", ""))
+                                    if paa.get("url"):
+                                        feature_urls.append({
+                                            "url": paa.get("url"),
+                                            "title": paa.get("title", ""),
+                                            "type": "people_also_ask"
+                                        })
+
+                            # AI Overview - extract reference URLs
+                            elif item_type == "ai_overview":
+                                refs = item.get("references", [])
+                                for ref in refs:
+                                    if ref.get("url"):
+                                        ai_overview_urls.append({
+                                            "url": ref.get("url"),
+                                            "title": ref.get("title", ""),
+                                            "type": "ai_overview"
+                                        })
+
+                            # Top stories (news)
+                            elif item_type == "top_stories":
+                                stories = item.get("items", [])
+                                for story in stories:
+                                    if story.get("url"):
+                                        feature_urls.append({
+                                            "url": story.get("url"),
+                                            "title": story.get("title", ""),
+                                            "type": "top_stories"
+                                        })
+
+                            # Video results
+                            elif item_type == "video":
+                                if item.get("url"):
+                                    feature_urls.append({
+                                        "url": item.get("url"),
+                                        "title": item.get("title", ""),
+                                        "type": "video"
+                                    })
+
+                            # Knowledge panel - extract URLs
+                            elif item_type == "knowledge_panel":
+                                if item.get("url"):
+                                    feature_urls.append({
+                                        "url": item.get("url"),
+                                        "title": item.get("title", ""),
+                                        "type": "knowledge_panel"
+                                    })
+
+                    # Combine all URLs for crawling
+                    all_urls = []
+                    seen_urls = set()
+
+                    # Priority: organic first, then AI overview, then features
+                    for r in organic_results:
+                        if r["url"] and r["url"] not in seen_urls:
+                            all_urls.append(r)
+                            seen_urls.add(r["url"])
+
+                    for r in ai_overview_urls:
+                        if r["url"] and r["url"] not in seen_urls:
+                            all_urls.append(r)
+                            seen_urls.add(r["url"])
+
+                    for r in feature_urls:
+                        if r["url"] and r["url"] not in seen_urls:
+                            all_urls.append(r)
+                            seen_urls.add(r["url"])
+
                     activity.logger.info(
-                        f"DataForSEO SERP: {len(results)} results for '{query}' in {region}"
+                        f"DataForSEO SERP: {len(organic_results)} organic, "
+                        f"{len(ai_overview_urls)} AI overview, {len(feature_urls)} features "
+                        f"= {len(all_urls)} unique URLs for '{query}'"
                     )
 
                     return {
-                        "results": results,
-                        "total": len(results),
+                        "results": organic_results,
+                        "all_urls": all_urls,  # All unique URLs for crawling
+                        "ai_overview_urls": ai_overview_urls,
+                        "feature_urls": feature_urls,
+                        "paa_questions": paa_questions,
+                        "total": len(all_urls),
                         "cost": cost,
                         "query": query,
                         "region": region
                     }
                 else:
                     activity.logger.error(f"DataForSEO SERP error: {response.status}")
-                    return {"results": [], "total": 0, "cost": 0, "error": f"HTTP {response.status}"}
+                    return {"results": [], "all_urls": [], "total": 0, "cost": 0, "error": f"HTTP {response.status}"}
 
         except Exception as e:
             activity.logger.error(f"DataForSEO SERP exception: {e}")
-            return {"results": [], "total": 0, "cost": 0, "error": str(e)}
+            return {"results": [], "all_urls": [], "total": 0, "cost": 0, "error": str(e)}

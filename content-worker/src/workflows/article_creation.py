@@ -66,10 +66,36 @@ class ArticleCreationWorkflow:
         workflow.logger.info(f"Creating {article_type} article: {topic}")
 
         # ===== PHASE 1: RESEARCH TOPIC =====
-        workflow.logger.info("Phase 1: Parallel research (Serper + Exa)")
+        workflow.logger.info("Phase 1: Parallel research (DataForSEO + Serper + Exa)")
+
+        # DataForSEO - use News for news articles, Organic for guides/comparisons
+        if article_type == "news":
+            # DataForSEO News search - best for breaking news with timestamps
+            dataforseo_task = workflow.execute_activity(
+                "dataforseo_news_search",
+                args=[
+                    [topic],  # keywords list
+                    [jurisdiction],  # regions list
+                    50  # depth - 5 pages worth
+                ],
+                start_to_close_timeout=timedelta(minutes=2)
+            )
+        else:
+            # DataForSEO Organic search - best for evergreen content
+            dataforseo_task = workflow.execute_activity(
+                "dataforseo_serp_search",
+                args=[
+                    topic,  # query
+                    jurisdiction,  # region
+                    50,  # depth - 5 pages
+                    True,  # include_ai_overview
+                    4  # people_also_ask_depth
+                ],
+                start_to_close_timeout=timedelta(minutes=2)
+            )
 
         # Serper article search
-        news_task = workflow.execute_activity(
+        serper_task = workflow.execute_activity(
             "serper_article_search",
             args=[
                 topic,
@@ -86,34 +112,54 @@ class ArticleCreationWorkflow:
             start_to_close_timeout=timedelta(minutes=5)
         )
 
-        # Execute in parallel
-        news_data, exa_data = await asyncio.gather(
-            news_task, exa_task,
+        # Execute all in parallel
+        dataforseo_data, serper_data, exa_data = await asyncio.gather(
+            dataforseo_task, serper_task, exa_task,
             return_exceptions=True
         )
 
         # Handle failures gracefully
-        if isinstance(news_data, Exception):
-            workflow.logger.error(f"News research failed: {news_data}")
-            news_data = {"articles": [], "cost": 0.0}
+        if isinstance(dataforseo_data, Exception):
+            workflow.logger.error(f"DataForSEO research failed: {dataforseo_data}")
+            dataforseo_data = {"articles": [], "all_urls": [], "results": [], "cost": 0.0}
+
+        if isinstance(serper_data, Exception):
+            workflow.logger.error(f"Serper research failed: {serper_data}")
+            serper_data = {"articles": [], "cost": 0.0}
 
         if isinstance(exa_data, Exception):
             workflow.logger.error(f"Exa research failed: {exa_data}")
             exa_data = {"results": [], "cost": 0.0}
 
+        # Count results
+        dataforseo_count = len(dataforseo_data.get("articles", [])) or len(dataforseo_data.get("all_urls", []))
+        serper_count = len(serper_data.get("articles", []))
+        exa_count = len(exa_data.get("results", []))
+
         workflow.logger.info(
-            f"Research: {len(news_data.get('articles', []))} news articles, "
-            f"{len(exa_data.get('results', []))} Exa results"
+            f"Research: {dataforseo_count} DataForSEO, {serper_count} Serper, {exa_count} Exa"
         )
 
         # ===== PHASE 2: CRAWL DISCOVERED URLs =====
         workflow.logger.info("Phase 2: Crawling discovered URLs with Crawl4AI")
 
-        # Collect URLs from news + Exa
+        # Collect URLs from all sources - DataForSEO has priority (most comprehensive)
         urls_to_crawl = []
 
-        # News URLs (up to 10)
-        for article in news_data.get("articles", [])[:10]:
+        # DataForSEO URLs (up to 20) - includes organic, AI overview, features
+        if article_type == "news":
+            # News search returns "articles"
+            for article in dataforseo_data.get("articles", [])[:20]:
+                if article.get("url"):
+                    urls_to_crawl.append(article["url"])
+        else:
+            # Organic search returns "all_urls" (comprehensive list)
+            for item in dataforseo_data.get("all_urls", [])[:20]:
+                if item.get("url"):
+                    urls_to_crawl.append(item["url"])
+
+        # Serper URLs (up to 10)
+        for article in serper_data.get("articles", [])[:10]:
             if article.get("url"):
                 urls_to_crawl.append(article["url"])
 
@@ -122,7 +168,7 @@ class ArticleCreationWorkflow:
             if result.get("url"):
                 urls_to_crawl.append(result["url"])
 
-        # Deduplicate URLs
+        # Deduplicate URLs and limit to num_sources
         urls_to_crawl = list(dict.fromkeys(urls_to_crawl))[:num_sources]
 
         workflow.logger.info(f"Crawling {len(urls_to_crawl)} discovered URLs")

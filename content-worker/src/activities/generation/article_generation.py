@@ -186,9 +186,11 @@ Then the full article body in HTML with Tailwind CSS:
 
 Output ONLY the title on line 1, then the HTML content. No other text or explanation."""
 
+        # Haiku max is 8192, Sonnet/Opus can do more
+        # Use 8192 for compatibility with all models
         message = client.messages.create(
             model=model_name,
-            max_tokens=12000,
+            max_tokens=8192,
             system=system_prompt,
             messages=[
                 {"role": "user", "content": prompt}

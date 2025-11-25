@@ -14,16 +14,30 @@ from src.utils.config import config
 
 
 def normalize_url(url: str) -> str:
-    """Ensure URL has a protocol (https:// by default)."""
+    """Ensure URL has a protocol and is valid."""
     if not url:
-        return url
+        return None
     url = url.strip()
+
+    # Add protocol if missing
     if not url.startswith(('http://', 'https://')):
-        # Add https:// if no protocol
         if url.startswith('//'):
             url = 'https:' + url
         else:
             url = 'https://' + url
+
+    # Validate URL has a domain (not just protocol)
+    # "https://" or "https:///" are invalid
+    from urllib.parse import urlparse
+    try:
+        parsed = urlparse(url)
+        if not parsed.netloc or len(parsed.netloc) < 3:
+            return None  # No valid domain
+        if '.' not in parsed.netloc:
+            return None  # Domain must have at least one dot
+    except Exception:
+        return None
+
     return url
 
 
