@@ -490,13 +490,47 @@ class ArticleCreationWorkflow:
         # ===== PHASE 8: SYNC TO ZEP =====
         workflow.logger.info("Phase 8: Syncing article to Zep knowledge graph")
 
+        # Build curated summary for Zep (under 10,000 chars, no chunking needed)
+        zep_summary_parts = []
+        zep_summary_parts.append(f"ARTICLE: {article['title']}\n")
+        zep_summary_parts.append(f"TYPE: {article_type}\n")
+        zep_summary_parts.append(f"APP: {app}\n\n")
+
+        # Add key facts from curation (most valuable for knowledge graph)
+        key_facts = curation_result.get("key_facts", [])
+        if key_facts:
+            zep_summary_parts.append("KEY FACTS:\n")
+            for fact in key_facts[:15]:
+                zep_summary_parts.append(f"• {fact}\n")
+
+        # Add perspectives
+        perspectives = curation_result.get("perspectives", [])
+        if perspectives:
+            zep_summary_parts.append("\nPERSPECTIVES:\n")
+            for p in perspectives[:5]:
+                zep_summary_parts.append(f"• {p}\n")
+
+        # Add top source summaries
+        curated_sources = curation_result.get("curated_sources", [])
+        if curated_sources:
+            zep_summary_parts.append("\nSOURCES:\n")
+            for source in curated_sources[:10]:
+                if source.get("summary"):
+                    zep_summary_parts.append(f"• {source['summary'][:200]}\n")
+
+        # Add article excerpt
+        if article.get("excerpt"):
+            zep_summary_parts.append(f"\nEXCERPT: {article['excerpt']}\n")
+
+        zep_content = ''.join(zep_summary_parts)[:9500]  # Keep under 10k
+
         zep_result = await workflow.execute_activity(
             "sync_article_to_zep",
             args=[
                 article_id,
                 article["title"],
                 article["slug"],
-                article["content"],
+                zep_content,  # Curated summary instead of full content
                 article.get("excerpt", ""),
                 article_type,
                 [],  # mentioned_companies (Zep extracts from content)
@@ -515,7 +549,8 @@ class ArticleCreationWorkflow:
 
         # Calculate total cost
         total_cost = (
-            news_data.get("cost", 0.0) +
+            dataforseo_data.get("cost", 0.0) +
+            serper_data.get("cost", 0.0) +
             exa_data.get("cost", 0.0) +
             article_result.get("cost", 0.0) +
             (images_result.get("total_cost", 0.0) if generate_images else 0.0)
