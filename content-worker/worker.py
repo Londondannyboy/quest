@@ -18,7 +18,7 @@ load_dotenv()
 # Import workflows
 from src.workflows.company_creation import CompanyCreationWorkflow
 from src.workflows.article_creation import ArticleCreationWorkflow
-from src.workflows.news_monitor import NewsMonitorWorkflow
+from src.workflows.news_creation import NewsCreationWorkflow
 
 # Import all activities
 from src.activities.normalize import (
@@ -93,6 +93,10 @@ from src.activities.media.prompt_images import (
 from src.activities.media.video_generation import (
     generate_article_video,
     get_video_cost_estimate,
+)
+
+from src.activities.media.intelligent_prompt_builder import (
+    build_intelligent_video_prompt,
 )
 
 from src.activities.media.mux_client import (
@@ -219,7 +223,7 @@ async def main():
     worker = Worker(
         client,
         task_queue=config.TEMPORAL_TASK_QUEUE,
-        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow, NewsMonitorWorkflow],
+        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow, NewsCreationWorkflow],
         activities=[
             # Normalization
             normalize_company_url,
@@ -261,6 +265,7 @@ async def main():
             generate_article_images_from_prompts,
             analyze_article_sections,
             # Video
+            build_intelligent_video_prompt,
             generate_article_video,
             get_video_cost_estimate,
             upload_video_to_mux,
@@ -306,7 +311,7 @@ async def main():
     print("\n📋 Registered Workflows:")
     print("   - CompanyCreationWorkflow")
     print("   - ArticleCreationWorkflow")
-    print("   - NewsMonitorWorkflow (Scheduled)")
+    print("   - NewsCreationWorkflow (Scheduled with intelligent video prompts)")
 
     print("\n📋 Registered Activities:")
     activity_groups = [

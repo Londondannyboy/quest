@@ -1,5 +1,5 @@
 """
-News Monitor Workflow
+News Creation Workflow
 
 SCHEDULED workflow that runs daily to find and create news articles.
 
@@ -9,7 +9,8 @@ Pipeline:
 3. Deduplicate and merge results
 4. Get recent articles (Neon) for duplicate check
 5. AI assessment: relevance, priority
-6. Spawn ArticleCreationWorkflow for relevant stories
+6. Build intelligent video prompt for each story
+7. Spawn ArticleCreationWorkflow with video-first configuration
 """
 
 from temporalio import workflow
@@ -21,14 +22,15 @@ with workflow.unsafe.imports_passed_through():
 
 
 @workflow.defn
-class NewsMonitorWorkflow:
+class NewsCreationWorkflow:
     """
-    Scheduled workflow that monitors news and creates articles.
+    Scheduled workflow that creates news articles with intelligent video prompts.
 
     Runs daily (or on schedule) to:
     1. Find relevant news for the app
     2. Use AI to assess if we should cover it
-    3. Automatically create articles for high-priority stories
+    3. Build intelligent, contextual video prompts
+    4. Automatically create articles with video-first configuration
     """
 
     @workflow.run
@@ -198,10 +200,29 @@ class NewsMonitorWorkflow:
             # Create articles for top stories
             for story_assessment in sorted_stories[:max_articles]:
                 story = story_assessment.get("story", {})
+                priority = story_assessment.get("priority", "medium")
 
                 workflow.logger.info(f"Creating article: {story.get('title', '')[:50]}...")
 
-                # Build article input - just pass the topic
+                # ===== BUILD INTELLIGENT VIDEO PROMPT =====
+                # Generate contextual, creative prompt based on story and published articles
+                prompt_result = await workflow.execute_activity(
+                    "build_intelligent_video_prompt",
+                    args=[
+                        story.get("title", ""),  # Topic
+                        story.get("description", story.get("snippet", ""))[:500],  # Content preview
+                        app,  # App context
+                        recent_articles[:5],  # Learn from recent articles
+                        None,  # App config (will use defaults)
+                        "seedance"  # Video model
+                    ],
+                    start_to_close_timeout=timedelta(seconds=30)
+                )
+
+                video_prompt = prompt_result.get("prompt")
+                workflow.logger.info(f"Generated video prompt: {video_prompt[:80]}...")
+
+                # ===== BUILD ARTICLE INPUT WITH VIDEO-FIRST CONFIGURATION =====
                 article_input = {
                     "topic": story.get("title", ""),
                     "article_type": "news",
@@ -209,10 +230,14 @@ class NewsMonitorWorkflow:
                     "target_word_count": 1500,
                     "jurisdiction": geographic_focus[0] if geographic_focus else "UK",
                     "generate_images": True,
+                    "video_quality": "medium" if priority in ["high", "medium"] else None,  # High/medium priority get videos
+                    "video_model": "seedance",
+                    "video_prompt": video_prompt,  # Intelligent, contextual prompt
+                    "content_images": "with_content",
                     "num_research_sources": 10
                 }
 
-                # Spawn child workflow
+                # Spawn child workflow with video-first configuration
                 try:
                     result = await workflow.execute_child_workflow(
                         "ArticleCreationWorkflow",
