@@ -118,6 +118,10 @@ from src.activities.generation.article_generation import (
     generate_article_content,
 )
 
+from src.activities.generation.research_curation import (
+    curate_research_sources,
+)
+
 from src.activities.generation.completeness import (
     calculate_completeness_score,
     get_missing_fields,
@@ -282,6 +286,7 @@ async def main():
             # Generation
             generate_company_profile_v2,
             generate_article_content,
+            curate_research_sources,
             calculate_completeness_score,
             get_missing_fields,
             suggest_improvements,
@@ -348,6 +353,7 @@ async def main():
             "generate_company_profile",
             "generate_company_profile_v2",
             "generate_article_content",
+            "curate_research_sources",
             "calculate_completeness_score",
             "get_missing_fields",
             "suggest_improvements",

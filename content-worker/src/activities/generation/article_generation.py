@@ -291,35 +291,65 @@ Output ONLY the title on line 1, then the HTML content. No other text or explana
 
 
 def build_prompt(topic: str, research_context: Dict[str, Any]) -> str:
-    """Build prompt with research."""
+    """Build prompt with research - uses curated sources if available."""
     parts = [f"Write an article about: {topic}\n"]
 
-    # Add all research
-    news = research_context.get("news_articles", [])
-    if news:
-        parts.append("\n=== NEWS ===")
-        for a in news[:10]:
-            parts.append(f"\n{a.get('title', '')}")
-            parts.append(f"URL: {a.get('url', '')}")
-            if a.get('snippet'):
-                parts.append(a['snippet'])
+    # Check for curated sources (new two-stage approach)
+    curated = research_context.get("curated_sources", [])
+    key_facts = research_context.get("key_facts", [])
+    perspectives = research_context.get("perspectives", [])
 
-    crawled = research_context.get("crawled_pages", [])
-    if crawled:
-        parts.append("\n=== SOURCES ===")
-        for p in crawled[:5]:
-            parts.append(f"\n{p.get('title', '')}")
-            content = p.get('content', '')[:2000]
-            if content:
-                parts.append(content)
+    if curated:
+        # Use curated sources (filtered, deduped, summarized)
+        parts.append("\n=== KEY FACTS (verified from multiple sources) ===")
+        for fact in key_facts[:20]:
+            parts.append(f"• {fact}")
 
-    exa = research_context.get("exa_results", [])
-    if exa:
-        parts.append("\n=== RESEARCH ===")
-        for r in exa[:5]:
-            parts.append(f"\n{r.get('title', '')}")
-            content = r.get('content', '') or r.get('text', '')
-            if content:
-                parts.append(content[:2000])
+        if perspectives:
+            parts.append("\n=== DIFFERENT PERSPECTIVES ===")
+            for perspective in perspectives[:5]:
+                parts.append(f"• {perspective}")
+
+        parts.append("\n=== CURATED SOURCES (ranked by relevance) ===")
+        for source in curated[:20]:  # Use up to 20 curated sources
+            parts.append(f"\n--- Source (relevance: {source.get('relevance_score', '?')}/10) ---")
+            parts.append(f"Title: {source.get('title', '')}")
+            parts.append(f"URL: {source.get('url', '')}")
+            if source.get('summary'):
+                parts.append(f"Summary: {source['summary']}")
+            if source.get('key_quote'):
+                parts.append(f"Key Quote: \"{source['key_quote']}\"")
+            # Include full content for top sources
+            if source.get('full_content') and source.get('relevance_score', 0) >= 7:
+                parts.append(f"Full Content:\n{source['full_content'][:3000]}")
+
+    else:
+        # Fallback to old approach (uncurated sources)
+        news = research_context.get("news_articles", [])
+        if news:
+            parts.append("\n=== NEWS ===")
+            for a in news[:10]:
+                parts.append(f"\n{a.get('title', '')}")
+                parts.append(f"URL: {a.get('url', '')}")
+                if a.get('snippet'):
+                    parts.append(a['snippet'])
+
+        crawled = research_context.get("crawled_pages", [])
+        if crawled:
+            parts.append("\n=== SOURCES ===")
+            for p in crawled[:10]:  # Increased from 5 to 10
+                parts.append(f"\n{p.get('title', '')}")
+                content = p.get('content', '')[:3000]  # Increased from 2000 to 3000
+                if content:
+                    parts.append(content)
+
+        exa = research_context.get("exa_results", [])
+        if exa:
+            parts.append("\n=== RESEARCH ===")
+            for r in exa[:5]:
+                parts.append(f"\n{r.get('title', '')}")
+                content = r.get('content', '') or r.get('text', '')
+                if content:
+                    parts.append(content[:3000])
 
     return '\n'.join(parts)

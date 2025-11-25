@@ -205,8 +205,36 @@ class ArticleCreationWorkflow:
             f"(Crawl4AI: {crawl4ai_success}/{len(urls_to_crawl)})"
         )
 
-        # ===== PHASE 3: ZEP CONTEXT =====
-        workflow.logger.info("Phase 3: Querying Zep for context")
+        # ===== PHASE 3: CURATE RESEARCH SOURCES =====
+        workflow.logger.info("Phase 3: Curating research sources with AI (filter, dedupe, summarize)")
+
+        # Combine news articles from all sources
+        all_news_articles = []
+        # DataForSEO articles
+        all_news_articles.extend(dataforseo_data.get("articles", []))
+        # Serper articles
+        all_news_articles.extend(serper_data.get("articles", []))
+
+        curation_result = await workflow.execute_activity(
+            "curate_research_sources",
+            args=[
+                topic,
+                crawled_pages,  # All crawled content
+                all_news_articles,  # All news from DataForSEO + Serper
+                exa_data.get("results", []),  # Exa research
+                20  # max_sources to curate
+            ],
+            start_to_close_timeout=timedelta(minutes=3)
+        )
+
+        workflow.logger.info(
+            f"Curation: {curation_result.get('total_input', 0)} sources -> "
+            f"{curation_result.get('total_output', 0)} curated, "
+            f"{len(curation_result.get('key_facts', []))} facts extracted"
+        )
+
+        # ===== PHASE 4: ZEP CONTEXT =====
+        workflow.logger.info("Phase 4: Querying Zep for context")
 
         zep_context = await workflow.execute_activity(
             "query_zep_for_context",
@@ -219,14 +247,17 @@ class ArticleCreationWorkflow:
             f"{len(zep_context.get('deals', []))} deals"
         )
 
-        # ===== PHASE 4: GENERATE ARTICLE CONTENT =====
-        workflow.logger.info("Phase 4: Generating article content with AI")
+        # ===== PHASE 5: GENERATE ARTICLE CONTENT =====
+        workflow.logger.info("Phase 5: Generating article content with AI")
 
-        # Build research context
+        # Build research context using CURATED sources
         research_context = {
-            "news_articles": news_data.get("articles", []),
-            "crawled_pages": crawled_pages,
-            "exa_results": exa_data.get("results", []),
+            "curated_sources": curation_result.get("curated_sources", []),
+            "key_facts": curation_result.get("key_facts", []),
+            "perspectives": curation_result.get("perspectives", []),
+            "news_articles": all_news_articles[:10],  # Keep some raw news for reference
+            "crawled_pages": crawled_pages[:5],  # Keep some raw pages for reference
+            "exa_results": exa_data.get("results", [])[:5],
             "zep_context": zep_context
         }
 
