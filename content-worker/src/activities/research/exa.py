@@ -204,6 +204,116 @@ def extract_key_facts_from_exa(
 
 
 @activity.defn
+async def exa_research_topic(
+    topic: str,
+    article_type: str = "news",
+    app: str = "placement"
+) -> Dict[str, Any]:
+    """
+    Deep topic research using Exa for article generation.
+
+    Unlike exa_research_company which focuses on company profiles,
+    this function researches topics for news/guides/comparisons.
+
+    Args:
+        topic: Research topic (e.g., "Cyprus Digital Nomad Visa")
+        article_type: Type of article (news, guide, comparison)
+        app: App context for tailored research
+
+    Returns:
+        Dict with results, cost, summary
+    """
+    activity.logger.info(f"Exa topic research: {topic} ({article_type} for {app})")
+
+    if not config.EXA_API_KEY:
+        activity.logger.warning("EXA_API_KEY not configured")
+        return {
+            "results": [],
+            "cost": 0.0,
+            "summary": {},
+            "error": "EXA_API_KEY not configured"
+        }
+
+    try:
+        exa = Exa(api_key=config.EXA_API_KEY)
+
+        # Build topic-appropriate instructions based on article type
+        if article_type == "news":
+            instructions = f"Research the latest news and developments about: {topic}. Find recent articles, announcements, statistics, expert opinions, and key facts. Focus on what's happening now and recent changes."
+        elif article_type == "guide":
+            instructions = f"Research comprehensive information about: {topic}. Find detailed guides, requirements, processes, costs, timelines, tips, and expert advice. Focus on practical, actionable information."
+        elif article_type == "comparison":
+            instructions = f"Research comparisons and analysis of: {topic}. Find comparative data, pros and cons, alternatives, rankings, and expert evaluations."
+        else:
+            instructions = f"Research: {topic}. Find comprehensive, authoritative information including facts, statistics, expert opinions, and recent developments."
+
+        activity.logger.info(f"Creating Exa research for topic: {topic}")
+
+        # Create research job
+        research = exa.research.create(
+            instructions=instructions,
+            model="exa-research"
+        )
+
+        activity.logger.info(f"Research created with ID: {research.research_id}")
+
+        # Stream events and collect content
+        all_events = []
+        task_outputs = []
+
+        for event in exa.research.get(research.research_id, stream=True):
+            all_events.append(event)
+
+            if hasattr(event, 'event_type') and event.event_type == 'task-output':
+                if hasattr(event, 'output') and hasattr(event.output, 'content'):
+                    content = event.output.content
+                    task_outputs.append(content)
+                    activity.logger.info(f"Collected task output: {len(content)} chars")
+
+        # Compile all research outputs
+        full_content = "\n\n---\n\n".join(task_outputs)
+
+        results = [{
+            "url": f"exa-research://{topic.lower().replace(' ', '-')}",
+            "title": f"{topic} Research",
+            "content": full_content[:10000] if full_content else "",  # More content for topics
+            "text": full_content[:10000] if full_content else "",  # Also as text field
+            "highlights": [],
+            "published_date": None,
+            "score": 1.0,
+            "source": "exa-research",
+            "research_id": research.research_id
+        }]
+
+        activity.logger.info(
+            f"Exa topic research complete: {len(task_outputs)} outputs, {len(full_content)} chars, cost: $0.04"
+        )
+
+        return {
+            "results": results,
+            "cost": 0.04,
+            "summary": {
+                "topic": topic,
+                "article_type": article_type,
+                "research_id": research.research_id,
+                "event_count": len(all_events),
+                "task_outputs": len(task_outputs),
+                "content_length": len(full_content)
+            },
+            "research_id": research.research_id
+        }
+
+    except Exception as e:
+        activity.logger.error(f"Exa topic research failed: {e}")
+        return {
+            "results": [],
+            "cost": 0.04,
+            "summary": {},
+            "error": str(e)
+        }
+
+
+@activity.defn
 async def exa_find_similar_companies(
     domain: str,
     company_name: str,

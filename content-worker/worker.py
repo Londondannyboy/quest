@@ -55,6 +55,7 @@ from src.activities.research.crawl4ai_service import (
 
 from src.activities.research.exa import (
     exa_research_company,
+    exa_research_topic,
     exa_find_similar_companies,
 )
 
@@ -257,6 +258,7 @@ async def main():
             # firecrawl_crawl,  # Disabled - out of credit
             # firecrawl_httpx_discover,  # Disabled - out of credit
             exa_research_company,
+            exa_research_topic,
             exa_find_similar_companies,
 
             # Ambiguity & Validation

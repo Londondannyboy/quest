@@ -105,10 +105,10 @@ class ArticleCreationWorkflow:
             start_to_close_timeout=timedelta(minutes=2)
         )
 
-        # Exa deep research
+        # Exa deep research - use topic-specific function for articles
         exa_task = workflow.execute_activity(
-            "exa_research_company",  # Reuse! Works for any topic
-            args=["", topic, article_type],
+            "exa_research_topic",  # Topic research (not company research!)
+            args=[topic, article_type, app],
             start_to_close_timeout=timedelta(minutes=5)
         )
 
