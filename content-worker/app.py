@@ -374,8 +374,8 @@ with tab_article:
 
     # Image cost
     image_cost = 0
-    if content_images == "with_content":
-        image_cost = 0.05  # 1-2 content images
+    if content_images_count > 0:
+        image_cost = 0.05 * content_images_count  # ~$0.05 per image
 
     estimated_cost += video_cost + image_cost
 
@@ -385,12 +385,12 @@ with tab_article:
     time_estimate = "3-5 minutes"
     if video_quality != "None":
         time_estimate = "6-8 minutes"
-    if content_images == "with_content":
+    if content_images_count > 0:
         time_estimate = "8-13 minutes"
     st.caption(f"⏱️ **Estimated time:** {time_estimate}")
 
     # Show breakdown
-    if video_quality != "None" or content_images == "with_content":
+    if video_quality != "None" or content_images_count > 0:
         st.caption(f"📹 Video: ${video_cost:.3f} | 🖼️ Images: ${image_cost:.2f}")
 
     # Submit button
@@ -471,8 +471,8 @@ with tab_article:
                         if video_quality != "None":
                             steps += f"\n                        {step_num}. 📹 Generating video (Seedance + Mux)"
                             step_num += 1
-                        if content_images == "with_content":
-                            steps += f"\n                        {step_num}. 🎨 Generating images (Flux Kontext)"
+                        if content_images_count > 0:
+                            steps += f"\n                        {step_num}. 🎨 Generating {content_images_count} images (Flux Kontext)"
 
                         steps += f"\n\n                        **Estimated time:** {time_estimate}"
 
