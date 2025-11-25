@@ -28,6 +28,7 @@ from src.activities.normalize import (
 
 from src.activities.research.serper import (
     fetch_company_news,
+    serper_news_search,
     fetch_targeted_research,
     serper_httpx_deep_articles,  # Deep article crawling with httpx
 )
@@ -231,6 +232,7 @@ async def main():
 
             # Research - Serper
             fetch_company_news,
+            serper_news_search,  # News search for scheduling/news creation
             fetch_targeted_research,
             serper_httpx_deep_articles,  # Deep article crawling with httpx
 

@@ -32,7 +32,7 @@ GEO_MAP = {
 }
 
 
-@activity.defn(name="serper_search")
+@activity.defn(name="serper_company_search")
 async def fetch_company_news(
     domain: str,
     company_name: str,
@@ -184,6 +184,109 @@ async def fetch_company_news(
             "cost": cost,
             "num_queries": num_queries
         }
+
+
+@activity.defn(name="serper_news_search")
+async def serper_news_search(
+    keywords: List[str],
+    geographic_focus: List[str],
+    depth: int = 30,
+    time_range: str = "past_24h"
+) -> Dict[str, Any]:
+    """
+    Search news using Serper.dev for keyword-based news discovery (for scheduling/news creation).
+
+    Used by NewsCreationWorkflow to supplement DataForSEO with keyword-based news searches.
+
+    Args:
+        keywords: List of search keywords (e.g., ["private equity", "placement"])
+        geographic_focus: List of geographic regions (e.g., ["UK", "US"])
+        depth: Number of results per query (default 30)
+        time_range: Serper time filter - "past_24h", "past_week", "past_month", etc.
+
+    Returns:
+        Dict with articles list, query details, and cost
+    """
+    if not config.SERPER_API_KEY:
+        activity.logger.warning("SERPER_API_KEY not configured")
+        return {
+            "articles": [],
+            "keywords": keywords,
+            "geographic_focus": geographic_focus,
+            "cost": 0.0,
+            "error": "SERPER_API_KEY not configured"
+        }
+
+    all_results = []
+    total_cost = 0.0
+
+    async with httpx.AsyncClient() as client:
+        for keyword in keywords:
+            for region in geographic_focus:
+                gl = GEO_MAP.get(region.upper(), "us")
+
+                activity.logger.info(f"Serper news search: '{keyword}' in {region} (past_24h)")
+
+                try:
+                    # Build payload with news search parameters
+                    payload = {
+                        "q": keyword,
+                        "gl": gl,
+                        "num": depth,
+                        "tbm": "nws",  # News search
+                        "tbs": time_range  # Time range filter (e.g., "qdr:d" for past 24h)
+                    }
+
+                    response = await client.post(
+                        "https://google.serper.dev/news",
+                        headers={
+                            "X-API-KEY": config.SERPER_API_KEY,
+                            "Content-Type": "application/json"
+                        },
+                        json=payload,
+                        timeout=30.0
+                    )
+
+                    if response.status_code == 200:
+                        data = response.json()
+                        news_results = data.get("news", [])
+                        cost = data.get("credits", 0) / 10000  # Estimate cost
+                        total_cost += cost
+
+                        # Extract articles with standardized format
+                        for item in news_results:
+                            all_results.append({
+                                "title": item.get("title", ""),
+                                "url": item.get("link", ""),
+                                "source": item.get("source", ""),
+                                "snippet": item.get("snippet", ""),
+                                "image": item.get("image", ""),
+                                "date": item.get("date", ""),
+                                "keyword": keyword,
+                                "region": region,
+                                "api_source": "serper"
+                            })
+
+                        activity.logger.info(
+                            f"Serper news: {len(news_results)} results for '{keyword}' in {region}"
+                        )
+                    else:
+                        activity.logger.error(
+                            f"Serper news error: {response.status_code} for '{keyword}' in {region}"
+                        )
+
+                except Exception as e:
+                    activity.logger.error(f"Serper news exception: {e}")
+                    continue
+
+    return {
+        "articles": all_results,
+        "keywords": keywords,
+        "geographic_focus": geographic_focus,
+        "total": len(all_results),
+        "cost": total_cost,
+        "time_range": time_range
+    }
 
 
 @activity.defn(name="serper_targeted_search")
