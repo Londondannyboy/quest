@@ -84,24 +84,34 @@ class NewsCreationWorkflow:
         workflow.logger.info(f"DataForSEO news: {len(dataforseo_articles)} results")
 
         # ===== PHASE 1A2: FETCH ORGANIC SERP WITH AI OVERVIEW & PEOPLE ALSO ASK =====
-        workflow.logger.info("Phase 1a2: Fetching organic SERP with AI Overview and People Also Ask")
+        workflow.logger.info("Phase 1a2: Fetching organic SERP with AI Overview and People Also Ask (depth 70 = 7 pages)")
 
-        # Fetch organic results with AI Overview and People Also Ask for each region
+        # Use Semaphore to rate-limit organic searches (max 2 concurrent requests)
+        semaphore = asyncio.Semaphore(2)
+
+        async def fetch_organic_with_semaphore(region: str):
+            async with semaphore:
+                return await workflow.execute_activity(
+                    "dataforseo_serp_search",
+                    args=[
+                        dataforseo_keyword,  # "private equity"
+                        region,  # UK or US
+                        70,  # depth: 70 = 7 pages (sweet spot)
+                        True,  # include_ai_overview
+                        4,  # people_also_ask_depth
+                        "past_24_hours"
+                    ],
+                    start_to_close_timeout=timedelta(minutes=5)
+                )
+
+        # Fetch organic results for each region with rate limiting
+        organic_tasks = [fetch_organic_with_semaphore(region) for region in dataforseo_regions]
+        organic_results = await asyncio.gather(*organic_tasks, return_exceptions=True)
+
         organic_articles = []
-        for region in dataforseo_regions:
-            organic_result = await workflow.execute_activity(
-                "dataforseo_serp_search",
-                args=[
-                    dataforseo_keyword,  # "private equity"
-                    region,  # UK or US
-                    10,  # depth: 10 for now (1 page), can scale to 70 for 7 pages
-                    True,  # include_ai_overview
-                    4,  # people_also_ask_depth
-                    "past_24_hours"
-                ],
-                start_to_close_timeout=timedelta(minutes=5)
-            )
-            organic_articles.extend(organic_result.get("results", []))
+        for result in organic_results:
+            if not isinstance(result, Exception):
+                organic_articles.extend(result.get("results", []))
 
         workflow.logger.info(f"DataForSEO organic + AI overview: {len(organic_articles)} results")
 
@@ -220,8 +230,39 @@ class NewsCreationWorkflow:
             for story_assessment in sorted_stories[:max_articles]:
                 story = story_assessment.get("story", {})
                 priority = story_assessment.get("priority", "medium")
+                story_title = story.get("title", "")
 
-                workflow.logger.info(f"Creating article: {story.get('title', '')[:50]}...")
+                workflow.logger.info(f"Creating article: {story_title[:50]}...")
+
+                # ===== PHASE 3.5: CHECK ZEP FOR EXISTING COVERAGE =====
+                # Query Zep to see if this story already exists
+                zep_check = await workflow.execute_activity(
+                    "query_zep_for_context",
+                    args=[story_title, "", app],  # Story title as company_name, empty domain
+                    start_to_close_timeout=timedelta(seconds=30)
+                )
+
+                existing_articles = zep_check.get("articles", [])
+                if existing_articles:
+                    # Check if it's a recent duplicate or old developing story
+                    most_recent = existing_articles[0] if existing_articles else None
+                    if most_recent:
+                        recent_timestamp = most_recent.get("created_at") or most_recent.get("timestamp", "")
+                        story_timestamp = story.get("timestamp", story.get("time_published", ""))
+
+                        # Simple time check: if both from today, skip as duplicate
+                        # In real implementation, would parse timestamps properly
+                        if recent_timestamp and story_timestamp:
+                            # Skip if both are from same date (avoid republishing same day)
+                            if recent_timestamp[:10] == story_timestamp[:10]:  # Compare YYYY-MM-DD
+                                workflow.logger.info(f"⏭️  SKIP: Recent duplicate - {story_title[:50]}...")
+                                continue
+                            else:
+                                # Old story but same topic - reference it as ongoing saga
+                                workflow.logger.info(
+                                    f"📰 REFERENCE: Developing story - {story_title[:50]}... "
+                                    f"(Previous coverage: {most_recent.get('title', '')})"
+                                )
 
                 # ===== BUILD INTELLIGENT VIDEO PROMPT =====
                 # Generate contextual, creative prompt based on story and published articles
