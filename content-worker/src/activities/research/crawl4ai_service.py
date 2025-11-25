@@ -13,6 +13,20 @@ from bs4 import BeautifulSoup
 from src.utils.config import config
 
 
+def normalize_url(url: str) -> str:
+    """Ensure URL has a protocol (https:// by default)."""
+    if not url:
+        return url
+    url = url.strip()
+    if not url.startswith(('http://', 'https://')):
+        # Add https:// if no protocol
+        if url.startswith('//'):
+            url = 'https:' + url
+        else:
+            url = 'https://' + url
+    return url
+
+
 @activity.defn(name="crawl4ai_crawl")  # Alias for backward compatibility with old workflows
 async def crawl4ai_service_crawl(url: str) -> Dict[str, Any]:
     """
@@ -28,6 +42,16 @@ async def crawl4ai_service_crawl(url: str) -> Dict[str, Any]:
     Returns:
         Dict with success, pages, links, crawler (crawl4ai_service or httpx_fallback)
     """
+    # Normalize URL to ensure it has a protocol
+    url = normalize_url(url)
+
+    if not url:
+        return {
+            "success": False,
+            "error": "Empty URL provided",
+            "crawler": "none"
+        }
+
     activity.logger.info(f"Crawl4AI service crawl: {url}")
 
     # Try external service first
