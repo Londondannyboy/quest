@@ -74,10 +74,20 @@ async def generate_article_content(
         # Use Anthropic SDK directly - no pydantic_ai structured output
         client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
 
-        # Build comprehensive system prompt
-        system_prompt = f"""You are an expert financial journalist writing for {app} - a professional platform covering private equity, M&A, and corporate finance.
+        # App-specific descriptions
+        app_descriptions = {
+            "placement": "a professional platform covering private equity, M&A, corporate finance, and executive recruiting",
+            "relocation": "a comprehensive platform for professionals relocating internationally, covering visas, immigration, cost of living, and expat life",
+            "recruiter": "a platform for executive recruiters and headhunters covering talent acquisition, hiring trends, and HR technology",
+        }
+        app_desc = app_descriptions.get(app, f"a professional content platform called {app}")
 
-Write a {target_word_count}-word {article_type} article using HTML with Tailwind CSS classes.
+        # Build comprehensive system prompt
+        system_prompt = f"""You are an expert journalist writing for {app} - {app_desc}.
+
+Write a COMPREHENSIVE {target_word_count}-word {article_type} article using HTML with Tailwind CSS classes.
+
+CRITICAL: The article MUST be at least {target_word_count} words. This is a detailed, well-researched piece - not a summary. Expand on every point with analysis, context, and implications.
 
 ===== OUTPUT FORMAT =====
 
@@ -107,29 +117,30 @@ Then the full article body in HTML with Tailwind CSS:
 
 ===== CONTENT REQUIREMENTS =====
 
-1. **Professional Financial Journalism Tone**
-   - Write like Financial Times, WSJ, or Bloomberg
-   - Authoritative but accessible
-   - Match the tone to the story (serious for layoffs, measured optimism for deals)
+1. **Professional Journalism Tone**
+   - Write with authority and expertise on the topic
+   - Authoritative but accessible to readers
+   - Match the tone to the story context
 
 2. **Rich Source Attribution (CRITICAL - MANY LINKS)**
    - Link to EVERY source mentioned in the research
    - Use inline links: <a href="URL" class="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener">Source Name</a>
    - Cite specific numbers, dates, and facts from sources
    - Include at least 15-20 source links throughout the article
-   - Link company names to their websites when mentioned
-   - Link to news sources, press releases, and industry reports
+   - Link to official sources, government sites, and authoritative references
    - MORE LINKS IS BETTER - aim for 2-3 links per paragraph
    - Each paragraph should have 100-150 words of substantive analysis
 
-3. **Depth and Detail Requirements**
-   - Expand on all key points with detailed analysis
-   - Include context about market conditions, timing, and significance
-   - Explain the "why" behind events, not just the "what"
-   - Use specific metrics, percentages, and dollar amounts from research
-   - Add industry implications and broader trends
-   - Include expert perspectives and stakeholder impacts
-   - Aim for 1500+ words with rich, comprehensive coverage
+3. **CRITICAL: Minimum Word Count ({target_word_count} words)**
+   - This article MUST be at least {target_word_count} words - COUNT THEM
+   - Do NOT write a summary - write a COMPREHENSIVE, DETAILED article
+   - Expand on ALL key points with thorough analysis
+   - Include context, background, implications, and practical advice
+   - Explain the "why" and "how", not just the "what"
+   - Use specific metrics, dates, requirements, and facts from research
+   - Add broader context and implications for readers
+   - Include multiple perspectives and expert insights
+   - If the research provides information, USE IT ALL - don't summarize
 
 4. **Image Prompts (REQUIRED - 4 prompts minimum)**
    After the article content, add image generation prompts:
