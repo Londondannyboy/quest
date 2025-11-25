@@ -529,10 +529,19 @@ class ArticleCreationWorkflow:
                         if i in insert_points and media_index < len(content_media):
                             media = content_media[media_index]
                             if media["type"] == "video":
-                                # Embed Mux video player
+                                # Embed Mux video player with autoplay (muted required for browser policy)
                                 media_html = f'''
 <div class="my-8 aspect-video rounded-lg overflow-hidden shadow-md">
-  <mux-player playback-id="{media['playback_id']}" metadata-video-title="{media['alt']}" accent-color="#3b82f6" class="w-full h-full"></mux-player>
+  <mux-player
+    playback-id="{media['playback_id']}"
+    metadata-video-title="{media['alt']}"
+    accent-color="#3b82f6"
+    autoplay="muted"
+    loop
+    muted
+    preload="auto"
+    class="w-full h-full">
+  </mux-player>
 </div>
 '''
                             else:
