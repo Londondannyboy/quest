@@ -67,16 +67,23 @@ class ArticleCreationWorkflow:
         topic = input_dict["topic"]
         article_type = input_dict["article_type"]
         app = input_dict.get("app", "placement")
-        target_word_count = input_dict.get("target_word_count", 3000)  # Default to 3000 words
+        target_word_count = input_dict.get("target_word_count", 1500)  # 4-act articles are ~1500 words
         jurisdiction = input_dict.get("jurisdiction", "UK")
-        generate_images = input_dict.get("generate_images", True)
-        video_quality = input_dict.get("video_quality")  # None, "low", "medium", "high"
-        video_model = input_dict.get("video_model", "seedance")  # "seedance" or "wan-2.5"
-        video_prompt = input_dict.get("video_prompt")  # Optional custom prompt
-        video_count = input_dict.get("video_count", 1)  # Number of videos: 1-3 (default 1)
-        content_images = input_dict.get("content_images", "with_content")  # "with_content" or "without_content"
         num_sources = input_dict.get("num_research_sources", 10)
         custom_slug = input_dict.get("slug")  # Optional custom slug for SEO
+
+        # 4-ACT VIDEO CONFIGURATION
+        # - All articles generate ONE 12-second 4-act video
+        # - Thumbnails extracted from Mux at different timestamps
+        # - No separate image generation (removed legacy code)
+        video_quality = input_dict.get("video_quality", "medium")  # "low", "medium", "high" or None to skip
+        video_model = input_dict.get("video_model", "seedance")  # "seedance" only for now
+
+        # Legacy params (ignored but accepted for backwards compatibility)
+        _ = input_dict.get("generate_images")  # Ignored - thumbnails from Mux now
+        _ = input_dict.get("content_images")  # Ignored - removed
+        _ = input_dict.get("video_count")  # Ignored - always 1 (4-act, 12 seconds)
+        _ = input_dict.get("video_prompt")  # Ignored - generated from article's four_act_content
 
         workflow.logger.info(f"Creating {article_type} article: {topic}")
 
@@ -637,10 +644,10 @@ class ArticleCreationWorkflow:
                 video_prompt_result = {"prompt": video_prompt, "success": True, "cost": 0}
             else:
                 # NEW: Use article-first approach - extract from structured sections
-                structured_sections = article.get("structured_sections", [])
+                four_act_content = article.get("four_act_content", [])
 
-                if structured_sections:
-                    workflow.logger.info(f"Extracting 4-act prompt from {len(structured_sections)} structured sections")
+                if four_act_content:
+                    workflow.logger.info(f"Extracting 4-act prompt from {len(four_act_content)} structured sections")
                     video_prompt_result = await workflow.execute_activity(
                         "generate_four_act_video_prompt",
                         args=[article, app, video_model],
@@ -653,7 +660,7 @@ class ArticleCreationWorkflow:
                     video_prompt_result = {
                         "prompt": "",
                         "success": False,
-                        "error": "No structured_sections in article"
+                        "error": "No four_act_content in article"
                     }
 
                 if video_prompt_result.get("success"):
@@ -728,14 +735,14 @@ class ArticleCreationWorkflow:
             workflow.logger.info("Phase 10: Generating video_narrative with thumbnail URLs")
 
             # Get structured sections for thumbnail metadata
-            structured_sections = article.get("structured_sections", [])
+            four_act_content = article.get("four_act_content", [])
 
             # Build section thumbnails (mid-point of each act)
             section_thumbnails = []
             act_timestamps = [1.5, 4.5, 7.5, 10.5]  # Mid-point of each 3-second act
 
             for i, timestamp in enumerate(act_timestamps):
-                section_data = structured_sections[i] if i < len(structured_sections) else {}
+                section_data = four_act_content[i] if i < len(four_act_content) else {}
                 section_thumbnails.append({
                     "time": timestamp,
                     "title": section_data.get("title", f"Section {i+1}"),
@@ -816,11 +823,8 @@ class ArticleCreationWorkflow:
 
             workflow.logger.info(f"Phase 10: Mux thumbnails configured for playback_id: {playback_id}")
 
-        # For articles without video, we still need a featured image
-        # This would be a fallback - typically all articles should have video
-        if not video_quality and generate_images:
-            workflow.logger.info("Phase 10: No video - would need fallback image generation")
-            # TODO: Add fallback image generation if needed
+        # Note: If video_quality is None, article will have no video/thumbnails
+        # All articles should have video in the 4-act approach
 
         # ===== 4-ACT APPROACH: Media handled by frontend =====
         # In the 4-act approach:
@@ -853,7 +857,7 @@ class ArticleCreationWorkflow:
             "title": article["title"],
             "word_count": article["word_count"],
             "section_count": article["section_count"],
-            "structured_sections": len(structured_sections) if structured_sections else 0,
+            "four_act_content": len(four_act_content) if four_act_content else 0,
             "mux_playback_id": article.get("mux_playback_id"),
             "featured_asset_url": article.get("featured_asset_url"),
             "video_url": video_result.get("video_url") if video_result else None,

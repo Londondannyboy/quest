@@ -63,7 +63,7 @@ async def generate_four_act_video_prompt(
     - 12 seconds total = 4 acts × 3 seconds each
 
     Args:
-        article: Article dict containing structured_sections with visual_hints
+        article: Article dict containing four_act_content with visual_hints per act
         app: Application (relocation, placement, pe_news)
         video_model: Target model (seedance or wan-2.5)
 
@@ -80,16 +80,16 @@ async def generate_four_act_video_prompt(
     activity.logger.info(f"Generating 4-act video prompt: {article.get('title', 'Untitled')[:50]}...")
 
     # Get structured sections from article
-    sections = article.get("structured_sections", [])
+    sections = article.get("four_act_content", [])
 
     if not sections:
-        activity.logger.error("No structured_sections found in article - cannot generate 4-act prompt")
+        activity.logger.error("No four_act_content found in article - cannot generate 4-act prompt")
         return {
             "prompt": "",
             "model": video_model,
             "acts": 0,
             "success": False,
-            "error": "No structured_sections in article",
+            "error": "No four_act_content in article",
             "cost": 0
         }
 

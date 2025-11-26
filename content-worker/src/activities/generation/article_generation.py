@@ -811,7 +811,7 @@ The STRUCTURED DATA section is MANDATORY - without it, no video can be generated
                 "featured_asset_prompt": featured_prompt,
                 "section_asset_prompts": section_prompts,
                 # NEW: 4-act structured data for video generation
-                "structured_sections": structured_data.get("sections", []),
+                "four_act_content": structured_data.get("sections", []),
                 "callouts": structured_data.get("callouts", []),
                 "faq": structured_data.get("faq", []),
                 "comparison": structured_data.get("comparison"),
