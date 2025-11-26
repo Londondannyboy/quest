@@ -96,7 +96,6 @@ from src.activities.media.prompt_images import (
 
 from src.activities.media.video_generation import (
     generate_four_act_video,  # 4-act 12-second video
-    get_video_cost_estimate,
 )
 
 from src.activities.media.mux_client import (
@@ -290,7 +289,6 @@ async def main():
             analyze_article_sections,
             # Video
             generate_four_act_video,  # 4-act 12-second video
-            get_video_cost_estimate,
             upload_video_to_mux,
             upload_video_file_to_mux,
             delete_mux_asset,
