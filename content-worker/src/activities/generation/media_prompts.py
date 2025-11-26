@@ -434,7 +434,16 @@ VIDEO STRUCTURE: 12 seconds, 4 acts of 3 seconds each.
 
 {no_text_rule}"""
 
-    activity.logger.info(f"Generated 4-act video prompt: {len(prompt)} chars")
+    # Enforce 2000 character limit for Seedance
+    SEEDANCE_CHAR_LIMIT = 2000
+    was_truncated = False
+
+    if len(prompt) > SEEDANCE_CHAR_LIMIT:
+        activity.logger.warning(f"Prompt {len(prompt)} chars exceeds {SEEDANCE_CHAR_LIMIT} limit - truncating")
+        prompt = prompt[:SEEDANCE_CHAR_LIMIT]
+        was_truncated = True
+
+    activity.logger.info(f"Generated 4-act video prompt: {len(prompt)} chars{' (truncated)' if was_truncated else ''}")
     activity.logger.info(f"Acts included: {len([s for s in sections[:4] if s.get('visual_hint')])}/4 with visual hints")
 
     return {
@@ -442,6 +451,7 @@ VIDEO STRUCTURE: 12 seconds, 4 acts of 3 seconds each.
         "model": video_model,
         "acts": len(sections[:4]),
         "success": True,
+        "was_truncated": was_truncated,
         "cost": 0  # No API call needed - just combining existing visual hints
     }
 

@@ -359,7 +359,8 @@ async def save_article_to_neon(
     video_url: Optional[str] = None,
     video_playback_id: Optional[str] = None,
     video_asset_id: Optional[str] = None,
-    raw_research: Optional[str] = None
+    raw_research: Optional[str] = None,
+    video_narrative: Optional[Dict[str, Any]] = None
 ) -> str:
     """
     Save or update article in Neon database.
@@ -379,6 +380,7 @@ async def save_article_to_neon(
         video_playback_id: Mux playback ID for generating thumbnails/GIFs
         video_asset_id: Mux asset ID for management
         raw_research: Full raw research data (unlimited TEXT)
+        video_narrative: 3-act narrative structure for video-first articles (JSONB)
 
     Returns:
         Article ID (str)
@@ -418,6 +420,7 @@ async def save_article_to_neon(
                             video_playback_id = %s,
                             video_asset_id = %s,
                             raw_research = %s,
+                            video_narrative = %s,
                             updated_at = NOW()
                         WHERE id = %s
                         RETURNING id
@@ -438,6 +441,7 @@ async def save_article_to_neon(
                         video_playback_id,
                         video_asset_id,
                         raw_research,
+                        json.dumps(video_narrative) if video_narrative else None,
                         article_id
                     ))
 
@@ -466,10 +470,11 @@ async def save_article_to_neon(
                             video_playback_id,
                             video_asset_id,
                             raw_research,
+                            video_narrative,
                             created_at,
                             updated_at
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
                         ON CONFLICT (slug)
                         DO UPDATE SET
                             title = EXCLUDED.title,
@@ -486,6 +491,7 @@ async def save_article_to_neon(
                             video_playback_id = EXCLUDED.video_playback_id,
                             video_asset_id = EXCLUDED.video_asset_id,
                             raw_research = EXCLUDED.raw_research,
+                            video_narrative = EXCLUDED.video_narrative,
                             updated_at = NOW()
                         RETURNING id
                     """, (
@@ -504,7 +510,8 @@ async def save_article_to_neon(
                         video_url,
                         video_playback_id,
                         video_asset_id,
-                        raw_research
+                        raw_research,
+                        json.dumps(video_narrative) if video_narrative else None
                     ))
 
                     result = await cur.fetchone()
@@ -595,7 +602,8 @@ async def get_article_by_slug(slug: str) -> Optional[Dict[str, Any]]:
                         created_at,
                         updated_at,
                         video_url,
-                        video_playback_id
+                        video_playback_id,
+                        video_narrative
                     FROM articles
                     WHERE slug = %s
                 """, (slug,))
@@ -624,6 +632,7 @@ async def get_article_by_slug(slug: str) -> Optional[Dict[str, Any]]:
                     "updated_at": row[15].isoformat() if row[15] else None,
                     "video_url": row[16],
                     "video_playback_id": row[17],
+                    "video_narrative": row[18],
                 }
 
     except Exception as e:

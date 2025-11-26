@@ -9,7 +9,7 @@ Each app has specific:
 - Target audience context
 """
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 from pydantic import BaseModel
 
 
@@ -72,12 +72,64 @@ class ComponentLibrary(BaseModel):
     callout_types: List[str] = ["pro_tip", "warning", "insight", "did_you_know"]
 
 
+class VideoActTemplate(BaseModel):
+    """Single 4-act video template - one story type."""
+    name: str  # e.g., "transformation", "deal_story", "comparison"
+    description: str = ""  # When to use this template
+
+    act_1_role: str
+    act_1_mood: str
+    act_1_example: str = ""
+
+    act_2_role: str
+    act_2_mood: str
+    act_2_example: str = ""
+
+    act_3_role: str
+    act_3_mood: str
+    act_3_example: str = ""
+
+    act_4_role: str
+    act_4_mood: str
+    act_4_example: str = ""
+
+
 class VideoPromptTemplate(BaseModel):
-    """4-act video prompt template for an app."""
-    # Framework structure - Sonnet uses this as GUIDANCE, not verbatim
+    """
+    Collection of 4-act video templates for an app.
+
+    Sonnet picks the best template OR creates its own if none fit.
+    The ONLY requirement is 4 acts - themes are flexible.
+    """
+    # Multiple templates - add more over time
+    templates: List[VideoActTemplate] = []
+
+    # Default template used when no specific match
+    default_template: str = "transformation"  # Name of template to use as fallback
+
+    # Global constraints (apply to ALL templates)
+    no_text_rule: str = "CRITICAL: NO text, words, letters, numbers, signs, logos anywhere. Screens show abstract colors only."
+    technical_notes: str = "Smooth transitions, cinematic color grading, natural motion."
+
+    def get_template(self, name: str = None) -> Optional[VideoActTemplate]:
+        """Get a template by name, or default."""
+        target = name or self.default_template
+        for t in self.templates:
+            if t.name == target:
+                return t
+        return self.templates[0] if self.templates else None
+
+    def get_template_names(self) -> List[str]:
+        """Get all available template names."""
+        return [t.name for t in self.templates]
+
+
+# Legacy support - single template format
+class VideoPromptTemplateLegacy(BaseModel):
+    """4-act video prompt template for an app (legacy single-template format)."""
     act_1_role: str = "THE SETUP - Problem/current situation/pain point"
     act_1_mood: str = "Tension, confinement, challenge"
-    act_1_example: str = ""  # App-specific example (guidance only)
+    act_1_example: str = ""
 
     act_2_role: str = "THE OPPORTUNITY - Discovery/revelation/hope"
     act_2_mood: str = "Hope, possibility, curiosity"
@@ -91,7 +143,6 @@ class VideoPromptTemplate(BaseModel):
     act_4_mood: str = "Joy, freedom, satisfaction"
     act_4_example: str = ""
 
-    # Global constraints
     no_text_rule: str = "CRITICAL: NO text, words, letters, numbers, signs, logos anywhere. Screens show abstract colors only."
     technical_notes: str = "Smooth transitions, cinematic color grading, natural motion."
 
@@ -238,25 +289,62 @@ Let the article content drive specifics - this sets the professional MOOD only."
             callout_types=["pro_tip", "deal_insight", "market_context", "expert_view"]
         ),
         video_prompt_template=VideoPromptTemplate(
-            # Placement/PE 4-Act Framework (GUIDANCE - adapt to specific deal/story)
-            act_1_role="THE CHALLENGE - Market pressure/fundraising need/competitive landscape",
-            act_1_mood="Stakes, tension, boardroom energy",
-            act_1_example="Executive reviewing documents, city skyline at dusk, serious expressions, glass offices",
-
-            act_2_role="THE STRATEGY - Solution/approach/partnership forming",
-            act_2_mood="Strategic thinking, collaboration, confidence building",
-            act_2_example="Meeting room handshake, charts on screen (abstract, no text), deal team discussion",
-
-            act_3_role="THE EXECUTION - Deal in motion/roadshow/negotiations",
-            act_3_mood="Action, momentum, progress",
-            act_3_example="Fast-paced office scenes, travel montage, signing moments, champagne being poured",
-
-            act_4_role="THE CLOSE - Success/celebration/new chapter",
-            act_4_mood="Achievement, celebration, forward-looking",
-            act_4_example="Team celebration, city lights at night, confident executives, success atmosphere",
-
+            default_template="deal_story",
             no_text_rule="CRITICAL: NO text, words, letters, numbers on screens, documents, or anywhere. All screens show abstract data visuals only.",
-            technical_notes="Clean corporate aesthetic. Teal-and-orange color grade. Dynamic camera movement."
+            technical_notes="Clean corporate aesthetic. Teal-and-orange color grade. Dynamic camera movement.",
+            templates=[
+                # DEAL STORY - Classic PE deal narrative
+                VideoActTemplate(
+                    name="deal_story",
+                    description="Deal/transaction story arc. Use for acquisitions, fundraising, exits.",
+                    act_1_role="THE CHALLENGE - Market pressure/fundraising need/competitive landscape",
+                    act_1_mood="Stakes, tension, boardroom energy",
+                    act_1_example="Executive reviewing documents, city skyline at dusk, serious expressions, glass offices",
+                    act_2_role="THE STRATEGY - Solution/approach/partnership forming",
+                    act_2_mood="Strategic thinking, collaboration, confidence building",
+                    act_2_example="Meeting room handshake, charts on screen (abstract, no text), deal team discussion",
+                    act_3_role="THE EXECUTION - Deal in motion/roadshow/negotiations",
+                    act_3_mood="Action, momentum, progress",
+                    act_3_example="Fast-paced office scenes, travel montage, signing moments, champagne being poured",
+                    act_4_role="THE CLOSE - Success/celebration/new chapter",
+                    act_4_mood="Achievement, celebration, forward-looking",
+                    act_4_example="Team celebration, city lights at night, confident executives, success atmosphere"
+                ),
+                # MARKET ANALYSIS - Industry trends, market overview
+                VideoActTemplate(
+                    name="market_analysis",
+                    description="Market trends and analysis. Use for industry reports, market overviews.",
+                    act_1_role="THE LANDSCAPE - Current market state",
+                    act_1_mood="Analytical, establishing context",
+                    act_1_example="Financial district establishing shots, market activity, trading floor energy",
+                    act_2_role="THE TRENDS - Key movements/patterns",
+                    act_2_mood="Discovery, insight",
+                    act_2_example="Abstract data visualizations, movement patterns, growth indicators",
+                    act_3_role="THE PLAYERS - Who's winning/losing",
+                    act_3_mood="Competition, positioning",
+                    act_3_example="Different firms/approaches, contrasting styles, market dynamics",
+                    act_4_role="THE OUTLOOK - Where it's heading",
+                    act_4_mood="Forward-looking, opportunity",
+                    act_4_example="Dawn over financial district, new opportunities, future focus"
+                ),
+                # PROFILE - Company/firm spotlight
+                VideoActTemplate(
+                    name="profile",
+                    description="Company or firm profile. Use for placement agent profiles, GP spotlights.",
+                    act_1_role="THE INTRODUCTION - Who they are",
+                    act_1_mood="Authority, establishment",
+                    act_1_example="Headquarters exterior, confident team, professional setting",
+                    act_2_role="THE TRACK RECORD - What they've done",
+                    act_2_mood="Credibility, achievement",
+                    act_2_example="Deal celebration moments, successful outcomes, growth story",
+                    act_3_role="THE APPROACH - How they work",
+                    act_3_mood="Methodology, differentiation",
+                    act_3_example="Team collaboration, client meetings, strategic discussions",
+                    act_4_role="THE FUTURE - Where they're going",
+                    act_4_mood="Ambition, forward momentum",
+                    act_4_example="Expansion hints, new opportunities, confident outlook"
+                )
+            ]
         ),
         brand_name="Placement Quest",
         accent_color="blue",
@@ -360,25 +448,79 @@ Let the article topic drive the specific visuals - this guide sets the MOOD only
             callout_types=["pro_tip", "warning", "tax_insight", "lifestyle_tip", "cost_saving"]
         ),
         video_prompt_template=VideoPromptTemplate(
-            # Relocation 4-Act Framework (GUIDANCE - adapt to specific topic)
-            act_1_role="THE GRIND - Current life frustration/limitation",
-            act_1_mood="Exhaustion, confinement, grey tones",
-            act_1_example="Dark office, rain on windows, tired professional at desk, cold lighting, urban grey",
-
-            act_2_role="THE DREAM - Discovery of opportunity/possibility",
-            act_2_mood="Hope, warm light emerging, expression change",
-            act_2_example="Same person at home, warm lamplight, looking at screen with hope, smile emerging",
-
-            act_3_role="THE JOURNEY - Travel/transition/process",
-            act_3_mood="Movement, anticipation, colors shifting warm",
-            act_3_example="Packing, airport glimpses (no text), airplane window, destination coastline",
-
-            act_4_role="THE NEW LIFE - Settled happiness/success",
-            act_4_mood="Golden hour, joy, belonging, freedom",
-            act_4_example="Sunset terrace, local lifestyle, friends, genuine happiness, laptop closed",
-
+            default_template="transformation",
             no_text_rule="CRITICAL: NO text, words, letters, signs, logos anywhere. Screens show abstract colors. No airport signs. No country names written.",
-            technical_notes="High contrast grey-to-golden transition. Cinematic travel documentary style. Natural motion."
+            technical_notes="High contrast grey-to-golden transition. Cinematic travel documentary style. Natural motion.",
+            templates=[
+                # TRANSFORMATION - Personal journey stories (visa guides, moving abroad)
+                VideoActTemplate(
+                    name="transformation",
+                    description="Personal journey from current situation to new life. Use for visa guides, moving abroad, lifestyle change articles.",
+                    act_1_role="THE GRIND - Current life frustration/limitation",
+                    act_1_mood="Exhaustion, confinement, grey tones",
+                    act_1_example="Dark office, rain on windows, tired professional at desk, cold lighting, urban grey",
+                    act_2_role="THE DREAM - Discovery of opportunity/possibility",
+                    act_2_mood="Hope, warm light emerging, expression change",
+                    act_2_example="Same person at home, warm lamplight, looking at screen with hope, smile emerging",
+                    act_3_role="THE JOURNEY - Travel/transition/process",
+                    act_3_mood="Movement, anticipation, colors shifting warm",
+                    act_3_example="Packing, airport glimpses (no text), airplane window, destination coastline",
+                    act_4_role="THE NEW LIFE - Settled happiness/success",
+                    act_4_mood="Golden hour, joy, belonging, freedom",
+                    act_4_example="Sunset terrace, local lifestyle, friends, genuine happiness, laptop closed"
+                ),
+                # COMPARISON - Side-by-side evaluation (country vs country, visa vs visa)
+                VideoActTemplate(
+                    name="comparison",
+                    description="Comparing options side by side. Use for 'X vs Y' articles, comparison guides.",
+                    act_1_role="THE QUESTION - Presenting the choice/dilemma",
+                    act_1_mood="Curiosity, weighing options",
+                    act_1_example="Person looking at map, globe spinning, two paths visible",
+                    act_2_role="OPTION A - First choice highlights",
+                    act_2_mood="Showcasing strengths, distinctive features",
+                    act_2_example="First destination montage - iconic landmarks, lifestyle moments",
+                    act_3_role="OPTION B - Second choice highlights",
+                    act_3_mood="Contrasting qualities, different appeal",
+                    act_3_example="Second destination montage - different aesthetic, unique character",
+                    act_4_role="THE CLARITY - Decision made/path forward",
+                    act_4_mood="Resolution, confidence, chosen path",
+                    act_4_example="Person confidently moving forward, happy in chosen setting"
+                ),
+                # COUNTRY GUIDE - Destination showcase
+                VideoActTemplate(
+                    name="country_guide",
+                    description="Showcasing a destination. Use for country guides, city guides, 'living in X' articles.",
+                    act_1_role="THE ARRIVAL - First impressions/iconic entry",
+                    act_1_mood="Wonder, discovery, excitement",
+                    act_1_example="Airplane window view, first glimpse of coastline/skyline, stepping into new world",
+                    act_2_role="THE CULTURE - Local life/people/traditions",
+                    act_2_mood="Warmth, authenticity, connection",
+                    act_2_example="Local markets, cafes, friendly faces, cultural moments",
+                    act_3_role="THE LIFESTYLE - Daily experience/practical beauty",
+                    act_3_mood="Livability, comfort, quality of life",
+                    act_3_example="Coworking spaces, beaches, neighborhoods, daily routines",
+                    act_4_role="THE BELONGING - Settled/home feeling",
+                    act_4_mood="Contentment, this is home now",
+                    act_4_example="Sunset with friends, rooftop views, genuine belonging"
+                ),
+                # LISTICLE - Multiple highlights (Top 10 X, Best Y)
+                VideoActTemplate(
+                    name="listicle",
+                    description="Showcasing multiple items/options. Use for 'Top X' articles, 'Best Y' lists.",
+                    act_1_role="THE OVERVIEW - Setting up the list premise",
+                    act_1_mood="Anticipation, variety promised",
+                    act_1_example="Wide establishing shot, multiple options hinted",
+                    act_2_role="HIGHLIGHTS A - First batch of standouts",
+                    act_2_mood="Excitement, quality showcased",
+                    act_2_example="Quick cuts of first few highlights, distinctive features",
+                    act_3_role="HIGHLIGHTS B - More discoveries",
+                    act_3_mood="Continued discovery, variety",
+                    act_3_example="More highlights, different styles, broader appeal",
+                    act_4_role="THE BEST - Culmination/top picks",
+                    act_4_mood="Pinnacle, best of the best",
+                    act_4_example="Most impressive moments, final flourish"
+                )
+            ]
         ),
         brand_name="Relocation Quest",
         accent_color="amber",
@@ -480,25 +622,62 @@ Can use stylized elements for abstract concepts. Article topic drives specifics.
             callout_types=["breaking", "analysis", "market_impact", "expert_quote"]
         ),
         video_prompt_template=VideoPromptTemplate(
-            # PE News 4-Act Framework (GUIDANCE - adapt to specific news/deal)
-            act_1_role="THE NEWS - Breaking development/announcement",
-            act_1_mood="Urgency, importance, high stakes",
-            act_1_example="News ticker aesthetic (no actual text), city financial district, busy trading floor energy",
-
-            act_2_role="THE CONTEXT - Background/what led to this",
-            act_2_mood="Analytical, historical perspective",
-            act_2_example="Archive footage feel, previous deal montage, market chart movements (abstract)",
-
-            act_3_role="THE IMPACT - Market reaction/implications",
-            act_3_mood="Ripple effects, analysis, assessment",
-            act_3_example="Multiple screens showing abstract data, analysts in discussion, market activity",
-
-            act_4_role="THE OUTLOOK - What's next/future implications",
-            act_4_mood="Forward-looking, strategic, opportunity",
-            act_4_example="Dawn over financial district, new day metaphor, forward momentum",
-
+            default_template="news_story",
             no_text_rule="CRITICAL: NO text, tickers, headlines, numbers. News aesthetic without actual readable content. Abstract data visuals only.",
-            technical_notes="Bloomberg/CNBC documentary feel. Fast cuts for urgency. Cool blue tones with warm accents."
+            technical_notes="Bloomberg/CNBC documentary feel. Fast cuts for urgency. Cool blue tones with warm accents.",
+            templates=[
+                # NEWS STORY - Breaking news/announcements (default)
+                VideoActTemplate(
+                    name="news_story",
+                    description="Breaking news or announcements. Use for deal announcements, fund launches, exits.",
+                    act_1_role="THE NEWS - Breaking development/announcement",
+                    act_1_mood="Urgency, importance, high stakes",
+                    act_1_example="News ticker aesthetic (no text), city financial district, busy trading floor energy",
+                    act_2_role="THE CONTEXT - Background/what led to this",
+                    act_2_mood="Analytical, historical perspective",
+                    act_2_example="Archive footage feel, previous deal montage, market chart movements (abstract)",
+                    act_3_role="THE IMPACT - Market reaction/implications",
+                    act_3_mood="Ripple effects, analysis, assessment",
+                    act_3_example="Multiple screens showing abstract data, analysts in discussion, market activity",
+                    act_4_role="THE OUTLOOK - What's next/future implications",
+                    act_4_mood="Forward-looking, strategic, opportunity",
+                    act_4_example="Dawn over financial district, new day metaphor, forward momentum"
+                ),
+                # DEAL COVERAGE - Specific transaction deep dive
+                VideoActTemplate(
+                    name="deal_coverage",
+                    description="Detailed deal/transaction coverage. Use for acquisition analysis, LBO breakdowns.",
+                    act_1_role="THE DEAL - Transaction announcement/structure",
+                    act_1_mood="Big moment, significance",
+                    act_1_example="Boardroom signing, handshake, celebratory atmosphere",
+                    act_2_role="THE PARTIES - Players involved/backgrounds",
+                    act_2_mood="Profile, credibility",
+                    act_2_example="Firm headquarters, team shots, track record hints",
+                    act_3_role="THE STRATEGY - Why this deal/rationale",
+                    act_3_mood="Analytical, strategic logic",
+                    act_3_example="Strategy discussions, market positioning visuals",
+                    act_4_role="THE IMPLICATIONS - Market impact/what it means",
+                    act_4_mood="Ripple effects, industry context",
+                    act_4_example="Wider market scenes, future growth hints"
+                ),
+                # ANALYSIS - Market commentary/trends
+                VideoActTemplate(
+                    name="analysis",
+                    description="Market analysis or commentary. Use for trend pieces, quarterly reviews.",
+                    act_1_role="THE THESIS - Key insight/argument",
+                    act_1_mood="Authority, clarity",
+                    act_1_example="Expert at desk, confident posture, analytical setting",
+                    act_2_role="THE EVIDENCE - Supporting data/trends",
+                    act_2_mood="Data-driven, proof",
+                    act_2_example="Abstract data visualizations, charts (no text), pattern reveals",
+                    act_3_role="THE COUNTERPOINT - Challenges/risks/alternative views",
+                    act_3_mood="Balance, nuance",
+                    act_3_example="Different perspectives, contrasting scenes, tension",
+                    act_4_role="THE CONCLUSION - Takeaway/recommendation",
+                    act_4_mood="Clarity, actionable insight",
+                    act_4_example="Resolution, clear path forward, confident outlook"
+                )
+            ]
         ),
         brand_name="PE News",
         accent_color="slate",
