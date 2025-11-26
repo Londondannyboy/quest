@@ -513,16 +513,16 @@ class ArticleCreationRequest(BaseModel):
     - 4-act video prompt generated FROM article sections
     - Single 12-second video (4 acts × 3 seconds)
     - Thumbnails extracted from Mux at each act timestamp
+    - No separate images - thumbnails from video
     """
     topic: str = Field(..., description="Article topic or subject", min_length=5)
     article_type: str = Field(default="news", description="Type: news, guide, comparison, narrative, listicle")
     app: str = Field(default="placement", description="App context: placement, relocation, pe_news")
-    target_word_count: int = Field(default=1500, ge=500, le=3000, description="Target word count")
+    target_word_count: int = Field(default=1500, description="Target word count (default 1500)")
     jurisdiction: Optional[str] = Field(default="UK", description="Geo-targeting: UK, US, SG, EU, etc.")
-    num_research_sources: int = Field(default=10, ge=3, le=15, description="Number of research sources")
-    video_quality: Optional[str] = Field(default="medium", description="Video quality: 'low', 'medium', 'high'. Generates 4-act 12s video")
+    video_quality: str = Field(default="medium", description="Video quality: 'low', 'medium', 'high'")
     video_model: str = Field(default="seedance", description="Video model: 'seedance' (fast) or 'wan-2.5' (better text)")
-    slug: Optional[str] = Field(default=None, description="Custom URL slug for SEO (e.g., 'my-article-title'). If not provided, generated from title.")
+    slug: Optional[str] = Field(default=None, description="Custom URL slug for SEO. Auto-generated from title if not provided.")
 
 
 @router.post("/article-creation", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED)
@@ -575,10 +575,9 @@ async def trigger_article_creation_workflow(
             "app": request.app,
             "target_word_count": request.target_word_count,
             "jurisdiction": request.jurisdiction,
-            "num_research_sources": request.num_research_sources,
-            "video_quality": request.video_quality,  # Triggers 4-act 12s video
-            "video_model": request.video_model,  # seedance or wan-2.5
-            "slug": request.slug,  # Optional custom slug for SEO
+            "video_quality": request.video_quality,
+            "video_model": request.video_model,
+            "slug": request.slug,
         }
 
         # Start workflow execution
