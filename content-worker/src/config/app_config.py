@@ -72,11 +72,36 @@ class ComponentLibrary(BaseModel):
     callout_types: List[str] = ["pro_tip", "warning", "insight", "did_you_know"]
 
 
+class VideoPromptTemplate(BaseModel):
+    """4-act video prompt template for an app."""
+    # Framework structure - Sonnet uses this as GUIDANCE, not verbatim
+    act_1_role: str = "THE SETUP - Problem/current situation/pain point"
+    act_1_mood: str = "Tension, confinement, challenge"
+    act_1_example: str = ""  # App-specific example (guidance only)
+
+    act_2_role: str = "THE OPPORTUNITY - Discovery/revelation/hope"
+    act_2_mood: str = "Hope, possibility, curiosity"
+    act_2_example: str = ""
+
+    act_3_role: str = "THE JOURNEY - Process/action/transition"
+    act_3_mood: str = "Movement, progress, anticipation"
+    act_3_example: str = ""
+
+    act_4_role: str = "THE PAYOFF - Resolution/success/new reality"
+    act_4_mood: str = "Joy, freedom, satisfaction"
+    act_4_example: str = ""
+
+    # Global constraints
+    no_text_rule: str = "CRITICAL: NO text, words, letters, numbers, signs, logos anywhere. Screens show abstract colors only."
+    technical_notes: str = "Smooth transitions, cinematic color grading, natural motion."
+
+
 class ArticleTheme(BaseModel):
     """Complete article theme configuration."""
     video: VideoConfig = VideoConfig()
     thumbnails: ThumbnailStrategy = ThumbnailStrategy()
     components: ComponentLibrary = ComponentLibrary()
+    video_prompt_template: VideoPromptTemplate = VideoPromptTemplate()
 
     # Branding
     brand_name: str = "Relocation Quest"
@@ -212,6 +237,27 @@ Let the article content drive specifics - this sets the professional MOOD only."
             faq_grid=True,
             callout_types=["pro_tip", "deal_insight", "market_context", "expert_view"]
         ),
+        video_prompt_template=VideoPromptTemplate(
+            # Placement/PE 4-Act Framework (GUIDANCE - adapt to specific deal/story)
+            act_1_role="THE CHALLENGE - Market pressure/fundraising need/competitive landscape",
+            act_1_mood="Stakes, tension, boardroom energy",
+            act_1_example="Executive reviewing documents, city skyline at dusk, serious expressions, glass offices",
+
+            act_2_role="THE STRATEGY - Solution/approach/partnership forming",
+            act_2_mood="Strategic thinking, collaboration, confidence building",
+            act_2_example="Meeting room handshake, charts on screen (abstract, no text), deal team discussion",
+
+            act_3_role="THE EXECUTION - Deal in motion/roadshow/negotiations",
+            act_3_mood="Action, momentum, progress",
+            act_3_example="Fast-paced office scenes, travel montage, signing moments, champagne being poured",
+
+            act_4_role="THE CLOSE - Success/celebration/new chapter",
+            act_4_mood="Achievement, celebration, forward-looking",
+            act_4_example="Team celebration, city lights at night, confident executives, success atmosphere",
+
+            no_text_rule="CRITICAL: NO text, words, letters, numbers on screens, documents, or anywhere. All screens show abstract data visuals only.",
+            technical_notes="Clean corporate aesthetic. Teal-and-orange color grade. Dynamic camera movement."
+        ),
         brand_name="Placement Quest",
         accent_color="blue",
         factoid_style="overlay"
@@ -313,6 +359,27 @@ Let the article topic drive the specific visuals - this guide sets the MOOD only
             sources_with_thumbnails=True,
             callout_types=["pro_tip", "warning", "tax_insight", "lifestyle_tip", "cost_saving"]
         ),
+        video_prompt_template=VideoPromptTemplate(
+            # Relocation 4-Act Framework (GUIDANCE - adapt to specific topic)
+            act_1_role="THE GRIND - Current life frustration/limitation",
+            act_1_mood="Exhaustion, confinement, grey tones",
+            act_1_example="Dark office, rain on windows, tired professional at desk, cold lighting, urban grey",
+
+            act_2_role="THE DREAM - Discovery of opportunity/possibility",
+            act_2_mood="Hope, warm light emerging, expression change",
+            act_2_example="Same person at home, warm lamplight, looking at screen with hope, smile emerging",
+
+            act_3_role="THE JOURNEY - Travel/transition/process",
+            act_3_mood="Movement, anticipation, colors shifting warm",
+            act_3_example="Packing, airport glimpses (no text), airplane window, destination coastline",
+
+            act_4_role="THE NEW LIFE - Settled happiness/success",
+            act_4_mood="Golden hour, joy, belonging, freedom",
+            act_4_example="Sunset terrace, local lifestyle, friends, genuine happiness, laptop closed",
+
+            no_text_rule="CRITICAL: NO text, words, letters, signs, logos anywhere. Screens show abstract colors. No airport signs. No country names written.",
+            technical_notes="High contrast grey-to-golden transition. Cinematic travel documentary style. Natural motion."
+        ),
         brand_name="Relocation Quest",
         accent_color="amber",
         factoid_style="overlay"
@@ -411,6 +478,27 @@ Can use stylized elements for abstract concepts. Article topic drives specifics.
             cta_video_section=False,  # News doesn't need CTA
             sources_with_thumbnails=True,
             callout_types=["breaking", "analysis", "market_impact", "expert_quote"]
+        ),
+        video_prompt_template=VideoPromptTemplate(
+            # PE News 4-Act Framework (GUIDANCE - adapt to specific news/deal)
+            act_1_role="THE NEWS - Breaking development/announcement",
+            act_1_mood="Urgency, importance, high stakes",
+            act_1_example="News ticker aesthetic (no actual text), city financial district, busy trading floor energy",
+
+            act_2_role="THE CONTEXT - Background/what led to this",
+            act_2_mood="Analytical, historical perspective",
+            act_2_example="Archive footage feel, previous deal montage, market chart movements (abstract)",
+
+            act_3_role="THE IMPACT - Market reaction/implications",
+            act_3_mood="Ripple effects, analysis, assessment",
+            act_3_example="Multiple screens showing abstract data, analysts in discussion, market activity",
+
+            act_4_role="THE OUTLOOK - What's next/future implications",
+            act_4_mood="Forward-looking, strategic, opportunity",
+            act_4_example="Dawn over financial district, new day metaphor, forward momentum",
+
+            no_text_rule="CRITICAL: NO text, tickers, headlines, numbers. News aesthetic without actual readable content. Abstract data visuals only.",
+            technical_notes="Bloomberg/CNBC documentary feel. Fast cuts for urgency. Cool blue tones with warm accents."
         ),
         brand_name="PE News",
         accent_color="slate",

@@ -196,6 +196,23 @@ async def generate_article_content(
             interests = ", ".join(app_config.interests[:5])
             media_style = app_config.media_style
             media_style_details = app_config.media_style_details
+
+            # Get 4-act video template from app config
+            video_template = app_config.article_theme.video_prompt_template
+            act_1_role = video_template.act_1_role
+            act_1_mood = video_template.act_1_mood
+            act_1_example = video_template.act_1_example
+            act_2_role = video_template.act_2_role
+            act_2_mood = video_template.act_2_mood
+            act_2_example = video_template.act_2_example
+            act_3_role = video_template.act_3_role
+            act_3_mood = video_template.act_3_mood
+            act_3_example = video_template.act_3_example
+            act_4_role = video_template.act_4_role
+            act_4_mood = video_template.act_4_mood
+            act_4_example = video_template.act_4_example
+            no_text_rule = video_template.no_text_rule
+            technical_notes = video_template.technical_notes
         else:
             app_desc = f"a professional content platform called {app}"
             target_audience = "professionals interested in this topic"
@@ -203,6 +220,22 @@ async def generate_article_content(
             interests = "industry news, trends, analysis"
             media_style = "Cinematic, professional, high production value"
             media_style_details = "High quality, visually compelling imagery that matches the content tone."
+
+            # Default 4-act template
+            act_1_role = "THE SETUP - Problem/current situation/challenge"
+            act_1_mood = "Tension, stakes, context"
+            act_1_example = "Professional setting, serious tone, challenge visible"
+            act_2_role = "THE OPPORTUNITY - Discovery/solution/possibility"
+            act_2_mood = "Hope, revelation, turning point"
+            act_2_example = "Expression change, new perspective emerging"
+            act_3_role = "THE JOURNEY - Action/process/transition"
+            act_3_mood = "Movement, progress, momentum"
+            act_3_example = "Activity montage, steps being taken"
+            act_4_role = "THE PAYOFF - Success/resolution/new reality"
+            act_4_mood = "Achievement, satisfaction, forward-looking"
+            act_4_example = "Positive outcome, celebration, new state"
+            no_text_rule = "CRITICAL: NO text, words, letters, numbers, signs, logos anywhere."
+            technical_notes = "Cinematic quality, smooth transitions, natural motion."
 
         # Build comprehensive system prompt with app context
         system_prompt = f"""You are an expert journalist writing for {app} - {app_desc}.
@@ -560,13 +593,37 @@ After the Editorial Footer, include this JSON block for video thumbnail and comp
 }}
 ```
 
+===== 4-ACT VIDEO FRAMEWORK (CRITICAL) =====
+
+Each section's visual_hint must follow this 4-act story structure for video generation:
+
+ACT 1 (0-3s) - {act_1_role}
+  Mood: {act_1_mood}
+  Example style (DO NOT COPY - adapt to YOUR topic): {act_1_example}
+
+ACT 2 (3-6s) - {act_2_role}
+  Mood: {act_2_mood}
+  Example style: {act_2_example}
+
+ACT 3 (6-9s) - {act_3_role}
+  Mood: {act_3_mood}
+  Example style: {act_3_example}
+
+ACT 4 (9-12s) - {act_4_role}
+  Mood: {act_4_mood}
+  Example style: {act_4_example}
+
+{no_text_rule}
+Technical: {technical_notes}
+
 VISUAL_HINT REQUIREMENTS (CRITICAL FOR VIDEO):
 - 80-120 words each
 - Must describe MOTION (action sequences, camera movement)
 - Include: subject appearance, environment, lighting, camera movement, color grade
-- Be SPECIFIC to the section topic (Cyprus section = Cyprus imagery)
-- NO TEXT/WORDS in scenes - purely visual
+- Be SPECIFIC to YOUR article topic (Cyprus = Limassol marina, Portugal = Lisbon trams)
+- NO TEXT/WORDS in scenes - purely visual. Screens show abstract colors only.
 - Follow this formula: [Subject + Action] + [Environment + Lighting] + [Camera Movement] + [Color/Mood]
+- DO NOT copy the examples above - CREATE NEW visuals specific to YOUR topic
 
 Source links are MANDATORY - articles without <a href> tags will be rejected.
 The STRUCTURED DATA section is MANDATORY - without it, no video can be generated."""
