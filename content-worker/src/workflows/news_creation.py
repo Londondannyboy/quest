@@ -235,25 +235,10 @@ class NewsCreationWorkflow:
                                     f"(Previous coverage: {most_recent.get('title', '')})"
                                 )
 
-                # ===== BUILD INTELLIGENT VIDEO PROMPT =====
-                # Generate contextual, creative prompt based on story and published articles
-                prompt_result = await workflow.execute_activity(
-                    "build_intelligent_video_prompt",
-                    args=[
-                        story.get("title", ""),  # Topic
-                        story.get("description", story.get("snippet", ""))[:500],  # Content preview
-                        app,  # App context
-                        recent_articles[:5],  # Learn from recent articles
-                        None,  # App config (will use defaults)
-                        "seedance"  # Video model
-                    ],
-                    start_to_close_timeout=timedelta(seconds=30)
-                )
-
-                video_prompt = prompt_result.get("prompt")
-                workflow.logger.info(f"Generated video prompt: {video_prompt[:80]}...")
-
-                # ===== BUILD ARTICLE INPUT WITH VIDEO-FIRST CONFIGURATION =====
+                # ===== BUILD ARTICLE INPUT WITH 4-ACT VIDEO CONFIGURATION =====
+                # Video prompt is now generated FROM the article's 4-act sections (article-first approach)
+                # ArticleCreationWorkflow generates article with visual_hints per section,
+                # then builds 4-act video prompt from those hints
                 article_input = {
                     "topic": story.get("title", ""),
                     "article_type": "news",
@@ -263,10 +248,12 @@ class NewsCreationWorkflow:
                     "generate_images": True,
                     "video_quality": "medium" if priority in ["high", "medium"] else None,  # High/medium priority get videos
                     "video_model": "seedance",
-                    "video_prompt": video_prompt,  # Intelligent, contextual prompt
+                    # video_prompt is now generated FROM article sections (4-act approach)
                     "content_images": "with_content",
                     "num_research_sources": 10
                 }
+
+                workflow.logger.info(f"Spawning 4-act article workflow for: {story.get('title', '')[:50]}...")
 
                 # Spawn child workflow with video-first configuration
                 try:
