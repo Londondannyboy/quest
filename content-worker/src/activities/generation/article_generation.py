@@ -445,11 +445,11 @@ Then the full article body in HTML with Tailwind CSS:
    - TONE: {media_style}
    - DETAILS: {media_style_details}
 
-   ===== EXAMPLE PROMPT (60-80 words, follow this structure) =====
-   "Young professional in crisp white linen shirt opens MacBook slowly at seaside cafe terrace, takes a gentle sip of espresso, looks up and smiles warmly at the Mediterranean horizon. Camera pushes in gradually from wide establishing shot to medium close-up. Golden hour lighting with warm amber tones, dappled light filtering through olive tree canopy, soft shadows on sun-weathered stone table. Foreground coffee cup in soft focus while subject sharp. Cinematic travel documentary style, shallow depth of field, teal-and-orange color grade, Kodak Portra warmth."
+   ===== EXAMPLE PROMPT STRUCTURE (60-80 words) =====
+   "[Subject + appearance] [performs action slowly/gently] at [location specific to YOUR topic], [secondary action]. Camera [movement type] from [starting frame] to [ending frame]. [Time of day] lighting with [color tones], [environmental detail]. [Foreground element] in soft focus while subject sharp. [Cinematic style], shallow depth of field, [color grade]."
 
    ===== IMPORTANT GUIDELINES =====
-   - Be SPECIFIC to THIS article's topic and location (Cyprus = Limassol marina, Portugal = Lisbon trams)
+   - Be SPECIFIC to YOUR article's topic - use locations, settings, and details from the actual content
    - Always include MOTION - never describe static scenes
    - Use degree adverbs for intensity control (slowly, gently, dramatically)
    - Include characteristic details: "woman wearing oversized sunglasses", "weathered fisherman's hands"
@@ -637,7 +637,7 @@ VISUAL_HINT REQUIREMENTS (CRITICAL FOR VIDEO):
 - 60-80 words each
 - Must describe MOTION (action sequences, camera movement)
 - Include: subject appearance, environment, lighting, camera movement, color grade
-- Be SPECIFIC to YOUR article topic (Cyprus = Limassol marina, Portugal = Lisbon trams)
+- Be SPECIFIC to YOUR article topic - use locations and settings from the actual content
 - NO TEXT/WORDS in scenes - purely visual. Screens show abstract colors only.
 - Follow this formula: [Subject + Action] + [Environment + Lighting] + [Camera Movement] + [Color/Mood]
 - DO NOT copy the examples above - CREATE NEW visuals specific to YOUR topic
