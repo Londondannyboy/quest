@@ -237,7 +237,7 @@ class NewsCreationWorkflow:
 
                 # ===== BUILD ARTICLE INPUT WITH 4-ACT VIDEO CONFIGURATION =====
                 # Video prompt is now generated FROM the article's 4-act sections (article-first approach)
-                # ArticleCreationWorkflow generates article with four_act_visuals per section,
+                # ArticleCreationWorkflow generates article with four_act_visual per section,
                 # then builds 4-act video prompt from those hints
                 article_input = {
                     "topic": story.get("title", ""),

@@ -63,7 +63,7 @@ async def generate_four_act_video_prompt(
     - 12 seconds total = 4 acts × 3 seconds each
 
     Args:
-        article: Article dict containing four_act_content with four_act_visuals per act
+        article: Article dict containing four_act_content with four_act_visual per act
         app: Application (relocation, placement, pe_news)
         video_model: Target model (seedance or wan-2.5)
 

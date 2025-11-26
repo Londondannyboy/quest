@@ -33,7 +33,7 @@ class ArticleCreationWorkflow:
     5b. Validate Links (30s)
     6. SAVE TO DATABASE (5s) - Article safe before media generation
     7. SYNC TO ZEP (5s) - Knowledge graph updated early
-    8. Generate VIDEO Prompt FROM ARTICLE (0s) - Combine four_act_visuals into 4-act prompt
+    8. Generate VIDEO Prompt FROM ARTICLE (0s) - Combine four_act_visual into 4-act prompt
     9. Generate 4-Act Video (2-5min) - Seedance 12s, upload to Mux
     10. Generate video_narrative JSON - Thumbnail URLs from Mux
     11. Final Update (5s) - With video_narrative
@@ -655,7 +655,7 @@ class ArticleCreationWorkflow:
                     )
                 else:
                     # No structured sections = article generation failed or is broken
-                    workflow.logger.error("NO STRUCTURED SECTIONS - Article must have 4 sections with four_act_visuals for 4-act video")
+                    workflow.logger.error("NO STRUCTURED SECTIONS - Article must have 4 sections with four_act_visual for 4-act video")
                     workflow.logger.error("Skipping video generation - article needs regeneration")
                     video_prompt_result = {
                         "prompt": "",
