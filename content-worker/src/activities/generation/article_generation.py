@@ -387,7 +387,7 @@ Then the full article body in HTML with Tailwind CSS:
    SECTION 3: [Different angle - alternative perspective or detail]
    SECTION 4: [Resolution - implications, outcome, or emotional payoff]
 
-   **OPTIMAL LENGTH: 80-120 words per prompt** (works best for both Seedance and WAN 2.5)
+   **OPTIMAL LENGTH: 60-80 words per prompt** (works best for both Seedance and WAN 2.5)
 
    **UNIVERSAL PROMPT FORMULA (works for all video models):**
    [Subject + Description] + [Scene + Environment] + [Motion + Action] + [Camera Movement] + [Aesthetic/Style]
@@ -445,7 +445,7 @@ Then the full article body in HTML with Tailwind CSS:
    - TONE: {media_style}
    - DETAILS: {media_style_details}
 
-   ===== EXAMPLE PROMPT (80-120 words, follow this structure) =====
+   ===== EXAMPLE PROMPT (60-80 words, follow this structure) =====
    "Young professional in crisp white linen shirt opens MacBook slowly at seaside cafe terrace, takes a gentle sip of espresso, looks up and smiles warmly at the Mediterranean horizon. Camera pushes in gradually from wide establishing shot to medium close-up. Golden hour lighting with warm amber tones, dappled light filtering through olive tree canopy, soft shadows on sun-weathered stone table. Foreground coffee cup in soft focus while subject sharp. Cinematic travel documentary style, shallow depth of field, teal-and-orange color grade, Kodak Portra warmth."
 
    ===== IMPORTANT GUIDELINES =====
@@ -545,25 +545,25 @@ After the Editorial Footer, include this JSON block for video thumbnail and comp
       "act": 1,
       "title": "Section 1 H2 title exactly as in article",
       "factoid": "One compelling stat or fact for this section (shown on thumbnail overlay)",
-      "four_act_visual_hint": "80-120 word cinematic scene description for this section's video act. Include: subject + action, environment + lighting, camera movement, color/mood. Must have MOTION. Example: 'Woman in grey blazer stares at rain-streaked window in cramped London flat, turns slowly away from laptop showing spreadsheets, rubs temples with visible exhaustion. Camera pushes in gently from medium to close-up. Cool blue-grey tones, harsh fluorescent overhead mixing with grey daylight. Documentary realism, shallow depth of field.'"
+      "four_act_visual_hint": "60-80 word cinematic scene description for this section's video act. Include: subject + action, environment + lighting, camera movement, color/mood. Must have MOTION. Example: 'Woman in grey blazer stares at rain-streaked window in cramped London flat, turns slowly away from laptop showing spreadsheets, rubs temples with visible exhaustion. Camera pushes in gently from medium to close-up. Cool blue-grey tones, harsh fluorescent overhead mixing with grey daylight. Documentary realism, shallow depth of field.'"
     }},
     {{
       "act": 2,
       "title": "Section 2 H2 title",
       "factoid": "Compelling stat for section 2",
-      "four_act_visual_hint": "80-120 word cinematic scene for act 2 (the opportunity/discovery moment)"
+      "four_act_visual_hint": "60-80 word cinematic scene for act 2 (the opportunity/discovery moment)"
     }},
     {{
       "act": 3,
       "title": "Section 3 H2 title",
       "factoid": "Compelling stat for section 3",
-      "four_act_visual_hint": "80-120 word cinematic scene for act 3 (the journey/process)"
+      "four_act_visual_hint": "60-80 word cinematic scene for act 3 (the journey/process)"
     }},
     {{
       "act": 4,
       "title": "Section 4 H2 title",
       "factoid": "Compelling stat for section 4",
-      "four_act_visual_hint": "80-120 word cinematic scene for act 4 (the payoff/resolution)"
+      "four_act_visual_hint": "60-80 word cinematic scene for act 4 (the payoff/resolution)"
     }}
   ],
   "callouts": [
@@ -634,7 +634,7 @@ ACT 4 (9-12s) - {act_4_role}
 Technical: {technical_notes}
 
 VISUAL_HINT REQUIREMENTS (CRITICAL FOR VIDEO):
-- 80-120 words each
+- 60-80 words each
 - Must describe MOTION (action sequences, camera movement)
 - Include: subject appearance, environment, lighting, camera movement, color grade
 - Be SPECIFIC to YOUR article topic (Cyprus = Limassol marina, Portugal = Lisbon trams)

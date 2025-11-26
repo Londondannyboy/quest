@@ -19,7 +19,7 @@ VIDEO_MODEL_GUIDANCE = {
     "seedance": {
         "strengths": "Fast, good motion, cinematic quality",
         "weaknesses": "Cannot render text at all - completely ignore any text requests",
-        "optimal_length": "60-100 words per act",
+        "optimal_length": "60-80 words per act",  # Strict limit to fit 4 acts in 2000 chars
         "char_limit": 2000,
         "tips": [
             "Use degree adverbs for motion: slowly, gently, dramatically",
