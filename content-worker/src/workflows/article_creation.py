@@ -18,21 +18,25 @@ class ArticleCreationWorkflow:
     """
     Complete article creation workflow with parallel research.
 
+    4-ACT VIDEO STRUCTURE:
+    - Article written FIRST with 4 sections (each has visual_hint)
+    - Video prompt generated FROM article sections (article-first approach)
+    - Seedance 12s video (4 acts × 3 seconds)
+    - Mux thumbnails replace static images
+
     Phases:
     1. Research Topic (60s) - DataForSEO + Serper + Exa in parallel
     2. Crawl Discovered URLs (90s) - Get full content
     3. Curate Research Sources (30s) - AI filter, dedupe, summarize
     4. Query Zep Context (5s)
-    5. Generate Article (180s) - AI with rich context
+    5. Generate Article (180s) - AI with 4-act structured sections
     5b. Validate Links (30s)
     6. SAVE TO DATABASE (5s) - Article safe before media generation
     7. SYNC TO ZEP (5s) - Knowledge graph updated early
-    8. Generate VIDEO Prompt (10s) - Model-aware (Seedance/WAN)
-    9. Generate Video (5-15min) - Upload to Mux
-    10. Generate IMAGE Prompts (10s) - Style-matched to video
-    10b. Generate Content Videos (if video_count > 1)
-    10c. Generate Content Images (Kontext Pro)
-    11. Final Update (5s) - Embedded media in content
+    8. Generate VIDEO Prompt FROM ARTICLE (0s) - Combine visual_hints into 4-act prompt
+    9. Generate 4-Act Video (2-5min) - Seedance 12s, upload to Mux
+    10. Generate video_narrative JSON - Thumbnail URLs from Mux
+    11. Final Update (5s) - With video_narrative
     """
 
     @workflow.run
@@ -617,15 +621,14 @@ class ArticleCreationWorkflow:
         else:
             workflow.logger.warning(f"Zep sync failed: {zep_result.get('error')}")
 
-        # ===== PHASE 8: GENERATE VIDEO PROMPT (dedicated, model-aware) =====
-        # Generate video prompt BEFORE video generation - separate from images
+        # ===== PHASE 8: GENERATE VIDEO PROMPT FROM ARTICLE (article-first) =====
+        # NEW: Generate video prompt AFTER article generation using structured sections
+        # Article has 4 sections, each with visual_hint - combine into 4-act video prompt
         video_prompt_result = None
         if video_quality:
-            workflow.logger.info(f"Phase 8: Generating video prompt (model={video_model})")
+            workflow.logger.info(f"Phase 8: Generating 4-act video prompt from article sections")
 
-            # Check if user provided a full prompt or just a hint/seed
-            # Full prompt = 60+ words, use verbatim
-            # Short hint = expand it with cinematic details
+            # Check if user provided a full prompt (override)
             user_prompt_words = len(video_prompt.split()) if video_prompt else 0
 
             if video_prompt and user_prompt_words >= 60:
@@ -633,38 +636,46 @@ class ArticleCreationWorkflow:
                 workflow.logger.info(f"Using complete custom prompt ({user_prompt_words} words)")
                 video_prompt_result = {"prompt": video_prompt, "success": True, "cost": 0}
             else:
-                # Generate prompt, using user's input as seed if provided
-                seed_hint = video_prompt if video_prompt else None
-                if seed_hint:
-                    workflow.logger.info(f"Expanding user hint into cinematic prompt: '{seed_hint[:50]}...'")
-                else:
-                    workflow.logger.info("Generating video prompt from article content")
+                # NEW: Use article-first approach - extract from structured sections
+                structured_sections = article.get("structured_sections", [])
 
-                video_prompt_result = await workflow.execute_activity(
-                    "generate_video_prompt",
-                    args=[article["title"], topic, app, video_model, seed_hint],
-                    start_to_close_timeout=timedelta(seconds=60)
-                )
+                if structured_sections:
+                    workflow.logger.info(f"Extracting 4-act prompt from {len(structured_sections)} structured sections")
+                    video_prompt_result = await workflow.execute_activity(
+                        "generate_video_prompt_from_article",
+                        args=[article, app, video_model],
+                        start_to_close_timeout=timedelta(seconds=30)
+                    )
+                else:
+                    # Fallback to legacy prompt generation if no structured sections
+                    workflow.logger.warning("No structured sections - using legacy prompt generation")
+                    seed_hint = video_prompt if video_prompt else None
+                    video_prompt_result = await workflow.execute_activity(
+                        "generate_video_prompt",
+                        args=[article["title"], topic, app, video_model, seed_hint],
+                        start_to_close_timeout=timedelta(seconds=60)
+                    )
 
                 if video_prompt_result.get("success"):
-                    workflow.logger.info(f"Video prompt generated: {video_prompt_result['prompt'][:80]}...")
+                    workflow.logger.info(f"4-act video prompt generated ({video_prompt_result.get('acts', 4)} acts): {video_prompt_result['prompt'][:100]}...")
                 else:
                     workflow.logger.warning(f"Video prompt generation failed: {video_prompt_result.get('error')}")
 
-        # ===== PHASE 9: GENERATE VIDEO =====
+        # ===== PHASE 9: GENERATE 4-ACT VIDEO =====
         if video_quality:
-            workflow.logger.info(f"Phase 9: Generating video ({video_quality} quality, model={video_model})")
+            workflow.logger.info(f"Phase 9: Generating 4-act video ({video_quality} quality, model={video_model})")
 
-            # Get the video prompt
+            # Get the 4-act video prompt
             hero_video_prompt = video_prompt_result.get("prompt") if video_prompt_result else None
 
             if hero_video_prompt:
-                workflow.logger.info(f"Hero video prompt: {hero_video_prompt[:120]}...")
+                workflow.logger.info(f"4-act video prompt: {hero_video_prompt[:120]}...")
             else:
                 workflow.logger.warning("No video prompt available - will use auto-generated")
 
-            # Set duration based on video model
-            video_duration = 5 if video_model == "wan-2.5" else 3  # WAN 2.5: 5s, Seedance/Lightstream: 3s
+            # NEW: 4-act video structure = 12 seconds (4 acts × 3 seconds)
+            # WAN 2.5 still uses 5s (different architecture)
+            video_duration = 5 if video_model == "wan-2.5" else 12  # 12s for 4-act Seedance
 
             video_gen_result = await workflow.execute_activity(
                 "generate_article_video",
@@ -673,18 +684,18 @@ class ArticleCreationWorkflow:
                     article["content"],  # Only used as fallback if no prompt
                     app,
                     video_quality,
-                    video_duration,  # duration in seconds (varies by model)
+                    video_duration,  # 12 seconds for 4-act structure
                     "16:9",  # aspect ratio
                     video_model,  # seedance or wan-2.5
-                    hero_video_prompt  # Clean prompt from dedicated generation step
+                    hero_video_prompt  # 4-act prompt from article sections
                 ],
                 start_to_close_timeout=timedelta(minutes=15)
             )
 
-            workflow.logger.info(f"Video generated: {video_gen_result.get('video_url', '')[:50]}...")
+            workflow.logger.info(f"4-act video generated: {video_gen_result.get('video_url', '')[:50]}...")
 
             # Upload to Mux
-            workflow.logger.info("Phase 6b: Uploading video to Mux")
+            workflow.logger.info("Phase 9b: Uploading 4-act video to Mux")
 
             mux_result = await workflow.execute_activity(
                 "upload_video_to_mux",
@@ -692,10 +703,12 @@ class ArticleCreationWorkflow:
                 start_to_close_timeout=timedelta(minutes=10)
             )
 
+            playback_id = mux_result.get("playback_id")
+
             # Store video data (video-first: GIF for featured, video supersedes hero)
             video_result = {
                 "video_url": mux_result.get("stream_url"),
-                "video_playback_id": mux_result.get("playback_id"),
+                "video_playback_id": playback_id,
                 "video_asset_id": mux_result.get("asset_id"),
             }
 
@@ -706,9 +719,54 @@ class ArticleCreationWorkflow:
             article["hero_asset_url"] = None  # Video supersedes hero
 
             workflow.logger.info(
-                f"Video uploaded to Mux: {mux_result.get('playback_id')}, "
+                f"4-act video uploaded to Mux: {playback_id}, "
                 f"cost: ${video_gen_result.get('cost', 0):.3f}"
             )
+
+            # ===== PHASE 10: GENERATE VIDEO_NARRATIVE JSON =====
+            # Build video_narrative with thumbnail URLs from Mux playback_id
+            workflow.logger.info("Phase 10: Generating video_narrative with thumbnail URLs")
+
+            # Get structured sections for thumbnail metadata
+            structured_sections = article.get("structured_sections", [])
+
+            # Build section thumbnails (mid-point of each act)
+            section_thumbnails = []
+            act_timestamps = [1.5, 4.5, 7.5, 10.5]  # Mid-point of each 3-second act
+
+            for i, timestamp in enumerate(act_timestamps):
+                section_data = structured_sections[i] if i < len(structured_sections) else {}
+                section_thumbnails.append({
+                    "time": timestamp,
+                    "title": section_data.get("title", f"Section {i+1}"),
+                    "factoid": section_data.get("factoid", ""),
+                    "thumbnail_url": f"https://image.mux.com/{playback_id}/thumbnail.jpg?time={timestamp}&width=800"
+                })
+
+            # Build video_narrative JSON
+            video_narrative = {
+                "playback_id": playback_id,
+                "duration": video_duration,
+                "acts": 4,
+                "thumbnails": {
+                    "hero": f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=10.5&width=1200",
+                    "sections": section_thumbnails,
+                    "faq": [
+                        {"time": 1.0, "thumbnail_url": f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=1.0&width=400"},
+                        {"time": 4.0, "thumbnail_url": f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=4.0&width=400"},
+                        {"time": 7.0, "thumbnail_url": f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=7.0&width=400"},
+                        {"time": 10.0, "thumbnail_url": f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=10.0&width=400"}
+                    ],
+                    "backgrounds": [
+                        {"time": 10.0, "thumbnail_url": f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=10.0&width=1920"},
+                        {"time": 5.0, "thumbnail_url": f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=5.0&width=1920"}
+                    ]
+                }
+            }
+
+            # Store video_narrative in article for database save
+            article["video_narrative"] = video_narrative
+            workflow.logger.info(f"Video narrative generated: {len(section_thumbnails)} section thumbnails")
 
             # Update article in database with video data
             workflow.logger.info("Updating article with video data")

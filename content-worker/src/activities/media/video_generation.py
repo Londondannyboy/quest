@@ -8,24 +8,49 @@ from temporalio import activity
 from typing import Dict, Any, Optional
 
 # Quality tier configuration
+# Default is 12 seconds (4 acts × 3 seconds) for 4-act video structure
 VIDEO_QUALITY_MODELS = {
     "high": {
         "model": "google/gemini",  # TODO: Update with actual Gemini video model
         "resolution": "720p",
-        "cost_per_second": 0.30,  # ~$0.90 for 3s
+        "cost_per_second": 0.30,  # ~$3.60 for 12s
+        "default_duration": 12,
         "description": "Premium quality with perfect text rendering"
     },
     "medium": {
         "model": "bytedance/seedance-1-pro-fast",
         "resolution": "720p",
-        "cost_per_second": 0.025,  # $0.075 for 3s
-        "description": "Good quality, balanced cost"
+        "cost_per_second": 0.025,  # $0.30 for 12s
+        "default_duration": 12,
+        "description": "Good quality, balanced cost - 4-act structure"
     },
     "low": {
         "model": "bytedance/seedance-1-pro-fast",
         "resolution": "480p",
-        "cost_per_second": 0.015,  # $0.045 for 3s
-        "description": "Budget friendly, adequate quality"
+        "cost_per_second": 0.015,  # $0.18 for 12s
+        "default_duration": 12,
+        "description": "Budget friendly, 4-act structure - recommended"
+    }
+}
+
+# 4-ACT VIDEO CONFIGURATION
+# Each act is 3 seconds, total 12 seconds
+# Act timestamps for thumbnail extraction
+FOUR_ACT_CONFIG = {
+    "duration": 12,
+    "acts": 4,
+    "act_duration": 3,
+    "act_timestamps": {
+        "act_1": {"start": 0, "mid": 1.5, "end": 3},
+        "act_2": {"start": 3, "mid": 4.5, "end": 6},
+        "act_3": {"start": 6, "mid": 7.5, "end": 9},
+        "act_4": {"start": 9, "mid": 10.5, "end": 12}
+    },
+    "thumbnail_times": {
+        "sections": [1.5, 4.5, 7.5, 10.5],  # Mid-point of each act
+        "faq": [1.0, 4.0, 7.0, 10.0],  # Slightly offset for variety
+        "hero": 10.5,  # Final act - resolution/payoff
+        "backgrounds": [10.0, 5.0]
     }
 }
 
@@ -35,8 +60,8 @@ async def generate_article_video(
     title: str,
     content: str,
     app: str = "placement",
-    quality: str = "medium",
-    duration: int = 3,
+    quality: str = "low",  # Default to low for cost-effective 4-act videos ($0.18)
+    duration: int = 12,  # Default to 12s for 4-act structure
     aspect_ratio: str = "16:9",
     video_model: str = "seedance",
     video_prompt: Optional[str] = None
@@ -44,21 +69,32 @@ async def generate_article_video(
     """
     Generate a video for an article using AI video generation.
 
+    Default is 12-second 4-act video structure:
+    - Act 1 (0-3s): Setup
+    - Act 2 (3-6s): Opportunity
+    - Act 3 (6-9s): Journey
+    - Act 4 (9-12s): Payoff
+
     Args:
         title: Article title
         content: Article content (used to generate prompt)
         app: Application name (placement, relocation, etc.)
-        quality: Video quality tier (high, medium, low)
-        duration: Video duration in seconds (default 3)
+        quality: Video quality tier (high, medium, low) - default low for 4-act
+        duration: Video duration in seconds (default 12 for 4-act)
         aspect_ratio: Video aspect ratio (default 16:9)
         video_model: Model to use (seedance, wan-2.5)
         video_prompt: Custom prompt (if None, auto-generated)
 
     Returns:
-        Dict with video_url, quality, duration, cost
+        Dict with video_url, quality, duration, cost, four_act_config
     """
-    activity.logger.info(f"Generating video for article: {title[:50]}...")
-    activity.logger.info(f"Model: {video_model}, Quality: {quality}, Duration: {duration}s")
+    # Use quality config default duration if not explicitly set
+    quality_config = VIDEO_QUALITY_MODELS.get(quality, VIDEO_QUALITY_MODELS["low"])
+    if duration == 3:  # Old default, upgrade to 12
+        duration = quality_config.get("default_duration", 12)
+
+    activity.logger.info(f"Generating 4-act video for article: {title[:50]}...")
+    activity.logger.info(f"Model: {video_model}, Quality: {quality}, Duration: {duration}s (4 acts)")
     activity.logger.info(f"✓ Received parameters: app={app}, aspect_ratio={aspect_ratio}")
     activity.logger.info(f"✓ video_prompt is {'PROVIDED' if video_prompt else 'NOT PROVIDED (will auto-generate)'}")
     if video_prompt:
@@ -95,6 +131,9 @@ async def generate_article_video(
     activity.logger.info(f"Video generated: {video_url}")
     activity.logger.info(f"Model: {actual_model}, Cost: ${cost:.3f}")
 
+    # Include 4-act config for thumbnail extraction
+    four_act_config = FOUR_ACT_CONFIG if duration == 12 else None
+
     return {
         "video_url": video_url,
         "quality": quality,
@@ -102,7 +141,9 @@ async def generate_article_video(
         "duration": duration,
         "cost": cost,
         "model": actual_model,
-        "prompt_used": prompt[:200]  # Return first 200 chars of prompt for debugging
+        "prompt_used": prompt[:200],  # Return first 200 chars of prompt for debugging
+        "four_act_config": four_act_config,  # For thumbnail extraction
+        "acts": 4 if duration == 12 else 1
     }
 
 
@@ -351,9 +392,10 @@ async def generate_with_wan(
     activity.logger.info(f"Negative prompt: {negative_prompt[:60]}...")
 
     # Create prediction (non-blocking)
+    # WAN 2.5 version from https://replicate.com/wan-video/wan-2.5-t2v
     client = replicate.Client(api_token=replicate_token)
     prediction = client.predictions.create(
-        model="wan-video/wan-2.5-t2v",
+        version="39ca1e5fd0fd12ca1f71bebef447273394a0b2a6feaf3e3f80e42e3c23f85fa2",
         input={
             "size": size,
             "prompt": wan_prompt,

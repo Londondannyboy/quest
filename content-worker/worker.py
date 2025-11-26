@@ -19,6 +19,7 @@ load_dotenv()
 from src.workflows.company_creation import CompanyCreationWorkflow
 from src.workflows.article_creation import ArticleCreationWorkflow
 from src.workflows.news_creation import NewsCreationWorkflow
+from src.workflows.narrative_article_creation import NarrativeArticleCreationWorkflow
 
 # Import all activities
 from src.activities.normalize import (
@@ -120,6 +121,7 @@ from src.activities.generation.profile_generation_v2 import (
 
 from src.activities.generation.article_generation import (
     generate_article_content,
+    generate_narrative_article,  # 3-act narrative-driven article
 )
 
 from src.activities.generation.research_curation import (
@@ -129,7 +131,12 @@ from src.activities.generation.research_curation import (
 from src.activities.generation.media_prompts import (
     generate_media_prompts,  # Deprecated, kept for compatibility
     generate_video_prompt,   # New: dedicated video prompt
+    generate_video_prompt_from_article,  # NEW: 4-act video prompt from article sections
     generate_image_prompts,  # New: dedicated image prompts
+)
+
+from src.activities.generation.narrative_builder import (
+    build_3_act_narrative,  # Video-first 3-act narrative structure
 )
 
 from src.activities.generation.completeness import (
@@ -242,7 +249,7 @@ async def main():
     worker = Worker(
         client,
         task_queue=config.TEMPORAL_TASK_QUEUE,
-        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow, NewsCreationWorkflow],
+        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow, NewsCreationWorkflow, NarrativeArticleCreationWorkflow],
         activities=[
             # Normalization
             normalize_company_url,
@@ -301,9 +308,12 @@ async def main():
             # Generation
             generate_company_profile_v2,
             generate_article_content,
+            generate_narrative_article,  # 3-act narrative-driven article
             generate_media_prompts,  # Deprecated - kept for compatibility
             generate_video_prompt,   # New: dedicated video prompt (model-aware)
+            generate_video_prompt_from_article,  # NEW: 4-act video prompt from article sections
             generate_image_prompts,  # New: dedicated image prompts (style-matched)
+            build_3_act_narrative,   # New: video-first 3-act narrative structure
             curate_research_sources,
             calculate_completeness_score,
             get_missing_fields,

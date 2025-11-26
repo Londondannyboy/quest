@@ -1,15 +1,22 @@
 """
 Article Content Generation - Direct Anthropic SDK
 
+4-ACT STRUCTURE:
+- Article written FIRST with 4 H2 sections aligned to video acts
+- Each section has: title, factoid, visual_hint (for video generation)
+- Additional components: callouts, FAQ, comparison, timeline, stat_highlight
+- Video prompt generated FROM article sections (article-first approach)
+
 Bypasses pydantic_ai structured output to avoid validation issues.
 Just gets raw markdown text from Claude and parses it.
 """
 
 from temporalio import activity
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 from slugify import slugify
 import anthropic
 import re
+import json
 
 from src.utils.config import config
 from src.config.app_config import get_app_config, APP_CONFIGS
@@ -48,6 +55,100 @@ def extract_media_prompts(content: str) -> tuple:
         content = re.sub(r'---\s*(MEDIA|IMAGE)\s*PROMPTS\s*---\s*.+', '', content, flags=re.DOTALL | re.IGNORECASE).strip()
 
     return content, featured_prompt, section_prompts
+
+
+def extract_structured_data(response_text: str) -> Dict[str, Any]:
+    """
+    Extract structured JSON data from article response.
+
+    Looks for ---STRUCTURED DATA--- section with 4-act sections, callouts, FAQ, etc.
+
+    Returns:
+        Dict with sections, callouts, faq, comparison, timeline, stat_highlight
+    """
+    structured_data = {
+        "sections": [],
+        "callouts": [],
+        "faq": [],
+        "comparison": None,
+        "timeline": [],
+        "stat_highlight": None,
+        "sources": []
+    }
+
+    # Find structured data section
+    match = re.search(r'---\s*STRUCTURED\s*DATA\s*---\s*```json\s*(.+?)\s*```', response_text, re.DOTALL | re.IGNORECASE)
+
+    if not match:
+        # Try without code block
+        match = re.search(r'---\s*STRUCTURED\s*DATA\s*---\s*(\{.+?\})\s*(?=---|$)', response_text, re.DOTALL | re.IGNORECASE)
+
+    if match:
+        json_str = match.group(1).strip()
+        try:
+            data = json.loads(json_str)
+            structured_data.update(data)
+        except json.JSONDecodeError as e:
+            # Try to fix common JSON issues
+            json_str = re.sub(r',\s*([}\]])', r'\1', json_str)  # Remove trailing commas
+            try:
+                data = json.loads(json_str)
+                structured_data.update(data)
+            except:
+                pass
+
+    return structured_data
+
+
+def generate_video_narrative_from_sections(sections: List[Dict], playback_id: str = None) -> Dict[str, Any]:
+    """
+    Generate video_narrative JSON from article sections.
+
+    Maps 4 sections to 4 video acts with thumbnail timestamps.
+
+    Args:
+        sections: List of 4 section dicts with title, factoid, visual_hint
+        playback_id: Mux playback ID for thumbnail URLs
+
+    Returns:
+        video_narrative dict for database storage
+    """
+    if not playback_id:
+        return {}
+
+    # Map sections to video acts (4 acts × 3 seconds = 12 seconds)
+    act_timestamps = [1.5, 4.5, 7.5, 10.5]  # Mid-point of each act
+
+    section_thumbnails = []
+    for i, section in enumerate(sections[:4]):
+        timestamp = act_timestamps[i] if i < len(act_timestamps) else 1.5
+        section_thumbnails.append({
+            "time": timestamp,
+            "title": section.get("title", f"Section {i+1}"),
+            "factoid": section.get("factoid", ""),
+            "visual_hint": section.get("visual_hint", ""),
+            "thumbnail_url": f"https://image.mux.com/{playback_id}/thumbnail.jpg?time={timestamp}&width=800"
+        })
+
+    return {
+        "playback_id": playback_id,
+        "duration": 12,
+        "acts": 4,
+        "thumbnails": {
+            "hero": f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=10.5&width=1200",
+            "sections": section_thumbnails,
+            "faq": [
+                {"time": 1.0, "thumbnail_url": f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=1.0&width=400"},
+                {"time": 4.0, "thumbnail_url": f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=4.0&width=400"},
+                {"time": 7.0, "thumbnail_url": f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=7.0&width=400"},
+                {"time": 10.0, "thumbnail_url": f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=10.0&width=400"}
+            ],
+            "backgrounds": [
+                {"time": 10.0, "thumbnail_url": f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=10.0&width=1920"},
+                {"time": 5.0, "thumbnail_url": f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=5.0&width=1920"}
+            ]
+        }
+    }
 
 
 @activity.defn
@@ -308,12 +409,33 @@ Then the full article body in HTML with Tailwind CSS:
 
    DO NOT include any {{IMAGE_N}} placeholders in the article content. Media will be inserted automatically.
 
-5. **Structure**
-   - Strong lead paragraph (who, what, when, where, why)
-   - 4-6 sections with h2 headings
+5. **Structure - 4-ACT ALIGNED SECTIONS**
+   CRITICAL: The article must have EXACTLY 4 main sections (H2 headings) that align with a 4-act video structure:
+
+   **ACT 1 (Section 1)**: The Setup - Problem/context/current situation
+   - Hook the reader with a compelling observation or problem
+   - Establish why this matters NOW
+   - Example: "The London Grind: Why Remote Workers Are Burning Out"
+
+   **ACT 2 (Section 2)**: The Opportunity - Solution/discovery/revelation
+   - Present the main opportunity or solution
+   - Key benefits and what makes it unique
+   - Example: "The Cyprus Opportunity: Tax Benefits That Actually Make Sense"
+
+   **ACT 3 (Section 3)**: The Journey - Process/how-to/requirements
+   - Practical steps, requirements, timeline
+   - The "how to actually do this" section
+   - Example: "Making the Move: From Application to Arrival"
+
+   **ACT 4 (Section 4)**: The Payoff - Results/outcomes/future
+   - Real outcomes and what life looks like after
+   - Future implications and next steps
+   - Example: "Life After the Move: What Six Months Actually Looks Like"
+
+   Additional structure elements:
+   - Strong lead paragraph before Section 1 (who, what, when, where, why)
    - Use blockquotes for key quotes or statistics
    - Use lists for key points, deal terms, or comparisons
-   - End with implications/what's next
    - ALWAYS include a "Sources & References" section at the end with all URLs used:
      <h2 class="text-2xl font-bold text-gray-900 mt-8 mb-4">Sources & References</h2>
      <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
@@ -353,15 +475,101 @@ Every paragraph MUST contain at least one <a href="URL"> link to a source from t
 - Articles without source links will be REJECTED
 
 CRITICAL OUTPUT FORMAT:
-1. Title on first line (specific to THIS topic, not an example)
-2. Full HTML article content WITH INLINE SOURCE LINKS IN EVERY PARAGRAPH
-3. Sources & References section with all URLs used
-4. ---MEDIA PROMPTS--- section at the end (REQUIRED - do not skip!)
-   - FEATURED: [80-120 word prompt for hero video]
-   - SECTION 1-4: [prompts for content media]
+1. TITLE: line (specific to THIS topic, not an example)
+2. META: line (150-160 char description)
+3. SLUG: line (lowercase-hyphens)
+4. Full HTML article content WITH INLINE SOURCE LINKS IN EVERY PARAGRAPH
+5. Sources & References section with all URLs used
+6. Editorial Footer
+7. ---STRUCTURED DATA--- section at the very end (REQUIRED - JSON for video generation)
 
-The media prompts section is MANDATORY - without it, no video/images can be generated.
-Source links are MANDATORY - articles without <a href> tags will be rejected."""
+===== STRUCTURED DATA FORMAT (REQUIRED) =====
+
+After the Editorial Footer, include this JSON block for video thumbnail and component generation:
+
+---STRUCTURED DATA---
+```json
+{{
+  "sections": [
+    {{
+      "act": 1,
+      "title": "Section 1 H2 title exactly as in article",
+      "factoid": "One compelling stat or fact for this section (shown on thumbnail overlay)",
+      "visual_hint": "80-120 word cinematic scene description for this section's video act. Include: subject + action, environment + lighting, camera movement, color/mood. Must have MOTION. Example: 'Woman in grey blazer stares at rain-streaked window in cramped London flat, turns slowly away from laptop showing spreadsheets, rubs temples with visible exhaustion. Camera pushes in gently from medium to close-up. Cool blue-grey tones, harsh fluorescent overhead mixing with grey daylight. Documentary realism, shallow depth of field.'"
+    }},
+    {{
+      "act": 2,
+      "title": "Section 2 H2 title",
+      "factoid": "Compelling stat for section 2",
+      "visual_hint": "80-120 word cinematic scene for act 2 (the opportunity/discovery moment)"
+    }},
+    {{
+      "act": 3,
+      "title": "Section 3 H2 title",
+      "factoid": "Compelling stat for section 3",
+      "visual_hint": "80-120 word cinematic scene for act 3 (the journey/process)"
+    }},
+    {{
+      "act": 4,
+      "title": "Section 4 H2 title",
+      "factoid": "Compelling stat for section 4",
+      "visual_hint": "80-120 word cinematic scene for act 4 (the payoff/resolution)"
+    }}
+  ],
+  "callouts": [
+    {{
+      "type": "pro_tip",
+      "title": "Short callout title",
+      "content": "Useful tip or insight (2-3 sentences)",
+      "placement": "after_section_2"
+    }},
+    {{
+      "type": "warning",
+      "title": "Important warning",
+      "content": "Critical warning or gotcha",
+      "placement": "after_section_3"
+    }}
+  ],
+  "faq": [
+    {{"q": "Common question 1?", "a": "Concise answer..."}},
+    {{"q": "Common question 2?", "a": "Concise answer..."}},
+    {{"q": "Common question 3?", "a": "Concise answer..."}},
+    {{"q": "Common question 4?", "a": "Concise answer..."}}
+  ],
+  "comparison": {{
+    "title": "Comparison title (if applicable)",
+    "items": [
+      {{"name": "Option A", "col1": "value", "col2": "value"}},
+      {{"name": "Option B", "col1": "value", "col2": "value"}}
+    ]
+  }},
+  "timeline": [
+    {{"date": "Month Year", "title": "Event title", "description": "What happened"}},
+    {{"date": "Month Year", "title": "Event title", "description": "What happened"}}
+  ],
+  "stat_highlight": {{
+    "headline": "Main takeaway in one sentence",
+    "stats": [
+      {{"value": "3,400", "label": "Hours sunshine/year"}},
+      {{"value": "30-40%", "label": "Lower cost of living"}}
+    ]
+  }},
+  "sources": [
+    {{"name": "Source Name", "url": "https://...", "description": "Brief description"}}
+  ]
+}}
+```
+
+VISUAL_HINT REQUIREMENTS (CRITICAL FOR VIDEO):
+- 80-120 words each
+- Must describe MOTION (action sequences, camera movement)
+- Include: subject appearance, environment, lighting, camera movement, color grade
+- Be SPECIFIC to the section topic (Cyprus section = Cyprus imagery)
+- NO TEXT/WORDS in scenes - purely visual
+- Follow this formula: [Subject + Action] + [Environment + Lighting] + [Camera Movement] + [Color/Mood]
+
+Source links are MANDATORY - articles without <a href> tags will be rejected.
+The STRUCTURED DATA section is MANDATORY - without it, no video can be generated."""
 
         # Haiku max is 8192, Sonnet/Opus can do more
         # Use 8192 for compatibility with all models
@@ -433,8 +641,26 @@ Source links are MANDATORY - articles without <a href> tags will be rejected."""
         if ai_suggested_slug:
             activity.logger.info(f"SEO Metadata - AI Slug: {ai_suggested_slug}")
 
-        # Extract media prompts from content (FEATURED for hero, SECTION N for content)
+        # Extract structured data (sections, callouts, FAQ, etc.) for 4-act video
+        structured_data = extract_structured_data(raw_content)
+
+        # Also extract legacy media prompts for backwards compatibility
         content, featured_prompt, section_prompts = extract_media_prompts(raw_content)
+
+        # Remove structured data section from content (it's metadata, not display content)
+        content = re.sub(r'---\s*STRUCTURED\s*DATA\s*---\s*```json\s*.+?\s*```', '', content, flags=re.DOTALL | re.IGNORECASE).strip()
+        content = re.sub(r'---\s*STRUCTURED\s*DATA\s*---\s*\{.+?\}', '', content, flags=re.DOTALL | re.IGNORECASE).strip()
+
+        # Log structured data extraction
+        sections = structured_data.get("sections", [])
+        if sections:
+            activity.logger.info(f"✅ Extracted {len(sections)} structured sections for 4-act video")
+            for i, sec in enumerate(sections[:4]):
+                activity.logger.info(f"  Section {i+1}: {sec.get('title', 'Untitled')[:50]}...")
+                if sec.get('visual_hint'):
+                    activity.logger.info(f"    Visual hint: {sec['visual_hint'][:60]}...")
+        else:
+            activity.logger.warning(f"⚠️ No structured sections found - video generation may fail")
 
         # Check for source links - warn if missing (critical for SEO)
         link_count = content.count('<a href')
@@ -507,8 +733,17 @@ Source links are MANDATORY - articles without <a href> tags will be rejected."""
                 "author": "Quest Editorial Team",
                 "status": "draft",
                 "confidence_score": 1.0,
+                # Legacy prompts for backwards compatibility
                 "featured_asset_prompt": featured_prompt,
-                "section_asset_prompts": section_prompts
+                "section_asset_prompts": section_prompts,
+                # NEW: 4-act structured data for video generation
+                "structured_sections": structured_data.get("sections", []),
+                "callouts": structured_data.get("callouts", []),
+                "faq": structured_data.get("faq", []),
+                "comparison": structured_data.get("comparison"),
+                "timeline": structured_data.get("timeline", []),
+                "stat_highlight": structured_data.get("stat_highlight"),
+                "structured_sources": structured_data.get("sources", [])
             },
             "cost": cost,
             "model_used": f"{provider}:{model_name}",
@@ -689,3 +924,239 @@ def build_prompt(topic: str, research_context: Dict[str, Any]) -> str:
                     parts.append(content[:6000])
 
     return '\n'.join(parts)
+
+
+# ============================================================================
+# 3-ACT NARRATIVE ARTICLE GENERATION
+# ============================================================================
+
+@activity.defn
+async def generate_narrative_article(
+    narrative: Dict[str, Any],
+    research_context: Dict[str, Any],
+    app: str,
+    mux_urls: Dict[str, Any] = None,
+    target_word_count: int = 2000
+) -> Dict[str, Any]:
+    """
+    Generate article content driven by a 3-act narrative structure.
+
+    The narrative defines:
+    - 3 acts with titles, key_points, and timestamps
+    - Preamble context for authority
+    - Tone guidance
+
+    The article structure:
+    - Preamble (authority/context from Zep or market context)
+    - Act 1 Section (expanding act 1 key_points)
+    - Act 2 Section (expanding act 2 key_points)
+    - Act 3 Section (expanding act 3 key_points)
+    - Bump (summary/CTA)
+
+    Args:
+        narrative: 3-act narrative from build_3_act_narrative
+        research_context: Curated research for content
+        app: Application name
+        mux_urls: Optional Mux URLs for embedding video/thumbnails
+        target_word_count: Target length (default 2000)
+
+    Returns:
+        Article dict with content, title, slug, etc.
+    """
+    activity.logger.info(f"Generating narrative article: {narrative.get('title', 'Untitled')}")
+
+    acts = narrative.get("acts", [])
+    if len(acts) != 3:
+        activity.logger.error(f"Narrative must have exactly 3 acts, got {len(acts)}")
+        return {"success": False, "error": "Invalid narrative structure"}
+
+    # Get app config
+    app_config = APP_CONFIGS.get(app)
+    if app_config:
+        target_audience = app_config.target_audience
+        content_tone = app_config.content_tone
+    else:
+        target_audience = "professionals interested in this topic"
+        content_tone = "Professional, informative"
+
+    # Build the acts structure for the prompt
+    acts_structure = ""
+    for act in acts:
+        acts_structure += f"""
+ACT {act['number']}: {act['title']} ({act['start']}s - {act['end']}s)
+Key Points to Cover:
+{chr(10).join(f"- {kp}" for kp in act.get('key_points', []))}
+Section Hook: {act.get('section_hook', '')}
+"""
+
+    # Build Mux media embedding instructions
+    media_instructions = ""
+    if mux_urls:
+        playback_id = mux_urls.get("playback_id", "")
+        media_instructions = f"""
+MEDIA EMBEDDING (use these exact URLs):
+
+For each act section, embed the bounded video player and thumbnail:
+
+ACT 1 MEDIA:
+- Thumbnail: <img src="https://image.mux.com/{playback_id}/thumbnail.jpg?time=1.5&width=1200" class="w-full rounded-lg mb-4" alt="Act 1">
+- Video (optional, for hero): Use bounded player from 0s-3.3s
+
+ACT 2 MEDIA:
+- Thumbnail: <img src="https://image.mux.com/{playback_id}/thumbnail.jpg?time=5&width=1200" class="w-full rounded-lg mb-4" alt="Act 2">
+
+ACT 3 MEDIA:
+- Thumbnail: <img src="https://image.mux.com/{playback_id}/thumbnail.jpg?time=8&width=1200" class="w-full rounded-lg mb-4" alt="Act 3">
+
+Place the thumbnail image at the START of each act section, before the section heading.
+"""
+
+    system_prompt = f"""You are writing an article driven by a 3-ACT NARRATIVE structure.
+
+The video and article tell ONE UNIFIED STORY. The article expands on each act.
+
+NARRATIVE TEMPLATE: {narrative.get('template', 'Unknown')}
+TONE: {narrative.get('tone', content_tone)}
+TARGET AUDIENCE: {target_audience}
+
+===== 3-ACT STRUCTURE =====
+{acts_structure}
+
+PREAMBLE CONTEXT: {narrative.get('preamble_context', '')}
+
+===== ARTICLE STRUCTURE =====
+
+1. **PREAMBLE** (100-150 words)
+   - Establish authority: "As we've been tracking..." or market context
+   - Set up the stakes: Why does this matter?
+   - Hook: "It's no surprise that..."
+
+2. **ACT 1 SECTION: {acts[0]['title']}** (400-600 words)
+   - Expand on Act 1 key points with research
+   - Set the scene, establish the problem/dream/event
+   - Use specific facts and sources
+
+3. **ACT 2 SECTION: {acts[1]['title']}** (400-600 words)
+   - Expand on Act 2 key points
+   - The journey, process, or impact
+   - Include practical details, requirements, analysis
+
+4. **ACT 3 SECTION: {acts[2]['title']}** (400-600 words)
+   - Expand on Act 3 key points
+   - The outcome, winners/losers, resolution
+   - Future implications
+
+5. **BUMP** (100-150 words)
+   - Summary of key takeaways
+   - Call to action or forward look
+{media_instructions}
+
+===== OUTPUT FORMAT =====
+
+TITLE: {narrative.get('title', '')}
+META: [150-160 char compelling description]
+SLUG: [suggested-slug-here]
+
+[Full HTML article with Tailwind CSS classes]
+[DO NOT include ---MEDIA PROMPTS--- section - video is already generated]
+
+===== WRITING RULES =====
+- Use inline source links: <a href="URL" class="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener">
+- Minimum 10-15 source links throughout
+- NO AI words: dive, delve, unlock, unleash, harness, leverage, robust, seamless
+- Use contractions, vary sentence length
+- Be specific with facts from research
+- Each section should match its act's key_points exactly"""
+
+    # Build research prompt
+    research_prompt = build_prompt(narrative.get("topic", ""), research_context)
+
+    user_prompt = f"""Write the 3-act narrative article.
+
+TITLE TO USE: {narrative.get('title', '')}
+TOPIC: {narrative.get('topic', '')}
+
+{research_prompt}
+
+Remember:
+- Preamble establishes authority
+- Each act section expands on its key_points
+- Use sources throughout
+- Bump summarizes and closes
+
+Write the article now:"""
+
+    try:
+        client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+        provider, model_name = config.get_ai_model()
+
+        message = client.messages.create(
+            model=model_name,
+            max_tokens=12000,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}]
+        )
+
+        article_text = message.content[0].text
+
+        # Parse metadata
+        lines = article_text.strip().split('\n')
+        title = narrative.get("title", "")
+        meta_description = ""
+        slug = ""
+
+        for idx, line in enumerate(lines[:10]):
+            line_stripped = line.strip()
+            if line_stripped.startswith('TITLE:'):
+                title = line_stripped[6:].strip()
+            elif line_stripped.startswith('META:'):
+                meta_description = line_stripped[5:].strip()
+            elif line_stripped.startswith('SLUG:'):
+                slug = line_stripped[5:].strip()
+
+        # Find content start
+        content_start = 0
+        for idx, line in enumerate(lines):
+            if line.strip().startswith('<'):
+                content_start = idx
+                break
+
+        content = '\n'.join(lines[content_start:])
+
+        # Generate slug if not provided
+        if not slug:
+            slug = slugify(title)[:60]
+
+        # Calculate word count
+        text_only = re.sub(r'<[^>]+>', '', content)
+        word_count = len(text_only.split())
+
+        # Calculate cost
+        input_tokens = message.usage.input_tokens
+        output_tokens = message.usage.output_tokens
+        cost = (input_tokens * 0.003 + output_tokens * 0.015) / 1000
+
+        activity.logger.info(f"Narrative article generated: {word_count} words")
+
+        return {
+            "success": True,
+            "article": {
+                "title": title,
+                "slug": slug,
+                "meta_description": meta_description,
+                "content": content,
+                "word_count": word_count,
+                "section_count": 5,  # Preamble + 3 acts + bump
+                "narrative_template": narrative.get("template", ""),
+            },
+            "cost": cost
+        }
+
+    except Exception as e:
+        activity.logger.error(f"Narrative article generation failed: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "article": None,
+            "cost": 0
+        }

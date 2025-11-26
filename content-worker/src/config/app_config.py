@@ -13,6 +13,80 @@ from typing import Dict, List
 from pydantic import BaseModel
 
 
+class VideoConfig(BaseModel):
+    """Video generation configuration."""
+    model: str = "seedance-1-pro-fast"  # or "wan-2.5" for high quality
+    duration: int = 12  # seconds
+    resolution: str = "480p"  # or "720p"
+    acts: int = 4  # number of narrative acts
+    cost_per_video: float = 0.18  # estimated cost
+
+    # Act timestamps (auto-calculated from duration/acts)
+    @property
+    def act_duration(self) -> float:
+        return self.duration / self.acts
+
+    def get_act_timestamps(self) -> Dict[str, Dict[str, float]]:
+        """Get start/mid/end timestamps for each act."""
+        act_len = self.act_duration
+        return {
+            f"act_{i+1}": {
+                "start": i * act_len,
+                "mid": i * act_len + act_len / 2,
+                "end": (i + 1) * act_len
+            }
+            for i in range(self.acts)
+        }
+
+
+class ThumbnailStrategy(BaseModel):
+    """Thumbnail extraction strategy for different uses."""
+    # Section headers - one per act (video loops preferred)
+    section_headers: List[float] = [1.5, 4.5, 7.5, 10.5]
+
+    # FAQ/callout thumbnails - spread across acts
+    supplementary: List[float] = [1.0, 4.0, 7.0, 10.0]
+
+    # Timeline/event thumbnails
+    timeline: List[float] = [1.5, 4.5, 7.5, 10.5]
+
+    # Background/translucent images
+    backgrounds: List[float] = [10.0, 5.0]
+
+
+class ComponentLibrary(BaseModel):
+    """Available components for article layout."""
+    # Which components to include by default
+    hero_video: bool = True
+    chapter_scrubber: bool = True
+    section_video_headers: bool = True  # Video loops vs static thumbnails
+    pro_tip_callouts: bool = True
+    event_timeline: bool = True
+    stat_highlight: bool = True  # "The Bottom Line" section
+    comparison_table: bool = True
+    faq_grid: bool = True
+    cta_video_section: bool = True
+    sources_with_thumbnails: bool = True
+
+    # Callout types available
+    callout_types: List[str] = ["pro_tip", "warning", "insight", "did_you_know"]
+
+
+class ArticleTheme(BaseModel):
+    """Complete article theme configuration."""
+    video: VideoConfig = VideoConfig()
+    thumbnails: ThumbnailStrategy = ThumbnailStrategy()
+    components: ComponentLibrary = ComponentLibrary()
+
+    # Branding
+    brand_name: str = "Relocation Quest"
+    brand_position: str = "top-right"  # Where to show brand on thumbnails
+    accent_color: str = "amber"  # Tailwind color name
+
+    # Typography
+    factoid_style: str = "overlay"  # "overlay" on thumbnail or "below" as separate element
+
+
 class AppConfig(BaseModel):
     """Configuration for a Quest app."""
     name: str
@@ -35,6 +109,9 @@ class AppConfig(BaseModel):
     # Media style for images and videos
     media_style: str = "Cinematic, professional, high production value"
     media_style_details: str = ""
+
+    # Article theme and component library
+    article_theme: ArticleTheme = ArticleTheme()
 
 
 # ============================================================================
@@ -116,7 +193,29 @@ PEOPLE: Confident professionals, authentic moments of success and collaboration.
 FEEL: Dynamic and forward-looking, not stuffy or stock-photo generic.
 
 Base visuals on the SPECIFIC deal/story - golf deal = golf imagery, tech acquisition = tech setting.
-Let the article content drive specifics - this sets the professional MOOD only."""
+Let the article content drive specifics - this sets the professional MOOD only.""",
+
+    article_theme=ArticleTheme(
+        video=VideoConfig(model="seedance-1-pro-fast", duration=12, resolution="480p", acts=4),
+        thumbnails=ThumbnailStrategy(
+            section_headers=[1.5, 4.5, 7.5, 10.5],
+            supplementary=[1.0, 4.0, 7.0, 10.0],
+        ),
+        components=ComponentLibrary(
+            hero_video=True,
+            chapter_scrubber=True,
+            section_video_headers=True,
+            pro_tip_callouts=True,
+            event_timeline=True,  # Deal timelines
+            stat_highlight=True,
+            comparison_table=True,
+            faq_grid=True,
+            callout_types=["pro_tip", "deal_insight", "market_context", "expert_view"]
+        ),
+        brand_name="Placement Quest",
+        accent_color="blue",
+        factoid_style="overlay"
+    )
 )
 
 
@@ -191,7 +290,33 @@ IMPORTANT: Base imagery on the SPECIFIC location/topic in the article.
 Cyprus article = Cyprus landscapes, Limassol marina, Paphos old town.
 Portugal article = Lisbon trams, Porto riverfront, Algarve coast.
 Dubai article = Dubai skyline, desert luxury, modern architecture.
-Let the article topic drive the specific visuals - this guide sets the MOOD only."""
+Let the article topic drive the specific visuals - this guide sets the MOOD only.""",
+
+    article_theme=ArticleTheme(
+        video=VideoConfig(model="seedance-1-pro-fast", duration=12, resolution="480p", acts=4),
+        thumbnails=ThumbnailStrategy(
+            section_headers=[1.5, 4.5, 7.5, 10.5],
+            supplementary=[1.0, 4.0, 7.0, 10.0],
+            timeline=[1.5, 4.5, 7.5, 10.5],
+            backgrounds=[10.0, 5.0]
+        ),
+        components=ComponentLibrary(
+            hero_video=True,
+            chapter_scrubber=True,
+            section_video_headers=True,
+            pro_tip_callouts=True,
+            event_timeline=True,  # Visa program timelines
+            stat_highlight=True,  # "The Bottom Line" savings
+            comparison_table=True,  # Country comparisons
+            faq_grid=True,
+            cta_video_section=True,
+            sources_with_thumbnails=True,
+            callout_types=["pro_tip", "warning", "tax_insight", "lifestyle_tip", "cost_saving"]
+        ),
+        brand_name="Relocation Quest",
+        accent_color="amber",
+        factoid_style="overlay"
+    )
 )
 
 
@@ -266,7 +391,31 @@ PEOPLE: Power players, confident executives, strategic energy.
 FEEL: Fast-paced news urgency combined with cinematic polish.
 
 Match imagery to the SPECIFIC story - fund launch = celebration, market downturn = thoughtful.
-Can use stylized elements for abstract concepts. Article topic drives specifics."""
+Can use stylized elements for abstract concepts. Article topic drives specifics.""",
+
+    article_theme=ArticleTheme(
+        video=VideoConfig(model="seedance-1-pro-fast", duration=12, resolution="480p", acts=4),
+        thumbnails=ThumbnailStrategy(
+            section_headers=[1.5, 4.5, 7.5, 10.5],
+            supplementary=[1.0, 4.0, 7.0, 10.0],
+        ),
+        components=ComponentLibrary(
+            hero_video=True,
+            chapter_scrubber=True,
+            section_video_headers=False,  # Static thumbnails for news - faster load
+            pro_tip_callouts=True,
+            event_timeline=True,  # Deal/market timelines
+            stat_highlight=True,
+            comparison_table=True,
+            faq_grid=False,  # Less relevant for news
+            cta_video_section=False,  # News doesn't need CTA
+            sources_with_thumbnails=True,
+            callout_types=["breaking", "analysis", "market_impact", "expert_quote"]
+        ),
+        brand_name="PE News",
+        accent_color="slate",
+        factoid_style="overlay"
+    )
 )
 
 

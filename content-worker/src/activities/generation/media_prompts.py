@@ -354,6 +354,99 @@ Generate the prompts now:"""
 # ============================================================================
 
 @activity.defn
+async def generate_video_prompt_from_article(
+    article: Dict[str, Any],
+    app: str,
+    video_model: str = "seedance"
+) -> Dict[str, Any]:
+    """
+    Generate a 4-act video prompt from article's structured sections.
+
+    ARTICLE-FIRST APPROACH: The article is written first with 4 sections,
+    each with a visual_hint. This activity combines those hints with the
+    app's media_style to create a unified 4-act video prompt.
+
+    Args:
+        article: Article dict containing structured_sections with visual_hints
+        app: Application (relocation, placement, etc.)
+        video_model: Target model (seedance or wan-2.5)
+
+    Returns:
+        {
+            "prompt": str,  # The 4-act video prompt (400-500 words total)
+            "model": str,
+            "success": bool,
+            "cost": float
+        }
+    """
+    activity.logger.info(f"Generating 4-act video prompt from article: {article.get('title', 'Untitled')[:50]}...")
+
+    # Get structured sections from article
+    sections = article.get("structured_sections", [])
+
+    if not sections:
+        activity.logger.warning("No structured sections found - falling back to legacy prompt generation")
+        return await generate_video_prompt(
+            article.get("title", ""),
+            article.get("title", ""),
+            app,
+            video_model
+        )
+
+    # Get app config for styling
+    app_config = APP_CONFIGS.get(app)
+    if app_config:
+        media_style = app_config.media_style
+        media_style_details = app_config.media_style_details
+    else:
+        media_style = "Cinematic, professional, high production value"
+        media_style_details = "High quality, visually compelling imagery."
+
+    # Get model-specific guidance
+    model_info = VIDEO_MODEL_GUIDANCE.get(video_model, VIDEO_MODEL_GUIDANCE["seedance"])
+
+    # Build the 4-act prompt from visual hints
+    act_prompts = []
+    for i, section in enumerate(sections[:4]):
+        act_num = i + 1
+        visual_hint = section.get("visual_hint", "")
+        title = section.get("title", f"Section {act_num}")
+
+        if visual_hint:
+            act_prompts.append(f"ACT {act_num} ({act_num * 3 - 3}s-{act_num * 3}s): {title}\n{visual_hint}")
+        else:
+            # Fallback: generate from title
+            act_prompts.append(f"ACT {act_num} ({act_num * 3 - 3}s-{act_num * 3}s): {title}\n[Visual representation of: {title}]")
+
+    acts_text = "\n\n".join(act_prompts)
+
+    # Build the combined prompt
+    no_text_rule = "CRITICAL: Absolutely NO text, NO words, NO letters, NO typography anywhere in ANY frame. Purely visual storytelling."
+
+    prompt = f"""{no_text_rule}
+
+STYLE: {media_style}
+{media_style_details}
+
+VIDEO STRUCTURE: 12 seconds, 4 acts of 3 seconds each.
+
+{acts_text}
+
+{no_text_rule}"""
+
+    activity.logger.info(f"Generated 4-act video prompt: {len(prompt)} chars")
+    activity.logger.info(f"Acts included: {len([s for s in sections[:4] if s.get('visual_hint')])}/4 with visual hints")
+
+    return {
+        "prompt": prompt,
+        "model": video_model,
+        "acts": len(sections[:4]),
+        "success": True,
+        "cost": 0  # No API call needed - just combining existing visual hints
+    }
+
+
+@activity.defn
 async def generate_media_prompts(
     title: str,
     topic: str,
