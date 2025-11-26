@@ -786,11 +786,12 @@ class ArticleCreationWorkflow:
                     video_result.get("video_url"),
                     video_result.get("video_playback_id"),
                     video_result.get("video_asset_id"),
-                    None  # raw_research already saved
+                    None,  # raw_research already saved
+                    article.get("video_narrative")  # 4-act video narrative with thumbnails
                 ],
                 start_to_close_timeout=timedelta(seconds=30)
             )
-            workflow.logger.info("Article updated with video URLs")
+            workflow.logger.info("Article updated with video URLs and video_narrative")
 
         # ===== PHASE 10: GENERATE IMAGE PROMPTS (after video, can match style) =====
         # Generate image prompts AFTER video so they can reference the video's visual style
@@ -1081,7 +1082,8 @@ class ArticleCreationWorkflow:
                     video_result.get("video_url") if video_result else None,
                     video_result.get("video_playback_id") if video_result else None,
                     video_result.get("video_asset_id") if video_result else None,
-                    None  # raw_research already saved in Phase 6
+                    None,  # raw_research already saved in Phase 6
+                    article.get("video_narrative")  # 4-act video narrative with thumbnails
                 ],
                 start_to_close_timeout=timedelta(seconds=30)
             )
