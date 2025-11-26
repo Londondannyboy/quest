@@ -793,302 +793,42 @@ class ArticleCreationWorkflow:
             )
             workflow.logger.info("Article updated with video URLs and video_narrative")
 
-        # ===== PHASE 10: GENERATE IMAGE PROMPTS (after video, can match style) =====
-        # Generate image prompts AFTER video so they can reference the video's visual style
-        image_prompts_result = None
-        content_images_count = input_dict.get("content_images_count", 2)
-        video_context_url = None  # Initialize outside the if block
+        # ===== PHASE 10: MUX THUMBNAILS (4-Act Approach) =====
+        # With the 4-act approach:
+        # - ONE 12-second video with 4 acts (3 seconds each)
+        # - Thumbnails extracted from Mux at different timestamps
+        # - No separate image generation needed
+        #
+        # Frontend uses Mux thumbnail API:
+        #   https://image.mux.com/{playback_id}/thumbnail.jpg?time={seconds}
+        #
+        # Act timestamps: Act 1 = 1.5s, Act 2 = 4.5s, Act 3 = 7.0s, Act 4 = 10.5s
 
-        if generate_images or (video_quality and video_count > 1):
-            workflow.logger.info("Phase 10: Generating image prompts (after video, style-aware)")
+        if video_quality and article.get("mux_playback_id"):
+            playback_id = article["mux_playback_id"]
 
-            # Use video prompt as style reference if available
-            video_style_desc = None
-            if video_prompt_result and video_prompt_result.get("prompt"):
-                video_style_desc = video_prompt_result["prompt"][:200]  # First 200 chars as style hint
+            # Store thumbnail URLs for each act (frontend can also generate these dynamically)
+            article["thumbnail_act_1"] = f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=1.5&width=800"
+            article["thumbnail_act_2"] = f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=4.5&width=800"
+            article["thumbnail_act_3"] = f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=7.0&width=800"
+            article["thumbnail_act_4"] = f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=10.5&width=800"
+            article["hero_thumbnail"] = f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=10.5&width=1200&height=630&fit_mode=smartcrop"
 
-            # Set video context URL if video was generated
-            if video_quality and article.get("featured_asset_url"):
-                video_context_url = article["featured_asset_url"]
+            workflow.logger.info(f"Phase 10: Mux thumbnails configured for playback_id: {playback_id}")
 
-            # Determine how many prompts we need
-            num_prompts_needed = max(content_images_count, video_count - 1, 4)
+        # For articles without video, we still need a featured image
+        # This would be a fallback - typically all articles should have video
+        if not video_quality and generate_images:
+            workflow.logger.info("Phase 10: No video - would need fallback image generation")
+            # TODO: Add fallback image generation if needed
 
-            image_prompts_result = await workflow.execute_activity(
-                "generate_image_prompts",
-                args=[
-                    article["title"],
-                    topic,
-                    app,
-                    num_prompts_needed,
-                    video_context_url,  # GIF URL for visual reference
-                    video_style_desc    # Video prompt text for style matching
-                ],
-                start_to_close_timeout=timedelta(seconds=60)
-            )
-
-            if image_prompts_result.get("success"):
-                workflow.logger.info(
-                    f"Image prompts generated: {len(image_prompts_result.get('prompts', []))} prompts, "
-                    f"style_matched={image_prompts_result.get('matched_video_style')}"
-                )
-            else:
-                workflow.logger.warning(f"Image prompt generation failed: {image_prompts_result.get('error')}")
-
-        # ===== PHASE 10b: GENERATE CONTENT MEDIA (videos/images) =====
-        # Get content media strategy from input
-        content_media_strategy = input_dict.get("content_media", "hybrid")  # "images", "videos", "hybrid"
-
-        # Initialize results
-        content_videos_result = {"videos": [], "videos_generated": 0, "total_cost": 0}
-        images_result = {"images_generated": 0, "total_cost": 0}
-
-        # Generate sequential content VIDEOS (if video hero exists and video_count > 1)
-        # video_count: 1 = hero only, 2 = hero + 1 content, 3 = hero + 2 content
-        content_video_count = max(0, video_count - 1)  # Subtract hero video
-
-        if video_quality and video_context_url and content_video_count > 0:
-            # Get section prompts from image prompts
-            section_prompts = image_prompts_result.get("prompts", []) if image_prompts_result else []
-
-            if section_prompts:
-                # Use first N section prompts for content videos
-                video_prompts = section_prompts[:content_video_count]
-
-                workflow.logger.info(f"Phase 6d: Generating {len(video_prompts)} sequential content videos (video_count={video_count})")
-
-                content_videos_result = await workflow.execute_activity(
-                    "generate_sequential_content_videos",
-                    args=[
-                        article["slug"],
-                        article["title"],
-                        article["content"],
-                        app,
-                        video_context_url,  # Hero GIF as context!
-                        video_prompts,
-                        video_quality,
-                        3,  # 3 second videos
-                        "16:9"
-                    ],
-                    start_to_close_timeout=timedelta(minutes=15)
-                )
-
-                # Upload content videos to Mux
-                for i, vid in enumerate(content_videos_result.get("videos", [])):
-                    mux_content = await workflow.execute_activity(
-                        "upload_video_to_mux",
-                        args=[vid["video_url"], True],
-                        start_to_close_timeout=timedelta(minutes=5)
-                    )
-                    # Store in article
-                    article[f"content_video_{i+1}_url"] = mux_content.get("stream_url")
-                    article[f"content_video_{i+1}_playback_id"] = mux_content.get("playback_id")
-                    article[f"content_video_{i+1}_gif"] = mux_content.get("gif_url")
-
-                workflow.logger.info(f"Generated {content_videos_result['videos_generated']} content videos")
-
-        # ===== PHASE 6e: GENERATE CONTENT IMAGES (optional, uses video GIF as style context) =====
-        # Generate content IMAGES (Kontext Pro)
-        should_generate_images = (
-            generate_images and (
-                content_media_strategy in ["images", "hybrid"] or
-                not video_quality
-            )
-        )
-
-        if should_generate_images:
-            # For hybrid with videos: only generate 2 images (prompts 3-4)
-            # For images-only: generate 2-3 images
-            if content_media_strategy == "hybrid" and video_quality:
-                min_images = 2
-                max_images = 2
-                workflow.logger.info("Phase 6e: Generating 2 content images (hybrid with videos)")
-            else:
-                min_images = 2 if video_quality else 2
-                max_images = 3 if video_quality else 2
-                workflow.logger.info(f"Phase 6e: Generating {max_images} content images")
-
-            # Get clean prompts from dedicated image prompt generation step
-            if image_prompts_result and image_prompts_result.get("prompts"):
-                image_prompts = image_prompts_result["prompts"]
-                workflow.logger.info(f"Using {len(image_prompts)} dedicated image prompts")
-            else:
-                image_prompts = []
-                workflow.logger.info("No dedicated image prompts - will use section analysis")
-
-            images_result = await workflow.execute_activity(
-                "generate_sequential_article_images",
-                args=[
-                    article["slug"],
-                    article["title"],
-                    article["content"],
-                    app,
-                    "kontext-pro",
-                    not video_quality,  # generate_featured only if no video
-                    not video_quality,  # generate_hero only if no video
-                    min_images,
-                    max_images,
-                    video_context_url,  # Video GIF for style matching!
-                    image_prompts       # Clean prompts for images
-                ],
-                start_to_close_timeout=timedelta(minutes=8)
-            )
-
-        # Update article with asset URLs and metadata (only if no video)
-        if not video_quality:
-            article["featured_asset_url"] = images_result.get("featured_asset_url")
-            article["featured_asset_alt"] = images_result.get("featured_asset_alt")
-            article["featured_asset_title"] = images_result.get("featured_asset_title")
-            article["featured_asset_description"] = images_result.get("featured_asset_description")
-            # Reuse featured as hero (cost saving)
-            article["hero_asset_url"] = images_result.get("hero_asset_url")
-            article["hero_asset_alt"] = images_result.get("hero_asset_alt")
-            article["hero_asset_title"] = images_result.get("hero_asset_title")
-            article["hero_asset_description"] = images_result.get("hero_asset_description")
-
-        # Content images - collect URLs and all metadata
-        content_images = []
-        for i in range(1, 6):
-            gen_url_key = f"content_image{i}_url"
-            gen_alt_key = f"content_image{i}_alt"
-            gen_title_key = f"content_image{i}_title"
-            gen_desc_key = f"content_image{i}_description"
-
-            if images_result.get(gen_url_key):
-                # Save with underscore format to article payload
-                article[f"content_image_{i}_url"] = images_result[gen_url_key]
-                article[f"content_image_{i}_alt"] = images_result.get(gen_alt_key)
-                article[f"content_image_{i}_title"] = images_result.get(gen_title_key)
-                article[f"content_image_{i}_description"] = images_result.get(gen_desc_key)
-
-                content_images.append({
-                    "url": images_result[gen_url_key],
-                    "alt": images_result.get(gen_alt_key, f"Article image {i}")
-                })
-
-        article["image_count"] = images_result.get("images_generated", 0)
-        article["video_count"] = content_videos_result.get("videos_generated", 0)
-
-        # Collect all content media (videos first, then images) for embedding
-        content_media = []
-
-        # Add content videos (embedded as Mux players)
-        for i in range(1, 5):
-            playback_id = article.get(f"content_video_{i}_playback_id")
-            gif_url = article.get(f"content_video_{i}_gif")
-            if playback_id:
-                content_media.append({
-                    "type": "video",
-                    "playback_id": playback_id,
-                    "gif_url": gif_url,
-                    "alt": f"Content video {i}"
-                })
-
-        # Add content images
-        for img in content_images:
-            content_media.append({
-                "type": "image",
-                "url": img["url"],
-                "alt": img.get("alt", "Article image")
-            })
-
-        # Embed media into content at strategic positions
-        if content_media:
-            content = article["content"]
-            paragraphs = content.split('</p>')
-
-            if len(paragraphs) > 3:
-                # Calculate insertion points spread throughout article
-                # First image should be after ~25% of content (not too close to hero video)
-                # Last image should be before ~90% (not at very end)
-                total = len(paragraphs)
-                num_media = len(content_media)
-
-                # Start first media at ~25% into article (after hero video has impact)
-                first_insert = max(4, total // 4)  # At least paragraph 4, or 25%
-                # End last media at ~85% (not at very bottom)
-                last_insert = min(total - 3, int(total * 0.85))
-
-                if num_media == 1:
-                    insert_points = [first_insert]
-                elif num_media == 2:
-                    insert_points = [first_insert, last_insert]
-                else:
-                    # Spread evenly between first and last positions
-                    spacing = (last_insert - first_insert) // (num_media - 1) if num_media > 1 else 0
-                    insert_points = [first_insert + i * spacing for i in range(num_media)]
-
-                workflow.logger.info(f"Media insertion points: {insert_points} (total paragraphs: {total})")
-
-                new_paragraphs = []
-                media_index = 0
-
-                for idx, para in enumerate(paragraphs):
-                    new_paragraphs.append(para)
-                    if para.strip():
-                        new_paragraphs.append('</p>')
-
-                    # Insert media at strategic points
-                    if idx in insert_points and media_index < len(content_media):
-                        media = content_media[media_index]
-                        if media["type"] == "video":
-                            # Embed Mux video player with autoplay (muted required for browser policy)
-                            media_html = f'''
-<div class="my-8 aspect-video rounded-lg overflow-hidden shadow-md">
-  <mux-player
-    playback-id="{media['playback_id']}"
-    metadata-video-title="{media['alt']}"
-    accent-color="#3b82f6"
-    autoplay="muted"
-    loop
-    muted
-    preload="auto"
-    class="w-full h-full">
-  </mux-player>
-</div>
-'''
-                        else:
-                            # Embed image
-                            media_html = f'\n\n<div class="my-8"><img src="{media["url"]}" alt="{media["alt"]}" class="w-full rounded-lg shadow-md" loading="lazy" /></div>\n\n'
-                        new_paragraphs.append(media_html)
-                        media_index += 1
-
-                article["content"] = ''.join(new_paragraphs)
-                workflow.logger.info(f"Embedded {media_index} media items (videos + images) into content")
-
-        total_media_cost = images_result.get('total_cost', 0) + content_videos_result.get('total_cost', 0)
-        workflow.logger.info(
-            f"Content media: {article.get('video_count', 0)} videos + {article['image_count']} images, "
-            f"cost: ${total_media_cost:.4f}"
-        )
-
-        # ===== PHASE 10: FINAL UPDATE (with all media embedded in content) =====
-        # Update article with embedded media content (images/videos in HTML)
-        if images_result.get("images_generated", 0) > 0 or content_videos_result.get("videos_generated", 0) > 0:
-            workflow.logger.info("Phase 10: Final update with embedded media")
-
-            await workflow.execute_activity(
-                "save_article_to_neon",
-                args=[
-                    article_id,  # Update existing article
-                    article["slug"],
-                    article["title"],
-                    app,
-                    article_type,
-                    article,  # Full payload with embedded content
-                    article.get("featured_asset_url"),
-                    article.get("hero_asset_url"),
-                    [],
-                    "draft",
-                    video_result.get("video_url") if video_result else None,
-                    video_result.get("video_playback_id") if video_result else None,
-                    video_result.get("video_asset_id") if video_result else None,
-                    None,  # raw_research already saved in Phase 6
-                    article.get("video_narrative")  # 4-act video narrative with thumbnails
-                ],
-                start_to_close_timeout=timedelta(seconds=30)
-            )
-            workflow.logger.info("Article updated with embedded media content")
+        # ===== 4-ACT APPROACH: Media handled by frontend =====
+        # In the 4-act approach:
+        # - Hero video: Mux player with playback_id
+        # - Section headers: Looping video segments from same Mux asset (using HLS.js + time ranges)
+        # - Thumbnails: Mux thumbnail API at different timestamps
+        # - No embedded media in content HTML - frontend handles all rendering
+        workflow.logger.info("Phase 10 complete: 4-act video ready, thumbnails from Mux")
 
         # Calculate total cost
         total_cost = (
@@ -1096,7 +836,7 @@ class ArticleCreationWorkflow:
             serper_data.get("cost", 0.0) +
             exa_data.get("cost", 0.0) +
             article_result.get("cost", 0.0) +
-            (images_result.get("total_cost", 0.0) if generate_images else 0.0)
+            (video_result.get("cost", 0.0) if video_result else 0.0)
         )
 
         workflow.logger.info(
@@ -1113,12 +853,12 @@ class ArticleCreationWorkflow:
             "title": article["title"],
             "word_count": article["word_count"],
             "section_count": article["section_count"],
-            "image_count": article.get("image_count", 0),
+            "structured_sections": len(structured_sections) if structured_sections else 0,
+            "mux_playback_id": article.get("mux_playback_id"),
             "featured_asset_url": article.get("featured_asset_url"),
-            "hero_asset_url": article.get("hero_asset_url"),
             "video_url": video_result.get("video_url") if video_result else None,
             "video_playback_id": video_result.get("video_playback_id") if video_result else None,
             "research_cost": total_cost,
-            "spawn_candidates_saved": spawn_candidates_saved,  # Related article candidates
-            "article": article  # Full payload for debugging
+            "spawn_candidates_saved": spawn_candidates_saved,
+            "article": article
         }
