@@ -19,7 +19,7 @@ class ArticleCreationWorkflow:
     Complete article creation workflow with parallel research.
 
     4-ACT VIDEO STRUCTURE:
-    - Article written FIRST with 4 sections (each has visual_hint)
+    - Article written FIRST with 4 sections (each has four_act_visual)
     - Video prompt generated FROM article sections (article-first approach)
     - Seedance 12s video (4 acts × 3 seconds)
     - Mux thumbnails replace static images
@@ -33,7 +33,7 @@ class ArticleCreationWorkflow:
     5b. Validate Links (30s)
     6. SAVE TO DATABASE (5s) - Article safe before media generation
     7. SYNC TO ZEP (5s) - Knowledge graph updated early
-    8. Generate VIDEO Prompt FROM ARTICLE (0s) - Combine visual_hints into 4-act prompt
+    8. Generate VIDEO Prompt FROM ARTICLE (0s) - Combine four_act_visuals into 4-act prompt
     9. Generate 4-Act Video (2-5min) - Seedance 12s, upload to Mux
     10. Generate video_narrative JSON - Thumbnail URLs from Mux
     11. Final Update (5s) - With video_narrative
@@ -460,7 +460,7 @@ class ArticleCreationWorkflow:
         }
 
         article_result = await workflow.execute_activity(
-            "generate_article_content",
+            "generate_four_act_article",
             args=[topic, article_type, app, research_context, target_word_count, custom_slug],
             start_to_close_timeout=timedelta(minutes=3)
         )
@@ -630,7 +630,7 @@ class ArticleCreationWorkflow:
 
         # ===== PHASE 8: GENERATE VIDEO PROMPT FROM ARTICLE (article-first) =====
         # NEW: Generate video prompt AFTER article generation using structured sections
-        # Article has 4 sections, each with visual_hint - combine into 4-act video prompt
+        # Article has 4 sections, each with four_act_visual - combine into 4-act video prompt
         video_prompt_result = None
         if video_quality:
             workflow.logger.info(f"Phase 8: Generating 4-act video prompt from article sections")
@@ -655,7 +655,7 @@ class ArticleCreationWorkflow:
                     )
                 else:
                     # No structured sections = article generation failed or is broken
-                    workflow.logger.error("NO STRUCTURED SECTIONS - Article must have 4 sections with visual_hints for 4-act video")
+                    workflow.logger.error("NO STRUCTURED SECTIONS - Article must have 4 sections with four_act_visuals for 4-act video")
                     workflow.logger.error("Skipping video generation - article needs regeneration")
                     video_prompt_result = {
                         "prompt": "",
@@ -685,7 +685,7 @@ class ArticleCreationWorkflow:
             video_duration = 5 if video_model == "wan-2.5" else 12  # 12s for 4-act Seedance
 
             video_gen_result = await workflow.execute_activity(
-                "generate_article_video",
+                "generate_four_act_video",
                 args=[
                     article["title"],
                     article["content"],  # Only used as fallback if no prompt

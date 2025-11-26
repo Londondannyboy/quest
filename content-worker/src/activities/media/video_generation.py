@@ -56,7 +56,7 @@ FOUR_ACT_CONFIG = {
 
 
 @activity.defn
-async def generate_article_video(
+async def generate_four_act_video(
     title: str,
     content: str,
     app: str = "placement",

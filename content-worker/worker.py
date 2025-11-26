@@ -95,9 +95,8 @@ from src.activities.media.prompt_images import (
 )
 
 from src.activities.media.video_generation import (
-    generate_article_video,
+    generate_four_act_video,  # 4-act 12-second video
     get_video_cost_estimate,
-    generate_sequential_content_videos,
 )
 
 from src.activities.media.mux_client import (
@@ -116,8 +115,8 @@ from src.activities.generation.profile_generation_v2 import (
 )
 
 from src.activities.generation.article_generation import (
-    generate_article_content,
-    generate_narrative_article,  # 3-act narrative-driven article
+    generate_four_act_article,  # 4-act article with four_act_content
+    generate_narrative_article,  # Legacy 3-act narrative-driven article
 )
 
 from src.activities.generation.research_curation import (
@@ -290,8 +289,7 @@ async def main():
             generate_article_images_from_prompts,
             analyze_article_sections,
             # Video
-            generate_article_video,
-            generate_sequential_content_videos,  # Sequential videos using GIF as context
+            generate_four_act_video,  # 4-act 12-second video
             get_video_cost_estimate,
             upload_video_to_mux,
             upload_video_file_to_mux,
@@ -300,8 +298,8 @@ async def main():
 
             # Generation
             generate_company_profile_v2,
-            generate_article_content,
-            generate_narrative_article,  # 3-act narrative-driven article
+            generate_four_act_article,  # 4-act article with four_act_content
+            generate_narrative_article,  # Legacy 3-act narrative-driven article
             generate_four_act_video_prompt,  # PRIMARY: 4-act video from article sections
             generate_image_prompts,  # Image prompts (style-matched)
             build_3_act_narrative,   # New: video-first 3-act narrative structure

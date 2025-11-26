@@ -3,7 +3,7 @@ Article Content Generation - Direct Anthropic SDK
 
 4-ACT STRUCTURE:
 - Article written FIRST with 4 H2 sections aligned to video acts
-- Each section has: title, factoid, visual_hint (for video generation)
+- Each section has: title, factoid, four_act_visual (for video generation)
 - Additional components: callouts, FAQ, comparison, timeline, stat_highlight
 - Video prompt generated FROM article sections (article-first approach)
 
@@ -107,7 +107,7 @@ def generate_video_narrative_from_sections(sections: List[Dict], playback_id: st
     Maps 4 sections to 4 video acts with thumbnail timestamps.
 
     Args:
-        sections: List of 4 section dicts with title, factoid, visual_hint
+        sections: List of 4 section dicts with title, factoid, four_act_visual
         playback_id: Mux playback ID for thumbnail URLs
 
     Returns:
@@ -126,7 +126,7 @@ def generate_video_narrative_from_sections(sections: List[Dict], playback_id: st
             "time": timestamp,
             "title": section.get("title", f"Section {i+1}"),
             "factoid": section.get("factoid", ""),
-            "visual_hint": section.get("visual_hint", ""),
+            "four_act_visual": section.get("four_act_visual", ""),
             "thumbnail_url": f"https://image.mux.com/{playback_id}/thumbnail.jpg?time={timestamp}&width=800"
         })
 
@@ -152,7 +152,7 @@ def generate_video_narrative_from_sections(sections: List[Dict], playback_id: st
 
 
 @activity.defn
-async def generate_article_content(
+async def generate_four_act_article(
     topic: str,
     article_type: str,
     app: str,
@@ -545,25 +545,25 @@ After the Editorial Footer, include this JSON block for video thumbnail and comp
       "act": 1,
       "title": "Section 1 H2 title exactly as in article",
       "factoid": "One compelling stat or fact for this section (shown on thumbnail overlay)",
-      "visual_hint": "80-120 word cinematic scene description for this section's video act. Include: subject + action, environment + lighting, camera movement, color/mood. Must have MOTION. Example: 'Woman in grey blazer stares at rain-streaked window in cramped London flat, turns slowly away from laptop showing spreadsheets, rubs temples with visible exhaustion. Camera pushes in gently from medium to close-up. Cool blue-grey tones, harsh fluorescent overhead mixing with grey daylight. Documentary realism, shallow depth of field.'"
+      "four_act_visual": "80-120 word cinematic scene description for this section's video act. Include: subject + action, environment + lighting, camera movement, color/mood. Must have MOTION. Example: 'Woman in grey blazer stares at rain-streaked window in cramped London flat, turns slowly away from laptop showing spreadsheets, rubs temples with visible exhaustion. Camera pushes in gently from medium to close-up. Cool blue-grey tones, harsh fluorescent overhead mixing with grey daylight. Documentary realism, shallow depth of field.'"
     }},
     {{
       "act": 2,
       "title": "Section 2 H2 title",
       "factoid": "Compelling stat for section 2",
-      "visual_hint": "80-120 word cinematic scene for act 2 (the opportunity/discovery moment)"
+      "four_act_visual": "80-120 word cinematic scene for act 2 (the opportunity/discovery moment)"
     }},
     {{
       "act": 3,
       "title": "Section 3 H2 title",
       "factoid": "Compelling stat for section 3",
-      "visual_hint": "80-120 word cinematic scene for act 3 (the journey/process)"
+      "four_act_visual": "80-120 word cinematic scene for act 3 (the journey/process)"
     }},
     {{
       "act": 4,
       "title": "Section 4 H2 title",
       "factoid": "Compelling stat for section 4",
-      "visual_hint": "80-120 word cinematic scene for act 4 (the payoff/resolution)"
+      "four_act_visual": "80-120 word cinematic scene for act 4 (the payoff/resolution)"
     }}
   ],
   "callouts": [
@@ -612,7 +612,7 @@ After the Editorial Footer, include this JSON block for video thumbnail and comp
 
 ===== 4-ACT VIDEO FRAMEWORK (CRITICAL) =====
 
-Each section's visual_hint must follow this 4-act story structure for video generation:
+Each section's four_act_visual must follow this 4-act story structure for video generation:
 
 ACT 1 (0-3s) - {act_1_role}
   Mood: {act_1_mood}
@@ -731,8 +731,8 @@ The STRUCTURED DATA section is MANDATORY - without it, no video can be generated
             activity.logger.info(f"✅ Extracted {len(sections)} structured sections for 4-act video")
             for i, sec in enumerate(sections[:4]):
                 activity.logger.info(f"  Section {i+1}: {sec.get('title', 'Untitled')[:50]}...")
-                if sec.get('visual_hint'):
-                    activity.logger.info(f"    Visual hint: {sec['visual_hint'][:60]}...")
+                if sec.get('four_act_visual'):
+                    activity.logger.info(f"    Visual hint: {sec['four_act_visual'][:60]}...")
         else:
             activity.logger.warning(f"⚠️ No structured sections found - video generation may fail")
 

@@ -58,12 +58,12 @@ async def generate_four_act_video_prompt(
 
     4-ACT FRAMEWORK:
     - Article written FIRST with 4 sections
-    - Each section has a visual_hint (80-120 words, cinematic)
+    - Each section has a four_act_visual (80-120 words, cinematic)
     - This activity combines hints into unified 4-act video prompt
     - 12 seconds total = 4 acts × 3 seconds each
 
     Args:
-        article: Article dict containing four_act_content with visual_hints per act
+        article: Article dict containing four_act_content with four_act_visuals per act
         app: Application (relocation, placement, pe_news)
         video_model: Target model (seedance or wan-2.5)
 
@@ -112,17 +112,17 @@ async def generate_four_act_video_prompt(
     act_prompts = []
     for i, section in enumerate(sections[:4]):
         act_num = i + 1
-        visual_hint = section.get("visual_hint", "")
+        four_act_visual = section.get("four_act_visual", "")
         title = section.get("title", f"Section {act_num}")
 
         # Calculate timing: 3 seconds per act
         start_time = (act_num - 1) * 3
         end_time = act_num * 3
 
-        if visual_hint:
-            act_prompts.append(f"ACT {act_num} ({start_time}s-{end_time}s): {title}\n{visual_hint}")
+        if four_act_visual:
+            act_prompts.append(f"ACT {act_num} ({start_time}s-{end_time}s): {title}\n{four_act_visual}")
         else:
-            activity.logger.warning(f"Section {act_num} has no visual_hint")
+            activity.logger.warning(f"Section {act_num} has no four_act_visual")
             act_prompts.append(f"ACT {act_num} ({start_time}s-{end_time}s): {title}\n[Cinematic visual for: {title}]")
 
     acts_text = "\n\n".join(act_prompts)
@@ -146,7 +146,7 @@ VIDEO STRUCTURE: 12 seconds, 4 acts of 3 seconds each.
         prompt = prompt[:char_limit]
         was_truncated = True
 
-    acts_with_hints = len([s for s in sections[:4] if s.get("visual_hint")])
+    acts_with_hints = len([s for s in sections[:4] if s.get("four_act_visual")])
     activity.logger.info(f"Generated 4-act prompt: {len(prompt)} chars, {acts_with_hints}/4 acts with visual hints")
 
     return {
