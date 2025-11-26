@@ -130,9 +130,10 @@ from src.activities.generation.research_curation import (
 
 from src.activities.generation.media_prompts import (
     generate_media_prompts,  # Deprecated, kept for compatibility
-    generate_video_prompt,   # New: dedicated video prompt
-    generate_video_prompt_from_article,  # NEW: 4-act video prompt from article sections
-    generate_image_prompts,  # New: dedicated image prompts
+    generate_video_prompt,   # Legacy: single-scene prompt
+    generate_four_act_video_prompt,  # PRIMARY: 4-act video prompt from article sections
+    generate_video_prompt_from_article,  # Deprecated alias for generate_four_act_video_prompt
+    generate_image_prompts,  # Dedicated image prompts
 )
 
 from src.activities.generation.narrative_builder import (
@@ -310,9 +311,10 @@ async def main():
             generate_article_content,
             generate_narrative_article,  # 3-act narrative-driven article
             generate_media_prompts,  # Deprecated - kept for compatibility
-            generate_video_prompt,   # New: dedicated video prompt (model-aware)
-            generate_video_prompt_from_article,  # NEW: 4-act video prompt from article sections
-            generate_image_prompts,  # New: dedicated image prompts (style-matched)
+            generate_video_prompt,   # Legacy: single-scene prompt
+            generate_four_act_video_prompt,  # PRIMARY: 4-act video prompt from article sections
+            generate_video_prompt_from_article,  # Deprecated alias
+            generate_image_prompts,  # Dedicated image prompts
             build_3_act_narrative,   # New: video-first 3-act narrative structure
             curate_research_sources,
             calculate_completeness_score,

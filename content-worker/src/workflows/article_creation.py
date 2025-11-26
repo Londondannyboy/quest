@@ -642,7 +642,7 @@ class ArticleCreationWorkflow:
                 if structured_sections:
                     workflow.logger.info(f"Extracting 4-act prompt from {len(structured_sections)} structured sections")
                     video_prompt_result = await workflow.execute_activity(
-                        "generate_video_prompt_from_article",
+                        "generate_four_act_video_prompt",
                         args=[article, app, video_model],
                         start_to_close_timeout=timedelta(seconds=30)
                     )

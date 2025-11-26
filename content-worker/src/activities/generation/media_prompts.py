@@ -350,11 +350,11 @@ Generate the prompts now:"""
 
 
 # ============================================================================
-# DEPRECATED - Keep for backwards compatibility, will be removed later
+# 4-ACT VIDEO PROMPT - Primary video prompt generation method
 # ============================================================================
 
 @activity.defn
-async def generate_video_prompt_from_article(
+async def generate_four_act_video_prompt(
     article: Dict[str, Any],
     app: str,
     video_model: str = "seedance"
@@ -362,9 +362,9 @@ async def generate_video_prompt_from_article(
     """
     Generate a 4-act video prompt from article's structured sections.
 
-    ARTICLE-FIRST APPROACH: The article is written first with 4 sections,
-    each with a visual_hint. This activity combines those hints with the
-    app's media_style to create a unified 4-act video prompt.
+    4-ACT FRAMEWORK: Article written FIRST with 4 sections, each containing
+    a visual_hint. This activity combines those hints into a unified 4-act
+    video prompt (12 seconds = 4 acts × 3 seconds each).
 
     Args:
         article: Article dict containing structured_sections with visual_hints
@@ -455,6 +455,22 @@ VIDEO STRUCTURE: 12 seconds, 4 acts of 3 seconds each.
         "cost": 0  # No API call needed - just combining existing visual hints
     }
 
+
+# Backwards-compatible alias
+@activity.defn
+async def generate_video_prompt_from_article(
+    article: Dict[str, Any],
+    app: str,
+    video_model: str = "seedance"
+) -> Dict[str, Any]:
+    """DEPRECATED: Use generate_four_act_video_prompt instead."""
+    activity.logger.warning("generate_video_prompt_from_article is DEPRECATED - use generate_four_act_video_prompt")
+    return await generate_four_act_video_prompt(article, app, video_model)
+
+
+# ============================================================================
+# DEPRECATED - Legacy functions kept for backwards compatibility
+# ============================================================================
 
 @activity.defn
 async def generate_media_prompts(
