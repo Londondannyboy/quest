@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyprus Digital Nomad Visa: Your Complete Guide to Mediterranean Remote Work</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        mux-player { width: 100%; aspect-ratio: 16/9; }
+        .chapter-info { margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px; }
+        .act-section { margin: 40px 0; padding: 20px; border-left: 4px solid #3b82f6; }
+        .act-image { width: 100%; max-width: 600px; border-radius: 8px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h1>Cyprus Digital Nomad Visa: Your Complete Guide to Mediterranean Remote Work</h1>
+
+    <!-- Main video player with chapters and captions -->
+    <mux-player
+        playback-id="oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004"
+        metadata-video-title="Cyprus Digital Nomad Visa: Your Complete Guide to Mediterranean Remote Work"
+        accent-color="#3b82f6"
+        autoplay="muted"
+        default-show-captions
+    ></mux-player>
+
+    <div class="chapter-info">
+        <strong>Current Chapter:</strong> <span id="current-chapter">-</span>
+    </div>
+
+    <script>
+        const player = document.querySelector('mux-player');
+        const chapterDisplay = document.getElementById('current-chapter');
+
+        // Add chapters after player loads
+        player.addEventListener('loadedmetadata', () => {
+            player.addChapters([{"startTime": 0, "endTime": 3.3, "value": "The Dream"}, {"startTime": 3.3, "endTime": 6.6, "value": "The Path"}, {"startTime": 6.6, "endTime": 10.0, "value": "The Reality"}]);
+            console.log('Chapters added:', [{"startTime": 0, "endTime": 3.3, "value": "The Dream"}, {"startTime": 3.3, "endTime": 6.6, "value": "The Path"}, {"startTime": 6.6, "endTime": 10.0, "value": "The Reality"}]);
+        });
+
+        // Track chapter changes
+        player.addEventListener('chapterchange', () => {
+            const chapter = player.activeChapter;
+            if (chapter) {
+                chapterDisplay.textContent = chapter.value + ' (' + chapter.startTime + 's - ' + chapter.endTime + 's)';
+            }
+        });
+    </script>
+
+    <!-- Article sections with act images -->
+    <div class="act-section">
+        <h2>Act 1: The Dream</h2>
+        <img class="act-image" src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/thumbnail.jpg?time=0&width=1200" alt="Act 1">
+        <p>Content for Act 1...</p>
+    </div>
+
+    <div class="act-section">
+        <h2>Act 2: The Path</h2>
+        <img class="act-image" src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/thumbnail.jpg?time=3.3&width=1200" alt="Act 2">
+        <p>Content for Act 2...</p>
+    </div>
+
+    <div class="act-section">
+        <h2>Act 3: The Reality</h2>
+        <img class="act-image" src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/thumbnail.jpg?time=6.6&width=1200" alt="Act 3">
+        <p>Content for Act 3...</p>
+    </div>
+</body>
+</html>

@@ -647,14 +647,14 @@ class ArticleCreationWorkflow:
                         start_to_close_timeout=timedelta(seconds=30)
                     )
                 else:
-                    # Fallback to legacy prompt generation if no structured sections
-                    workflow.logger.warning("No structured sections - using legacy prompt generation")
-                    seed_hint = video_prompt if video_prompt else None
-                    video_prompt_result = await workflow.execute_activity(
-                        "generate_video_prompt",
-                        args=[article["title"], topic, app, video_model, seed_hint],
-                        start_to_close_timeout=timedelta(seconds=60)
-                    )
+                    # No structured sections = article generation failed or is broken
+                    workflow.logger.error("NO STRUCTURED SECTIONS - Article must have 4 sections with visual_hints for 4-act video")
+                    workflow.logger.error("Skipping video generation - article needs regeneration")
+                    video_prompt_result = {
+                        "prompt": "",
+                        "success": False,
+                        "error": "No structured_sections in article"
+                    }
 
                 if video_prompt_result.get("success"):
                     workflow.logger.info(f"4-act video prompt generated ({video_prompt_result.get('acts', 4)} acts): {video_prompt_result['prompt'][:100]}...")
@@ -797,6 +797,7 @@ class ArticleCreationWorkflow:
         # Generate image prompts AFTER video so they can reference the video's visual style
         image_prompts_result = None
         content_images_count = input_dict.get("content_images_count", 2)
+        video_context_url = None  # Initialize outside the if block
 
         if generate_images or (video_quality and video_count > 1):
             workflow.logger.info("Phase 10: Generating image prompts (after video, style-aware)")
@@ -806,7 +807,7 @@ class ArticleCreationWorkflow:
             if video_prompt_result and video_prompt_result.get("prompt"):
                 video_style_desc = video_prompt_result["prompt"][:200]  # First 200 chars as style hint
 
-            video_context_url = None
+            # Set video context URL if video was generated
             if video_quality and article.get("featured_asset_url"):
                 video_context_url = article["featured_asset_url"]
 

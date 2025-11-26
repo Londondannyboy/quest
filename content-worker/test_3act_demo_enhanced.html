@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3-Act Narrative - Enhanced Demo</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1, h2, h3 { color: #1a1a1a; }
+
+        .section {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        /* Timeline thumbnails */
+        .timeline-grid {
+            display: grid;
+            grid-template-columns: repeat(11, 1fr);
+            gap: 8px;
+            margin: 20px 0;
+        }
+        .timeline-thumb {
+            text-align: center;
+        }
+        .timeline-thumb img {
+            width: 100%;
+            border-radius: 4px;
+            border: 2px solid transparent;
+            transition: border-color 0.2s;
+        }
+        .timeline-thumb img:hover {
+            border-color: #3b82f6;
+        }
+        .timeline-thumb span {
+            font-size: 12px;
+            color: #666;
+        }
+        .timeline-thumb.act-start img {
+            border-color: #10b981;
+            border-width: 3px;
+        }
+
+        /* Act sections */
+        .act-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            padding: 24px;
+            border-left: 4px solid #3b82f6;
+            background: #fafafa;
+            border-radius: 0 8px 8px 0;
+            margin: 24px 0;
+        }
+        .act-section.act-1 { border-color: #ef4444; }
+        .act-section.act-2 { border-color: #f59e0b; }
+        .act-section.act-3 { border-color: #10b981; }
+
+        .act-media {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .act-content h3 {
+            margin-top: 0;
+        }
+
+        /* Video/GIF comparison */
+        .media-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .media-item {
+            text-align: center;
+        }
+        .media-item img, .media-item video {
+            width: 100%;
+            border-radius: 8px;
+        }
+        .media-item label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        /* Bounded video player */
+        .bounded-player {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .bounded-player video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .bounds-indicator {
+            display: none; /* Hidden - was just for debugging */
+        }
+
+        mux-player {
+            width: 100%;
+            aspect-ratio: 16/9;
+            border-radius: 8px;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .note {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin: 12px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>3-Act Narrative - Enhanced Demo</h1>
+    <p>Playback ID: <code>oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004</code></p>
+
+    <!-- SECTION 1: Full Timeline -->
+    <div class="section">
+        <h2>Video Timeline - Thumbnails Every Second</h2>
+        <p>See exactly what's in the video at each timestamp. Green borders = act start points.</p>
+
+        <div class="timeline-grid">
+            <div class="timeline-thumb act-start">
+                <img src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/thumbnail.jpg?time=0&width=200" alt="0s">
+                <span>0s (Act 1)</span>
+            </div>
+            <div class="timeline-thumb">
+                <img src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/thumbnail.jpg?time=1&width=200" alt="1s">
+                <span>1s</span>
+            </div>
+            <div class="timeline-thumb">
+                <img src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/thumbnail.jpg?time=2&width=200" alt="2s">
+                <span>2s</span>
+            </div>
+            <div class="timeline-thumb act-start">
+                <img src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/thumbnail.jpg?time=3.3&width=200" alt="3.3s">
+                <span>3.3s (Act 2)</span>
+            </div>
+            <div class="timeline-thumb">
+                <img src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/thumbnail.jpg?time=4&width=200" alt="4s">
+                <span>4s</span>
+            </div>
+            <div class="timeline-thumb">
+                <img src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/thumbnail.jpg?time=5&width=200" alt="5s">
+                <span>5s</span>
+            </div>
+            <div class="timeline-thumb">
+                <img src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/thumbnail.jpg?time=6&width=200" alt="6s">
+                <span>6s</span>
+            </div>
+            <div class="timeline-thumb act-start">
+                <img src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/thumbnail.jpg?time=6.6&width=200" alt="6.6s">
+                <span>6.6s (Act 3)</span>
+            </div>
+            <div class="timeline-thumb">
+                <img src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/thumbnail.jpg?time=7&width=200" alt="7s">
+                <span>7s</span>
+            </div>
+            <div class="timeline-thumb">
+                <img src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/thumbnail.jpg?time=8&width=200" alt="8s">
+                <span>8s</span>
+            </div>
+            <div class="timeline-thumb">
+                <img src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/thumbnail.jpg?time=9&width=200" alt="9s">
+                <span>9s</span>
+            </div>
+        </div>
+
+        <div class="note">
+            <strong>Diagnosis:</strong> If Act 2 (3.3s) looks like Act 1, the video generation didn't create distinct scenes.
+            This is a prompt/generation issue, not Mux. The timestamps are correct - the video content needs clearer transitions.
+        </div>
+    </div>
+
+    <!-- SECTION 2: Full Video with Chapters -->
+    <div class="section">
+        <h2>Full Video with Chapters</h2>
+        <mux-player
+            id="main-player"
+            playback-id="oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004"
+            accent-color="#3b82f6"
+            autoplay="muted"
+            default-show-captions
+        ></mux-player>
+        <div id="chapter-info" style="margin-top: 12px; padding: 12px; background: #f0f0f0; border-radius: 8px;">
+            Current chapter: <strong id="current-chapter">-</strong>
+        </div>
+    </div>
+
+    <!-- SECTION 3: Act-by-Act with Bounded Media -->
+    <h2>Article Sections with Bounded Video</h2>
+
+    <!-- ACT 1 -->
+    <div class="act-section act-1">
+        <div class="act-media">
+            <h3>Act 1: The Dream (0s - 3.3s)</h3>
+
+            <div class="media-comparison">
+                <div class="media-item">
+                    <img src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/animated.gif?start=0&end=3.3&width=400&fps=15" alt="Act 1 GIF">
+                    <label>Bounded GIF (0-3.3s) - Auto loops</label>
+                </div>
+                <div class="media-item">
+                    <img src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/thumbnail.jpg?time=1.5&width=400" alt="Act 1 Thumbnail">
+                    <label>Static Thumbnail (1.5s)</label>
+                </div>
+            </div>
+
+            <!-- Bounded Video Player -->
+            <div class="bounded-player">
+                <video id="act1-video" muted loop>
+                    <source src="https://stream.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004.m3u8" type="application/x-mpegURL">
+                </video>
+                <div class="bounds-indicator">Act 1: 0s - 3.3s</div>
+            </div>
+        </div>
+        <div class="act-content">
+            <h3>The Dream</h3>
+            <p>Young professional at desk in grey rainy city, laptop showing flight searches, dreaming expression gazing out window at grey sky.</p>
+            <ul>
+                <li>Expensive city life</li>
+                <li>Remote work possibility</li>
+                <li>Desire for change</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ACT 2 -->
+    <div class="act-section act-2">
+        <div class="act-media">
+            <h3>Act 2: The Path (3.3s - 6.6s)</h3>
+
+            <div class="media-comparison">
+                <div class="media-item">
+                    <img src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/animated.gif?start=3.3&end=6.6&width=400&fps=15" alt="Act 2 GIF">
+                    <label>Bounded GIF (3.3-6.6s) - Auto loops</label>
+                </div>
+                <div class="media-item">
+                    <img src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/thumbnail.jpg?time=5&width=400" alt="Act 2 Thumbnail">
+                    <label>Static Thumbnail (5s)</label>
+                </div>
+            </div>
+
+            <!-- Bounded Video Player -->
+            <div class="bounded-player">
+                <video id="act2-video" muted loop>
+                    <source src="https://stream.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004.m3u8" type="application/x-mpegURL">
+                </video>
+                <div class="bounds-indicator">Act 2: 3.3s - 6.6s</div>
+            </div>
+        </div>
+        <div class="act-content">
+            <h3>The Path</h3>
+            <p>Same person in warm sunlit room reviewing official documents, Cyprus visa application visible, passport on desk, smile emerging.</p>
+            <ul>
+                <li>€3,500/month requirement</li>
+                <li>Application process</li>
+                <li>12-month timeline</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ACT 3 -->
+    <div class="act-section act-3">
+        <div class="act-media">
+            <h3>Act 3: The Reality (6.6s - 10s)</h3>
+
+            <div class="media-comparison">
+                <div class="media-item">
+                    <img src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/animated.gif?start=6.6&end=10&width=400&fps=15" alt="Act 3 GIF">
+                    <label>Bounded GIF (6.6-10s) - Auto loops</label>
+                </div>
+                <div class="media-item">
+                    <img src="https://image.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004/thumbnail.jpg?time=8&width=400" alt="Act 3 Thumbnail">
+                    <label>Static Thumbnail (8s)</label>
+                </div>
+            </div>
+
+            <!-- Bounded Video Player -->
+            <div class="bounded-player">
+                <video id="act3-video" muted loop>
+                    <source src="https://stream.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004.m3u8" type="application/x-mpegURL">
+                </video>
+                <div class="bounds-indicator">Act 3: 6.6s - 10s</div>
+            </div>
+        </div>
+        <div class="act-content">
+            <h3>The Reality</h3>
+            <p>Happy professional working from Mediterranean seaside cafe at golden hour, laptop open, glass of local wine, turquoise sea in background.</p>
+            <ul>
+                <li>Low cost of living</li>
+                <li>330 days sunshine</li>
+                <li>Thriving expat community</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- SECTION 4: Options for Bounded Playback -->
+    <div class="section">
+        <h2>Options for Bounded Video Playback</h2>
+
+        <h3>Option 1: Animated GIFs (Current - Working)</h3>
+        <p>GIFs are automatically bounded: <code>?start=3.3&end=6.6</code></p>
+        <p>Pros: Simple, auto-loops, no JS needed. Cons: Lower quality, larger file size.</p>
+
+        <h3>Option 2: Mux Clips (Separate Assets)</h3>
+        <p>Create 3 separate Mux assets from the source video.</p>
+        <p>Pros: Full video quality, independent streams. Cons: 3x cost, more API calls.</p>
+
+        <h3>Option 3: JavaScript-Controlled Playback</h3>
+        <p>Use HLS.js to control playback bounds with JS.</p>
+        <p>Pros: Single asset, full quality. Cons: More complex, requires JS.</p>
+
+        <h3>Option 4: Mux Player with start-time (Partial)</h3>
+        <p>Mux Player supports <code>start-time="3.3"</code> but no native end-time.</p>
+        <p>Could combine with JS to pause at boundary.</p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script>
+        // Add chapters to main player
+        const mainPlayer = document.getElementById('main-player');
+        const chapterDisplay = document.getElementById('current-chapter');
+
+        mainPlayer.addEventListener('loadedmetadata', () => {
+            mainPlayer.addChapters([
+                { startTime: 0, endTime: 3.3, value: 'The Dream' },
+                { startTime: 3.3, endTime: 6.6, value: 'The Path' },
+                { startTime: 6.6, endTime: 10.0, value: 'The Reality' }
+            ]);
+        });
+
+        mainPlayer.addEventListener('chapterchange', () => {
+            const chapter = mainPlayer.activeChapter;
+            if (chapter) {
+                chapterDisplay.textContent = `${chapter.value} (${chapter.startTime}s - ${chapter.endTime}s)`;
+            }
+        });
+
+        // Bounded video playback using HLS.js
+        const hlsUrl = 'https://stream.mux.com/oLiUdJDqVaqKP159hIaeSBnvY3NZzuaGOwHpk8g59004.m3u8';
+
+        function setupBoundedPlayer(videoId, startTime, endTime) {
+            const video = document.getElementById(videoId);
+
+            if (Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(hlsUrl);
+                hls.attachMedia(video);
+
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    video.currentTime = startTime;
+                    video.play();
+                });
+
+                // Enforce bounds
+                video.addEventListener('timeupdate', () => {
+                    if (video.currentTime >= endTime || video.currentTime < startTime) {
+                        video.currentTime = startTime;
+                    }
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                // Safari native HLS
+                video.src = hlsUrl;
+                video.addEventListener('loadedmetadata', () => {
+                    video.currentTime = startTime;
+                    video.play();
+                });
+                video.addEventListener('timeupdate', () => {
+                    if (video.currentTime >= endTime || video.currentTime < startTime) {
+                        video.currentTime = startTime;
+                    }
+                });
+            }
+        }
+
+        // Initialize bounded players
+        setupBoundedPlayer('act1-video', 0, 3.3);
+        setupBoundedPlayer('act2-video', 3.3, 6.6);
+        setupBoundedPlayer('act3-video', 6.6, 10.0);
+    </script>
+</body>
+</html>

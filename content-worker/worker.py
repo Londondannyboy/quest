@@ -100,10 +100,6 @@ from src.activities.media.video_generation import (
     generate_sequential_content_videos,
 )
 
-from src.activities.media.intelligent_prompt_builder import (
-    build_intelligent_video_prompt,
-)
-
 from src.activities.media.mux_client import (
     upload_video_to_mux,
     upload_video_file_to_mux,
@@ -129,11 +125,8 @@ from src.activities.generation.research_curation import (
 )
 
 from src.activities.generation.media_prompts import (
-    generate_media_prompts,  # Deprecated, kept for compatibility
-    generate_video_prompt,   # Legacy: single-scene prompt
-    generate_four_act_video_prompt,  # PRIMARY: 4-act video prompt from article sections
-    generate_video_prompt_from_article,  # Deprecated alias for generate_four_act_video_prompt
-    generate_image_prompts,  # Dedicated image prompts
+    generate_four_act_video_prompt,  # PRIMARY: 4-act video from article sections
+    generate_image_prompts,  # Image prompts (style-matched)
 )
 
 from src.activities.generation.narrative_builder import (
@@ -297,7 +290,6 @@ async def main():
             generate_article_images_from_prompts,
             analyze_article_sections,
             # Video
-            build_intelligent_video_prompt,
             generate_article_video,
             generate_sequential_content_videos,  # Sequential videos using GIF as context
             get_video_cost_estimate,
@@ -310,11 +302,8 @@ async def main():
             generate_company_profile_v2,
             generate_article_content,
             generate_narrative_article,  # 3-act narrative-driven article
-            generate_media_prompts,  # Deprecated - kept for compatibility
-            generate_video_prompt,   # Legacy: single-scene prompt
-            generate_four_act_video_prompt,  # PRIMARY: 4-act video prompt from article sections
-            generate_video_prompt_from_article,  # Deprecated alias
-            generate_image_prompts,  # Dedicated image prompts
+            generate_four_act_video_prompt,  # PRIMARY: 4-act video from article sections
+            generate_image_prompts,  # Image prompts (style-matched)
             build_3_act_narrative,   # New: video-first 3-act narrative structure
             curate_research_sources,
             calculate_completeness_score,

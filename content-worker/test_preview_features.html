@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feature Preview - Branding + Factoids</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .thumbnail-overlay {
+            position: relative;
+            overflow: hidden;
+        }
+        .thumbnail-overlay img {
+            transition: transform 0.3s ease, filter 0.3s ease;
+        }
+        .thumbnail-overlay:hover img {
+            transform: scale(1.02);
+        }
+        .thumbnail-gradient {
+            background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 40%, transparent 100%);
+        }
+        .thumbnail-warm {
+            filter: saturate(1.1) brightness(1.05);
+        }
+        .thumbnail-cool {
+            filter: saturate(0.9) brightness(0.95) contrast(1.05);
+        }
+        .brand-badge {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .factoid {
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.05) 100%);
+            border-left: 3px solid #f59e0b;
+            padding: 8px 16px;
+            margin-top: -4px;
+            font-size: 14px;
+            color: #92400e;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-8">
+    <h1 class="text-3xl font-bold mb-2">Feature Preview: Branding + Factoids</h1>
+    <p class="text-gray-600 mb-8">Using existing Mux playback_id: a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc</p>
+
+    <div class="max-w-4xl mx-auto space-y-12">
+        <!-- Section 1 -->
+        <section>
+            <div class="thumbnail-overlay rounded-xl mb-2 thumbnail-cool">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=1.5&width=800" alt="Act 1" class="w-full aspect-[21/9] object-cover rounded-xl" />
+                <div class="absolute inset-0 thumbnail-gradient rounded-xl"></div>
+                <!-- Branding badge -->
+                <div class="absolute bottom-4 left-4">
+                    <span class="brand-badge text-white/90">Relocation Quest</span>
+                </div>
+                <!-- Section title -->
+                <div class="absolute bottom-4 left-28 right-6">
+                    <span class="text-amber-400 text-sm font-semibold">Act 1</span>
+                    <h2 class="text-2xl md:text-3xl font-bold text-white drop-shadow-lg">The London Grind: Why Remote Workers Are Burning Out</h2>
+                </div>
+            </div>
+            <div class="factoid rounded-b-lg mb-6">73% of UK remote workers report feeling trapped despite location flexibility</div>
+            <div class="bg-white rounded-lg p-6 shadow">
+                <p class="text-gray-700">Section content would appear here...</p>
+            </div>
+        </section>
+
+        <!-- Section 2 -->
+        <section>
+            <div class="thumbnail-overlay rounded-xl mb-2 thumbnail-warm">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=4.5&width=800" alt="Act 2" class="w-full aspect-[21/9] object-cover rounded-xl" />
+                <div class="absolute inset-0 thumbnail-gradient rounded-xl"></div>
+                <div class="absolute bottom-4 left-4">
+                    <span class="brand-badge text-white/90">Relocation Quest</span>
+                </div>
+                <div class="absolute bottom-4 left-28 right-6">
+                    <span class="text-amber-400 text-sm font-semibold">Act 2</span>
+                    <h2 class="text-2xl md:text-3xl font-bold text-white drop-shadow-lg">The Cyprus Opportunity: Tax Benefits That Actually Make Sense</h2>
+                </div>
+            </div>
+            <div class="factoid rounded-b-lg mb-6">Cyprus has 3,400 hours of sunshine annually vs UK's 1,500 hours</div>
+            <div class="bg-white rounded-lg p-6 shadow">
+                <p class="text-gray-700">Section content would appear here...</p>
+            </div>
+        </section>
+
+        <!-- Section 3 -->
+        <section>
+            <div class="thumbnail-overlay rounded-xl mb-2 thumbnail-warm">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=7.0&width=800" alt="Act 3" class="w-full aspect-[21/9] object-cover rounded-xl" />
+                <div class="absolute inset-0 thumbnail-gradient rounded-xl"></div>
+                <div class="absolute bottom-4 left-4">
+                    <span class="brand-badge text-white/90">Relocation Quest</span>
+                </div>
+                <div class="absolute bottom-4 left-28 right-6">
+                    <span class="text-amber-400 text-sm font-semibold">Act 3</span>
+                    <h2 class="text-2xl md:text-3xl font-bold text-white drop-shadow-lg">Making the Move: From Application to Arrival</h2>
+                </div>
+            </div>
+            <div class="factoid rounded-b-lg mb-6">Average processing time: 4-6 weeks • Application fee: ~€70</div>
+            <div class="bg-white rounded-lg p-6 shadow">
+                <p class="text-gray-700">Section content would appear here...</p>
+            </div>
+        </section>
+
+        <!-- Section 4 -->
+        <section>
+            <div class="thumbnail-overlay rounded-xl mb-2 thumbnail-warm">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=10.5&width=800" alt="Act 4" class="w-full aspect-[21/9] object-cover rounded-xl" />
+                <div class="absolute inset-0 thumbnail-gradient rounded-xl"></div>
+                <div class="absolute bottom-4 left-4">
+                    <span class="brand-badge text-white/90">Relocation Quest</span>
+                </div>
+                <div class="absolute bottom-4 left-28 right-6">
+                    <span class="text-amber-400 text-sm font-semibold">Act 4</span>
+                    <h2 class="text-2xl md:text-3xl font-bold text-white drop-shadow-lg">Life After the Move: What Six Months in Cyprus Actually Looks Like</h2>
+                </div>
+            </div>
+            <div class="factoid rounded-b-lg mb-6">Most digital nomads save €1,000-2,000 more per month than in the UK</div>
+            <div class="bg-white rounded-lg p-6 shadow">
+                <p class="text-gray-700">Section content would appear here...</p>
+            </div>
+        </section>
+    </div>
+
+    <div class="mt-12 text-center text-sm text-gray-500">
+        <p>Preview using existing playback_id - Full workflow running in background</p>
+    </div>
+</body>
+</html>

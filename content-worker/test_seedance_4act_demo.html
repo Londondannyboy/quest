@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seedance 4-Act Test - Cyprus Visa</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@mux/mux-player/dist/mux-player.css">
+    <script src="https://unpkg.com/@mux/mux-player"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-8">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-4xl font-bold mb-2">Seedance 4-Act Narrative Test</h1>
+        <p class="text-gray-400 mb-8">Cyprus Digital Nomad Visa - 12 seconds, 480p, $0.18</p>
+
+        <!-- Video Stats -->
+        <div class="bg-gray-800 rounded-lg p-4 mb-8">
+            <h2 class="text-xl font-semibold mb-2">Generation Stats</h2>
+            <div class="grid grid-cols-4 gap-4 text-sm">
+                <div><span class="text-gray-400">Model:</span> Seedance 1 Pro Fast</div>
+                <div><span class="text-gray-400">Duration:</span> 12 seconds</div>
+                <div><span class="text-gray-400">Resolution:</span> 480p</div>
+                <div><span class="text-gray-400">Cost:</span> $0.180</div>
+            </div>
+        </div>
+
+        <!-- Main Video Player with Chapters -->
+        <div class="mb-12">
+            <h2 class="text-2xl font-semibold mb-4">Full Video with Chapters</h2>
+            <mux-player
+                playback-id="a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc"
+                accent-color="#f59e0b"
+                autoplay="muted"
+                loop
+                default-show-captions
+                class="w-full rounded-lg"
+            ></mux-player>
+            <script>
+                document.querySelector('mux-player').addChapters([
+                    { startTime: 0, endTime: 3, value: "Act 1: The Grind" },
+                    { startTime: 3, endTime: 6, value: "Act 2: The Dream" },
+                    { startTime: 6, endTime: 9, value: "Act 3: The Journey" },
+                    { startTime: 9, endTime: 12, value: "Act 4: The Reality" }
+                ]);
+            </script>
+        </div>
+
+        <!-- 4 Act Thumbnails -->
+        <h2 class="text-2xl font-semibold mb-4">4-Act Thumbnails (at midpoints)</h2>
+        <div class="grid grid-cols-4 gap-4 mb-12">
+
+            <div class="bg-gray-800 rounded-lg overflow-hidden">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=1.5&width=800" class="w-full aspect-video object-cover" />
+                <div class="p-3">
+                    <h3 class="font-semibold">The Grind</h3>
+                    <p class="text-sm text-gray-400">0-3s (mid: 1.5s)</p>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 rounded-lg overflow-hidden">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=4.5&width=800" class="w-full aspect-video object-cover" />
+                <div class="p-3">
+                    <h3 class="font-semibold">The Dream</h3>
+                    <p class="text-sm text-gray-400">3-6s (mid: 4.5s)</p>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 rounded-lg overflow-hidden">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=7.5&width=800" class="w-full aspect-video object-cover" />
+                <div class="p-3">
+                    <h3 class="font-semibold">The Journey</h3>
+                    <p class="text-sm text-gray-400">6-9s (mid: 7.5s)</p>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 rounded-lg overflow-hidden">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=10.5&width=800" class="w-full aspect-video object-cover" />
+                <div class="p-3">
+                    <h3 class="font-semibold">The Reality</h3>
+                    <p class="text-sm text-gray-400">9-12s (mid: 10.5s)</p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Bounded Video Players per Act -->
+        <h2 class="text-2xl font-semibold mb-4">Bounded Video per Act (Auto-play)</h2>
+        <div class="grid grid-cols-2 gap-6 mb-12">
+
+            <div class="bg-gray-800 rounded-lg overflow-hidden">
+                <div class="relative">
+                    <video
+                        id="video-act_1"
+                        class="w-full aspect-video"
+                        muted
+                        playsinline
+                    ></video>
+                    <div class="absolute top-2 left-2 bg-black/70 px-2 py-1 rounded text-sm">
+                        The Grind
+                    </div>
+                </div>
+                <div class="p-3">
+                    <p class="text-sm text-gray-400">Bounded: 0s - 3s</p>
+                </div>
+            </div>
+            <script>
+                (function() {
+                    const video = document.getElementById('video-act_1');
+                    const hls = new Hls();
+                    hls.loadSource('https://stream.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc.m3u8');
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                        video.currentTime = 0;
+                        video.play();
+                    });
+                    video.addEventListener('timeupdate', function() {
+                        if (video.currentTime >= 3) {
+                            video.currentTime = 0;
+                        }
+                    });
+                })();
+            </script>
+
+            <div class="bg-gray-800 rounded-lg overflow-hidden">
+                <div class="relative">
+                    <video
+                        id="video-act_2"
+                        class="w-full aspect-video"
+                        muted
+                        playsinline
+                    ></video>
+                    <div class="absolute top-2 left-2 bg-black/70 px-2 py-1 rounded text-sm">
+                        The Dream
+                    </div>
+                </div>
+                <div class="p-3">
+                    <p class="text-sm text-gray-400">Bounded: 3s - 6s</p>
+                </div>
+            </div>
+            <script>
+                (function() {
+                    const video = document.getElementById('video-act_2');
+                    const hls = new Hls();
+                    hls.loadSource('https://stream.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc.m3u8');
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                        video.currentTime = 3;
+                        video.play();
+                    });
+                    video.addEventListener('timeupdate', function() {
+                        if (video.currentTime >= 6) {
+                            video.currentTime = 3;
+                        }
+                    });
+                })();
+            </script>
+
+            <div class="bg-gray-800 rounded-lg overflow-hidden">
+                <div class="relative">
+                    <video
+                        id="video-act_3"
+                        class="w-full aspect-video"
+                        muted
+                        playsinline
+                    ></video>
+                    <div class="absolute top-2 left-2 bg-black/70 px-2 py-1 rounded text-sm">
+                        The Journey
+                    </div>
+                </div>
+                <div class="p-3">
+                    <p class="text-sm text-gray-400">Bounded: 6s - 9s</p>
+                </div>
+            </div>
+            <script>
+                (function() {
+                    const video = document.getElementById('video-act_3');
+                    const hls = new Hls();
+                    hls.loadSource('https://stream.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc.m3u8');
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                        video.currentTime = 6;
+                        video.play();
+                    });
+                    video.addEventListener('timeupdate', function() {
+                        if (video.currentTime >= 9) {
+                            video.currentTime = 6;
+                        }
+                    });
+                })();
+            </script>
+
+            <div class="bg-gray-800 rounded-lg overflow-hidden">
+                <div class="relative">
+                    <video
+                        id="video-act_4"
+                        class="w-full aspect-video"
+                        muted
+                        playsinline
+                    ></video>
+                    <div class="absolute top-2 left-2 bg-black/70 px-2 py-1 rounded text-sm">
+                        The Reality
+                    </div>
+                </div>
+                <div class="p-3">
+                    <p class="text-sm text-gray-400">Bounded: 9s - 12s</p>
+                </div>
+            </div>
+            <script>
+                (function() {
+                    const video = document.getElementById('video-act_4');
+                    const hls = new Hls();
+                    hls.loadSource('https://stream.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc.m3u8');
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                        video.currentTime = 9;
+                        video.play();
+                    });
+                    video.addEventListener('timeupdate', function() {
+                        if (video.currentTime >= 12) {
+                            video.currentTime = 9;
+                        }
+                    });
+                })();
+            </script>
+
+        </div>
+
+        <!-- Section Image Examples with Overlay -->
+        <h2 class="text-2xl font-semibold mb-4">Section Images with Title Overlay (Astro/CSS Demo)</h2>
+        <div class="grid grid-cols-4 gap-4 mb-12">
+
+            <div class="relative overflow-hidden rounded-lg">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=1.5&width=800" class="w-full aspect-video object-cover" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+                <div class="absolute bottom-2 left-2 right-2">
+                    <p class="text-white font-semibold text-sm drop-shadow-lg">The European Titans</p>
+                    <p class="text-gray-300 text-xs">@1.5s</p>
+                </div>
+            </div>
+
+            <div class="relative overflow-hidden rounded-lg">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=2.5&width=800" class="w-full aspect-video object-cover" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+                <div class="absolute bottom-2 left-2 right-2">
+                    <p class="text-white font-semibold text-sm drop-shadow-lg">Rising Stars</p>
+                    <p class="text-gray-300 text-xs">@2.5s</p>
+                </div>
+            </div>
+
+            <div class="relative overflow-hidden rounded-lg">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=4.5&width=800" class="w-full aspect-video object-cover" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+                <div class="absolute bottom-2 left-2 right-2">
+                    <p class="text-white font-semibold text-sm drop-shadow-lg">Application Masterclass</p>
+                    <p class="text-gray-300 text-xs">@4.5s</p>
+                </div>
+            </div>
+
+            <div class="relative overflow-hidden rounded-lg">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=5.5&width=800" class="w-full aspect-video object-cover" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+                <div class="absolute bottom-2 left-2 right-2">
+                    <p class="text-white font-semibold text-sm drop-shadow-lg">Tax Labyrinth</p>
+                    <p class="text-gray-300 text-xs">@5.5s</p>
+                </div>
+            </div>
+
+            <div class="relative overflow-hidden rounded-lg">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=7.5&width=800" class="w-full aspect-video object-cover" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+                <div class="absolute bottom-2 left-2 right-2">
+                    <p class="text-white font-semibold text-sm drop-shadow-lg">Hidden Costs</p>
+                    <p class="text-gray-300 text-xs">@7.5s</p>
+                </div>
+            </div>
+
+            <div class="relative overflow-hidden rounded-lg">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=8.5&width=800" class="w-full aspect-video object-cover" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+                <div class="absolute bottom-2 left-2 right-2">
+                    <p class="text-white font-semibold text-sm drop-shadow-lg">Future Trends</p>
+                    <p class="text-gray-300 text-xs">@8.5s</p>
+                </div>
+            </div>
+
+            <div class="relative overflow-hidden rounded-lg">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=10.5&width=800" class="w-full aspect-video object-cover" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+                <div class="absolute bottom-2 left-2 right-2">
+                    <p class="text-white font-semibold text-sm drop-shadow-lg">Making It Reality</p>
+                    <p class="text-gray-300 text-xs">@10.5s</p>
+                </div>
+            </div>
+
+            <div class="relative overflow-hidden rounded-lg">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=11.5&width=800" class="w-full aspect-video object-cover" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+                <div class="absolute bottom-2 left-2 right-2">
+                    <p class="text-white font-semibold text-sm drop-shadow-lg">Sources</p>
+                    <p class="text-gray-300 text-xs">@11.5s</p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- GIFs per Act -->
+        <h2 class="text-2xl font-semibold mb-4">Animated GIFs per Act</h2>
+        <div class="grid grid-cols-4 gap-4 mb-12">
+
+            <div class="bg-gray-800 rounded-lg overflow-hidden">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/animated.gif?start=0&end=3&width=480&fps=15" class="w-full aspect-video object-cover" />
+                <div class="p-2 text-center">
+                    <p class="text-sm font-semibold">The Grind</p>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 rounded-lg overflow-hidden">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/animated.gif?start=3&end=6&width=480&fps=15" class="w-full aspect-video object-cover" />
+                <div class="p-2 text-center">
+                    <p class="text-sm font-semibold">The Dream</p>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 rounded-lg overflow-hidden">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/animated.gif?start=6&end=9&width=480&fps=15" class="w-full aspect-video object-cover" />
+                <div class="p-2 text-center">
+                    <p class="text-sm font-semibold">The Journey</p>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 rounded-lg overflow-hidden">
+                <img src="https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/animated.gif?start=9&end=12&width=480&fps=15" class="w-full aspect-video object-cover" />
+                <div class="p-2 text-center">
+                    <p class="text-sm font-semibold">The Reality</p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- JSON Data -->
+        <h2 class="text-2xl font-semibold mb-4">video_narrative JSON (for database)</h2>
+        <pre class="bg-gray-800 rounded-lg p-4 overflow-x-auto text-sm mb-8">
+{
+  "stream_url": "https://stream.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc.m3u8",
+  "playback_id": "a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc",
+  "acts": {
+    "act_1": {
+      "title": "The Grind",
+      "start": 0,
+      "end": 3,
+      "thumbnail": "https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=1.5&width=800",
+      "gif": "https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/animated.gif?start=0&end=3&width=480&fps=15"
+    },
+    "act_2": {
+      "title": "The Dream",
+      "start": 3,
+      "end": 6,
+      "thumbnail": "https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=4.5&width=800",
+      "gif": "https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/animated.gif?start=3&end=6&width=480&fps=15"
+    },
+    "act_3": {
+      "title": "The Journey",
+      "start": 6,
+      "end": 9,
+      "thumbnail": "https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=7.5&width=800",
+      "gif": "https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/animated.gif?start=6&end=9&width=480&fps=15"
+    },
+    "act_4": {
+      "title": "The Reality",
+      "start": 9,
+      "end": 12,
+      "thumbnail": "https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=10.5&width=800",
+      "gif": "https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/animated.gif?start=9&end=12&width=480&fps=15"
+    }
+  },
+  "section_thumbnails": [
+    {
+      "time": 1.5,
+      "url": "https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=1.5&width=800"
+    },
+    {
+      "time": 2.5,
+      "url": "https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=2.5&width=800"
+    },
+    {
+      "time": 4.5,
+      "url": "https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=4.5&width=800"
+    },
+    {
+      "time": 5.5,
+      "url": "https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=5.5&width=800"
+    },
+    {
+      "time": 7.5,
+      "url": "https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=7.5&width=800"
+    },
+    {
+      "time": 8.5,
+      "url": "https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=8.5&width=800"
+    },
+    {
+      "time": 10.5,
+      "url": "https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=10.5&width=800"
+    },
+    {
+      "time": 11.5,
+      "url": "https://image.mux.com/a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc/thumbnail.jpg?time=11.5&width=800"
+    }
+  ]
+}
+        </pre>
+
+        <div class="text-center text-gray-500 text-sm mt-12">
+            <p>Generated with Seedance 1 Pro Fast | 12s 480p | ~$0.18</p>
+            <p>Playback ID: a2WovgYswGqojcLdc6Mv8YabXbHsU02MTPHoDbcE700Yc</p>
+        </div>
+    </div>
+</body>
+</html>
