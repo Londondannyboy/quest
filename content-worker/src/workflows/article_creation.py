@@ -680,7 +680,7 @@ class ArticleCreationWorkflow:
                 "generate_four_act_video",
                 args=[
                     article["title"],
-                    article["content"],  # Only used as fallback if no prompt
+                    "",  # Content not needed - we always have 4-act prompt
                     app,
                     video_quality,
                     video_duration,  # 12 seconds for 4-act structure
