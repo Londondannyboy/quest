@@ -505,20 +505,23 @@ async def trigger_company_worker_workflow(
 # ============================================================================
 
 class ArticleCreationRequest(BaseModel):
-    """Request to trigger ArticleCreationWorkflow (content-worker service)"""
+    """
+    Request to trigger ArticleCreationWorkflow (4-act article + video)
+
+    4-ACT WORKFLOW:
+    - Article written FIRST with 4 sections (each has four_act_visual_hint)
+    - 4-act video prompt generated FROM article sections
+    - Single 12-second video (4 acts × 3 seconds)
+    - Thumbnails extracted from Mux at each act timestamp
+    """
     topic: str = Field(..., description="Article topic or subject", min_length=5)
-    article_type: str = Field(default="news", description="Type: news, guide, comparison")
-    app: str = Field(default="placement", description="App context: placement, relocation, chief-of-staff, gtm, newsroom")
+    article_type: str = Field(default="news", description="Type: news, guide, comparison, narrative, listicle")
+    app: str = Field(default="placement", description="App context: placement, relocation, pe_news")
     target_word_count: int = Field(default=1500, ge=500, le=3000, description="Target word count")
     jurisdiction: Optional[str] = Field(default="UK", description="Geo-targeting: UK, US, SG, EU, etc.")
     num_research_sources: int = Field(default=10, ge=3, le=15, description="Number of research sources")
-    generate_images: bool = Field(default=True, description="Generate contextual images")
-    video_quality: Optional[str] = Field(default=None, description="Video quality: None, 'low', 'medium', 'high'. If set, generates video for hero")
-    video_model: str = Field(default="seedance", description="Video model: 'seedance' or 'wan-2.5'")
-    video_prompt: Optional[str] = Field(default=None, description="Custom video prompt. If not provided, auto-generated from article content")
-    video_count: int = Field(default=1, ge=1, le=3, description="Number of videos: 1 = hero only, 2-3 = hero + content videos")
-    content_images_count: int = Field(default=2, ge=0, le=5, description="Number of content images embedded in article")
-    skip_zep_sync: bool = Field(default=False, description="Skip Zep knowledge graph sync")
+    video_quality: Optional[str] = Field(default="medium", description="Video quality: 'low', 'medium', 'high'. Generates 4-act 12s video")
+    video_model: str = Field(default="seedance", description="Video model: 'seedance' (fast) or 'wan-2.5' (better text)")
     slug: Optional[str] = Field(default=None, description="Custom URL slug for SEO (e.g., 'my-article-title'). If not provided, generated from title.")
 
 
@@ -565,7 +568,7 @@ async def trigger_article_creation_workflow(
     workflow_name = "ArticleCreationWorkflow"
 
     try:
-        # Prepare workflow input matching ArticleCreationWorkflow expected format
+        # Prepare workflow input for 4-act article + video workflow
         workflow_input = {
             "topic": request.topic,
             "article_type": request.article_type,
@@ -573,12 +576,8 @@ async def trigger_article_creation_workflow(
             "target_word_count": request.target_word_count,
             "jurisdiction": request.jurisdiction,
             "num_research_sources": request.num_research_sources,
-            "generate_images": request.generate_images,
-            "video_quality": request.video_quality,
-            "video_model": request.video_model,
-            "video_prompt": request.video_prompt,
-            "video_count": request.video_count,
-            "content_images_count": request.content_images_count,
+            "video_quality": request.video_quality,  # Triggers 4-act 12s video
+            "video_model": request.video_model,  # seedance or wan-2.5
             "slug": request.slug,  # Optional custom slug for SEO
         }
 
