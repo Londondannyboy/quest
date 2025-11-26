@@ -93,15 +93,12 @@ async def generate_four_act_video_prompt(
             "cost": 0
         }
 
-    # Get app config for styling
+    # Get app config for no-text rule only
+    # Note: media_style_details removed - too verbose, acts already have specific style
     app_config = APP_CONFIGS.get(app)
     if app_config:
-        media_style = app_config.media_style
-        media_style_details = app_config.media_style_details
         no_text_rule = app_config.article_theme.video_prompt_template.no_text_rule
     else:
-        media_style = "Cinematic, professional, high production value"
-        media_style_details = "High quality, visually compelling imagery."
         no_text_rule = "CRITICAL: NO text, words, letters, numbers anywhere. Purely visual."
 
     # Get model limits
@@ -109,6 +106,7 @@ async def generate_four_act_video_prompt(
     char_limit = model_info.get("char_limit", 2000)
 
     # Build the 4-act prompt from visual hints
+    # Each four_act_visual_hint already contains complete style guidance
     act_prompts = []
     for i, section in enumerate(sections[:4]):
         act_num = i + 1
@@ -127,13 +125,10 @@ async def generate_four_act_video_prompt(
 
     acts_text = "\n\n".join(act_prompts)
 
-    # Build the combined prompt
+    # Build the combined prompt - minimal header, acts have all the detail
     prompt = f"""{no_text_rule}
 
-STYLE: {media_style}
-{media_style_details}
-
-VIDEO STRUCTURE: 12 seconds, 4 acts of 3 seconds each.
+VIDEO: 12 seconds, 4 acts × 3 seconds each.
 
 {acts_text}
 
