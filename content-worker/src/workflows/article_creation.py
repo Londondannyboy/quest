@@ -629,44 +629,36 @@ class ArticleCreationWorkflow:
             workflow.logger.warning(f"Zep sync failed: {zep_result.get('error')}")
 
         # ===== PHASE 8: GENERATE VIDEO PROMPT FROM ARTICLE (article-first) =====
-        # NEW: Generate video prompt AFTER article generation using structured sections
-        # Article has 4 sections, each with four_act_visual_hint - combine into 4-act video prompt
+        # 4-ACT: Generate video prompt FROM article's four_act_content sections
+        # Each section has four_act_visual_hint → combined into 4-act video prompt
         video_prompt_result = None
         if video_quality:
             workflow.logger.info(f"Phase 8: Generating 4-act video prompt from article sections")
 
-            # Check if user provided a full prompt (override)
-            user_prompt_words = len(video_prompt.split()) if video_prompt else 0
+            # Extract 4-act prompt from structured sections
+            four_act_content = article.get("four_act_content", [])
 
-            if video_prompt and user_prompt_words >= 60:
-                # User provided a complete prompt - use verbatim
-                workflow.logger.info(f"Using complete custom prompt ({user_prompt_words} words)")
-                video_prompt_result = {"prompt": video_prompt, "success": True, "cost": 0}
+            if four_act_content:
+                workflow.logger.info(f"Extracting 4-act prompt from {len(four_act_content)} structured sections")
+                video_prompt_result = await workflow.execute_activity(
+                    "generate_four_act_video_prompt",
+                    args=[article, app, video_model],
+                    start_to_close_timeout=timedelta(seconds=30)
+                )
             else:
-                # NEW: Use article-first approach - extract from structured sections
-                four_act_content = article.get("four_act_content", [])
+                # No structured sections = article generation failed or is broken
+                workflow.logger.error("NO STRUCTURED SECTIONS - Article must have 4 sections with four_act_visual_hint for 4-act video")
+                workflow.logger.error("Skipping video generation - article needs regeneration")
+                video_prompt_result = {
+                    "prompt": "",
+                    "success": False,
+                    "error": "No four_act_content in article"
+                }
 
-                if four_act_content:
-                    workflow.logger.info(f"Extracting 4-act prompt from {len(four_act_content)} structured sections")
-                    video_prompt_result = await workflow.execute_activity(
-                        "generate_four_act_video_prompt",
-                        args=[article, app, video_model],
-                        start_to_close_timeout=timedelta(seconds=30)
-                    )
-                else:
-                    # No structured sections = article generation failed or is broken
-                    workflow.logger.error("NO STRUCTURED SECTIONS - Article must have 4 sections with four_act_visual_hint for 4-act video")
-                    workflow.logger.error("Skipping video generation - article needs regeneration")
-                    video_prompt_result = {
-                        "prompt": "",
-                        "success": False,
-                        "error": "No four_act_content in article"
-                    }
-
-                if video_prompt_result.get("success"):
-                    workflow.logger.info(f"4-act video prompt generated ({video_prompt_result.get('acts', 4)} acts): {video_prompt_result['prompt'][:100]}...")
-                else:
-                    workflow.logger.warning(f"Video prompt generation failed: {video_prompt_result.get('error')}")
+            if video_prompt_result.get("success"):
+                workflow.logger.info(f"4-act video prompt generated ({video_prompt_result.get('acts', 4)} acts): {video_prompt_result['prompt'][:100]}...")
+            else:
+                workflow.logger.warning(f"Video prompt generation failed: {video_prompt_result.get('error')}")
 
         # ===== PHASE 9: GENERATE 4-ACT VIDEO =====
         if video_quality:
