@@ -197,22 +197,39 @@ async def generate_article_content(
             media_style = app_config.media_style
             media_style_details = app_config.media_style_details
 
-            # Get 4-act video template from app config
-            video_template = app_config.article_theme.video_prompt_template
-            act_1_role = video_template.act_1_role
-            act_1_mood = video_template.act_1_mood
-            act_1_example = video_template.act_1_example
-            act_2_role = video_template.act_2_role
-            act_2_mood = video_template.act_2_mood
-            act_2_example = video_template.act_2_example
-            act_3_role = video_template.act_3_role
-            act_3_mood = video_template.act_3_mood
-            act_3_example = video_template.act_3_example
-            act_4_role = video_template.act_4_role
-            act_4_mood = video_template.act_4_mood
-            act_4_example = video_template.act_4_example
-            no_text_rule = video_template.no_text_rule
-            technical_notes = video_template.technical_notes
+            # Get 4-act video template from app config (multi-template format)
+            video_prompt_template = app_config.article_theme.video_prompt_template
+            # Get the default template (or first available)
+            default_template = video_prompt_template.get_template()
+            if default_template:
+                act_1_role = default_template.act_1_role
+                act_1_mood = default_template.act_1_mood
+                act_1_example = default_template.act_1_example
+                act_2_role = default_template.act_2_role
+                act_2_mood = default_template.act_2_mood
+                act_2_example = default_template.act_2_example
+                act_3_role = default_template.act_3_role
+                act_3_mood = default_template.act_3_mood
+                act_3_example = default_template.act_3_example
+                act_4_role = default_template.act_4_role
+                act_4_mood = default_template.act_4_mood
+                act_4_example = default_template.act_4_example
+            else:
+                # Fallback if no templates defined
+                act_1_role = "THE SETUP - Problem/current situation/challenge"
+                act_1_mood = "Tension, stakes, context"
+                act_1_example = ""
+                act_2_role = "THE OPPORTUNITY - Discovery/solution/possibility"
+                act_2_mood = "Hope, revelation, turning point"
+                act_2_example = ""
+                act_3_role = "THE JOURNEY - Action/process/transition"
+                act_3_mood = "Movement, progress, momentum"
+                act_3_example = ""
+                act_4_role = "THE PAYOFF - Success/resolution/new reality"
+                act_4_mood = "Achievement, satisfaction, forward-looking"
+                act_4_example = ""
+            no_text_rule = video_prompt_template.no_text_rule
+            technical_notes = video_prompt_template.technical_notes
         else:
             app_desc = f"a professional content platform called {app}"
             target_audience = "professionals interested in this topic"
