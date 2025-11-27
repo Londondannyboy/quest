@@ -364,7 +364,30 @@ Then the full article body in HTML with Tailwind CSS:
    - This signals credibility to Google immediately
    - Lower authority sources (blogs, smaller news) can appear later in the article
 
-3. **CRITICAL: Minimum Word Count ({target_word_count}+ words, aim for 3000-4000)**
+   **INTERNAL LINKS (Critical for SEO and Engagement):**
+   - Link to related topics on our site using relative URLs: <a href="/portugal-d7-visa-guide">Portugal's D7 visa</a>
+   - Include 3-5 internal links naturally within the content
+   - Link text should be descriptive (not "click here") and relevant to the destination
+   - Good: "Similar to <a href="/portugal-d7-visa-guide">Portugal's popular D7 visa program</a>, Cyprus offers..."
+   - Use context like "For comparison, see our guide to [destination]" or "Related: [topic]"
+
+3. **KEY TERM HIGHLIGHTING (Bold Important Information)**
+   - Use <strong> tags to highlight key statistics, requirements, and critical information
+   - Bold important numbers: <strong>€3,500 monthly income</strong>
+   - Bold key requirements: <strong>valid for 3 years</strong>
+   - Bold warnings/critical info: <strong>must apply before arrival</strong>
+   - 3-5 bolded items per section for scannable content
+   - Don't over-bold - only the most important facts
+
+4. **PARAGRAPH FORMATTING (Critical for Readability)**
+   - NEVER write more than 3 sentences in a single paragraph
+   - Each paragraph should be 50-80 words maximum
+   - Add a blank line between every paragraph (double line break)
+   - Use short paragraphs for impact - break up dense information
+   - Good: "The visa costs €500. Processing takes 6-8 weeks. Apply at least 3 months before your planned move."
+   - Bad: Long paragraph with 5+ sentences cramming multiple topics
+
+5. **CRITICAL: Minimum Word Count ({target_word_count}+ words, aim for 3000-4000)**
    - This article MUST be at least {target_word_count} words - aim for 3000-4000 words
    - You have EXTENSIVE research material - USE ALL OF IT
    - Do NOT write a summary - write a COMPREHENSIVE, AUTHORITATIVE article
@@ -377,7 +400,7 @@ Then the full article body in HTML with Tailwind CSS:
    - Cover edge cases, exceptions, requirements, and practical considerations
    - If the research provides information, USE ALL OF IT - integrate everything
 
-4. **Media Prompts (REQUIRED - 4 prompts minimum for video/image generation)**
+6. **Media Prompts (REQUIRED - 4 prompts minimum for video/image generation)**
    After the article content, add prompts for video and image generation:
 
    ---MEDIA PROMPTS---
