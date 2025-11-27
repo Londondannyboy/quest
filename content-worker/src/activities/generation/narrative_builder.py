@@ -1,4 +1,17 @@
 """
+DEPRECATED: 3-Act Narrative Builder
+
+This module is DEPRECATED - superseded by 4-act workflow in ArticleCreationWorkflow.
+
+The 4-act structure (12 seconds = 4 acts × 3 seconds) in generate_four_act_article
+provides better video/article alignment through four_act_visual_hint in each section.
+
+DO NOT USE THIS MODULE for new development.
+Kept for backwards compatibility only.
+
+---
+
+Original description:
 3-Act Narrative Builder for Video-First Storytelling
 
 Every story has stakes. Someone wins, someone loses. That's engagement.
@@ -12,6 +25,11 @@ NARRATIVE TEMPLATES:
 - COMPANY: Origin → Solution → Verdict (profiles, case studies)
 - GUIDE: Problem → Process → Outcome (how-tos, tutorials)
 """
+import warnings
+warnings.warn(
+    "narrative_builder.py is DEPRECATED. Use 4-act workflow (generate_four_act_article) instead.",
+    DeprecationWarning
+)
 
 from temporalio import activity
 from typing import Dict, Any, List, Optional
@@ -200,10 +218,14 @@ async def build_3_act_narrative(
     title_hint: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Build a 3-act narrative structure from curated research.
+    DEPRECATED: Use generate_four_act_article instead.
 
-    This is the KEY activity that drives both video and article generation.
-    The narrative structure ensures video + text tell ONE unified story.
+    This 3-act function is superseded by the 4-act workflow which provides:
+    - Better video/article alignment (4 acts × 3 seconds = 12s video)
+    - four_act_visual_hint in each section for video generation
+    - Integrated article + video prompt generation
+
+    This function is kept for backwards compatibility only.
 
     Args:
         topic: The article topic

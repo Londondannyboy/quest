@@ -514,3 +514,224 @@ async def dataforseo_keyword_difficulty(
         except Exception as e:
             activity.logger.error(f"DataForSEO difficulty exception: {e}")
             return {"results": [], "total": 0, "cost": 0, "error": str(e)}
+
+
+# Motivation patterns for categorizing keywords
+MOTIVATION_PATTERNS = {
+    "digital-nomad": ["digital nomad", "remote work", "freelancer", "work remotely", "nomad visa"],
+    "retirement": ["retire", "retirement", "pension", "retiree"],
+    "corporate": ["corporate", "business relocation", "company transfer", "expat assignment"],
+    "wealth": ["tax", "non-dom", "investment visa", "banking", "golden visa", "investor"],
+    "family": ["family", "schools", "children", "education", "international school"],
+    "lifestyle": ["cost of living", "quality of life", "expat life", "living abroad"],
+    "trust": ["trust", "asset protection", "estate planning", "offshore"],
+    "new-start": ["move abroad", "start over", "new life", "emigrate"],
+}
+
+PLANNING_PATTERNS = {
+    "visa": ["visa", "permit", "residency", "citizenship", "immigration"],
+    "tax": ["tax", "taxation", "income tax", "corporate tax"],
+    "healthcare": ["healthcare", "health insurance", "medical", "hospital"],
+    "housing": ["cost of living", "rent", "property", "real estate", "apartment"],
+    "banking": ["bank account", "banking", "transfer money"],
+    "education": ["school", "education", "university"],
+    "business": ["company formation", "incorporation", "start business", "freelance"],
+}
+
+
+def categorize_keyword(keyword: str) -> dict[str, str | None]:
+    """Categorize a keyword by motivation and planning type."""
+    keyword_lower = keyword.lower()
+
+    motivation = None
+    for mot, patterns in MOTIVATION_PATTERNS.items():
+        if any(p in keyword_lower for p in patterns):
+            motivation = mot
+            break
+
+    planning_type = None
+    for pt, patterns in PLANNING_PATTERNS.items():
+        if any(p in keyword_lower for p in patterns):
+            planning_type = pt
+            break
+
+    return {"motivation": motivation, "planning_type": planning_type}
+
+
+@activity.defn
+async def research_country_seo_keywords(
+    country_name: str,
+    region: str = "UK",
+    limit_per_seed: int = 30
+) -> dict[str, Any]:
+    """
+    Research relocation-related keywords for a specific country.
+
+    Queries DataForSEO with relocation-specific seed keywords,
+    categorizes results by motivation and planning type.
+
+    Args:
+        country_name: Country to research (e.g., "Cyprus", "Portugal")
+        region: Target region for search volume (UK, US, etc.)
+        limit_per_seed: Max keywords to return per seed query
+
+    Returns:
+        Dict structured for countries.seo_keywords JSONB:
+        - primary_keywords: High volume keywords (>500)
+        - long_tail: Medium volume keywords (50-500)
+        - questions: Question-format keywords
+        - by_motivation: Keywords grouped by motivation
+        - by_planning_type: Keywords grouped by planning type
+        - total_volume: Sum of all keyword volumes
+        - researched_at: ISO timestamp
+    """
+    from datetime import datetime
+
+    # Seed queries covering relocation motivations
+    seed_queries = [
+        f"{country_name} digital nomad visa",
+        f"{country_name} relocation",
+        f"{country_name} expat tax",
+        f"move to {country_name}",
+        f"retire in {country_name}",
+        f"{country_name} cost of living",
+        f"{country_name} visa requirements",
+        f"{country_name} corporate tax",
+        f"{country_name} golden visa",
+        f"living in {country_name}",
+    ]
+
+    all_keywords = []
+    total_cost = 0
+    seen_keywords = set()
+
+    url = "https://api.dataforseo.com/v3/keywords_data/google_ads/keywords_for_keywords/live"
+    auth = get_auth_header()
+    location_code = LOCATION_CODES.get(region, 2826)
+
+    async with aiohttp.ClientSession() as session:
+        for seed in seed_queries:
+            payload = [{
+                "keywords": [seed],
+                "location_code": location_code,
+                "language_code": "en",
+                "include_seed_keyword": True,
+                "sort_by": "search_volume"
+            }]
+
+            try:
+                async with session.post(
+                    url,
+                    json=payload,
+                    headers={
+                        "Authorization": auth,
+                        "Content-Type": "application/json"
+                    },
+                    timeout=aiohttp.ClientTimeout(total=60)
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+
+                        if data.get("tasks") and data["tasks"][0].get("result"):
+                            results = data["tasks"][0]["result"]
+                            total_cost += data["tasks"][0].get("cost", 0)
+
+                            for item in results[:limit_per_seed]:
+                                kw = item.get("keyword", "")
+
+                                # Skip if already seen or doesn't mention the country
+                                if kw in seen_keywords:
+                                    continue
+                                if country_name.lower() not in kw.lower():
+                                    continue
+
+                                seen_keywords.add(kw)
+
+                                search_volume = item.get("search_volume", 0) or 0
+                                competition_index = item.get("competition_index", 0) or 0
+                                cpc = item.get("cpc", 0) or 0
+
+                                category = categorize_keyword(kw)
+
+                                all_keywords.append({
+                                    "keyword": kw,
+                                    "volume": search_volume,
+                                    "competition": competition_index,
+                                    "cpc": round(cpc, 2),
+                                    "motivation": category["motivation"],
+                                    "planning_type": category["planning_type"],
+                                })
+
+                        activity.logger.info(f"SEO research: {seed} returned keywords")
+                    else:
+                        activity.logger.warning(f"SEO research failed for '{seed}': HTTP {response.status}")
+
+            except Exception as e:
+                activity.logger.error(f"SEO research error for '{seed}': {e}")
+                continue
+
+    # Categorize keywords
+    primary_keywords = []
+    long_tail = []
+    questions = []
+    by_motivation = {}
+    by_planning_type = {}
+    total_volume = 0
+
+    for kw in all_keywords:
+        keyword_text = kw["keyword"].lower()
+        volume = kw["volume"]
+        total_volume += volume
+
+        # Primary vs long-tail by volume
+        if volume >= 500:
+            primary_keywords.append(kw)
+        elif volume >= 50:
+            long_tail.append(kw)
+
+        # Questions
+        if any(q in keyword_text for q in ["how", "what", "when", "where", "can i", "is it", "do i", "does"]):
+            questions.append(kw)
+
+        # Group by motivation
+        if kw["motivation"]:
+            if kw["motivation"] not in by_motivation:
+                by_motivation[kw["motivation"]] = []
+            by_motivation[kw["motivation"]].append(kw)
+
+        # Group by planning type
+        if kw["planning_type"]:
+            if kw["planning_type"] not in by_planning_type:
+                by_planning_type[kw["planning_type"]] = []
+            by_planning_type[kw["planning_type"]].append(kw)
+
+    # Sort all lists by volume
+    primary_keywords.sort(key=lambda x: x["volume"], reverse=True)
+    long_tail.sort(key=lambda x: x["volume"], reverse=True)
+    questions.sort(key=lambda x: x["volume"], reverse=True)
+
+    for mot in by_motivation:
+        by_motivation[mot].sort(key=lambda x: x["volume"], reverse=True)
+    for pt in by_planning_type:
+        by_planning_type[pt].sort(key=lambda x: x["volume"], reverse=True)
+
+    activity.logger.info(
+        f"SEO research complete for {country_name}: "
+        f"{len(primary_keywords)} primary, {len(long_tail)} long-tail, "
+        f"{len(questions)} questions, total volume {total_volume}"
+    )
+
+    return {
+        "primary_keywords": primary_keywords[:50],  # Top 50
+        "long_tail": long_tail[:100],  # Top 100
+        "questions": questions[:30],  # Top 30 questions
+        "by_motivation": by_motivation,
+        "by_planning_type": by_planning_type,
+        "total_keywords": len(all_keywords),
+        "total_volume": total_volume,
+        "cost": total_cost,
+        "country": country_name,
+        "region": region,
+        "researched_at": datetime.utcnow().isoformat(),
+        "source": "dataforseo"
+    }

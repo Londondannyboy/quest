@@ -1,5 +1,5 @@
 """
-Article Content Generation - Direct Anthropic SDK
+Article Content Generation - Gemini 3 Pro (primary) / Anthropic SDK (fallback)
 
 4-ACT STRUCTURE:
 - Article written FIRST with 4 H2 sections aligned to video acts
@@ -7,16 +7,19 @@ Article Content Generation - Direct Anthropic SDK
 - Additional components: callouts, FAQ, comparison, timeline, stat_highlight
 - Video prompt generated FROM article sections (article-first approach)
 
-Bypasses pydantic_ai structured output to avoid validation issues.
-Just gets raw markdown text from Claude and parses it.
+Uses Gemini 3 Pro Preview by default for cost efficiency (~30% cheaper than Sonnet).
+Falls back to Anthropic Claude if Gemini unavailable.
 """
 
 from temporalio import activity
 from typing import Dict, Any, List, Optional
 from slugify import slugify
-import anthropic
 import re
 import json
+
+# AI SDKs - Gemini primary, Anthropic fallback
+import google.generativeai as genai
+import anthropic
 
 from src.utils.config import config
 from src.config.app_config import get_app_config, APP_CONFIGS, CharacterStyle, CHARACTER_STYLE_PROMPTS
@@ -221,15 +224,19 @@ async def generate_four_act_article(
         activity.logger.info(f"Using custom slug: {custom_slug}")
 
     try:
-        # Get model config
-        provider, model_name = config.get_ai_model()
-        activity.logger.info(f"Using AI: {provider}:{model_name}")
-
         # Build prompt with research context
         prompt = build_prompt(topic, research_context)
 
-        # Use Anthropic SDK directly - no pydantic_ai structured output
-        client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+        # Use Gemini 3 Pro by default (30% cheaper than Sonnet)
+        # Fallback to Anthropic if GOOGLE_API_KEY not available
+        use_gemini = bool(config.GOOGLE_API_KEY)
+
+        if use_gemini:
+            activity.logger.info("Using AI: google:gemini-3-pro-preview")
+            genai.configure(api_key=config.GOOGLE_API_KEY)
+        else:
+            activity.logger.info("Using AI: anthropic:claude-sonnet-4 (Gemini unavailable)")
+            anthropic_client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
 
         # Get app config for rich context
         app_config = APP_CONFIGS.get(app)
@@ -875,18 +882,34 @@ HOLISTIC VIDEO QUALITY (AI video models struggle with these - follow strictly):
 Source links are MANDATORY - articles without <a href> tags will be rejected.
 The STRUCTURED DATA section is MANDATORY - without it, no video can be generated."""
 
-        # Haiku max is 8192, Sonnet/Opus can do more
-        # Use 8192 for compatibility with all models
-        message = client.messages.create(
-            model=model_name,
-            max_tokens=16384,  # Increased to ensure room for media prompts after long articles
-            system=system_prompt,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
-
-        article_text = message.content[0].text
+        # Generate article using Gemini (primary) or Anthropic (fallback)
+        if use_gemini:
+            # Gemini 3 Pro Preview
+            model = genai.GenerativeModel(
+                model_name='gemini-3-pro-preview',
+                system_instruction=system_prompt
+            )
+            response = model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    max_output_tokens=16384,
+                    temperature=0.7
+                )
+            )
+            article_text = response.text
+            activity.logger.info(f"Gemini response received: {len(article_text)} chars")
+        else:
+            # Anthropic Claude fallback
+            message = anthropic_client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=16384,
+                system=system_prompt,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            article_text = message.content[0].text
+            activity.logger.info(f"Anthropic response received: {len(article_text)} chars")
 
         # Parse SEO metadata from structured output
         lines = article_text.strip().split('\n')
@@ -1661,17 +1684,22 @@ IMPORTANT:
 - Don't invent sources - only suggest replacements if you're certain they exist
 - Keep fixes minimal - don't rewrite entire paragraphs"""
 
-        # Use Haiku for speed and cost
-        client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+        # Use Gemini 3 Pro for better quality link fixing
+        genai.configure(api_key=config.GOOGLE_API_KEY)
+        model = genai.GenerativeModel('gemini-3-pro-preview')
 
-        response = client.messages.create(
-            model="claude-3-5-haiku-20241022",
-            max_tokens=2000,
-            messages=[{"role": "user", "content": prompt}]
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                max_output_tokens=2000,
+                temperature=0.3
+            )
         )
 
-        response_text = response.content[0].text
-        cost = (response.usage.input_tokens * 0.25 + response.usage.output_tokens * 1.25) / 1_000_000
+        response_text = response.text
+        # Estimate cost: Gemini 3 Pro is $2/1M input, $12/1M output
+        # Rough estimate based on prompt size
+        cost = 0.002  # ~$0.002 per link fix call
 
         # Parse JSON response
         json_match = re.search(r'```json\s*(\[.+?\])\s*```', response_text, re.DOTALL)
@@ -1679,7 +1707,7 @@ IMPORTANT:
             json_match = re.search(r'(\[.+?\])', response_text, re.DOTALL)
 
         if not json_match:
-            activity.logger.warning("Could not parse Haiku response, falling back to link removal")
+            activity.logger.warning("Could not parse Gemini response, falling back to link removal")
             # Fallback: just remove links
             refined_content = article_content
             for ctx in broken_contexts:

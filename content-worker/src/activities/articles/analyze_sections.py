@@ -4,14 +4,14 @@ Article Section Analysis Activity
 Extracts H2 sections from markdown/HTML content and analyzes narrative structure
 for sequential image generation with Flux Kontext.
 
-Uses direct Anthropic SDK to avoid pydantic_ai validation issues.
+Uses Gemini 3 Pro for better quality analysis.
 """
 
 import re
 import json
 from typing import Dict, Any, List
 from temporalio import activity
-import anthropic
+import google.generativeai as genai
 
 from src.utils.config import config
 
@@ -82,7 +82,7 @@ async def analyze_article_sections(
     """
     Analyze article structure for sequential image generation.
 
-    Uses direct Anthropic SDK instead of pydantic_ai to avoid validation issues.
+    Uses Gemini 3 Pro for better quality analysis.
     """
     activity.logger.info(f"Analyzing sections for article: {title}")
 
@@ -103,8 +103,9 @@ async def analyze_article_sections(
     ])
 
     try:
-        # Use Anthropic SDK directly
-        client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+        # Use Gemini 3 Pro
+        genai.configure(api_key=config.GOOGLE_API_KEY)
+        model = genai.GenerativeModel('gemini-3-pro-preview')
 
         prompt = f"""Analyze this article for image generation. Return a JSON object.
 
@@ -140,16 +141,23 @@ Rules:
 - IMPORTANT: visual_moment descriptions must be purely visual - NO text, words, signs, or typography
 - Only return valid JSON, no other text"""
 
-        message = client.messages.create(
-            model="claude-3-5-haiku-20241022",
-            max_tokens=4096,
-            messages=[{"role": "user", "content": prompt}]
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                max_output_tokens=4096,
+                temperature=0.3
+            )
         )
 
-        response_text = message.content[0].text
+        response_text = response.text
+        activity.logger.info(f"Gemini analysis response: {len(response_text)} chars")
 
-        # Parse JSON from response
-        # Find JSON in response (may have markdown code blocks)
+        # Parse JSON from response - handle markdown code blocks
+        if "```json" in response_text:
+            response_text = response_text.split("```json")[1].split("```")[0]
+        elif "```" in response_text:
+            response_text = response_text.split("```")[1].split("```")[0]
+
         json_match = re.search(r'\{[\s\S]*\}', response_text)
         if json_match:
             analysis = json.loads(json_match.group())

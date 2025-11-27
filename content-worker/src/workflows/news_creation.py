@@ -162,7 +162,7 @@ class NewsCreationWorkflow:
         }
 
         assessment_result = await workflow.execute_activity(
-            "claude_assess_news",
+            "assess_news_relevancy",
             args=[
                 stories,
                 app,

@@ -1,11 +1,11 @@
 """
 News Assessment Activity
 
-Evaluates news stories for relevance using Claude AI.
+Evaluates news stories for relevance using Gemini 3 Pro.
 Determines which stories should be promoted to article creation.
 """
 
-import anthropic
+import google.generativeai as genai
 from temporalio import activity
 from typing import Dict, Any, List
 import json
@@ -13,7 +13,7 @@ import json
 from src.utils.config import config
 
 
-@activity.defn(name="claude_assess_news")
+@activity.defn(name="assess_news_relevancy")
 async def assess_news_batch(
     stories: List[Dict[str, Any]],
     app: str,
@@ -22,7 +22,7 @@ async def assess_news_batch(
     min_relevance_score: float = 0.6
 ) -> Dict[str, Any]:
     """
-    Assess a batch of news stories for relevance using Claude.
+    Assess a batch of news stories for relevance using Gemini 3 Pro.
 
     Args:
         stories: List of news stories to assess
@@ -36,15 +36,15 @@ async def assess_news_batch(
     """
     activity.logger.info(f"Assessing {len(stories)} stories for app: {app}")
 
-    if not config.ANTHROPIC_API_KEY:
+    if not config.GOOGLE_API_KEY:
         return {
             "stories_assessed": 0,
             "relevant_stories": [],
             "skipped_stories": [],
-            "error": "ANTHROPIC_API_KEY not configured"
+            "error": "GOOGLE_API_KEY not configured"
         }
 
-    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+    genai.configure(api_key=config.GOOGLE_API_KEY)
 
     # Build context for assessment
     keywords = app_context.get("keywords", [])
@@ -91,16 +91,25 @@ Prioritize stories matching keywords.
 Return ONLY valid JSON array, no other text."""
 
     try:
-        message = client.messages.create(
-            model="claude-3-5-haiku-20241022",
-            max_tokens=2000,
-            messages=[{"role": "user", "content": prompt}]
+        model = genai.GenerativeModel('gemini-3-pro-preview')
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                max_output_tokens=2000,
+                temperature=0.3  # Lower temp for more consistent assessment
+            )
         )
 
-        response_text = message.content[0].text
+        response_text = response.text
+        activity.logger.info(f"Gemini assessment response: {len(response_text)} chars")
 
-        # Parse JSON
-        assessments = json.loads(response_text)
+        # Parse JSON - handle markdown code blocks
+        if "```json" in response_text:
+            response_text = response_text.split("```json")[1].split("```")[0]
+        elif "```" in response_text:
+            response_text = response_text.split("```")[1].split("```")[0]
+
+        assessments = json.loads(response_text.strip())
         if not isinstance(assessments, list):
             assessments = [assessments]
 

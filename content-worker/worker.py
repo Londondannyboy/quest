@@ -40,6 +40,7 @@ from src.activities.research.dataforseo import (
     dataforseo_serp_search,
     dataforseo_keyword_research,
     dataforseo_keyword_difficulty,
+    research_country_seo_keywords,  # Country guide SEO research
 )
 
 from src.activities.research.news_assessment import (
@@ -265,6 +266,7 @@ async def main():
             dataforseo_serp_search,
             dataforseo_keyword_research,  # SEO keyword research
             dataforseo_keyword_difficulty,  # SEO keyword difficulty analysis
+            research_country_seo_keywords,  # Country guide SEO research
 
             # News Assessment
             assess_news_batch,
