@@ -1,11 +1,8 @@
-# Quest Dashboard - Streamlit UI
-# This runs the Streamlit dashboard from content-worker/app.py
-
-[build]
-builder = "railpack"
-buildCommand = "cd content-worker && pip install -r requirements.txt"
-
-[deploy]
-startCommand = "cd content-worker && streamlit run app.py --server.port $PORT --server.address 0.0.0.0"
-restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 10
+# Quest Monorepo
+#
+# Each service has its own railway.toml:
+# - content-worker/railway.toml  (Temporal worker)
+# - streamlit/railway.toml       (Dashboard UI)
+# - gateway/                     (API Gateway - uses Dockerfile)
+#
+# This root file is not used by any Railway service.
