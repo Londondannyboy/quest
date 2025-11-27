@@ -288,50 +288,40 @@ with tab_article:
     with col1:
         target_word_count = st.slider(
             "Target Word Count",
-            min_value=500,
-            max_value=3000,
-            value=1500,
-            step=100,
-            help="Target length of the article"
+            min_value=1000,
+            max_value=5000,
+            value=2000,
+            step=500,
+            help="Target length of the article (4-act structure works best with 1500-3000 words)"
         )
 
         num_research_sources = st.slider(
             "Research Sources",
-            min_value=3,
-            max_value=15,
-            value=10,
+            min_value=5,
+            max_value=20,
+            value=12,
             step=1,
-            help="Number of sources to crawl for research"
+            help="Number of web sources to crawl for research context"
         )
 
     with col2:
-        # Video Quality
-        video_quality = st.selectbox(
-            "Video Quality",
-            ["None", "low", "medium", "high"],
-            index=0,
-            help="None: No video\nlow: 480p ($0.045)\nmedium: 720p ($0.075)\nhigh: Premium (coming soon)",
-            key="video_quality"
+        # Video - simplified for 4-Act (always 720p, single 12s video)
+        generate_video = st.checkbox(
+            "Generate 4-Act Video",
+            value=True,
+            help="12-second cinematic video with 4 acts (3s each). Thumbnails extracted for article sections."
         )
 
-        # Video Model (only show if video enabled)
-        if video_quality != "None":
+        if generate_video:
+            video_quality = "medium"  # Always 720p for 4-Act
+            video_count = 1  # Single hero video, thumbnails extracted for sections
+
             video_model = st.selectbox(
                 "Video Model",
                 ["seedance", "wan-2.5"],
                 index=0,
-                help="seedance: Fast, good quality\nwan-2.5: Better text rendering, longer duration",
+                help="seedance: Fast, good motion ($0.075)\nwan-2.5: Better depth/parallax, slower ($0.12)",
                 key="video_model"
-            )
-
-            # Video Count (1 = hero only, 2-3 = hero + content videos)
-            video_count = st.slider(
-                "Videos",
-                min_value=1,
-                max_value=3,
-                value=1,
-                step=1,
-                help="1: Hero video only\n2-3: Hero + content videos embedded in article"
             )
 
             # Character Style - organized as 2-level selection
@@ -398,25 +388,17 @@ with tab_article:
 
             character_style = get_character_style()
         else:
+            video_quality = None
             video_model = "seedance"
-            video_count = 1
+            video_count = 0
             character_style = None
 
-        # Content Images
-        content_images_count = st.slider(
-            "Content Images",
-            min_value=0,
-            max_value=5,
-            value=2,
-            step=1,
-            help="0: No content images\n2-5: Images embedded throughout article (uses video GIF as style context)"
-        )
-
-        # Generate images if count > 0
-        generate_images = content_images_count > 0
+        # Note: Content images removed - 4-Act extracts thumbnails from video
+        generate_images = False
+        content_images_count = 0
 
     # Custom Video Prompt (only show if video enabled)
-    if video_quality != "None":
+    if generate_video:
         st.divider()
         st.markdown("**Video Prompt** *(optional - leave empty for auto-generated)*")
 
@@ -438,39 +420,22 @@ with tab_article:
     else:
         video_prompt = ""
 
-    # Cost estimate
+    # Cost estimate - simplified for 4-Act
     st.divider()
-    estimated_cost = 0.04 + 0.04 + 0.015  # Serper + Exa + AI
+    research_cost = 0.08  # Serper + Exa
+    ai_cost = 0.02  # Claude for article generation
+    video_cost = 0.075 if generate_video else 0  # 720p Seedance
 
-    # Video cost
-    video_cost = 0
-    if video_quality == "low":
-        video_cost = 0.045
-    elif video_quality == "medium":
-        video_cost = 0.075
-    elif video_quality == "high":
-        video_cost = 0.90
-
-    # Image cost
-    image_cost = 0
-    if content_images_count > 0:
-        image_cost = 0.05 * content_images_count  # ~$0.05 per image
-
-    estimated_cost += video_cost + image_cost
+    estimated_cost = research_cost + ai_cost + video_cost
 
     st.caption(f"💰 **Estimated cost:** ${estimated_cost:.2f}")
 
     # Time estimate
-    time_estimate = "3-5 minutes"
-    if video_quality != "None":
-        time_estimate = "6-8 minutes"
-    if content_images_count > 0:
-        time_estimate = "8-13 minutes"
+    time_estimate = "5-7 minutes" if generate_video else "2-3 minutes"
     st.caption(f"⏱️ **Estimated time:** {time_estimate}")
 
-    # Show breakdown
-    if video_quality != "None" or content_images_count > 0:
-        st.caption(f"📹 Video: ${video_cost:.3f} | 🖼️ Images: ${image_cost:.2f}")
+    if generate_video:
+        st.caption("📹 4-Act video + thumbnails extracted for sections")
 
     # Submit button
     st.divider()
@@ -493,14 +458,16 @@ with tab_article:
                         "app": article_app,
                         "target_word_count": target_word_count,
                         "jurisdiction": article_jurisdiction,
-                        "generate_images": generate_images,
                         "num_research_sources": num_research_sources,
-                        "video_quality": video_quality if video_quality != "None" else None,
-                        "video_model": video_model,
+                        # 4-Act video settings
+                        "video_quality": video_quality,  # "medium" (720p) or None
+                        "video_model": video_model if generate_video else None,
                         "video_prompt": video_prompt if video_prompt.strip() else None,
                         "video_count": video_count,
-                        "content_images_count": content_images_count,
-                        "character_style": character_style  # Demographics for video (None = auto from context)
+                        "character_style": character_style,  # Demographics (None = auto from context)
+                        # Legacy fields (kept for backwards compatibility)
+                        "generate_images": False,
+                        "content_images_count": 0
                     }
 
                     # Add custom slug if provided
