@@ -394,6 +394,229 @@ class GuideConfig(BaseModel):
         return [t.name for t in self.templates]
 
 
+# ============================================================================
+# YOLO MODE - Action-Oriented "Just Do It" View
+# ============================================================================
+
+class YOLOAction(BaseModel):
+    """Single action item in YOLO mode."""
+    type: str  # "flight", "job", "apply", "email", "guide", "book"
+    label: str  # Button text
+    description: str = ""  # Why this action
+    url_template: str = ""  # URL with {placeholders}
+    icon: str = ""  # Emoji or icon class
+
+
+class YOLOConfig(BaseModel):
+    """
+    YOLO Mode configuration - the "just fucking do it" view.
+
+    For career changers, students, dreamers who need a push.
+    Turns every article into an action launchpad.
+
+    DISCLAIMER: Tongue-in-cheek motivation, not financial/legal advice.
+    """
+    enabled: bool = True
+
+    # Personality & Voice
+    personality: str = "motivational_chaos"  # The YOLO voice for this app
+    tagline: str = "Stop reading. Start doing."
+    voice: str = "Direct, irreverent, motivational. No hedging. Action-oriented."
+
+    # Target audience
+    target_audience: str = "Career changers, students, dreamers, people who've read 50 articles but done nothing"
+
+    # Disclaimer (legally necessary but on-brand)
+    disclaimer: str = """YOLO Mode is motivational entertainment, not financial, legal, or career advice.
+We're not responsible if you actually book a one-way flight to Singapore.
+(But honestly? You probably should. Life's short. Grey skies are long.)
+Do your own research. Then do the thing."""
+
+    disclaimer_short: str = "Not advice. Just vibes. Do your research, then do the thing."
+
+    # Action types available for this app
+    action_types: List[str] = ["flight", "job", "apply", "guide", "email_template"]
+
+    # Available actions
+    actions: List[YOLOAction] = []
+
+    # Motivational phrases (randomly selected)
+    motivational_kicks: List[str] = [
+        "Everyone else is 'thinking about it'. You're booking the flight.",
+        "Your LinkedIn connections are watching. Make them jealous.",
+        "The worst they can say is no. The best? Your life changes.",
+        "You didn't read this far to not do anything.",
+        "Fortune favors the bold. And the ones who actually apply.",
+    ]
+
+    # CTA styles
+    primary_cta: str = "Just YOLO It"
+    secondary_cta: str = "Fine, I'll Think About It"
+
+
+# Pre-built YOLO configs per app
+YOLO_RELOCATION = YOLOConfig(
+    personality="escape_artist",
+    tagline="Life's too short for grey skies.",
+    voice="Dreamy but direct. 'Your future self is already there. Go join them.'",
+    target_audience="Remote workers stuck in expensive cities, digital nomads, people who've googled 'move abroad' 100 times",
+    disclaimer="""YOLO Mode is for dreamers who need a push, not immigration lawyers.
+Visa requirements change. Flights get cancelled. But regret lasts forever.
+Do your research, consult professionals, then book the damn flight.""",
+    disclaimer_short="Not legal advice. Just the push you needed.",
+    action_types=["flight", "visa_guide", "cost_calculator", "accommodation", "apply_visa"],
+    actions=[
+        YOLOAction(
+            type="flight",
+            label="Book the Flight",
+            description="Stop planning. Start packing.",
+            url_template="https://www.skyscanner.com/transport/flights/{origin}/{destination}/",
+            icon="✈️"
+        ),
+        YOLOAction(
+            type="visa_guide",
+            label="Visa Requirements",
+            description="What you actually need (it's less than you think)",
+            url_template="/guides/{country}-visa",
+            icon="📋"
+        ),
+        YOLOAction(
+            type="accommodation",
+            label="Find a Place",
+            description="Airbnb for a month. Figure it out from there.",
+            url_template="https://www.airbnb.com/s/{city}/homes",
+            icon="🏠"
+        ),
+        YOLOAction(
+            type="apply_visa",
+            label="Start Application",
+            description="The form takes 20 minutes. You've spent longer on Netflix.",
+            url_template="{visa_application_url}",
+            icon="📝"
+        )
+    ],
+    motivational_kicks=[
+        "Your flat costs £2,000/month for the privilege of rain. Just saying.",
+        "Everyone who moved abroad said they wished they'd done it sooner.",
+        "The visa application is easier than your last IKEA build.",
+        "Your savings account isn't getting any bigger in Zone 2.",
+        "Mediterranean sunset > Northern Line at rush hour.",
+    ]
+)
+
+YOLO_PLACEMENT = YOLOConfig(
+    personality="rainmaker",
+    tagline="Stop networking. Start doing.",
+    voice="Confident, insider, slightly cocky. 'The job won't apply for itself.'",
+    target_audience="MBAs, career changers, students, anyone who's polished their resume 47 times",
+    disclaimer="""YOLO Mode is career motivation, not a job guarantee.
+We can't promise you'll get hired. We can promise you won't if you don't apply.
+Network smart, apply relentlessly, and maybe read the job description first.""",
+    disclaimer_short="Not a job offer. Just the kick to apply.",
+    action_types=["job", "company_research", "email_template", "linkedin", "apply"],
+    actions=[
+        YOLOAction(
+            type="job",
+            label="See Open Roles",
+            description="They're hiring. You're qualified. Do the math.",
+            url_template="https://www.linkedin.com/jobs/search/?keywords={company}",
+            icon="💼"
+        ),
+        YOLOAction(
+            type="company_research",
+            label="Research the Firm",
+            description="5 minutes of research > 5 years of wondering 'what if'",
+            url_template="/companies/{company_slug}",
+            icon="🔍"
+        ),
+        YOLOAction(
+            type="email_template",
+            label="Copy Cold Email",
+            description="Personalize it. Send it. Follow up in 3 days.",
+            url_template="#email-template",
+            icon="📧"
+        ),
+        YOLOAction(
+            type="linkedin",
+            label="Connect on LinkedIn",
+            description="Find someone who works there. Send a non-cringe message.",
+            url_template="https://www.linkedin.com/company/{company}/people/",
+            icon="🔗"
+        ),
+        YOLOAction(
+            type="apply",
+            label="Apply Now",
+            description="Your resume is ready. Your cover letter is 'good enough'. Go.",
+            url_template="{application_url}",
+            icon="🚀"
+        )
+    ],
+    motivational_kicks=[
+        "Your competition is applying while you're 'perfecting' your resume.",
+        "That networking event won't attend itself. But this application will send itself if you click the button.",
+        "The hiring manager doesn't care about your font choice. They care if you applied.",
+        "Every person at that firm once sent an application just like this one.",
+        "Rejection is feedback. Silence is you never trying.",
+    ]
+)
+
+YOLO_PE_NEWS = YOLOConfig(
+    personality="deal_hunter",
+    tagline="Everyone reads the news. Few act on it.",
+    voice="Sharp, urgent, insider. 'This deal just closed. The next one's forming. Where are you?'",
+    target_audience="Finance professionals, deal junkies, students tracking the market, career changers eyeing PE",
+    disclaimer="""YOLO Mode is market commentary meets motivation, not investment advice.
+Don't YOLO your savings into PE based on a news article. Do YOLO your career into applying.
+Consult professionals for investments. Consult your ambition for applications.""",
+    disclaimer_short="Career motivation, not investment advice.",
+    action_types=["job", "company_profile", "location_guide", "flight", "apply"],
+    actions=[
+        YOLOAction(
+            type="job",
+            label="Jobs at This Firm",
+            description="They just raised. They're hiring. Connect the dots.",
+            url_template="https://www.linkedin.com/jobs/search/?keywords={company}+private+equity",
+            icon="💼"
+        ),
+        YOLOAction(
+            type="company_profile",
+            label="Full Firm Profile",
+            description="Know them before they know you.",
+            url_template="/companies/{company_slug}",
+            icon="🏢"
+        ),
+        YOLOAction(
+            type="location_guide",
+            label="Work in {location}",
+            description="The deal's there. The jobs are there. Are you?",
+            url_template="/guides/{location}-finance-jobs",
+            icon="🌍"
+        ),
+        YOLOAction(
+            type="flight",
+            label="Fly to {location}",
+            description="Networking is better in person. Book the trip.",
+            url_template="https://www.skyscanner.com/transport/flights/{origin}/{destination}/",
+            icon="✈️"
+        ),
+        YOLOAction(
+            type="apply",
+            label="Apply Now",
+            description="This article is 5 minutes old. Your application could be too.",
+            url_template="{careers_url}",
+            icon="🚀"
+        )
+    ],
+    motivational_kicks=[
+        "This fund just closed $500M. They need people to deploy it. That could be you.",
+        "Everyone's reading this news. You're the one applying.",
+        "The deal closed. The hiring starts. Your move.",
+        "Your LinkedIn feed is full of 'Excited to announce...' posts. Make yours next.",
+        "Market intelligence is useless if you don't act on it.",
+    ]
+)
+
+
 class VideoPromptTemplate(BaseModel):
     """
     Collection of 4-act video templates for an app.
@@ -456,6 +679,9 @@ class ArticleTheme(BaseModel):
 
     # Guide mode configuration (optional - for guide-mode articles)
     guide_config: Optional[GuideConfig] = None
+
+    # YOLO mode configuration (optional - action-oriented "just do it" view)
+    yolo_config: Optional[YOLOConfig] = None
 
     # Default article mode for this app
     default_article_mode: ArticleMode = ArticleMode.STORY
@@ -790,6 +1016,8 @@ Let the article content drive specifics - this sets the professional MOOD only."
                 )
             ]
         ),
+        # YOLO MODE - Action-oriented "just do it" view
+        yolo_config=YOLO_PLACEMENT,
         brand_name="Placement Quest",
         accent_color="blue",
         factoid_style="overlay"
@@ -1085,6 +1313,8 @@ Let the article topic drive the specific visuals - this guide sets the MOOD only
                 )
             ]
         ),
+        # YOLO MODE - Action-oriented "just do it" view
+        yolo_config=YOLO_RELOCATION,
         brand_name="Relocation Quest",
         accent_color="amber",
         factoid_style="overlay"
@@ -1325,6 +1555,8 @@ Can use stylized elements for abstract concepts. Article topic drives specifics.
                 )
             ]
         ),
+        # YOLO MODE - Action-oriented "just do it" view
+        yolo_config=YOLO_PE_NEWS,
         brand_name="PE News",
         accent_color="slate",
         factoid_style="overlay"

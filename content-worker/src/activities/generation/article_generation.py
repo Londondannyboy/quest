@@ -64,7 +64,7 @@ def extract_structured_data(response_text: str) -> Dict[str, Any]:
     Looks for ---STRUCTURED DATA--- section with 4-act sections, callouts, FAQ, etc.
 
     Returns:
-        Dict with sections, callouts, faq, comparison, timeline, stat_highlight
+        Dict with sections, callouts, faq, comparison, timeline, stat_highlight, guide_mode
     """
     structured_data = {
         "sections": [],
@@ -73,7 +73,29 @@ def extract_structured_data(response_text: str) -> Dict[str, Any]:
         "comparison": None,
         "timeline": [],
         "stat_highlight": None,
-        "sources": []
+        "sources": [],
+        # Guide mode data (for frontend toggle view)
+        "guide_mode": {
+            "summary": "",
+            "checklist": [],
+            "requirements": [],
+            "key_facts": [],
+            "cost_breakdown": None
+        },
+        # YOLO mode data (for action-oriented toggle view)
+        "yolo_mode": {
+            "headline": "",
+            "motivation": "",
+            "primary_action": None,
+            "secondary_actions": [],
+            "extracted_entities": {
+                "locations": [],
+                "companies": [],
+                "job_titles": [],
+                "salary_range": None,
+                "deadline": None
+            }
+        }
     }
 
     # Find structured data section
@@ -633,9 +655,87 @@ After the Editorial Footer, include this JSON block for video thumbnail and comp
   }},
   "sources": [
     {{"name": "Source Name", "url": "https://...", "description": "Brief description"}}
-  ]
+  ],
+  "guide_mode": {{
+    "summary": "2-3 sentence factual summary of the key takeaway. No fluff, just facts.",
+    "checklist": [
+      {{"item": "Action item 1", "detail": "Brief explanation"}},
+      {{"item": "Action item 2", "detail": "Brief explanation"}},
+      {{"item": "Action item 3", "detail": "Brief explanation"}}
+    ],
+    "requirements": [
+      {{"requirement": "Requirement 1", "detail": "What's needed"}},
+      {{"requirement": "Requirement 2", "detail": "What's needed"}}
+    ],
+    "key_facts": [
+      "Key fact 1 with specific number/date",
+      "Key fact 2 with specific number/date",
+      "Key fact 3 with specific number/date",
+      "Key fact 4 with specific number/date",
+      "Key fact 5 with specific number/date"
+    ],
+    "cost_breakdown": {{
+      "total_estimate": "Total cost range",
+      "items": [
+        {{"item": "Cost item 1", "amount": "€X"}},
+        {{"item": "Cost item 2", "amount": "€X"}}
+      ],
+      "notes": "Any important cost notes"
+    }}
+  }},
+  "yolo_mode": {{
+    "headline": "Bold, punchy 5-10 word action headline (e.g., 'Book the flight. Stop overthinking.')",
+    "motivation": "One sentence kick-in-the-pants motivation specific to this article",
+    "primary_action": {{
+      "label": "Main CTA button text (e.g., 'Apply Now', 'Book Flight')",
+      "description": "Why they should do this NOW (irreverent, direct)",
+      "url_params": {{"destination": "extracted city/country", "company": "extracted company if any"}}
+    }},
+    "secondary_actions": [
+      {{"type": "job|flight|guide|apply", "label": "Action label", "context": "Relevant extracted data"}}
+    ],
+    "extracted_entities": {{
+      "locations": ["City/Country mentioned"],
+      "companies": ["Company names mentioned"],
+      "job_titles": ["Roles mentioned if any"],
+      "salary_range": "If mentioned",
+      "deadline": "If any urgency/deadline mentioned"
+    }}
+  }}
 }}
 ```
+
+===== GUIDE MODE DATA (REQUIRED for toggle view) =====
+
+The guide_mode object provides data for the "fact sheet" view toggle on the frontend:
+
+- **summary**: 2-3 sentences, pure facts, no narrative. Example: "The Cyprus Digital Nomad Visa costs €150 and requires proof of €3,500/month income. Processing takes 6-8 weeks. Valid for 1 year, renewable twice."
+
+- **checklist**: 3-5 action items the reader needs to complete. Be specific and actionable.
+
+- **requirements**: Key eligibility requirements. Include income thresholds, document needs, etc.
+
+- **key_facts**: 5-8 bullet points with specific numbers, dates, costs. These are the "at a glance" facts.
+
+- **cost_breakdown**: If costs are relevant (visa guides, moving guides), break down the total cost. Set to null for news/analysis articles where costs aren't relevant.
+
+IMPORTANT: Always populate guide_mode even for news articles - users may want the fact sheet view.
+
+===== YOLO MODE DATA (REQUIRED for action view) =====
+
+YOLO Mode is the "just fucking do it" view. Extract actionable data for career changers, dreamers, and people who need a push.
+
+- **headline**: Bold, punchy, irreverent. No hedging. "Book the flight. Life's too short for grey skies."
+
+- **motivation**: One sentence specific to THIS article. Reference the actual opportunity. "This fund just raised $500M. They're hiring. Your resume is ready."
+
+- **primary_action**: The ONE thing they should do right now. Extract the destination/company/opportunity from the article.
+
+- **secondary_actions**: 2-3 supporting actions (job search, flight booking, guide link, visa application).
+
+- **extracted_entities**: Pull out all actionable data - locations, companies, job titles, salaries, deadlines. This powers the action buttons.
+
+TONE: Direct, irreverent, motivational. No "consider" or "you might want to". It's "Do it. Now. Here's the link."
 
 ===== 4-ACT VIDEO FRAMEWORK (CRITICAL) =====
 
@@ -777,6 +877,21 @@ The STRUCTURED DATA section is MANDATORY - without it, no video can be generated
         else:
             activity.logger.warning(f"⚠️ No structured sections found - video generation may fail")
 
+        # Log guide_mode extraction (for frontend toggle view)
+        guide_mode = structured_data.get("guide_mode", {})
+        if guide_mode.get("summary"):
+            activity.logger.info(f"✅ Guide mode data extracted: {len(guide_mode.get('key_facts', []))} key facts, {len(guide_mode.get('checklist', []))} checklist items")
+        else:
+            activity.logger.warning(f"⚠️ No guide_mode summary found - fact sheet toggle may be empty")
+
+        # Log yolo_mode extraction (for action-oriented toggle view)
+        yolo_mode = structured_data.get("yolo_mode", {})
+        if yolo_mode.get("headline"):
+            entities = yolo_mode.get("extracted_entities", {})
+            activity.logger.info(f"✅ YOLO mode data extracted: '{yolo_mode['headline'][:50]}...' | {len(entities.get('locations', []))} locations, {len(entities.get('companies', []))} companies")
+        else:
+            activity.logger.warning(f"⚠️ No yolo_mode headline found - action view may be empty")
+
         # Check for source links - warn if missing (critical for SEO)
         link_count = content.count('<a href')
         if link_count == 0:
@@ -858,7 +973,23 @@ The STRUCTURED DATA section is MANDATORY - without it, no video can be generated
                 "comparison": structured_data.get("comparison"),
                 "timeline": structured_data.get("timeline", []),
                 "stat_highlight": structured_data.get("stat_highlight"),
-                "structured_sources": structured_data.get("sources", [])
+                "structured_sources": structured_data.get("sources", []),
+                # GUIDE MODE: Structured data for fact sheet toggle view
+                "guide_mode": structured_data.get("guide_mode", {
+                    "summary": "",
+                    "checklist": [],
+                    "requirements": [],
+                    "key_facts": [],
+                    "cost_breakdown": None
+                }),
+                # YOLO MODE: Structured data for action-oriented toggle view
+                "yolo_mode": structured_data.get("yolo_mode", {
+                    "headline": "",
+                    "motivation": "",
+                    "primary_action": None,
+                    "secondary_actions": [],
+                    "extracted_entities": {}
+                })
             },
             "cost": cost,
             "model_used": f"{provider}:{model_name}",
