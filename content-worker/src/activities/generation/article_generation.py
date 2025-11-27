@@ -252,6 +252,23 @@ async def generate_four_act_article(
                 act_4_example = ""
             no_text_rule = video_prompt_template.no_text_rule
             technical_notes = video_prompt_template.technical_notes
+
+            # Get YOLO config for app-specific personality
+            yolo_config = app_config.article_theme.yolo_config
+            if yolo_config:
+                yolo_personality = yolo_config.personality
+                yolo_tagline = yolo_config.tagline
+                yolo_voice = yolo_config.voice
+                yolo_target_audience = yolo_config.target_audience
+                yolo_motivational_kicks = yolo_config.motivational_kicks[:3]
+                yolo_action_types = yolo_config.action_types
+            else:
+                yolo_personality = "motivational_chaos"
+                yolo_tagline = "Stop reading. Start doing."
+                yolo_voice = "Direct, irreverent, motivational"
+                yolo_target_audience = "Career changers, dreamers"
+                yolo_motivational_kicks = ["Fortune favors the bold."]
+                yolo_action_types = ["flight", "job", "apply"]
         else:
             app_desc = f"a professional content platform called {app}"
             target_audience = "professionals interested in this topic"
@@ -275,6 +292,14 @@ async def generate_four_act_article(
             act_4_example = "Positive outcome, celebration, new state"
             no_text_rule = "CRITICAL: NO text, words, letters, numbers, signs, logos anywhere."
             technical_notes = "Cinematic quality, smooth transitions, natural motion."
+
+            # Default YOLO config
+            yolo_personality = "motivational_chaos"
+            yolo_tagline = "Stop reading. Start doing."
+            yolo_voice = "Direct, irreverent, motivational"
+            yolo_target_audience = "Career changers, dreamers"
+            yolo_motivational_kicks = ["Fortune favors the bold."]
+            yolo_action_types = ["flight", "job", "apply"]
 
         # Build comprehensive system prompt with app context
         system_prompt = f"""You are an expert journalist writing for {app} - {app_desc}.
@@ -723,19 +748,27 @@ IMPORTANT: Always populate guide_mode even for news articles - users may want th
 
 ===== YOLO MODE DATA (REQUIRED for action view) =====
 
-YOLO Mode is the "just fucking do it" view. Extract actionable data for career changers, dreamers, and people who need a push.
+YOLO Mode is the "just do it" action view for {yolo_target_audience}.
 
-- **headline**: Bold, punchy, irreverent. No hedging. "Book the flight. Life's too short for grey skies."
+YOLO PERSONALITY: {yolo_personality}
+YOLO TAGLINE: "{yolo_tagline}"
+YOLO VOICE: {yolo_voice}
+ACTION TYPES TO EXTRACT: {yolo_action_types}
 
-- **motivation**: One sentence specific to THIS article. Reference the actual opportunity. "This fund just raised $500M. They're hiring. Your resume is ready."
+EXAMPLE MOTIVATIONAL STYLE:
+{yolo_motivational_kicks}
 
-- **primary_action**: The ONE thing they should do right now. Extract the destination/company/opportunity from the article.
+- **headline**: Bold, punchy, matches the "{yolo_personality}" voice. Example: "{yolo_tagline}"
 
-- **secondary_actions**: 2-3 supporting actions (job search, flight booking, guide link, visa application).
+- **motivation**: One sentence specific to THIS article in the {yolo_personality} voice. Reference the actual opportunity.
 
-- **extracted_entities**: Pull out all actionable data - locations, companies, job titles, salaries, deadlines. This powers the action buttons.
+- **primary_action**: The ONE thing they should do right now. Extract destination/company/opportunity.
 
-TONE: Direct, irreverent, motivational. No "consider" or "you might want to". It's "Do it. Now. Here's the link."
+- **secondary_actions**: 2-3 supporting actions from these types: {yolo_action_types}
+
+- **extracted_entities**: Pull out all actionable data - locations, companies, job titles, salaries, deadlines.
+
+TONE: {yolo_voice}. No hedging. No "consider" or "you might want to". It's "Do it. Now."
 
 ===== 4-ACT VIDEO FRAMEWORK (CRITICAL) =====
 
