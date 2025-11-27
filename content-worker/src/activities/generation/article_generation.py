@@ -1795,21 +1795,21 @@ async def generate_four_act_video_prompt(
     character_style: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Generate a 4-act video prompt using AI (Gemini 3 Pro).
+    Generate a 4-act video prompt - HYBRID approach:
 
-    This is a SEPARATE AI call from article generation - more reliable than
-    trying to generate video hints inline with article content.
+    1. FIRST: Try to assemble from article's four_act_content (if AI generated it)
+    2. FALLBACK: Use Gemini 2.0 Flash to generate from scratch
 
     Args:
-        article: Article dict with title, content, excerpt
+        article: Article dict with title, content, excerpt, four_act_content (optional)
         app: Application (relocation, placement, pe_news)
         video_model: Target model (seedance or wan-2.5)
         character_style: Override character style
 
     Returns:
-        {"prompt": str, "model": str, "acts": int, "success": bool, "cost": float}
+        {"prompt": str, "model": str, "acts": int, "success": bool, "cost": float, "source": "assembled"|"ai_generated"}
     """
-    activity.logger.info(f"🎬 Generating 4-act video prompt via AI: {article.get('title', 'Untitled')[:50]}...")
+    activity.logger.info(f"🎬 Generating 4-act video prompt: {article.get('title', 'Untitled')[:50]}...")
 
     # Get app config for no-text rule, holistic guidelines, and character style
     app_config = APP_CONFIGS.get(app)
@@ -1828,6 +1828,60 @@ async def generate_four_act_video_prompt(
     # Get model character limit
     model_info = VIDEO_MODEL_LIMITS.get(video_model, VIDEO_MODEL_LIMITS["seedance"])
     char_limit = model_info.get("char_limit", 2000)
+
+    # ===== STEP 1: TRY TO ASSEMBLE FROM ARTICLE'S four_act_content =====
+    sections = article.get("four_act_content", [])
+
+    if sections and len(sections) >= 4:
+        # Check if sections have four_act_visual_hint
+        hints_count = sum(1 for s in sections[:4] if s.get("four_act_visual_hint"))
+
+        if hints_count >= 4:
+            activity.logger.info(f"✅ ASSEMBLING from article's four_act_content ({hints_count}/4 hints found)")
+
+            # Build the 4-act prompt from visual hints
+            act_prompts = []
+            for i, section in enumerate(sections[:4]):
+                act_num = i + 1
+                hint = section.get("four_act_visual_hint", "")
+                video_title = section.get("video_title") or section.get("title", f"Act {act_num}")
+                start_time = (act_num - 1) * 3
+                end_time = act_num * 3
+                act_prompts.append(f"ACT {act_num} ({start_time}s-{end_time}s): {video_title}\n{hint}")
+
+            acts_text = "\n\n".join(act_prompts)
+            holistic_block = f"\n{holistic}" if holistic else ""
+            character_block = f"\n{character_prompt}" if character_prompt else ""
+
+            assembled_prompt = f"""{no_text_rule}{character_block}{holistic_block}
+
+VIDEO: 12 seconds, 4 acts × 3 seconds each.
+
+{acts_text}"""
+
+            # Enforce character limit
+            was_truncated = len(assembled_prompt) > char_limit
+            if was_truncated:
+                assembled_prompt = assembled_prompt[:char_limit]
+
+            activity.logger.info(f"✅ Assembled 4-act prompt: {len(assembled_prompt)} chars (source: article four_act_content)")
+
+            return {
+                "prompt": assembled_prompt,
+                "model": video_model,
+                "acts": 4,
+                "success": True,
+                "was_truncated": was_truncated,
+                "source": "assembled",
+                "cost": 0  # No AI call
+            }
+        else:
+            activity.logger.warning(f"⚠️ Article has {len(sections)} sections but only {hints_count}/4 have four_act_visual_hint")
+    else:
+        activity.logger.warning(f"⚠️ Article missing four_act_content (sections: {len(sections) if sections else 0})")
+
+    # ===== STEP 2: FALL BACK TO AI GENERATION =====
+    activity.logger.info("📝 Falling back to AI generation (Gemini 2.0 Flash)...")
 
     # Extract article info for AI
     title = article.get("title", "")
@@ -1914,7 +1968,7 @@ Return ONLY the 4-act prompt, nothing else."""
             final_prompt = final_prompt[:char_limit]
             was_truncated = True
 
-        activity.logger.info(f"✅ 4-act video prompt generated: {len(final_prompt)} chars")
+        activity.logger.info(f"✅ 4-act video prompt generated via AI: {len(final_prompt)} chars")
 
         return {
             "prompt": final_prompt,
@@ -1922,6 +1976,7 @@ Return ONLY the 4-act prompt, nothing else."""
             "acts": 4,
             "success": True,
             "was_truncated": was_truncated,
+            "source": "ai_generated",
             "cost": 0.001  # Gemini 2.0 Flash is cheap
         }
 
@@ -1932,6 +1987,7 @@ Return ONLY the 4-act prompt, nothing else."""
             "model": video_model,
             "acts": 0,
             "success": False,
+            "source": "failed",
             "error": str(e),
             "cost": 0
         }
