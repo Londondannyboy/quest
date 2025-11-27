@@ -466,6 +466,120 @@ def extract_deals_from_results(results: Any) -> list[Dict[str, Any]]:
     return deals
 
 
+def extract_jobs_from_results(results: Any) -> list[Dict[str, Any]]:
+    """
+    Extract job information from Zep search results.
+
+    Args:
+        results: Zep search results
+
+    Returns:
+        List of job dicts
+    """
+    jobs = []
+
+    if not hasattr(results, 'nodes'):
+        return jobs
+
+    for node in results.nodes:
+        node_type = getattr(node, 'type', '')
+        if node_type == 'job' or node_type == 'Job':
+            jobs.append({
+                "id": getattr(node, 'uuid', ''),
+                "name": getattr(node, 'name', ''),
+                "summary": getattr(node, 'summary', ''),
+                "title": getattr(node, 'title', ''),
+                "company": getattr(node, 'company', ''),
+                "location": getattr(node, 'location', '')
+            })
+
+    return jobs
+
+
+def extract_locations_from_results(results: Any) -> list[Dict[str, Any]]:
+    """
+    Extract location information from Zep search results.
+
+    Args:
+        results: Zep search results
+
+    Returns:
+        List of location dicts
+    """
+    locations = []
+
+    if not hasattr(results, 'nodes'):
+        return locations
+
+    for node in results.nodes:
+        node_type = getattr(node, 'type', '')
+        if node_type == 'location' or node_type == 'Location':
+            locations.append({
+                "id": getattr(node, 'uuid', ''),
+                "name": getattr(node, 'name', ''),
+                "city": getattr(node, 'city', ''),
+                "country": getattr(node, 'country', ''),
+                "region": getattr(node, 'region', '')
+            })
+
+    return locations
+
+
+def extract_skills_from_results(results: Any) -> list[Dict[str, Any]]:
+    """
+    Extract skill information from Zep search results.
+
+    Args:
+        results: Zep search results
+
+    Returns:
+        List of skill dicts
+    """
+    skills = []
+
+    if not hasattr(results, 'nodes'):
+        return skills
+
+    for node in results.nodes:
+        node_type = getattr(node, 'type', '')
+        if node_type == 'skill' or node_type == 'Skill':
+            skills.append({
+                "id": getattr(node, 'uuid', ''),
+                "name": getattr(node, 'name', ''),
+                "category": getattr(node, 'category', '')
+            })
+
+    return skills
+
+
+def extract_countries_from_results(results: Any) -> list[Dict[str, Any]]:
+    """
+    Extract country information from Zep search results.
+
+    Args:
+        results: Zep search results
+
+    Returns:
+        List of country dicts
+    """
+    countries = []
+
+    if not hasattr(results, 'nodes'):
+        return countries
+
+    for node in results.nodes:
+        node_type = getattr(node, 'type', '')
+        if node_type == 'country' or node_type == 'Country':
+            countries.append({
+                "id": getattr(node, 'uuid', ''),
+                "name": getattr(node, 'name', ''),
+                "code": getattr(node, 'code', ''),
+                "visa_types": getattr(node, 'visa_types', '')
+            })
+
+    return countries
+
+
 @activity.defn
 async def sync_article_to_zep(
     article_id: str,

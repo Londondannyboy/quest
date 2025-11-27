@@ -163,6 +163,7 @@ from src.activities.storage.zep_integration import (
 
 from src.activities.storage.zep_entity_extraction import (
     extract_entities_from_v2_profile,
+    extract_entities_from_article,  # New: Extract jobs, skills, locations from articles
 )
 
 from src.activities.storage.zep_graph_visual import (
@@ -327,6 +328,8 @@ async def main():
             create_zep_summary,
             sync_article_to_zep,
             fetch_company_graph_data,
+            extract_entities_from_v2_profile,  # Extract deals/people from company profiles
+            extract_entities_from_article,  # Extract jobs/skills/locations from articles
 
             # Articles (re-enabled)
             fetch_related_articles,
