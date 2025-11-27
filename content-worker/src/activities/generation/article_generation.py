@@ -567,28 +567,28 @@ After the Editorial Footer, include this JSON block for video thumbnail and comp
     {{
       "act": 1,
       "title": "Section 1 H2 title exactly as in article",
-      "video_title": "SHORT 2-4 word video label (e.g., 'The Grind', 'Discovery', 'The Journey', 'New Life')",
+      "video_title": "STORY-SPECIFIC 2-4 word label (e.g., 'Rule 5.4 Falls', 'Arizona Opens Up', 'Visa Cap Doubles' - NOT generic like 'The Grind')",
       "factoid": "One compelling stat or fact for this section (shown on thumbnail overlay)",
       "four_act_visual_hint": "45-55 word cinematic scene. Example: 'Exhausted professional in cramped flat stares at rain-streaked window, laptop glowing harsh. Camera pushes slowly to close-up as subject rubs temples. Cool blue-grey tones, harsh fluorescent light. Documentary realism, shallow depth of field.'"
     }},
     {{
       "act": 2,
       "title": "Section 2 H2 title",
-      "video_title": "SHORT 2-4 word video label",
+      "video_title": "STORY-SPECIFIC 2-4 word label for this section's key insight",
       "factoid": "Compelling stat for section 2",
       "four_act_visual_hint": "45-55 word cinematic scene for act 2 (opportunity/discovery)"
     }},
     {{
       "act": 3,
       "title": "Section 3 H2 title",
-      "video_title": "SHORT 2-4 word video label",
+      "video_title": "STORY-SPECIFIC 2-4 word label for this section's key insight",
       "factoid": "Compelling stat for section 3",
       "four_act_visual_hint": "45-55 word cinematic scene for act 3 (journey/process)"
     }},
     {{
       "act": 4,
       "title": "Section 4 H2 title",
-      "video_title": "SHORT 2-4 word video label",
+      "video_title": "STORY-SPECIFIC 2-4 words WITH '?' (e.g., 'PE-Backed Future?', 'Global Expansion?', 'Schengen Access?' - question mark acknowledges future uncertainty)",
       "factoid": "Compelling stat for section 4",
       "four_act_visual_hint": "45-55 word cinematic scene for act 4 (payoff/resolution)"
     }}
@@ -662,7 +662,8 @@ Technical: {technical_notes}
 
 VISUAL_HINT REQUIREMENTS (CRITICAL FOR VIDEO - STRICT LENGTH):
 - 45-55 words MAXIMUM (strict limit to fit 4 acts in 2000 chars)
-- video_title must be 2-4 words only (e.g., "The Grind", "Discovery", "New Life")
+- video_title must be 2-4 words, STORY-SPECIFIC (e.g., "Rule 5.4 Falls", "Visa Cap Doubles", "New Wealth" - NOT generic like "The Grind" or "Discovery")
+- Act 4 video_title MUST end with "?" to acknowledge future uncertainty (e.g., "PE-Backed Future?", "Schengen Access?", "Global Expansion?")
 - Must describe MOTION (action sequences, camera movement)
 - Include: subject + action, environment, lighting, camera movement, color grade
 - Formula: [Subject + Action] + [Environment] + [Camera] + [Color/Mood]
