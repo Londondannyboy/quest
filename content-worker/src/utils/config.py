@@ -59,6 +59,9 @@ class Config:
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
     ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY")
 
+    # Article generation AI provider: "gemini" or "anthropic" (default: anthropic for quality)
+    ARTICLE_AI_PROVIDER: str = os.getenv("ARTICLE_AI_PROVIDER", "anthropic")
+
     # ===== SEARCH & RESEARCH =====
     DATAFORSEO_LOGIN: Optional[str] = os.getenv("DATAFORSEO_LOGIN")
     DATAFORSEO_PASSWORD: Optional[str] = os.getenv("DATAFORSEO_PASSWORD")

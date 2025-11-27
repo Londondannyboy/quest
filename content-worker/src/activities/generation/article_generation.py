@@ -274,19 +274,33 @@ async def generate_four_act_article(
         # Build prompt with research context
         prompt = build_prompt(topic, research_context)
 
-        # Use Gemini 3 Pro by default (30% cheaper than Sonnet)
-        # Fallback to Anthropic if GOOGLE_API_KEY not available
-        use_gemini = bool(config.GOOGLE_API_KEY)
+        # AI provider is configurable via ARTICLE_AI_PROVIDER env var
+        # Default: anthropic (better quality), set to "gemini" for 30% cost savings
+        preferred_provider = config.ARTICLE_AI_PROVIDER.lower()
+
+        # Determine which provider to use based on preference and availability
+        if preferred_provider == "gemini" and config.GOOGLE_API_KEY:
+            use_gemini = True
+        elif preferred_provider == "anthropic" and config.ANTHROPIC_API_KEY:
+            use_gemini = False
+        elif config.GOOGLE_API_KEY:
+            # Fallback to Gemini if available
+            use_gemini = True
+        elif config.ANTHROPIC_API_KEY:
+            # Fallback to Anthropic if available
+            use_gemini = False
+        else:
+            raise ValueError("No AI API key configured (need GOOGLE_API_KEY or ANTHROPIC_API_KEY)")
 
         if use_gemini:
             provider = "google"
-            model_name = "gemini-3-pro-preview"
+            model_name = "gemini-2.5-pro-preview-06-05"
             activity.logger.info(f"Using AI: {provider}:{model_name}")
             genai.configure(api_key=config.GOOGLE_API_KEY)
         else:
             provider = "anthropic"
             model_name = "claude-sonnet-4-20250514"
-            activity.logger.info(f"Using AI: {provider}:{model_name} (Gemini unavailable)")
+            activity.logger.info(f"Using AI: {provider}:{model_name}")
             anthropic_client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
 
         # Get app config for rich context
