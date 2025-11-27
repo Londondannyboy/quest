@@ -72,6 +72,7 @@ class ArticleCreationWorkflow:
         jurisdiction = input_dict.get("jurisdiction", "UK")
         num_sources = input_dict.get("num_research_sources", 10)
         custom_slug = input_dict.get("slug")  # Optional custom slug for SEO
+        character_style = input_dict.get("character_style")  # Optional character style for video prompts (e.g., "diverse_professional")
 
         # SEO keyword targeting (from NewsCreationWorkflow Phase 3.6 or dashboard)
         target_keyword = input_dict.get("target_keyword")
@@ -750,37 +751,77 @@ class ArticleCreationWorkflow:
         else:
             workflow.logger.warning(f"Zep sync failed: {zep_result.get('error')}")
 
-        # ===== PHASE 8: GENERATE VIDEO PROMPT FROM ARTICLE (article-first) =====
-        # 4-ACT: Generate video prompt FROM article's four_act_content sections
-        # Each section has four_act_visual_hint → combined into 4-act video prompt
+        # ===== PHASE 8: GENERATE VIDEO PROMPT BRIEFS (if missing) =====
+        # New separate step: Generate four_act_content briefs AFTER article save
+        # This applies app config (relocation style, character demographics, templates)
         video_prompt_result = None
         if video_quality:
-            workflow.logger.info(f"Phase 8: Generating 4-act video prompt from article sections")
-
-            # Extract 4-act prompt from structured sections
+            # Check if article already has four_act_content
             four_act_content = article.get("four_act_content", [])
+            hints_count = sum(1 for s in four_act_content[:4] if s.get("four_act_visual_hint")) if four_act_content else 0
 
-            if four_act_content:
-                workflow.logger.info(f"Extracting 4-act prompt from {len(four_act_content)} structured sections")
+            if not four_act_content or hints_count < 4:
+                # Need to generate briefs - this is the SEPARATE STEP
+                workflow.logger.info(f"Phase 8a: Generating 4-act video prompt briefs (missing: {hints_count}/4 hints)")
+
+                brief_result = await workflow.execute_activity(
+                    "generate_four_act_video_prompt_brief",
+                    args=[article, app, character_style],
+                    start_to_close_timeout=timedelta(seconds=60)
+                )
+
+                if brief_result.get("success"):
+                    # Update article with the briefs
+                    article["four_act_content"] = brief_result["four_act_content"]
+                    four_act_content = brief_result["four_act_content"]
+                    workflow.logger.info(f"✅ Generated 4-act briefs using template '{brief_result.get('template_used')}'")
+
+                    # Save briefs to database
+                    await workflow.execute_activity(
+                        "update_article_four_act_content",
+                        args=[str(article_id), brief_result["four_act_content"]],
+                        start_to_close_timeout=timedelta(seconds=30)
+                    )
+                    workflow.logger.info("✅ Saved four_act_content briefs to database")
+                else:
+                    workflow.logger.error(f"❌ Failed to generate briefs: {brief_result.get('error')}")
+                    video_prompt_result = {
+                        "prompt": "",
+                        "success": False,
+                        "error": "Failed to generate four_act_content briefs"
+                    }
+            else:
+                workflow.logger.info(f"Phase 8a: Article already has {hints_count}/4 video briefs - skipping brief generation")
+
+            # ===== PHASE 8b: ASSEMBLE VIDEO PROMPT FROM BRIEFS =====
+            # Simple assembly of briefs into Replicate prompt (no AI fallback)
+            if four_act_content and len(four_act_content) >= 4:
+                workflow.logger.info(f"Phase 8b: Assembling 4-act video prompt from {len(four_act_content)} briefs")
                 video_prompt_result = await workflow.execute_activity(
                     "generate_four_act_video_prompt",
-                    args=[article, app, video_model],
+                    args=[article, app, video_model, character_style],
                     start_to_close_timeout=timedelta(seconds=30)
                 )
-            else:
-                # No structured sections = article generation failed or is broken
-                workflow.logger.error("NO STRUCTURED SECTIONS - Article must have 4 sections with four_act_visual_hint for 4-act video")
-                workflow.logger.error("Skipping video generation - article needs regeneration")
+
+                if video_prompt_result.get("success"):
+                    workflow.logger.info(f"✅ 4-act video prompt assembled ({video_prompt_result.get('acts', 4)} acts): {video_prompt_result['prompt'][:100]}...")
+
+                    # Save assembled prompt to database for debugging
+                    await workflow.execute_activity(
+                        "update_article_four_act_content",
+                        args=[str(article_id), four_act_content, video_prompt_result.get("prompt")],
+                        start_to_close_timeout=timedelta(seconds=30)
+                    )
+                else:
+                    workflow.logger.error(f"❌ Video prompt assembly failed: {video_prompt_result.get('error')}")
+            elif not video_prompt_result:
+                # Briefs still missing after generation attempt
+                workflow.logger.error("NO STRUCTURED SECTIONS - Cannot assemble video prompt without four_act_content")
                 video_prompt_result = {
                     "prompt": "",
                     "success": False,
-                    "error": "No four_act_content in article"
+                    "error": "No four_act_content available"
                 }
-
-            if video_prompt_result.get("success"):
-                workflow.logger.info(f"4-act video prompt generated ({video_prompt_result.get('acts', 4)} acts): {video_prompt_result['prompt'][:100]}...")
-            else:
-                workflow.logger.warning(f"Video prompt generation failed: {video_prompt_result.get('error')}")
 
         # ===== PHASE 9: GENERATE 4-ACT VIDEO =====
         if video_quality:

@@ -683,6 +683,72 @@ async def get_article_by_slug(slug: str) -> Optional[Dict[str, Any]]:
 
 
 @activity.defn
+async def update_article_four_act_content(
+    article_id: str,
+    four_act_content: List[Dict[str, Any]],
+    video_prompt: Optional[str] = None
+) -> bool:
+    """
+    Update article's four_act_content (video prompt briefs) in database.
+
+    Called after generate_four_act_video_prompt_brief to store the briefs.
+    Optionally also stores the assembled video_prompt for debugging.
+
+    Args:
+        article_id: Article ID
+        four_act_content: List of 4 sections with video hints
+        video_prompt: Optional assembled video prompt for Replicate
+
+    Returns:
+        Success boolean
+    """
+    activity.logger.info(f"Updating four_act_content for article {article_id}")
+
+    try:
+        async with await psycopg.AsyncConnection.connect(
+            config.DATABASE_URL
+        ) as conn:
+            async with conn.cursor() as cur:
+                # Update payload with four_act_content, and optionally video_prompt
+                # First get existing payload
+                await cur.execute("""
+                    SELECT payload FROM articles WHERE id = %s
+                """, (article_id,))
+
+                row = await cur.fetchone()
+                if not row:
+                    activity.logger.error(f"Article {article_id} not found")
+                    return False
+
+                payload = row[0] if row[0] else {}
+
+                # Update payload with four_act_content
+                payload["four_act_content"] = four_act_content
+
+                # Optionally store the video_prompt for debugging
+                if video_prompt:
+                    payload["video_prompt"] = video_prompt
+
+                # Update the payload column
+                await cur.execute("""
+                    UPDATE articles
+                    SET
+                        payload = %s,
+                        updated_at = NOW()
+                    WHERE id = %s
+                """, (json.dumps(payload), article_id))
+
+                await conn.commit()
+
+                activity.logger.info(f"✅ Updated four_act_content for article {article_id} ({len(four_act_content)} sections)")
+                return True
+
+    except Exception as e:
+        activity.logger.error(f"Failed to update four_act_content: {e}")
+        return False
+
+
+@activity.defn
 async def save_spawn_candidate(
     spawn_opportunity: Dict[str, Any],
     parent_article_id: str,

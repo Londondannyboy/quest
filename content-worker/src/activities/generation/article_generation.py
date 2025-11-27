@@ -279,10 +279,14 @@ async def generate_four_act_article(
         use_gemini = bool(config.GOOGLE_API_KEY)
 
         if use_gemini:
-            activity.logger.info("Using AI: google:gemini-3-pro-preview")
+            provider = "google"
+            model_name = "gemini-3-pro-preview"
+            activity.logger.info(f"Using AI: {provider}:{model_name}")
             genai.configure(api_key=config.GOOGLE_API_KEY)
         else:
-            activity.logger.info("Using AI: anthropic:claude-sonnet-4 (Gemini unavailable)")
+            provider = "anthropic"
+            model_name = "claude-sonnet-4-20250514"
+            activity.logger.info(f"Using AI: {provider}:{model_name} (Gemini unavailable)")
             anthropic_client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
 
         # Get app config for rich context
@@ -1098,10 +1102,17 @@ The STRUCTURED DATA section is MANDATORY - without it, no video can be generated
 
         activity.logger.info(f"Article generated: {word_count} words")
 
-        # Calculate cost (rough estimate for Claude Sonnet)
-        input_tokens = message.usage.input_tokens
-        output_tokens = message.usage.output_tokens
-        cost = (input_tokens * 0.003 + output_tokens * 0.015) / 1000
+        # Calculate cost (rough estimate)
+        if use_gemini:
+            # Gemini token estimation (no direct usage API in response)
+            input_tokens = len(prompt) // 4  # Rough estimate
+            output_tokens = len(article_text) // 4
+            cost = (input_tokens * 0.00025 + output_tokens * 0.001) / 1000  # Gemini pricing
+        else:
+            # Anthropic Claude - has usage info
+            input_tokens = message.usage.input_tokens
+            output_tokens = message.usage.output_tokens
+            cost = (input_tokens * 0.003 + output_tokens * 0.015) / 1000
 
         return {
             "article": {
@@ -1833,21 +1844,22 @@ async def generate_four_act_video_prompt(
     character_style: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Generate a 4-act video prompt - HYBRID approach:
+    Generate a 4-act video prompt from article's four_act_content.
 
-    1. FIRST: Try to assemble from article's four_act_content (if AI generated it)
-    2. FALLBACK: Use Gemini 2.0 Flash to generate from scratch
+    SIMPLE ASSEMBLY ONLY - NO AI FALLBACK.
+    If four_act_content is missing, fail cleanly.
+    Use generate_four_act_video_prompt_brief first to create the briefs.
 
     Args:
-        article: Article dict with title, content, excerpt, four_act_content (optional)
+        article: Article dict with four_act_content (required)
         app: Application (relocation, placement, pe_news)
         video_model: Target model (seedance or wan-2.5)
         character_style: Override character style
 
     Returns:
-        {"prompt": str, "model": str, "acts": int, "success": bool, "cost": float, "source": "assembled"|"ai_generated"}
+        {"prompt": str, "model": str, "acts": int, "success": bool, "cost": 0}
     """
-    activity.logger.info(f"🎬 Generating 4-act video prompt: {article.get('title', 'Untitled')[:50]}...")
+    activity.logger.info(f"🎬 Assembling 4-act video prompt: {article.get('title', 'Untitled')[:50]}...")
 
     # Get app config for no-text rule, holistic guidelines, and character style
     app_config = APP_CONFIGS.get(app)
@@ -1867,126 +1879,189 @@ async def generate_four_act_video_prompt(
     model_info = VIDEO_MODEL_LIMITS.get(video_model, VIDEO_MODEL_LIMITS["seedance"])
     char_limit = model_info.get("char_limit", 2000)
 
-    # ===== STEP 1: TRY TO ASSEMBLE FROM ARTICLE'S four_act_content =====
+    # Get four_act_content - REQUIRED
     sections = article.get("four_act_content", [])
 
-    if sections and len(sections) >= 4:
-        # Check if sections have four_act_visual_hint
-        hints_count = sum(1 for s in sections[:4] if s.get("four_act_visual_hint"))
+    if not sections or len(sections) < 4:
+        error_msg = (
+            f"❌ FAILED: Article missing four_act_content. "
+            f"Found {len(sections) if sections else 0} sections, need 4. "
+            f"Run generate_four_act_video_prompt_brief first to create briefs."
+        )
+        activity.logger.error(error_msg)
+        return {
+            "prompt": "",
+            "model": video_model,
+            "acts": 0,
+            "success": False,
+            "error": error_msg,
+            "cost": 0
+        }
 
-        if hints_count >= 4:
-            activity.logger.info(f"✅ ASSEMBLING from article's four_act_content ({hints_count}/4 hints found)")
+    # Check if sections have four_act_visual_hint
+    hints_count = sum(1 for s in sections[:4] if s.get("four_act_visual_hint"))
 
-            # Build the 4-act prompt from visual hints
-            act_prompts = []
-            for i, section in enumerate(sections[:4]):
-                act_num = i + 1
-                hint = section.get("four_act_visual_hint", "")
-                video_title = section.get("video_title") or section.get("title", f"Act {act_num}")
-                start_time = (act_num - 1) * 3
-                end_time = act_num * 3
-                act_prompts.append(f"ACT {act_num} ({start_time}s-{end_time}s): {video_title}\n{hint}")
+    if hints_count < 4:
+        error_msg = (
+            f"❌ FAILED: Only {hints_count}/4 sections have four_act_visual_hint. "
+            f"All 4 acts need visual hints. Run generate_four_act_video_prompt_brief first."
+        )
+        activity.logger.error(error_msg)
+        return {
+            "prompt": "",
+            "model": video_model,
+            "acts": hints_count,
+            "success": False,
+            "error": error_msg,
+            "cost": 0
+        }
 
-            acts_text = "\n\n".join(act_prompts)
-            holistic_block = f"\n{holistic}" if holistic else ""
-            character_block = f"\n{character_prompt}" if character_prompt else ""
+    activity.logger.info(f"✅ ASSEMBLING from article's four_act_content ({hints_count}/4 hints found)")
 
-            assembled_prompt = f"""{no_text_rule}{character_block}{holistic_block}
+    # Build the 4-act prompt from visual hints
+    act_prompts = []
+    for i, section in enumerate(sections[:4]):
+        act_num = i + 1
+        hint = section.get("four_act_visual_hint", "")
+        video_title = section.get("video_title") or section.get("title", f"Act {act_num}")
+        start_time = (act_num - 1) * 3
+        end_time = act_num * 3
+        act_prompts.append(f"ACT {act_num} ({start_time}s-{end_time}s): {video_title}\n{hint}")
+
+    acts_text = "\n\n".join(act_prompts)
+    holistic_block = f"\n{holistic}" if holistic else ""
+    character_block = f"\n{character_prompt}" if character_prompt else ""
+
+    assembled_prompt = f"""{no_text_rule}{character_block}{holistic_block}
 
 VIDEO: 12 seconds, 4 acts × 3 seconds each.
 
 {acts_text}"""
 
-            # Enforce character limit
-            was_truncated = len(assembled_prompt) > char_limit
-            if was_truncated:
-                assembled_prompt = assembled_prompt[:char_limit]
+    # Enforce character limit
+    was_truncated = len(assembled_prompt) > char_limit
+    if was_truncated:
+        assembled_prompt = assembled_prompt[:char_limit]
+        activity.logger.warning(f"Prompt truncated from {len(assembled_prompt)} to {char_limit} chars")
 
-            activity.logger.info(f"✅ Assembled 4-act prompt: {len(assembled_prompt)} chars (source: article four_act_content)")
+    activity.logger.info(f"✅ Assembled 4-act prompt: {len(assembled_prompt)} chars")
 
-            return {
-                "prompt": assembled_prompt,
-                "model": video_model,
-                "acts": 4,
-                "success": True,
-                "was_truncated": was_truncated,
-                "source": "assembled",
-                "cost": 0  # No AI call
-            }
-        else:
-            activity.logger.warning(f"⚠️ Article has {len(sections)} sections but only {hints_count}/4 have four_act_visual_hint")
+    return {
+        "prompt": assembled_prompt,
+        "model": video_model,
+        "acts": 4,
+        "success": True,
+        "was_truncated": was_truncated,
+        "source": "assembled",
+        "cost": 0  # No AI call - just string assembly
+    }
+
+
+
+# Map article_type to template name
+ARTICLE_TYPE_TO_TEMPLATE = {
+    "news": "news_story",
+    "guide": "transformation",  # Personal journey/how-to
+    "comparison": "market_analysis",
+    "profile": "profile",
+    "deal": "deal_story",
+    "analysis": "market_analysis",
+}
+
+
+@activity.defn
+async def generate_four_act_video_prompt_brief(
+    article: Dict[str, Any],
+    app: str,
+    character_style: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Generate four_act_content briefs from a saved article.
+
+    Called AFTER article is saved to Neon. Reads article sections,
+    applies app config (relocation style, character demographics),
+    and generates video hints using AI.
+
+    This is the SEPARATE STEP that creates briefs. The briefs are then
+    assembled into the final Replicate prompt by generate_four_act_video_prompt.
+
+    Args:
+        article: Article dict with title, content, excerpt (four_act_content may be empty)
+        app: Application (relocation, placement, pe_news)
+        character_style: Override character style
+
+    Returns:
+        {
+            "four_act_content": [...],  # 4 sections with briefs
+            "template_used": str,
+            "success": bool,
+            "cost": float
+        }
+    """
+    activity.logger.info(f"📝 Generating 4-act video prompt briefs: {article.get('title', 'Untitled')[:50]}...")
+
+    # Get app config NOW - at video prompt time
+    app_config = APP_CONFIGS.get(app)
+    if app_config:
+        no_text_rule = app_config.article_theme.video_prompt_template.no_text_rule
+        video_prompt_template = app_config.article_theme.video_prompt_template
+        technical_notes = getattr(video_prompt_template, 'technical_notes', "")
+        effective_style = CharacterStyle(character_style) if character_style else app_config.character_style
     else:
-        activity.logger.warning(f"⚠️ Article missing four_act_content (sections: {len(sections) if sections else 0})")
+        no_text_rule = "CRITICAL: NO text, words, letters, numbers anywhere. Purely visual."
+        video_prompt_template = None
+        technical_notes = ""
+        effective_style = CharacterStyle(character_style) if character_style else CharacterStyle.DIVERSE
 
-    # ===== STEP 2: GENERATE WITH AI + PYDANTIC VALIDATION =====
-    activity.logger.info("📝 Generating 4-act content via AI (Pydantic validated)...")
+    character_prompt = CHARACTER_STYLE_PROMPTS.get(effective_style, "")
+    activity.logger.info(f"Character style: {effective_style.value}")
 
-    # Extract article info for AI
+    # Extract article info
     title = article.get("title", "")
     excerpt = article.get("excerpt", "")
     content = article.get("content", "")[:4000]  # First 4000 chars
-
-    # Get model-specific word count
-    words_per_act = model_info.get("words_per_act", "45-55")
-
-    # ===== GET APP TEMPLATE FOR ACT ROLES/MOODS =====
-    # Select template based on article_type, not just default
-    technical_notes = ""
     article_type = article.get("article_type", "news")
 
-    # Map article_type to template name
-    ARTICLE_TYPE_TO_TEMPLATE = {
-        "news": "news_story",
-        "guide": "transformation",  # Personal journey/how-to
-        "comparison": "market_analysis",
-        "profile": "profile",
-        "deal": "deal_story",
-        "analysis": "market_analysis",
-    }
+    # Get model-specific word count (default to seedance)
+    words_per_act = "45-55"
 
-    if app_config:
-        video_prompt_template = app_config.article_theme.video_prompt_template
-        technical_notes = getattr(video_prompt_template, 'technical_notes', "")
+    # Get template based on article_type
+    template_name = ARTICLE_TYPE_TO_TEMPLATE.get(article_type, "transformation")
+    selected_template = None
 
-        # Try to get template matching article_type, fall back to default
-        template_name = ARTICLE_TYPE_TO_TEMPLATE.get(article_type)
+    if video_prompt_template:
         selected_template = video_prompt_template.get_template(template_name)
-
         if not selected_template:
-            # Fall back to default template
             selected_template = video_prompt_template.get_template()
 
-        if selected_template:
-            act_1_role = selected_template.act_1_role
-            act_1_mood = selected_template.act_1_mood
-            act_2_role = selected_template.act_2_role
-            act_2_mood = selected_template.act_2_mood
-            act_3_role = selected_template.act_3_role
-            act_3_mood = selected_template.act_3_mood
-            act_4_role = selected_template.act_4_role
-            act_4_mood = selected_template.act_4_mood
-            activity.logger.info(f"Using template '{selected_template.name}' for article_type '{article_type}'")
-        else:
-            act_1_role, act_1_mood = "THE SETUP - Problem/challenge", "Tension, stakes"
-            act_2_role, act_2_mood = "THE OPPORTUNITY - Discovery/hope", "Hope, revelation"
-            act_3_role, act_3_mood = "THE JOURNEY - Process/action", "Progress, momentum"
-            act_4_role, act_4_mood = "THE RESOLUTION - Outcome/future", "Achievement, possibility"
-            activity.logger.warning(f"No template found for article_type '{article_type}', using generic")
+    if selected_template:
+        act_1_role = selected_template.act_1_role
+        act_1_mood = selected_template.act_1_mood
+        act_2_role = selected_template.act_2_role
+        act_2_mood = selected_template.act_2_mood
+        act_3_role = selected_template.act_3_role
+        act_3_mood = selected_template.act_3_mood
+        act_4_role = selected_template.act_4_role
+        act_4_mood = selected_template.act_4_mood
+        template_used = selected_template.name
+        activity.logger.info(f"Using template '{template_used}' for article_type '{article_type}'")
     else:
         act_1_role, act_1_mood = "THE SETUP - Problem/challenge", "Tension, stakes"
         act_2_role, act_2_mood = "THE OPPORTUNITY - Discovery/hope", "Hope, revelation"
         act_3_role, act_3_mood = "THE JOURNEY - Process/action", "Progress, momentum"
         act_4_role, act_4_mood = "THE RESOLUTION - Outcome/future", "Achievement, possibility"
+        template_used = "generic"
+        activity.logger.warning(f"No template found for article_type '{article_type}', using generic")
 
     # Build AI prompt - request JSON for Pydantic validation
-    ai_prompt = f"""Generate 4-act video content for this article. Return ONLY valid JSON.
+    ai_prompt = f"""Generate 4-act video content briefs for this article. Return ONLY valid JSON.
 
 ARTICLE TITLE: {title}
 ARTICLE EXCERPT: {excerpt}
 ARTICLE CONTENT:
 {content}
 
-===== 4-ACT STRUCTURE (from app template) =====
+===== 4-ACT STRUCTURE (from app template: {template_used}) =====
 ACT 1 (0-3s): {act_1_role}
   Mood: {act_1_mood}
 
@@ -2032,7 +2107,7 @@ ACT 4 (9-12s): {act_4_role}
 
     for attempt in range(max_retries):
         try:
-            activity.logger.info(f"Attempt {attempt + 1}/{max_retries} to generate 4-act content")
+            activity.logger.info(f"Attempt {attempt + 1}/{max_retries} to generate 4-act briefs")
 
             # Use Gemini 2.0 Flash
             genai.configure(api_key=config.GOOGLE_API_KEY)
@@ -2063,47 +2138,20 @@ ACT 4 (9-12s): {act_4_role}
             json_str = json_match.group()
             data = json.loads(json_str)
 
-            # ===== PYDANTIC VALIDATION - MUST HAVE 4 VALID ACTS =====
+            # Pydantic validation - MUST HAVE 4 VALID ACTS
             validated = FourActContent(sections=[
                 FourActSection(**s) for s in data.get("sections", [])
             ])
 
             activity.logger.info(f"✅ Pydantic validation passed: 4 acts with valid visual hints")
 
-            # Assemble into video prompt format
-            act_prompts = []
-            for section in validated.sections:
-                act_num = section.act
-                start_time = (act_num - 1) * 3
-                end_time = act_num * 3
-                act_prompts.append(f"ACT {act_num} ({start_time}s-{end_time}s): {section.video_title}\n{section.four_act_visual_hint}")
-
-            acts_text = "\n\n".join(act_prompts)
-            holistic_block = f"\n{holistic}" if holistic else ""
-            character_block = f"\n{character_prompt}" if character_prompt else ""
-
-            final_prompt = f"""{no_text_rule}{character_block}{holistic_block}
-
-VIDEO: 12 seconds, 4 acts × 3 seconds each.
-
-{acts_text}"""
-
-            # Enforce character limit
-            was_truncated = len(final_prompt) > char_limit
-            if was_truncated:
-                final_prompt = final_prompt[:char_limit]
-
-            activity.logger.info(f"✅ 4-act video prompt generated: {len(final_prompt)} chars (Pydantic validated)")
+            four_act_content = [s.model_dump() for s in validated.sections]
 
             return {
-                "prompt": final_prompt,
-                "model": video_model,
-                "acts": 4,
+                "four_act_content": four_act_content,
+                "template_used": template_used,
                 "success": True,
-                "was_truncated": was_truncated,
-                "source": "ai_generated_validated",
-                "four_act_content": [s.model_dump() for s in validated.sections],  # Return for database storage
-                "cost": 0.001
+                "cost": 0.001  # Gemini 2.0 Flash cost estimate
             }
 
         except Exception as e:
@@ -2111,12 +2159,6 @@ VIDEO: 12 seconds, 4 acts × 3 seconds each.
             activity.logger.warning(f"Attempt {attempt + 1} failed: {last_error}")
 
     # All retries failed - RAISE to fail the workflow
-    error_msg = f"❌ FAILED to generate valid 4-act video prompt after {max_retries} attempts. Last error: {last_error}"
+    error_msg = f"❌ FAILED to generate valid 4-act briefs after {max_retries} attempts. Last error: {last_error}"
     activity.logger.error(error_msg)
     raise ValueError(error_msg)
-
-
-
-# NOTE: generate_four_act_content has been merged into generate_four_act_video_prompt
-# which now handles both structured content generation AND video prompt assembly
-# with Pydantic validation. Use generate_four_act_video_prompt instead.

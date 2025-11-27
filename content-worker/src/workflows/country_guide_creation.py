@@ -224,6 +224,7 @@ class CountryGuideCreationWorkflow:
         # ===== PHASE 5: CURATE RESEARCH =====
         workflow.logger.info("Phase 5: Curate Research - AI filter and summarize")
 
+        # Build research context for generation (will be enhanced by curation)
         research_context = {
             "country": country_name,
             "code": country_code,
@@ -234,17 +235,24 @@ class CountryGuideCreationWorkflow:
         }
 
         try:
+            # curate_research_sources expects: (topic, crawled_pages, news_articles, exa_results, max_sources)
             curation_result = await workflow.execute_activity(
                 "curate_research_sources",
-                args=[f"{country_name} relocation guide", research_context, "guide", app],
+                args=[
+                    f"{country_name} relocation guide",  # topic
+                    crawled_content,  # crawled_pages (list of dicts)
+                    [],  # news_articles (empty for country guides)
+                    [],  # exa_results (empty - we already have exa in crawled_content)
+                    20   # max_sources
+                ],
                 start_to_close_timeout=timedelta(minutes=2)
             )
 
             research_context["curated_summary"] = curation_result.get("summary", "")
             research_context["key_facts"] = curation_result.get("key_facts", [])
-            research_context["sources"] = curation_result.get("sources", [])
+            research_context["curated_sources"] = curation_result.get("curated_sources", [])
 
-            workflow.logger.info(f"Curation complete: {len(research_context.get('sources', []))} curated sources")
+            workflow.logger.info(f"Curation complete: {len(research_context.get('curated_sources', []))} curated sources")
 
         except Exception as e:
             workflow.logger.warning(f"Curation failed (non-blocking): {e}")

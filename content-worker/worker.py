@@ -124,7 +124,8 @@ from src.activities.generation.article_generation import (
     generate_four_act_article,  # 4-act article with four_act_content
     generate_narrative_article,  # Legacy 3-act narrative-driven article
     refine_broken_links,  # Phase 5b: Haiku fixes broken links in article
-    generate_four_act_video_prompt,  # Assembles video prompt from article sections
+    generate_four_act_video_prompt,  # Assembles video prompt from briefs (simple, no AI fallback)
+    generate_four_act_video_prompt_brief,  # NEW: Generates briefs from article AFTER save
 )
 
 from src.activities.generation.country_guide_generation import (
@@ -156,6 +157,7 @@ from src.activities.storage.neon_database import (
     get_company_by_id,
     save_article_to_neon,
     get_article_by_slug,
+    update_article_four_act_content,  # NEW: Update four_act_content briefs and video_prompt
     save_spawn_candidate,
 )
 
@@ -328,7 +330,8 @@ async def main():
             generate_four_act_article,  # 4-act article with four_act_content
             generate_narrative_article,  # Legacy 3-act narrative-driven article
             refine_broken_links,  # Phase 5b: Haiku fixes broken links
-            generate_four_act_video_prompt,  # Assembles video prompt from article sections
+            generate_four_act_video_prompt,  # Assembles video prompt from briefs (simple)
+            generate_four_act_video_prompt_brief,  # NEW: Generates briefs AFTER article save
             build_3_act_narrative,   # New: video-first 3-act narrative structure
             curate_research_sources,
             calculate_completeness_score,
@@ -341,6 +344,7 @@ async def main():
             get_company_by_id,
             save_article_to_neon,
             get_article_by_slug,
+            update_article_four_act_content,  # NEW: Update briefs and video_prompt
             get_recent_articles_from_neon,
             save_spawn_candidate,  # Article spawn candidates
 
