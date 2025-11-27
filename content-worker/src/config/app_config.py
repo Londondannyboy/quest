@@ -13,6 +13,32 @@ ARTICLE TYPES (VideoActTemplate.name)
 =============================================================================
 Sonnet should select the appropriate template based on article topic:
 
+PLACEMENT APP:
+- "deal_story" - Deal/transaction story arc (default)
+  Use for: Acquisitions, fundraising, exits
+  Example: "Apollo Closes $25B Fund VIII"
+
+- "market_analysis" - Industry trends, market overview
+  Use for: Industry reports, market overviews
+  Example: "Q3 2025 PE Fundraising Report"
+
+- "profile" - Company/firm spotlight
+  Use for: Placement agent profiles, GP spotlights
+  Example: "Inside Park Hill: How They Dominate PE Placement"
+
+- "deal_summary" - Quick transaction overview
+  Use for: Transaction summaries, deal briefs
+  Example: "Carlyle's Healthcare Exit: Deal Breakdown"
+
+- "deal_of_week" - Featured transaction spotlight
+  Use for: Deal of the Week, notable transactions
+  Example: "Deal of the Week: KKR's Infrastructure Play"
+
+- "investment_guide" - Educational content (REQUIRES DISCLAIMER)
+  Use for: "How to invest in X", "Understanding Y"
+  Example: "Understanding GP Stakes Investing"
+  NOTE: Must include InvestmentDisclaimer component prominently!
+
 RELOCATION APP:
 - "transformation" - Personal journey from current life to new life
   Use for: Visa guides, moving abroad, lifestyle change articles
@@ -94,6 +120,30 @@ HLS STREAM:
 from typing import Dict, List, Optional
 from enum import Enum
 from pydantic import BaseModel
+
+
+# ============================================================================
+# ARTICLE MODE - Story vs Guide
+# ============================================================================
+
+class ArticleMode(str, Enum):
+    """
+    Article generation mode.
+
+    STORY: 4-act narrative structure (current default)
+        - Emotional journey, cinematic
+        - Setup → Opportunity → Journey → Payoff
+        - 1500-4000 words
+        - Timeline, comparison, FAQ components
+
+    GUIDE: Step-by-step instructional structure (new)
+        - Practical, educational
+        - Introduction → Steps → Conclusion
+        - 800-2000 words
+        - Checklist, requirements, cost breakdown components
+    """
+    STORY = "story"
+    GUIDE = "guide"
 
 
 class CharacterStyle(str, Enum):
@@ -274,6 +324,76 @@ class VideoActTemplate(BaseModel):
     act_4_example: str = ""
 
 
+# ============================================================================
+# GUIDE MODE TEMPLATES
+# ============================================================================
+
+class GuideStep(BaseModel):
+    """Single step in a guide template."""
+    name: str  # e.g., "Requirements", "Application Process", "Timeline"
+    description: str = ""  # What this step covers
+    visual_hint: str = ""  # Visual style for this step's thumbnail
+
+
+class GuideTemplate(BaseModel):
+    """
+    Guide article template - step-by-step instructional structure.
+
+    Unlike story mode (4-act narrative), guide mode uses:
+    - Introduction (what you'll learn)
+    - Numbered steps (practical how-to)
+    - Conclusion (next steps / summary)
+
+    Components: checklist, requirements box, cost breakdown, timeline, FAQ
+    """
+    name: str  # e.g., "visa_guide", "process_guide"
+    description: str = ""  # When to use this template
+
+    # Section structure
+    intro_role: str = "What you'll learn and who this is for"
+    steps: List[GuideStep] = []  # The actual steps (3-6 typical)
+    conclusion_role: str = "Next steps and key takeaways"
+
+    # Tone and voice
+    voice: str = "Direct, practical, authoritative"
+
+    # Components to include (frontend renders these)
+    include_checklist: bool = True
+    include_requirements_box: bool = True
+    include_cost_breakdown: bool = True
+    include_timeline: bool = True
+    include_faq: bool = True
+
+    # Video style (guides use process demonstration style)
+    video_style: str = "Educational, step-by-step demonstration"
+
+
+class GuideConfig(BaseModel):
+    """
+    Collection of guide templates for an app.
+
+    Similar to VideoPromptTemplate but for guide-mode articles.
+    """
+    templates: List[GuideTemplate] = []
+    default_template: str = ""
+
+    # Global guide style
+    no_text_rule: str = "CRITICAL: NO text, words, letters, numbers on screens, documents, or anywhere."
+    technical_notes: str = "Clean, professional aesthetic. Educational documentary style."
+
+    def get_template(self, name: str = None) -> Optional[GuideTemplate]:
+        """Get a template by name, or default."""
+        target = name or self.default_template
+        for t in self.templates:
+            if t.name == target:
+                return t
+        return self.templates[0] if self.templates else None
+
+    def get_template_names(self) -> List[str]:
+        """Get all available template names."""
+        return [t.name for t in self.templates]
+
+
 class VideoPromptTemplate(BaseModel):
     """
     Collection of 4-act video templates for an app.
@@ -333,6 +453,12 @@ class ArticleTheme(BaseModel):
     thumbnails: ThumbnailStrategy = ThumbnailStrategy()
     components: ComponentLibrary = ComponentLibrary()
     video_prompt_template: VideoPromptTemplate = VideoPromptTemplate()
+
+    # Guide mode configuration (optional - for guide-mode articles)
+    guide_config: Optional[GuideConfig] = None
+
+    # Default article mode for this app
+    default_article_mode: ArticleMode = ArticleMode.STORY
 
     # Branding
     brand_name: str = "Relocation Quest"
@@ -530,6 +656,137 @@ Let the article content drive specifics - this sets the professional MOOD only."
                     act_4_role="THE FUTURE - Where they're going",
                     act_4_mood="Ambition, forward momentum",
                     act_4_example="Expansion hints, new opportunities, confident outlook"
+                ),
+                # DEAL SUMMARY - Quick transaction overview
+                VideoActTemplate(
+                    name="deal_summary",
+                    description="Quick deal overview. Use for transaction summaries, deal briefs.",
+                    act_1_role="THE HEADLINE - Key transaction facts",
+                    act_1_mood="Immediate impact, news flash",
+                    act_1_example="Deal signing moment, boardroom celebration, handshake",
+                    act_2_role="THE PLAYERS - Who's involved",
+                    act_2_mood="Credibility, relationships",
+                    act_2_example="Firm logos (abstract), team profiles, partnership energy",
+                    act_3_role="THE TERMS - Structure highlights",
+                    act_3_mood="Analytical, substantial",
+                    act_3_example="Abstract deal visualization, value flow, strategic positioning",
+                    act_4_role="THE SIGNIFICANCE - Why it matters",
+                    act_4_mood="Market impact, forward-looking",
+                    act_4_example="Wider market context, ripple effects, industry implications"
+                ),
+                # DEAL OF THE WEEK - Featured transaction spotlight
+                VideoActTemplate(
+                    name="deal_of_week",
+                    description="Featured transaction spotlight. Use for Deal of the Week, notable transactions.",
+                    act_1_role="THE SPOTLIGHT - Why this deal stands out",
+                    act_1_mood="Premium, notable, exceptional",
+                    act_1_example="Dramatic reveal, spotlight effect, prestigious setting",
+                    act_2_role="THE BACKSTORY - How it came together",
+                    act_2_mood="Narrative, journey, buildup",
+                    act_2_example="Timeline montage, relationship building, strategic moments",
+                    act_3_role="THE EXECUTION - How it got done",
+                    act_3_mood="Precision, expertise, deal-making",
+                    act_3_example="Negotiation energy, late nights, champagne preparation",
+                    act_4_role="THE IMPACT - What it means for the market?",
+                    act_4_mood="Significance, trendsetting, question mark",
+                    act_4_example="Market reaction, industry watching, future implications"
+                ),
+                # INVESTMENT GUIDE - Educational content (REQUIRES DISCLAIMER)
+                VideoActTemplate(
+                    name="investment_guide",
+                    description="Educational investment content. REQUIRES prominent disclaimer. Use for 'How to invest in X', 'Understanding Y investment'.",
+                    act_1_role="THE LANDSCAPE - Market overview/opportunity",
+                    act_1_mood="Educational, context-setting",
+                    act_1_example="Market overview shots, financial district, analytical setting",
+                    act_2_role="THE MECHANICS - How it works",
+                    act_2_mood="Explanatory, clear, trustworthy",
+                    act_2_example="Process visualization, abstract flow diagrams, step demonstration",
+                    act_3_role="THE CONSIDERATIONS - Risks and factors",
+                    act_3_mood="Balanced, thoughtful, risk-aware",
+                    act_3_example="Scales balancing, thoughtful analysis, careful evaluation",
+                    act_4_role="THE PERSPECTIVE - Market outlook?",
+                    act_4_mood="Forward-looking with uncertainty acknowledged",
+                    act_4_example="Horizon view, question marks, multiple paths forward"
+                )
+            ]
+        ),
+        # GUIDE MODE TEMPLATES (educational/process content)
+        guide_config=GuideConfig(
+            default_template="process_guide",
+            no_text_rule="CRITICAL: NO text, numbers on screens. Abstract corporate visuals only.",
+            technical_notes="Clean corporate aesthetic. Professional, authoritative tone.",
+            templates=[
+                # PROCESS GUIDE - How placement agents work
+                GuideTemplate(
+                    name="process_guide",
+                    description="How placement agents work. Use for 'How to work with a placement agent' articles.",
+                    intro_role="What placement agents do and why you need one",
+                    steps=[
+                        GuideStep(
+                            name="Selecting an Agent",
+                            description="What to look for and how to evaluate",
+                            visual_hint="Conference table meeting, portfolio review, handshake"
+                        ),
+                        GuideStep(
+                            name="The Engagement",
+                            description="Terms, fees, and what to expect",
+                            visual_hint="Document signing, strategy discussion, whiteboard planning"
+                        ),
+                        GuideStep(
+                            name="The Roadshow",
+                            description="LP meetings, pitches, and timeline",
+                            visual_hint="Travel montage, presentation room, investor meetings"
+                        ),
+                        GuideStep(
+                            name="Closing & Beyond",
+                            description="Deal completion and ongoing relationship",
+                            visual_hint="Celebration, champagne, successful outcomes"
+                        )
+                    ],
+                    conclusion_role="Key success factors and next steps",
+                    voice="Professional, strategic, insider",
+                    include_checklist=True,
+                    include_requirements_box=False,
+                    include_cost_breakdown=False,
+                    include_timeline=True,
+                    include_faq=True,
+                    video_style="Corporate documentary, professional aesthetic"
+                ),
+                # DUE DILIGENCE GUIDE - LP evaluation framework
+                GuideTemplate(
+                    name="due_diligence_guide",
+                    description="LP due diligence framework. Use for 'How to evaluate X' articles.",
+                    intro_role="Why due diligence matters and what to assess",
+                    steps=[
+                        GuideStep(
+                            name="Track Record Analysis",
+                            description="Evaluating historical performance",
+                            visual_hint="Data analysis, charts on screens (abstract), research"
+                        ),
+                        GuideStep(
+                            name="Team Assessment",
+                            description="Key person risk and team dynamics",
+                            visual_hint="Team introductions, meeting room, professional profiles"
+                        ),
+                        GuideStep(
+                            name="Strategy Review",
+                            description="Investment thesis and market positioning",
+                            visual_hint="Strategy presentation, market analysis, competitive view"
+                        ),
+                        GuideStep(
+                            name="Terms & Documentation",
+                            description="LPA review and fee analysis",
+                            visual_hint="Document review, legal consultation, negotiation"
+                        )
+                    ],
+                    conclusion_role="Red flags to watch and decision framework",
+                    voice="Analytical, thorough, risk-aware",
+                    include_checklist=True,
+                    include_requirements_box=True,
+                    include_cost_breakdown=False,
+                    include_timeline=False,
+                    include_faq=True,
+                    video_style="Professional documentary, analytical tone"
                 )
             ]
         ),
@@ -712,6 +969,122 @@ Let the article topic drive the specific visuals - this guide sets the MOOD only
                 )
             ]
         ),
+        # GUIDE MODE TEMPLATES (step-by-step instructional content)
+        guide_config=GuideConfig(
+            default_template="visa_guide",
+            no_text_rule="CRITICAL: NO text, words, letters on screens. Abstract visuals only.",
+            technical_notes="Clean, educational style. Documentary aesthetic with warm golden tones.",
+            templates=[
+                # VISA GUIDE - Step-by-step visa application process
+                GuideTemplate(
+                    name="visa_guide",
+                    description="Step-by-step visa application guide. Use for 'How to get X visa' articles.",
+                    intro_role="Who this visa is for and what you'll learn",
+                    steps=[
+                        GuideStep(
+                            name="Eligibility & Requirements",
+                            description="Who qualifies and what documents you need",
+                            visual_hint="Clean desk with documents, laptop showing forms (no text), organized preparation"
+                        ),
+                        GuideStep(
+                            name="Application Process",
+                            description="Step-by-step submission walkthrough",
+                            visual_hint="Hand completing forms (no visible text), embassy building exterior, waiting room"
+                        ),
+                        GuideStep(
+                            name="Timeline & Costs",
+                            description="Processing times, fees, and what to expect",
+                            visual_hint="Calendar pages flipping, coins stacking, clock hands moving slowly"
+                        ),
+                        GuideStep(
+                            name="After Approval",
+                            description="What happens next and settling in",
+                            visual_hint="Passport stamp close-up (blurred), airplane window, arrival at destination"
+                        )
+                    ],
+                    conclusion_role="Key takeaways and next steps for your move",
+                    voice="Practical, reassuring, authoritative",
+                    include_checklist=True,
+                    include_requirements_box=True,
+                    include_cost_breakdown=True,
+                    include_timeline=True,
+                    include_faq=True,
+                    video_style="Educational documentary, warm tones, process demonstration"
+                ),
+                # COST GUIDE - Breakdown of living costs
+                GuideTemplate(
+                    name="cost_guide",
+                    description="Cost of living breakdown. Use for 'Cost of living in X' articles.",
+                    intro_role="Overview of expenses and who this guide is for",
+                    steps=[
+                        GuideStep(
+                            name="Housing Costs",
+                            description="Rent, utilities, neighborhoods",
+                            visual_hint="Apartment exterior, living room interior, neighborhood streets"
+                        ),
+                        GuideStep(
+                            name="Daily Living",
+                            description="Food, transport, entertainment",
+                            visual_hint="Local market produce, cafe scenes, public transport"
+                        ),
+                        GuideStep(
+                            name="Healthcare & Insurance",
+                            description="Medical costs and coverage options",
+                            visual_hint="Modern hospital exterior, pharmacy, doctor consultation"
+                        ),
+                        GuideStep(
+                            name="Budget Comparison",
+                            description="How it compares to your current location",
+                            visual_hint="Split screen city comparison, lifestyle montage, savings jar filling"
+                        )
+                    ],
+                    conclusion_role="Monthly budget summary and money-saving tips",
+                    voice="Honest, practical, data-driven",
+                    include_checklist=False,
+                    include_requirements_box=False,
+                    include_cost_breakdown=True,
+                    include_timeline=False,
+                    include_faq=True,
+                    video_style="Lifestyle documentary, warm Mediterranean/destination tones"
+                ),
+                # MOVING GUIDE - Practical relocation steps
+                GuideTemplate(
+                    name="moving_guide",
+                    description="Complete moving checklist. Use for 'How to move to X' articles.",
+                    intro_role="Your roadmap from decision to arrival",
+                    steps=[
+                        GuideStep(
+                            name="Planning Your Move",
+                            description="Timeline, visa selection, financial prep",
+                            visual_hint="Person at desk with laptop, calendar view, planning materials"
+                        ),
+                        GuideStep(
+                            name="Before You Go",
+                            description="Documents, banking, housing search",
+                            visual_hint="Packing boxes, document folder, video call with realtor"
+                        ),
+                        GuideStep(
+                            name="The Move",
+                            description="Shipping belongings, travel, first days",
+                            visual_hint="Moving truck, airport departure, taxi through new city"
+                        ),
+                        GuideStep(
+                            name="Settling In",
+                            description="Registration, bank account, building routines",
+                            visual_hint="Unpacking in new apartment, exploring neighborhood, cafe with laptop"
+                        )
+                    ],
+                    conclusion_role="Your first month checklist and resources",
+                    voice="Supportive, organized, reassuring",
+                    include_checklist=True,
+                    include_requirements_box=True,
+                    include_cost_breakdown=True,
+                    include_timeline=True,
+                    include_faq=True,
+                    video_style="Journey documentary, grey-to-golden transition"
+                )
+            ]
+        ),
         brand_name="Relocation Quest",
         accent_color="amber",
         factoid_style="overlay"
@@ -869,6 +1242,86 @@ Can use stylized elements for abstract concepts. Article topic drives specifics.
                     act_4_role="THE CONCLUSION - Takeaway/recommendation",
                     act_4_mood="Clarity, actionable insight",
                     act_4_example="Resolution, clear path forward, confident outlook"
+                )
+            ]
+        ),
+        # GUIDE MODE TEMPLATES (educational/explainer content)
+        guide_config=GuideConfig(
+            default_template="deal_explainer",
+            no_text_rule="CRITICAL: NO text, numbers, tickers. Abstract financial visuals only.",
+            technical_notes="Bloomberg documentary style. Clean, professional, analytical aesthetic.",
+            templates=[
+                # DEAL EXPLAINER - Breaking down a transaction
+                GuideTemplate(
+                    name="deal_explainer",
+                    description="Deal breakdown and analysis. Use for 'How X deal works' articles.",
+                    intro_role="Deal overview and why it matters",
+                    steps=[
+                        GuideStep(
+                            name="The Transaction",
+                            description="Deal structure, size, and parties involved",
+                            visual_hint="Boardroom view, handshake, deal celebration"
+                        ),
+                        GuideStep(
+                            name="The Rationale",
+                            description="Strategic logic and investment thesis",
+                            visual_hint="Strategy meeting, analysts at screens, market data"
+                        ),
+                        GuideStep(
+                            name="The Structure",
+                            description="Financing, terms, and mechanics",
+                            visual_hint="Abstract flow diagrams, building blocks, arrows"
+                        ),
+                        GuideStep(
+                            name="The Implications",
+                            description="Market impact and what to watch",
+                            visual_hint="Wider market view, ripple effect visuals, forward momentum"
+                        )
+                    ],
+                    conclusion_role="Key takeaways for market participants",
+                    voice="Analytical, authoritative, market-savvy",
+                    include_checklist=False,
+                    include_requirements_box=False,
+                    include_cost_breakdown=False,
+                    include_timeline=True,
+                    include_faq=True,
+                    video_style="Financial documentary, Bloomberg aesthetic"
+                ),
+                # MARKET GUIDE - Understanding a sector/trend
+                GuideTemplate(
+                    name="market_guide",
+                    description="Sector or market analysis framework. Use for 'Understanding X market' articles.",
+                    intro_role="Market landscape and key dynamics",
+                    steps=[
+                        GuideStep(
+                            name="Market Overview",
+                            description="Size, growth, and key players",
+                            visual_hint="Market montage, industry leaders, growth indicators"
+                        ),
+                        GuideStep(
+                            name="Key Drivers",
+                            description="What's moving the market",
+                            visual_hint="Trend arrows, catalyst moments, momentum"
+                        ),
+                        GuideStep(
+                            name="Competitive Landscape",
+                            description="Major players and positioning",
+                            visual_hint="Chess pieces, strategic positioning, competition"
+                        ),
+                        GuideStep(
+                            name="Outlook",
+                            description="Opportunities and risks ahead",
+                            visual_hint="Dawn over city, forward view, opportunity signals"
+                        )
+                    ],
+                    conclusion_role="Investment implications and key metrics to watch",
+                    voice="Strategic, data-informed, forward-looking",
+                    include_checklist=False,
+                    include_requirements_box=False,
+                    include_cost_breakdown=False,
+                    include_timeline=False,
+                    include_faq=True,
+                    video_style="Market documentary, analytical tone"
                 )
             ]
         ),
