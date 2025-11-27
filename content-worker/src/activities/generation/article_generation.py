@@ -133,14 +133,23 @@ def extract_structured_data(response_text: str) -> Dict[str, Any]:
         try:
             data = json.loads(json_str)
             structured_data.update(data)
+            print(f"✅ STRUCTURED DATA extracted: {len(data.get('sections', []))} sections")
         except json.JSONDecodeError as e:
+            print(f"⚠️ JSON parse error (attempting fix): {str(e)[:100]}")
             # Try to fix common JSON issues
             json_str = re.sub(r',\s*([}\]])', r'\1', json_str)  # Remove trailing commas
             try:
                 data = json.loads(json_str)
                 structured_data.update(data)
-            except:
-                pass
+                print(f"✅ STRUCTURED DATA extracted after fix: {len(data.get('sections', []))} sections")
+            except json.JSONDecodeError as e2:
+                print(f"❌ STRUCTURED DATA JSON PARSE FAILED: {str(e2)[:200]}")
+                print(f"❌ JSON string (first 500 chars): {json_str[:500]}")
+    else:
+        print(f"❌ NO STRUCTURED DATA SECTION FOUND in response")
+        # Log what we're looking for to help debug
+        if '---' in response_text and 'STRUCTURED' in response_text.upper():
+            print(f"⚠️ Found partial match - header may be malformed")
 
     return structured_data
 
