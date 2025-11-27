@@ -1926,6 +1926,37 @@ VIDEO: 12 seconds, 4 acts × 3 seconds each.
     excerpt = article.get("excerpt", "")
     content = article.get("content", "")[:4000]  # First 4000 chars
 
+    # Get model-specific word count
+    words_per_act = model_info.get("words_per_act", "45-55")
+
+    # ===== GET APP TEMPLATE FOR ACT ROLES/MOODS =====
+    technical_notes = ""
+    if app_config:
+        video_prompt_template = app_config.article_theme.video_prompt_template
+        default_template = video_prompt_template.get_template()
+        technical_notes = getattr(video_prompt_template, 'technical_notes', "")
+
+        if default_template:
+            act_1_role = default_template.act_1_role
+            act_1_mood = default_template.act_1_mood
+            act_2_role = default_template.act_2_role
+            act_2_mood = default_template.act_2_mood
+            act_3_role = default_template.act_3_role
+            act_3_mood = default_template.act_3_mood
+            act_4_role = default_template.act_4_role
+            act_4_mood = default_template.act_4_mood
+            activity.logger.info(f"Using app template: {default_template.name}")
+        else:
+            act_1_role, act_1_mood = "THE SETUP - Problem/challenge", "Tension, stakes"
+            act_2_role, act_2_mood = "THE OPPORTUNITY - Discovery/hope", "Hope, revelation"
+            act_3_role, act_3_mood = "THE JOURNEY - Process/action", "Progress, momentum"
+            act_4_role, act_4_mood = "THE RESOLUTION - Outcome/future", "Achievement, possibility"
+    else:
+        act_1_role, act_1_mood = "THE SETUP - Problem/challenge", "Tension, stakes"
+        act_2_role, act_2_mood = "THE OPPORTUNITY - Discovery/hope", "Hope, revelation"
+        act_3_role, act_3_mood = "THE JOURNEY - Process/action", "Progress, momentum"
+        act_4_role, act_4_mood = "THE RESOLUTION - Outcome/future", "Achievement, possibility"
+
     # Build AI prompt - request JSON for Pydantic validation
     ai_prompt = f"""Generate 4-act video content for this article. Return ONLY valid JSON.
 
@@ -1934,6 +1965,24 @@ ARTICLE EXCERPT: {excerpt}
 ARTICLE CONTENT:
 {content}
 
+===== 4-ACT STRUCTURE (from app template) =====
+ACT 1 (0-3s): {act_1_role}
+  Mood: {act_1_mood}
+
+ACT 2 (3-6s): {act_2_role}
+  Mood: {act_2_mood}
+
+ACT 3 (6-9s): {act_3_role}
+  Mood: {act_3_mood}
+
+ACT 4 (9-12s): {act_4_role}
+  Mood: {act_4_mood}
+
+===== VISUAL STYLE =====
+{technical_notes}
+{no_text_rule}
+{character_prompt if character_prompt else "Use diverse professional subjects."}
+
 ===== REQUIRED JSON FORMAT =====
 {{
   "sections": [
@@ -1941,23 +1990,21 @@ ARTICLE CONTENT:
       "act": 1,
       "title": "Section title from article",
       "factoid": "Key stat or fact (10+ chars)",
-      "video_title": "2-4 word label like 'The Grind'",
-      "four_act_visual_hint": "45-55 word cinematic scene. Include: setting, lighting (warm golden/cool blue), camera movement (push in/track/orbit), subject emotion. Documentary style. NO text/words/signs."
+      "video_title": "2-4 word label for ACT 1",
+      "four_act_visual_hint": "{words_per_act} word cinematic scene for ACT 1. Mood: {act_1_mood}. Include: setting, lighting, camera movement, subject emotion."
     }},
-    {{"act": 2, "title": "...", "factoid": "...", "video_title": "...", "four_act_visual_hint": "45-55 words for discovery moment"}},
-    {{"act": 3, "title": "...", "factoid": "...", "video_title": "...", "four_act_visual_hint": "45-55 words for journey/process"}},
-    {{"act": 4, "title": "...", "factoid": "...", "video_title": "Short label with ?", "four_act_visual_hint": "45-55 words for resolution"}}
+    {{"act": 2, "title": "...", "factoid": "...", "video_title": "2-4 words", "four_act_visual_hint": "{words_per_act} words for ACT 2. Mood: {act_2_mood}"}},
+    {{"act": 3, "title": "...", "factoid": "...", "video_title": "2-4 words", "four_act_visual_hint": "{words_per_act} words for ACT 3. Mood: {act_3_mood}"}},
+    {{"act": 4, "title": "...", "factoid": "...", "video_title": "2-4 words with ?", "four_act_visual_hint": "{words_per_act} words for ACT 4. Mood: {act_4_mood}"}}
   ]
 }}
 
 ===== RULES =====
 1. MUST have EXACTLY 4 sections with acts 1, 2, 3, 4
-2. Each four_act_visual_hint MUST be 45-55 words with camera/lighting details
-3. {no_text_rule}
-4. {character_prompt if character_prompt else "Use diverse professional subjects."}
-5. Return ONLY JSON, no other text
-
-Return ONLY the 4-act prompt, nothing else."""
+2. Each four_act_visual_hint MUST be {words_per_act} words with camera/lighting details
+3. Match the mood and role specified for each act
+4. NO text, words, signs, or readable content in visual hints
+5. Return ONLY JSON, no other text"""
 
     max_retries = 2
     last_error = None
