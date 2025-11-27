@@ -1,6 +1,8 @@
 import streamlit as st
 import requests
 import os
+import json
+import asyncio
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -10,6 +12,18 @@ load_dotenv()
 GATEWAY_URL = os.getenv("GATEWAY_URL", "https://quest-gateway-production.up.railway.app")
 API_KEY = os.getenv("API_KEY", "")
 DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "")
+ZEP_API_KEY = os.getenv("ZEP_API_KEY", "")
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+
+# Graph mappings for Zep
+GRAPH_MAPPING = {
+    "placement": os.getenv("ZEP_GRAPH_ID_FINANCE", "finance-knowledge"),
+    "pe_news": os.getenv("ZEP_GRAPH_ID_FINANCE", "finance-knowledge"),
+    "finance": os.getenv("ZEP_GRAPH_ID_FINANCE", "finance-knowledge"),
+    "relocation": os.getenv("ZEP_GRAPH_ID_RELOCATION", "relocation"),
+    "jobs": os.getenv("ZEP_GRAPH_ID_JOBS", "jobs"),
+    "recruiter": os.getenv("ZEP_GRAPH_ID_JOBS", "jobs"),
+}
 
 # Page config
 st.set_page_config(
@@ -65,7 +79,7 @@ with st.sidebar:
     st.caption("Powered by Temporal + Gemini 2.5 Flash")
 
 # Main navigation tabs
-tab_company, tab_article = st.tabs(["🏢 Company Profile", "📝 Article Creation"])
+tab_company, tab_article, tab_zep = st.tabs(["🏢 Company Profile", "📝 Article Creation", "🧠 Zep Facts"])
 
 # ===== COMPANY PROFILE TAB =====
 with tab_company:
@@ -319,9 +333,74 @@ with tab_article:
                 step=1,
                 help="1: Hero video only\n2-3: Hero + content videos embedded in article"
             )
+
+            # Character Style - organized as 2-level selection
+            st.markdown("**Character Demographics**")
+            character_region = st.selectbox(
+                "Region",
+                [
+                    "Auto (from context)",
+                    "None (abstract visuals)",
+                    "North European",
+                    "South European",
+                    "East Asian",
+                    "Southeast Asian",
+                    "South Asian",
+                    "Middle Eastern",
+                    "Black",
+                    "Diverse"
+                ],
+                index=0,
+                help="Geographic/ethnic context for people in video. 'Auto' lets AI infer from article content.",
+                key="character_region"
+            )
+
+            # Show gender/type selector only if region is selected (not Auto/None/Diverse)
+            if character_region not in ["Auto (from context)", "None (abstract visuals)", "Diverse"]:
+                character_type = st.selectbox(
+                    "Type",
+                    ["Group (mixed gender)", "Male", "Female"],
+                    index=0,
+                    help="Individual protagonist or group scene",
+                    key="character_type"
+                )
+            else:
+                character_type = "Group (mixed gender)"
+
+            # Map to CharacterStyle enum value
+            def get_character_style():
+                if character_region == "Auto (from context)":
+                    return None  # Let app default / Sonnet infer
+                elif character_region == "None (abstract visuals)":
+                    return "none"
+                elif character_region == "Diverse":
+                    return "diverse"
+                else:
+                    # Map region to enum prefix
+                    region_map = {
+                        "North European": "north_european",
+                        "South European": "south_european",
+                        "East Asian": "east_asian",
+                        "Southeast Asian": "southeast_asian",
+                        "South Asian": "south_asian",
+                        "Middle Eastern": "middle_eastern",
+                        "Black": "black"
+                    }
+                    prefix = region_map.get(character_region, "diverse")
+
+                    # Map type to suffix
+                    if character_type == "Male":
+                        return f"{prefix}_male"
+                    elif character_type == "Female":
+                        return f"{prefix}_female"
+                    else:
+                        return f"{prefix}_group"
+
+            character_style = get_character_style()
         else:
             video_model = "seedance"
             video_count = 1
+            character_style = None
 
         # Content Images
         content_images_count = st.slider(
@@ -420,7 +499,8 @@ with tab_article:
                         "video_model": video_model,
                         "video_prompt": video_prompt if video_prompt.strip() else None,
                         "video_count": video_count,
-                        "content_images_count": content_images_count
+                        "content_images_count": content_images_count,
+                        "character_style": character_style  # Demographics for video (None = auto from context)
                     }
 
                     # Add custom slug if provided
@@ -498,6 +578,204 @@ with tab_article:
                 except Exception as e:
                     st.error(f"❌ Unexpected error: {str(e)}")
                     st.code(str(e), language="text")
+
+# ===== ZEP FACTS TAB =====
+with tab_zep:
+    st.subheader("Zep Knowledge Graph Facts")
+    st.markdown("*Search, review, and manage facts in the knowledge graph*")
+
+    # Check if Zep is configured
+    if not ZEP_API_KEY:
+        st.warning("⚠️ ZEP_API_KEY not configured. Add it to your .env file.")
+        st.stop()
+
+    # Sub-tabs for different operations
+    zep_subtab1, zep_subtab2, zep_subtab3 = st.tabs(["🔍 Search Facts", "📄 Article Facts", "🗑️ Delete Facts"])
+
+    # ===== SEARCH FACTS SUB-TAB =====
+    with zep_subtab1:
+        st.markdown("### Search Knowledge Graph")
+
+        col1, col2 = st.columns([3, 1])
+
+        with col1:
+            search_query = st.text_input(
+                "Search Query",
+                placeholder="Evercore investment banking",
+                help="Search for facts in the knowledge graph",
+                key="zep_search_query"
+            )
+
+        with col2:
+            search_graph = st.selectbox(
+                "Graph",
+                list(set(GRAPH_MAPPING.values())),
+                index=0,
+                help="Which knowledge graph to search",
+                key="zep_search_graph"
+            )
+
+        search_limit = st.slider("Max Results", 5, 50, 20, key="zep_search_limit")
+
+        if st.button("🔍 Search", type="primary", key="zep_search_btn"):
+            if not search_query:
+                st.error("Please enter a search query")
+            else:
+                with st.spinner("Searching knowledge graph..."):
+                    try:
+                        from zep_cloud.client import AsyncZep
+
+                        async def search_facts():
+                            client = AsyncZep(api_key=ZEP_API_KEY)
+                            results = await client.graph.search(
+                                graph_id=search_graph,
+                                query=search_query,
+                                scope="edges",
+                                reranker="cross_encoder",
+                                limit=search_limit
+                            )
+                            return results
+
+                        results = asyncio.run(search_facts())
+
+                        if not results.edges:
+                            st.info("No facts found for this query.")
+                        else:
+                            st.success(f"Found {len(results.edges)} facts")
+
+                            # Store results in session state for potential deletion
+                            st.session_state.zep_search_results = results.edges
+
+                            for i, edge in enumerate(results.edges, 1):
+                                uuid = getattr(edge, 'uuid_', None) or getattr(edge, 'uuid', 'N/A')
+                                fact = getattr(edge, 'fact', 'N/A')
+                                valid_at = getattr(edge, 'valid_at', None)
+                                invalid_at = getattr(edge, 'invalid_at', None)
+                                name = getattr(edge, 'name', 'N/A')
+
+                                # Format dates
+                                valid_str = str(valid_at)[:10] if valid_at else "Unknown"
+                                status = "🟢 Current" if invalid_at is None else f"🔴 Invalid"
+
+                                with st.expander(f"{i}. {fact[:80]}..." if len(fact) > 80 else f"{i}. {fact}"):
+                                    st.markdown(f"**Fact:** {fact}")
+                                    st.markdown(f"**Status:** {status}")
+                                    st.markdown(f"**Type:** `{name}`")
+                                    st.markdown(f"**Valid From:** {valid_str}")
+                                    st.code(uuid, language="text")
+                                    st.caption("☝️ Copy UUID to delete this fact")
+
+                    except Exception as e:
+                        st.error(f"Error searching: {str(e)}")
+
+    # ===== ARTICLE FACTS SUB-TAB =====
+    with zep_subtab2:
+        st.markdown("### View Facts Used in Article")
+
+        if not DATABASE_URL:
+            st.warning("⚠️ DATABASE_URL not configured. Add it to your .env file.")
+        else:
+            article_id_input = st.text_input(
+                "Article ID",
+                placeholder="123",
+                help="Enter the article ID to view facts used",
+                key="zep_article_id"
+            )
+
+            if st.button("📄 Load Article Facts", type="primary", key="zep_article_btn"):
+                if not article_id_input:
+                    st.error("Please enter an article ID")
+                else:
+                    with st.spinner("Loading article facts..."):
+                        try:
+                            import psycopg
+
+                            async def get_article_facts():
+                                async with await psycopg.AsyncConnection.connect(DATABASE_URL) as conn:
+                                    async with conn.cursor() as cur:
+                                        await cur.execute("""
+                                            SELECT title, slug, zep_facts, created_at
+                                            FROM articles
+                                            WHERE id = %s
+                                        """, (article_id_input,))
+                                        return await cur.fetchone()
+
+                            result = asyncio.run(get_article_facts())
+
+                            if not result:
+                                st.error(f"Article not found: {article_id_input}")
+                            else:
+                                title, slug, zep_facts, created_at = result
+
+                                st.success(f"**{title}**")
+                                st.caption(f"Slug: `{slug}` | Created: {created_at}")
+
+                                if not zep_facts:
+                                    st.info("No Zep facts stored for this article.")
+                                else:
+                                    facts = json.loads(zep_facts) if isinstance(zep_facts, str) else zep_facts
+                                    st.markdown(f"**{len(facts)} facts used:**")
+
+                                    for i, fact_obj in enumerate(facts, 1):
+                                        if isinstance(fact_obj, dict):
+                                            fact = fact_obj.get("fact", "N/A")
+                                            uuid = fact_obj.get("uuid", "N/A")
+                                            valid_at = fact_obj.get("valid_at")
+                                            invalid_at = fact_obj.get("invalid_at")
+                                            name = fact_obj.get("name", "N/A")
+
+                                            status = "🟢" if invalid_at is None else "🔴"
+                                            valid_str = str(valid_at)[:10] if valid_at else "Unknown"
+
+                                            with st.expander(f"{status} {i}. {fact[:60]}..."):
+                                                st.markdown(f"**Fact:** {fact}")
+                                                st.markdown(f"**Type:** `{name}`")
+                                                st.markdown(f"**Valid From:** {valid_str}")
+                                                st.code(uuid, language="text")
+                                        else:
+                                            st.markdown(f"{i}. {fact_obj}")
+
+                        except Exception as e:
+                            st.error(f"Error: {str(e)}")
+
+    # ===== DELETE FACTS SUB-TAB =====
+    with zep_subtab3:
+        st.markdown("### Delete Fact from Knowledge Graph")
+        st.warning("⚠️ **Caution:** Deleting facts is permanent and cannot be undone.")
+
+        delete_uuid = st.text_input(
+            "Fact UUID to Delete",
+            placeholder="abc123-def456-...",
+            help="Paste the UUID of the fact you want to delete",
+            key="zep_delete_uuid"
+        )
+
+        # Confirmation
+        confirm_delete = st.checkbox(
+            "I understand this action cannot be undone",
+            key="zep_delete_confirm"
+        )
+
+        if st.button("🗑️ Delete Fact", type="primary", disabled=not confirm_delete, key="zep_delete_btn"):
+            if not delete_uuid:
+                st.error("Please enter a fact UUID")
+            elif not confirm_delete:
+                st.error("Please confirm you understand this action cannot be undone")
+            else:
+                with st.spinner("Deleting fact..."):
+                    try:
+                        from zep_cloud.client import AsyncZep
+
+                        async def delete_fact():
+                            client = AsyncZep(api_key=ZEP_API_KEY)
+                            await client.graph.edge.delete(uuid_=delete_uuid)
+                            return True
+
+                        asyncio.run(delete_fact())
+                        st.success(f"✅ Fact deleted: `{delete_uuid}`")
+
+                    except Exception as e:
+                        st.error(f"Error deleting fact: {str(e)}")
 
 # Footer
 st.divider()
