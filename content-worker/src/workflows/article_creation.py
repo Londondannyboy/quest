@@ -416,10 +416,13 @@ class ArticleCreationWorkflow:
 
         if urls_to_validate:
             try:
+                # Validate up to 30 URLs using Railway Playwright service
+                # 10 concurrent requests × 12s timeout = ~36s for 30 URLs with parallelization
                 validation_result = await workflow.execute_activity(
                     "playwright_url_cleanse",
-                    args=[urls_to_validate[:50], False],  # use_browser=False for speed (HEAD requests)
-                    start_to_close_timeout=timedelta(seconds=45),  # Shorter timeout
+                    args=[urls_to_validate[:30], True],  # use_browser=True for full Playwright validation
+                    start_to_close_timeout=timedelta(minutes=2),  # 2 min for browser-based validation
+                    heartbeat_timeout=timedelta(seconds=30),  # Heartbeat every 30s
                     retry_policy=RetryPolicy(
                         maximum_attempts=1,  # Don't retry - non-blocking
                         initial_interval=timedelta(seconds=1)
@@ -488,10 +491,13 @@ class ArticleCreationWorkflow:
 
         if article_urls:
             try:
+                # Validate article links using Railway Playwright service
+                # Full browser validation catches JS-rendered paywalls
                 validation_result = await workflow.execute_activity(
                     "playwright_url_cleanse",
-                    args=[article_urls],
-                    start_to_close_timeout=timedelta(seconds=30),
+                    args=[article_urls[:20], True],  # use_browser=True for full validation
+                    start_to_close_timeout=timedelta(minutes=2),  # 2 min for browser-based validation
+                    heartbeat_timeout=timedelta(seconds=30),
                     retry_policy=RetryPolicy(maximum_attempts=1)  # Don't retry - non-critical
                 )
 

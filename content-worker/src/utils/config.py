@@ -123,6 +123,7 @@ class Config:
     # Playwright settings
     PLAYWRIGHT_BROWSER: str = os.getenv("PLAYWRIGHT_BROWSER", "chromium")
     PLAYWRIGHT_HEADLESS: bool = os.getenv("PLAYWRIGHT_HEADLESS", "true").lower() == "true"
+    PLAYWRIGHT_SERVICE_URL: Optional[str] = os.getenv("PLAYWRIGHT_SERVICE_URL")  # Railway Playwright service
 
     @classmethod
     def validate_required(cls) -> list[str]:
