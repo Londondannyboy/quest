@@ -19,6 +19,7 @@ load_dotenv()
 from src.workflows.company_creation import CompanyCreationWorkflow
 from src.workflows.article_creation import ArticleCreationWorkflow
 from src.workflows.news_creation import NewsCreationWorkflow
+from src.workflows.country_guide_creation import CountryGuideCreationWorkflow
 # NarrativeArticleCreationWorkflow removed - superseded by 4-act workflow in ArticleCreationWorkflow
 
 # Import all activities
@@ -126,6 +127,12 @@ from src.activities.generation.article_generation import (
     generate_four_act_video_prompt,  # Assembles video prompt from article sections
 )
 
+from src.activities.generation.country_guide_generation import (
+    generate_country_guide_content,  # 8-motivation country guide
+    extract_country_facts,  # Extract facts for countries.facts JSONB
+    generate_country_video_prompt,  # Country-specific 4-act video prompt
+)
+
 from src.activities.generation.research_curation import (
     curate_research_sources,
 )
@@ -150,6 +157,15 @@ from src.activities.storage.neon_database import (
     save_article_to_neon,
     get_article_by_slug,
     save_spawn_candidate,
+)
+
+from src.activities.storage.neon_countries import (
+    save_or_create_country,
+    update_country_facts,
+    update_country_seo_keywords,
+    link_article_to_country,
+    publish_country,
+    get_country_by_code,
 )
 
 from src.activities.storage.neon_articles import (
@@ -248,7 +264,7 @@ async def main():
     worker = Worker(
         client,
         task_queue=config.TEMPORAL_TASK_QUEUE,
-        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow, NewsCreationWorkflow],
+        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow, NewsCreationWorkflow, CountryGuideCreationWorkflow],
         activities=[
             # Normalization
             normalize_company_url,
@@ -328,6 +344,19 @@ async def main():
             get_recent_articles_from_neon,
             save_spawn_candidate,  # Article spawn candidates
 
+            # Country Guide Database
+            save_or_create_country,
+            update_country_facts,
+            update_country_seo_keywords,
+            link_article_to_country,
+            publish_country,
+            get_country_by_code,
+
+            # Country Guide Generation
+            generate_country_guide_content,
+            extract_country_facts,
+            generate_country_video_prompt,
+
             # Zep Integration
             query_zep_for_context,
             sync_company_to_zep,
@@ -355,6 +384,7 @@ async def main():
     print("   - CompanyCreationWorkflow")
     print("   - ArticleCreationWorkflow")
     print("   - NewsCreationWorkflow (Scheduled with intelligent video prompts)")
+    print("   - CountryGuideCreationWorkflow (8-motivation country guides)")
 
     print("\n📋 Registered Activities:")
     activity_groups = [

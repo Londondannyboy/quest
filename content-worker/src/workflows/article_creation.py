@@ -25,6 +25,7 @@ class ArticleCreationWorkflow:
     - Mux thumbnails replace static images
 
     Phases:
+    0. Keyword Research (30s) - DataForSEO if target_keyword not provided
     1. Research Topic (60s) - DataForSEO + Serper + Exa in parallel
     2. Crawl Discovered URLs (90s) - Get full content
     3. Curate Research Sources (30s) - AI filter, dedupe, summarize
@@ -77,6 +78,44 @@ class ArticleCreationWorkflow:
         keyword_volume = input_dict.get("keyword_volume")
         keyword_difficulty = input_dict.get("keyword_difficulty")
         secondary_keywords = input_dict.get("secondary_keywords", [])
+
+        # ===== PHASE 0: KEYWORD RESEARCH (if not provided) =====
+        # Auto-research keywords for SEO optimization
+        # Visible as separate Temporal activity
+        if not target_keyword:
+            workflow.logger.info(f"Phase 0: Auto-researching keywords for: {topic[:50]}...")
+            try:
+                keyword_result = await workflow.execute_activity(
+                    "dataforseo_keyword_research",
+                    args=[topic, jurisdiction, 10],
+                    start_to_close_timeout=timedelta(minutes=2)
+                )
+
+                keywords_list = keyword_result.get("keywords", [])
+                if keywords_list:
+                    # Pick best keyword (highest opportunity_score)
+                    best = max(keywords_list, key=lambda k: k.get("opportunity_score", 0))
+                    target_keyword = best.get("keyword")
+                    keyword_volume = best.get("search_volume")
+                    keyword_difficulty = best.get("difficulty_score")
+
+                    # Get 3-5 secondary keywords (excluding best)
+                    secondary_keywords = [
+                        k.get("keyword") for k in keywords_list[:6]
+                        if k.get("keyword") != target_keyword
+                    ][:5]
+
+                    workflow.logger.info(
+                        f"Keyword selected: '{target_keyword}' "
+                        f"(vol={keyword_volume}, diff={keyword_difficulty:.1f}, opp={best.get('opportunity_score', 0):.2f})"
+                    )
+                else:
+                    workflow.logger.info("No keywords returned from research")
+            except Exception as e:
+                workflow.logger.warning(f"Keyword research failed (non-blocking): {e}")
+                # Continue without keywords - article still generates
+        else:
+            workflow.logger.info(f"Phase 0: Using provided keyword: '{target_keyword}'")
 
         # 4-ACT VIDEO CONFIGURATION
         # - All articles generate ONE 12-second 4-act video
