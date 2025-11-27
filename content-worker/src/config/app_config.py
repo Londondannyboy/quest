@@ -92,16 +92,114 @@ HLS STREAM:
 """
 
 from typing import Dict, List, Optional
+from enum import Enum
 from pydantic import BaseModel
+
+
+class CharacterStyle(str, Enum):
+    """
+    Character demographic options for video generation.
+
+    Organized by region, then gender/group type.
+    Dashboard should present as 2-level selector:
+    1. Region: None / North European / South European / East Asian / Southeast Asian / South Asian / Middle Eastern / Black / Diverse
+    2. Type: Male / Female / Group (if applicable)
+    """
+    # No people
+    NONE = "none"
+
+    # North European (Nordic, British, German, Dutch)
+    NORTH_EUROPEAN_MALE = "north_european_male"
+    NORTH_EUROPEAN_FEMALE = "north_european_female"
+    NORTH_EUROPEAN_GROUP = "north_european_group"
+
+    # South European (Mediterranean - Spanish, Italian, Greek, Portuguese)
+    SOUTH_EUROPEAN_MALE = "south_european_male"
+    SOUTH_EUROPEAN_FEMALE = "south_european_female"
+    SOUTH_EUROPEAN_GROUP = "south_european_group"
+
+    # East Asian (Chinese, Japanese, Korean)
+    EAST_ASIAN_MALE = "east_asian_male"
+    EAST_ASIAN_FEMALE = "east_asian_female"
+    EAST_ASIAN_GROUP = "east_asian_group"
+
+    # Southeast Asian (Singaporean, Thai, Vietnamese, Filipino, Indonesian, Malaysian)
+    SOUTHEAST_ASIAN_MALE = "southeast_asian_male"
+    SOUTHEAST_ASIAN_FEMALE = "southeast_asian_female"
+    SOUTHEAST_ASIAN_GROUP = "southeast_asian_group"
+
+    # South Asian (Indian, Pakistani, Bangladeshi, Sri Lankan)
+    SOUTH_ASIAN_MALE = "south_asian_male"
+    SOUTH_ASIAN_FEMALE = "south_asian_female"
+    SOUTH_ASIAN_GROUP = "south_asian_group"
+
+    # Middle Eastern / Arab (UAE, Saudi, Qatari, etc.)
+    MIDDLE_EASTERN_MALE = "middle_eastern_male"
+    MIDDLE_EASTERN_FEMALE = "middle_eastern_female"
+    MIDDLE_EASTERN_GROUP = "middle_eastern_group"
+
+    # Black (African, Caribbean, African-American)
+    BLACK_MALE = "black_male"
+    BLACK_FEMALE = "black_female"
+    BLACK_GROUP = "black_group"
+
+    # Diverse (mixed ethnicity and gender)
+    DIVERSE = "diverse"
+
+
+# Prompt text for each character style (injected into video prompts)
+# Keep prompts concise to stay within 2000 char limit
+CHARACTER_STYLE_PROMPTS: Dict[CharacterStyle, str] = {
+    # No people
+    CharacterStyle.NONE: "No people. Abstract visuals, architecture, cityscapes only.",
+
+    # North European
+    CharacterStyle.NORTH_EUROPEAN_MALE: "Main character: North European man.",
+    CharacterStyle.NORTH_EUROPEAN_FEMALE: "Main character: North European woman.",
+    CharacterStyle.NORTH_EUROPEAN_GROUP: "Cast: North European professionals, mixed gender.",
+
+    # South European
+    CharacterStyle.SOUTH_EUROPEAN_MALE: "Main character: Southern European man (Mediterranean).",
+    CharacterStyle.SOUTH_EUROPEAN_FEMALE: "Main character: Southern European woman (Mediterranean).",
+    CharacterStyle.SOUTH_EUROPEAN_GROUP: "Cast: Southern European professionals, mixed gender.",
+
+    # East Asian
+    CharacterStyle.EAST_ASIAN_MALE: "Main character: East Asian man.",
+    CharacterStyle.EAST_ASIAN_FEMALE: "Main character: East Asian woman.",
+    CharacterStyle.EAST_ASIAN_GROUP: "Cast: East Asian professionals, mixed gender.",
+
+    # Southeast Asian
+    CharacterStyle.SOUTHEAST_ASIAN_MALE: "Main character: Southeast Asian man.",
+    CharacterStyle.SOUTHEAST_ASIAN_FEMALE: "Main character: Southeast Asian woman.",
+    CharacterStyle.SOUTHEAST_ASIAN_GROUP: "Cast: Southeast Asian professionals, mixed gender.",
+
+    # South Asian
+    CharacterStyle.SOUTH_ASIAN_MALE: "Main character: South Asian man.",
+    CharacterStyle.SOUTH_ASIAN_FEMALE: "Main character: South Asian woman.",
+    CharacterStyle.SOUTH_ASIAN_GROUP: "Cast: South Asian professionals, mixed gender.",
+
+    # Middle Eastern
+    CharacterStyle.MIDDLE_EASTERN_MALE: "Main character: Middle Eastern/Arab man.",
+    CharacterStyle.MIDDLE_EASTERN_FEMALE: "Main character: Middle Eastern/Arab woman.",
+    CharacterStyle.MIDDLE_EASTERN_GROUP: "Cast: Middle Eastern/Arab professionals, mixed gender.",
+
+    # Black
+    CharacterStyle.BLACK_MALE: "Main character: Black man.",
+    CharacterStyle.BLACK_FEMALE: "Main character: Black woman.",
+    CharacterStyle.BLACK_GROUP: "Cast: Black professionals, mixed gender.",
+
+    # Diverse
+    CharacterStyle.DIVERSE: "Cast: diverse international professionals, mixed ethnicity and gender.",
+}
 
 
 class VideoConfig(BaseModel):
     """Video generation configuration."""
     model: str = "seedance-1-pro-fast"  # or "wan-2.5" for high quality
     duration: int = 12  # seconds
-    resolution: str = "480p"  # or "720p"
+    resolution: str = "720p"  # upgraded from 480p
     acts: int = 4  # number of narrative acts
-    cost_per_video: float = 0.18  # estimated cost
+    cost_per_video: float = 0.30  # estimated cost (720p is ~$0.025/sec)
 
     # Act timestamps (auto-calculated from duration/acts)
     @property
@@ -268,6 +366,10 @@ class AppConfig(BaseModel):
     media_style: str = "Cinematic, professional, high production value"
     media_style_details: str = ""
 
+    # Character style for video generation (default demographic)
+    # Can be overridden per-article via payload
+    character_style: CharacterStyle = CharacterStyle.DIVERSE
+
     # Article theme and component library
     article_theme: ArticleTheme = ArticleTheme()
 
@@ -353,8 +455,11 @@ FEEL: Dynamic and forward-looking, not stuffy or stock-photo generic.
 Base visuals on the SPECIFIC deal/story - golf deal = golf imagery, tech acquisition = tech setting.
 Let the article content drive specifics - this sets the professional MOOD only.""",
 
+    # Financial/deal stories: no people by default (abstract visuals)
+    character_style=CharacterStyle.NONE,
+
     article_theme=ArticleTheme(
-        video=VideoConfig(model="seedance-1-pro-fast", duration=12, resolution="480p", acts=4),
+        video=VideoConfig(model="seedance-1-pro-fast", duration=12, resolution="720p", acts=4),
         thumbnails=ThumbnailStrategy(
             section_headers=[1.5, 4.5, 7.5, 10.5],
             supplementary=[1.0, 4.0, 7.0, 10.0],
@@ -508,8 +613,11 @@ Portugal article = Lisbon trams, Porto riverfront, Algarve coast.
 Dubai article = Dubai skyline, desert luxury, modern architecture.
 Let the article topic drive the specific visuals - this guide sets the MOOD only.""",
 
+    # Relocation/lifestyle: diverse by default (Sonnet infers from article context)
+    character_style=CharacterStyle.DIVERSE,
+
     article_theme=ArticleTheme(
-        video=VideoConfig(model="seedance-1-pro-fast", duration=12, resolution="480p", acts=4),
+        video=VideoConfig(model="seedance-1-pro-fast", duration=12, resolution="720p", acts=4),
         thumbnails=ThumbnailStrategy(
             section_headers=[1.5, 4.5, 7.5, 10.5],
             supplementary=[1.0, 4.0, 7.0, 10.0],
@@ -684,8 +792,11 @@ FEEL: Fast-paced news urgency combined with cinematic polish.
 Match imagery to the SPECIFIC story - fund launch = celebration, market downturn = thoughtful.
 Can use stylized elements for abstract concepts. Article topic drives specifics.""",
 
+    # PE News: no people by default (abstract financial visuals)
+    character_style=CharacterStyle.NONE,
+
     article_theme=ArticleTheme(
-        video=VideoConfig(model="seedance-1-pro-fast", duration=12, resolution="480p", acts=4),
+        video=VideoConfig(model="seedance-1-pro-fast", duration=12, resolution="720p", acts=4),
         thumbnails=ThumbnailStrategy(
             section_headers=[1.5, 4.5, 7.5, 10.5],
             supplementary=[1.0, 4.0, 7.0, 10.0],

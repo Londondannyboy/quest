@@ -19,7 +19,7 @@ import re
 import json
 
 from src.utils.config import config
-from src.config.app_config import get_app_config, APP_CONFIGS
+from src.config.app_config import get_app_config, APP_CONFIGS, CharacterStyle, CHARACTER_STYLE_PROMPTS
 
 
 def extract_media_prompts(content: str) -> tuple:
@@ -665,9 +665,22 @@ VISUAL_HINT REQUIREMENTS (CRITICAL FOR VIDEO - STRICT LENGTH):
 - video_title must be 2-4 words only (e.g., "The Grind", "Discovery", "New Life")
 - Must describe MOTION (action sequences, camera movement)
 - Include: subject + action, environment, lighting, camera movement, color grade
-- NO TEXT/WORDS in scenes - purely visual. Screens show abstract colors only.
 - Formula: [Subject + Action] + [Environment] + [Camera] + [Color/Mood]
 - Be specific to YOUR topic but CONCISE
+
+CHARACTER DEMOGRAPHICS (infer from article context):
+When describing people in visual hints, consider the geographic and business context:
+- Geographic: Singapore deal = East/Southeast Asian professionals. UAE sovereign wealth fund = Middle Eastern/Arab. London PE firm = North European.
+- Cross-border deals: Show BOTH parties appropriately (e.g., "Middle Eastern investor meets North European club executives")
+- Industry context may influence gender mix, but default to mixed gender unless article specifically mentions otherwise.
+- If article is abstract/market analysis with no specific parties, omit people entirely (cityscapes, abstract data visuals).
+
+HOLISTIC VIDEO QUALITY (AI video models struggle with these - follow strictly):
+- FACES: Keep at mid-distance or further. Close-ups distort. Prefer 3/4 angles, not direct frontal.
+- SCREENS/DEVICES: Show ambient glow only, NEVER readable content. Keep screens distant or at edge-of-frame.
+- CAMERA: Slow, deliberate motion using adverbs (slowly, gently, gradually). No fast cuts.
+- CONTINUITY: Consistent lighting temperature and color palette across all 4 acts.
+- NO TEXT anywhere - no signs, logos, words, letters. Screens show abstract colors only.
 
 Source links are MANDATORY - articles without <a href> tags will be rejected.
 The STRUCTURED DATA section is MANDATORY - without it, no video can be generated."""
@@ -983,6 +996,59 @@ def build_prompt(topic: str, research_context: Dict[str, Any]) -> str:
                     parts.append(f"• {source.get('authority', 'official')}: {source.get('url', '')}")
                 else:
                     parts.append(f"• {source}")
+
+        # === ZEP KNOWLEDGE GRAPH CONTEXT ===
+        # This contains facts/relationships from our knowledge graph about the topic
+        zep_context = research_context.get("zep_context", {})
+        if zep_context and zep_context.get("available"):
+            parts.append("\n=== KNOWLEDGE GRAPH CONTEXT (from our database - use to add depth/context) ===")
+
+            # Include edge facts (the valuable relationship data)
+            # Facts now include temporal metadata: {fact, uuid, valid_at, invalid_at, name}
+            zep_facts = zep_context.get("facts", [])
+            if zep_facts:
+                parts.append("\nKNOWN FACTS (from our knowledge graph):")
+                for fact_obj in zep_facts[:20]:
+                    # Handle both old format (string) and new format (dict with metadata)
+                    if isinstance(fact_obj, dict):
+                        fact_text = fact_obj.get("fact", "")
+                        valid_at = fact_obj.get("valid_at")
+                        # Include date if available so Claude knows how recent the fact is
+                        if valid_at:
+                            parts.append(f"• {fact_text} (as of {valid_at[:10]})")
+                        else:
+                            parts.append(f"• {fact_text}")
+                    else:
+                        parts.append(f"• {fact_obj}")
+
+            # Include existing coverage info
+            zep_articles = zep_context.get("articles", [])
+            if zep_articles:
+                parts.append(f"\nPREVIOUS COVERAGE: We have {len(zep_articles)} existing articles on this topic")
+                for article in zep_articles[:5]:
+                    parts.append(f"• {article.get('name', article.get('title', 'Article'))}")
+
+            # Include known deals
+            zep_deals = zep_context.get("deals", [])
+            if zep_deals:
+                parts.append("\nKNOWN DEALS/TRANSACTIONS:")
+                for deal in zep_deals[:10]:
+                    if isinstance(deal, dict):
+                        parts.append(f"• {deal.get('name', 'Deal')}")
+                    else:
+                        parts.append(f"• {deal}")
+
+            # Include known people
+            zep_people = zep_context.get("people", [])
+            if zep_people:
+                parts.append("\nKNOWN KEY PEOPLE:")
+                for person in zep_people[:10]:
+                    if isinstance(person, dict):
+                        parts.append(f"• {person.get('name', 'Person')} - {person.get('role', '')}")
+                    else:
+                        parts.append(f"• {person}")
+
+            parts.append("")  # Empty line after Zep context
 
         # === CURATED SOURCES with full content ===
         parts.append("\n=== CURATED SOURCES (ranked by relevance - use for inline citations) ===")
@@ -1447,3 +1513,121 @@ IMPORTANT:
             "changes_made": [{"url": item["url"], "action": "remove_link_error"} for item in broken_urls],
             "cost": 0
         }
+
+
+# ============================================================================
+# 4-ACT VIDEO PROMPT ASSEMBLY
+# ============================================================================
+
+# Model-specific limits for video prompt optimization
+VIDEO_MODEL_LIMITS = {
+    "seedance": {"char_limit": 2000, "words_per_act": "45-55"},
+    "wan-2.5": {"char_limit": 2500, "words_per_act": "80-120"},
+}
+
+
+@activity.defn
+async def generate_four_act_video_prompt(
+    article: Dict[str, Any],
+    app: str,
+    video_model: str = "seedance",
+    character_style: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Assemble a 4-act video prompt from article's structured sections.
+
+    The article is written FIRST with 4 sections, each containing a
+    four_act_visual_hint (45-55 words for Seedance). This activity
+    simply combines those hints into the final video prompt.
+
+    Args:
+        article: Article dict with four_act_content containing four_act_visual_hint per section
+        app: Application (relocation, placement, pe_news)
+        video_model: Target model (seedance or wan-2.5)
+        character_style: Override character style (none, male, female, asian_male, asian_female, black_male, black_female, diverse)
+                        If None, uses app config default.
+
+    Returns:
+        {"prompt": str, "model": str, "acts": int, "success": bool, "was_truncated": bool, "cost": float}
+    """
+    activity.logger.info(f"Assembling 4-act video prompt: {article.get('title', 'Untitled')[:50]}...")
+
+    # Get structured sections from article
+    sections = article.get("four_act_content", [])
+
+    if not sections:
+        activity.logger.error("No four_act_content found in article - cannot assemble prompt")
+        return {
+            "prompt": "",
+            "model": video_model,
+            "acts": 0,
+            "success": False,
+            "error": "No four_act_content in article",
+            "cost": 0
+        }
+
+    # Get app config for no-text rule, holistic guidelines, and character style
+    app_config = APP_CONFIGS.get(app)
+    if app_config:
+        no_text_rule = app_config.article_theme.video_prompt_template.no_text_rule
+        holistic = getattr(app_config.article_theme.video_prompt_template, 'holistic_guidelines', '')
+        # Use override character_style if provided, otherwise use app default
+        effective_style = CharacterStyle(character_style) if character_style else app_config.character_style
+    else:
+        no_text_rule = "CRITICAL: NO text, words, letters, numbers anywhere. Purely visual."
+        holistic = ""
+        effective_style = CharacterStyle(character_style) if character_style else CharacterStyle.DIVERSE
+
+    # Get character style prompt text
+    character_prompt = CHARACTER_STYLE_PROMPTS.get(effective_style, "")
+    activity.logger.info(f"Character style: {effective_style.value} -> '{character_prompt}'")
+
+    # Get model character limit
+    model_info = VIDEO_MODEL_LIMITS.get(video_model, VIDEO_MODEL_LIMITS["seedance"])
+    char_limit = model_info.get("char_limit", 2000)
+
+    # Build the 4-act prompt from visual hints
+    act_prompts = []
+    for i, section in enumerate(sections[:4]):
+        act_num = i + 1
+        four_act_visual_hint = section.get("four_act_visual_hint", "")
+        video_title = section.get("video_title") or section.get("title", f"Act {act_num}")
+
+        start_time = (act_num - 1) * 3
+        end_time = act_num * 3
+
+        if four_act_visual_hint:
+            act_prompts.append(f"ACT {act_num} ({start_time}s-{end_time}s): {video_title}\n{four_act_visual_hint}")
+        else:
+            activity.logger.warning(f"Section {act_num} has no four_act_visual_hint")
+            act_prompts.append(f"ACT {act_num} ({start_time}s-{end_time}s): {video_title}\n[Cinematic visual]")
+
+    acts_text = "\n\n".join(act_prompts)
+
+    # Build prompt - no_text_rule ONCE at start, character style, holistic guidelines if present
+    holistic_block = f"\n{holistic}" if holistic else ""
+    character_block = f"\n{character_prompt}" if character_prompt else ""
+    prompt = f"""{no_text_rule}{character_block}{holistic_block}
+
+VIDEO: 12 seconds, 4 acts × 3 seconds each.
+
+{acts_text}"""
+
+    # Enforce character limit
+    was_truncated = False
+    if len(prompt) > char_limit:
+        activity.logger.warning(f"Prompt {len(prompt)} chars exceeds {char_limit} limit - truncating")
+        prompt = prompt[:char_limit]
+        was_truncated = True
+
+    acts_with_hints = len([s for s in sections[:4] if s.get("four_act_visual_hint")])
+    activity.logger.info(f"Assembled 4-act prompt: {len(prompt)} chars, {acts_with_hints}/4 acts with visual hints")
+
+    return {
+        "prompt": prompt,
+        "model": video_model,
+        "acts": len(sections[:4]),
+        "success": True,
+        "was_truncated": was_truncated,
+        "cost": 0  # No API call - just assembling existing visual hints
+    }
