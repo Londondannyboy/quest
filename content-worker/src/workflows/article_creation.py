@@ -532,26 +532,44 @@ class ArticleCreationWorkflow:
                 ok_count = sum(1 for s in scored if s.get("score", 0) >= 0.5)
                 workflow.logger.info(f"Link validation: {ok_count} OK, {len(broken_links)} need fixing")
 
-                # Step 2: Use Haiku to fix broken links
+                # Step 2: Use Haiku to fix broken links (NON-BLOCKING)
                 if broken_links:
                     workflow.logger.info(f"Calling Haiku to fix {len(broken_links)} broken links")
 
-                    refinement_result = await workflow.execute_activity(
-                        "refine_broken_links",
-                        args=[article["content"], broken_links, topic],
-                        start_to_close_timeout=timedelta(seconds=60),
-                        retry_policy=RetryPolicy(maximum_attempts=1)
-                    )
+                    try:
+                        refinement_result = await workflow.execute_activity(
+                            "refine_broken_links",
+                            args=[article["content"], broken_links, topic],
+                            start_to_close_timeout=timedelta(seconds=60),
+                            retry_policy=RetryPolicy(maximum_attempts=1)
+                        )
 
-                    if refinement_result.get("success"):
-                        article["content"] = refinement_result["refined_content"]
-                        changes = refinement_result.get("changes_made", [])
-                        cost = refinement_result.get("cost", 0)
-                        workflow.logger.info(f"Haiku fixed {len(changes)} links (cost: ${cost:.4f})")
-                    else:
-                        workflow.logger.warning(f"Haiku refinement failed: {refinement_result.get('error')}")
-                        # Fallback content is already in refinement_result
-                        article["content"] = refinement_result.get("refined_content", article["content"])
+                        if refinement_result.get("success"):
+                            article["content"] = refinement_result["refined_content"]
+                            changes = refinement_result.get("changes_made", [])
+                            cost = refinement_result.get("cost", 0)
+                            workflow.logger.info(f"Haiku fixed {len(changes)} links (cost: ${cost:.4f})")
+                        else:
+                            workflow.logger.warning(f"Haiku refinement failed: {refinement_result.get('error')}")
+                            # Fallback: just remove broken link wrappers
+                            content = article["content"]
+                            for item in broken_links:
+                                url = item.get("url", "")
+                                pattern = rf'<a[^>]*href="{re.escape(url)}"[^>]*>([^<]+)</a>'
+                                content = re.sub(pattern, r'\1', content)
+                            article["content"] = content
+                            workflow.logger.info(f"Fallback: removed {len(broken_links)} link wrappers")
+
+                    except Exception as haiku_error:
+                        workflow.logger.warning(f"Haiku refinement failed (non-blocking): {haiku_error}")
+                        # Fallback: just remove broken link wrappers
+                        content = article["content"]
+                        for item in broken_links:
+                            url = item.get("url", "")
+                            pattern = rf'<a[^>]*href="{re.escape(url)}"[^>]*>([^<]+)</a>'
+                            content = re.sub(pattern, r'\1', content)
+                        article["content"] = content
+                        workflow.logger.info(f"Fallback: removed {len(broken_links)} link wrappers")
 
             except Exception as e:
                 workflow.logger.warning(f"Phase 5b: Link validation failed (non-blocking): {e}")
