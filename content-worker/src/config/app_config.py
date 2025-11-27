@@ -7,6 +7,88 @@ Each app has specific:
 - Interests (what to prioritize)
 - Geographic focus
 - Target audience context
+
+=============================================================================
+ARTICLE TYPES (VideoActTemplate.name)
+=============================================================================
+Sonnet should select the appropriate template based on article topic:
+
+RELOCATION APP:
+- "transformation" - Personal journey from current life to new life
+  Use for: Visa guides, moving abroad, lifestyle change articles
+  Example: "Cyprus Digital Nomad Visa 2025"
+
+- "country_guide" - Destination showcase
+  Use for: Country guides, city guides, "living in X" articles
+  Example: "Living in Lisbon: A Complete Guide"
+
+- "comparison" - Side-by-side evaluation
+  Use for: "X vs Y" articles, comparison guides
+  Example: "Portugal vs Spain: Which is Better for Remote Workers?"
+
+- "listicle" - Multiple highlights
+  Use for: "Top X" articles, "Best Y" lists
+  Example: "Top 10 Digital Nomad Destinations 2025"
+
+=============================================================================
+NEON DATABASE REQUIREMENTS
+=============================================================================
+For articles to render correctly on the frontend, these fields MUST be populated:
+
+REQUIRED:
+- video_playback_id: Mux playback ID for the video
+- video_narrative: JSON with acts structure:
+  {
+    "playback_id": "xxx",
+    "acts": {
+      "act_1": {"start": 0, "end": 3, "title": "The Grind"},
+      "act_2": {"start": 3, "end": 6, "title": "The Dream"},
+      "act_3": {"start": 6, "end": 9, "title": "The Journey"},
+      "act_4": {"start": 9, "end": 12, "title": "The Reality"}
+    }
+  }
+- payload: JSON with structured content:
+  {
+    "four_act_content": [
+      {"title": "...", "factoid": "...", "video_title": "...", "four_act_visual_hint": "..."},
+      ...4 sections
+    ],
+    "faq": [{"q": "...", "a": "..."}],
+    "callouts": [{"type": "pro_tip", "title": "...", "content": "...", "placement": "after_section_2"}],
+    "comparison": {"title": "...", "items": [{"name": "Cyprus", "cost": "€800/mo", ...}]},
+    "timeline": [{"date": "2022", "title": "...", "description": "..."}],
+    "stat_highlight": {"headline": "...", "stats": [{"value": "3,400", "label": "Hours of sunshine"}]},
+    "sources": [{"name": "...", "url": "...", "description": "..."}]
+  }
+- content: HTML article content
+- meta_description: SEO excerpt
+
+OPTIONAL:
+- article_angle: Category label (e.g., "Relocation Guide", "Visa Guide")
+- word_count: Article length
+
+=============================================================================
+MUX VIDEO TRICKS
+=============================================================================
+Mux provides powerful URL-based features:
+
+THUMBNAILS:
+  https://image.mux.com/{playback_id}/thumbnail.jpg?time=1.5&width=800
+
+ANIMATED GIFS (bounded loops!):
+  https://image.mux.com/{playback_id}/animated.gif?start=0&end=3&width=480&fps=12
+  - Max width: 640px (larger fails with "Invalid width")
+  - fps: 12-15 recommended
+  - start/end: Time range in seconds
+  - This is the SECRET to bounded video loops without JavaScript!
+
+STORYBOARD:
+  https://image.mux.com/{playback_id}/storyboard.vtt
+
+HLS STREAM:
+  https://stream.mux.com/{playback_id}.m3u8
+
+=============================================================================
 """
 
 from typing import Dict, List, Optional
