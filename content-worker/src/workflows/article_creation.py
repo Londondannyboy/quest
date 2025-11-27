@@ -423,8 +423,8 @@ class ArticleCreationWorkflow:
                 # Score up to 30 URLs using Railway Playwright service
                 # NON-BLOCKING: timeout/errors just leave URLs as "unvalidated"
                 validation_result = await workflow.execute_activity(
-                    "playwright_url_cleanse",
-                    args=[urls_to_validate[:30], True],
+                    "playwright_pre_cleanse",  # Phase 4b: Score URLs for Sonnet
+                    args=[urls_to_validate[:30]],
                     start_to_close_timeout=timedelta(minutes=2),
                     heartbeat_timeout=timedelta(seconds=30),
                     retry_policy=RetryPolicy(
@@ -500,9 +500,9 @@ class ArticleCreationWorkflow:
             f"{article['section_count']} sections"
         )
 
-        # ===== PHASE 5b: SCORE ARTICLE LINKS (NON-BLOCKING) =====
-        # Only remove definitely broken links (score < 0.2), keep uncertain ones
-        workflow.logger.info("Phase 5b: Scoring article links (non-blocking)")
+        # ===== PHASE 5b: VALIDATE & FIX ARTICLE LINKS (NON-BLOCKING) =====
+        # Validate links in final article, use Haiku to fix broken ones
+        workflow.logger.info("Phase 5b: Validating article links (non-blocking)")
 
         import re
         url_pattern = r'href="(https?://[^"]+)"'
@@ -510,40 +510,54 @@ class ArticleCreationWorkflow:
 
         if article_urls:
             try:
+                # Step 1: Validate links via Playwright
                 validation_result = await workflow.execute_activity(
-                    "playwright_url_cleanse",
-                    args=[article_urls[:20], True],
+                    "playwright_post_cleanse",  # Phase 5b: Validate final article links
+                    args=[article_urls[:20]],
                     start_to_close_timeout=timedelta(minutes=2),
                     heartbeat_timeout=timedelta(seconds=30),
                     retry_policy=RetryPolicy(maximum_attempts=1)
                 )
 
-                # Only remove definitely broken links (404s, empty pages)
-                # Keep paywalls/uncertain - user might have access
                 scored = validation_result.get("scored_urls", [])
-                definitely_broken = {
-                    s["url"] for s in scored
-                    if s.get("score", 1) < 0.2  # Very low confidence = definitely broken
-                }
 
-                if definitely_broken:
-                    workflow.logger.info(f"Removing {len(definitely_broken)} broken links (score < 0.2)")
-                    content = article["content"]
-                    for bad_url in definitely_broken:
-                        pattern = rf'<a[^>]*href="{re.escape(bad_url)}"[^>]*>([^<]+)</a>'
-                        content = re.sub(pattern, r'\1', content)
-                    article["content"] = content
+                # Identify broken links (score < 0.5 = broken, paywall, or bot-blocked)
+                broken_links = [
+                    {"url": s["url"], "score": s["score"], "status": s["status"], "reason": s["reason"]}
+                    for s in scored
+                    if s.get("score", 1) < 0.5
+                ]
 
                 # Log summary
-                ok = sum(1 for s in scored if s.get("score", 0) >= 0.9)
-                uncertain = sum(1 for s in scored if 0.2 <= s.get("score", 0) < 0.9)
-                workflow.logger.info(f"Link scoring: {ok} OK, {uncertain} uncertain, {len(definitely_broken)} removed")
+                ok_count = sum(1 for s in scored if s.get("score", 0) >= 0.5)
+                workflow.logger.info(f"Link validation: {ok_count} OK, {len(broken_links)} need fixing")
+
+                # Step 2: Use Haiku to fix broken links
+                if broken_links:
+                    workflow.logger.info(f"Calling Haiku to fix {len(broken_links)} broken links")
+
+                    refinement_result = await workflow.execute_activity(
+                        "refine_broken_links",
+                        args=[article["content"], broken_links, topic],
+                        start_to_close_timeout=timedelta(seconds=60),
+                        retry_policy=RetryPolicy(maximum_attempts=1)
+                    )
+
+                    if refinement_result.get("success"):
+                        article["content"] = refinement_result["refined_content"]
+                        changes = refinement_result.get("changes_made", [])
+                        cost = refinement_result.get("cost", 0)
+                        workflow.logger.info(f"Haiku fixed {len(changes)} links (cost: ${cost:.4f})")
+                    else:
+                        workflow.logger.warning(f"Haiku refinement failed: {refinement_result.get('error')}")
+                        # Fallback content is already in refinement_result
+                        article["content"] = refinement_result.get("refined_content", article["content"])
 
             except Exception as e:
-                workflow.logger.warning(f"Phase 5b: Link scoring failed (non-blocking): {e}")
-                workflow.logger.info("Continuing with unscored links")
+                workflow.logger.warning(f"Phase 5b: Link validation failed (non-blocking): {e}")
+                workflow.logger.info("Continuing with unvalidated links")
         else:
-            workflow.logger.info("No external links to score")
+            workflow.logger.info("No external links to validate")
 
         # Initialize video_result
         video_result = None

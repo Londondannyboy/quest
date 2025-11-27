@@ -68,8 +68,10 @@ from src.activities.research.ambiguity import (
 )
 
 from src.activities.validation.link_validator import (
-    playwright_url_cleanse,
+    playwright_url_cleanse,  # Deprecated
     playwright_clean_links,
+    playwright_pre_cleanse,  # Phase 4b: Score URLs before article generation
+    playwright_post_cleanse,  # Phase 5b: Validate links after article written
 )
 
 from src.activities.media.logo_extraction import (
@@ -116,6 +118,7 @@ from src.activities.generation.profile_generation_v2 import (
 from src.activities.generation.article_generation import (
     generate_four_act_article,  # 4-act article with four_act_content
     generate_narrative_article,  # Legacy 3-act narrative-driven article
+    refine_broken_links,  # Phase 5b: Haiku fixes broken links in article
 )
 
 from src.activities.generation.research_curation import (
@@ -275,8 +278,10 @@ async def main():
             # Ambiguity & Validation
             check_research_ambiguity,
             validate_company_match,
-            playwright_url_cleanse,
+            playwright_url_cleanse,  # Deprecated
             playwright_clean_links,
+            playwright_pre_cleanse,  # Phase 4b: Score URLs before article gen
+            playwright_post_cleanse,  # Phase 5b: Validate links after article
 
             # Media
             extract_and_process_logo,
@@ -298,6 +303,7 @@ async def main():
             generate_company_profile_v2,
             generate_four_act_article,  # 4-act article with four_act_content
             generate_narrative_article,  # Legacy 3-act narrative-driven article
+            refine_broken_links,  # Phase 5b: Haiku fixes broken links
             generate_four_act_video_prompt,  # PRIMARY: 4-act video from article sections
             generate_image_prompts,  # Image prompts (style-matched)
             build_3_act_narrative,   # New: video-first 3-act narrative structure

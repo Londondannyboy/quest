@@ -200,23 +200,70 @@ async def validate_url_with_playwright_service(
 
 
 @activity.defn
+async def playwright_pre_cleanse(urls: List[str]) -> Dict[str, Any]:
+    """
+    PHASE 4b: Score source URLs before article generation via Playwright.
+
+    Returns scored URLs so Sonnet can prioritize reliable sources.
+    NON-BLOCKING: If validation fails, returns default scores.
+
+    Scores:
+    - 1.0: trusted (high authority domains)
+    - 0.9: validated (browser check passed)
+    - 0.6: unvalidated (default if check fails)
+    - 0.5: uncertain (timeout/error)
+    - 0.3: bot_blocked
+    - 0.2: paywall
+    - 0.1: broken (404/empty)
+
+    Args:
+        urls: List of URLs to score
+
+    Returns:
+        Dict with scored_urls for Sonnet to prioritize
+    """
+    activity.logger.info(f"[Playwright Pre-Cleanse] Scoring {len(urls)} URLs for article generation")
+    return await _validate_urls_internal(urls, use_browser=True)
+
+
+@activity.defn
+async def playwright_post_cleanse(urls: List[str]) -> Dict[str, Any]:
+    """
+    PHASE 5b: Validate links in final article via Playwright.
+
+    After article is written, validate cited links and return
+    broken ones for Haiku to fix/remove.
+
+    Args:
+        urls: List of URLs from article content
+
+    Returns:
+        Dict with scored_urls, broken links identified for fixing
+    """
+    activity.logger.info(f"[Playwright Post-Cleanse] Checking {len(urls)} links in final article")
+    return await _validate_urls_internal(urls, use_browser=True)
+
+
+@activity.defn
 async def playwright_url_cleanse(urls: List[str], use_browser: bool = True) -> Dict[str, Any]:
     """
-    Validate URLs using Railway Playwright service.
+    Generic URL validation using Railway Playwright service.
 
-    Detects:
-    - 404s and broken pages
-    - Paywalled content (JS-rendered)
-    - CAPTCHA/anti-bot pages
-    - Redirects to error pages
-    - Pages with insufficient content
+    DEPRECATED: Use playwright_pre_cleanse (Phase 4b) or playwright_post_cleanse (Phase 5b) instead.
 
     Args:
         urls: List of URLs to validate
         use_browser: If True, use Playwright service. If False, use quick HEAD requests.
 
     Returns:
-        Dict with valid_urls, invalid_urls, and stats
+        Dict with valid_urls, invalid_urls, scored_urls, and stats
+    """
+    return await _validate_urls_internal(urls, use_browser)
+
+
+async def _validate_urls_internal(urls: List[str], use_browser: bool = True) -> Dict[str, Any]:
+    """
+    Internal URL validation logic - shared by all validation activities.
     """
     activity.logger.info(f"[Playwright URL Cleanse] Validating {len(urls)} URLs (browser={use_browser})")
 

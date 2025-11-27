@@ -1261,3 +1261,189 @@ Write the article now:"""
             "article": None,
             "cost": 0
         }
+
+
+@activity.defn
+async def refine_broken_links(
+    article_content: str,
+    broken_urls: List[Dict[str, Any]],
+    topic: str
+) -> Dict[str, Any]:
+    """
+    Refine article content to fix or remove broken links.
+
+    Uses Haiku (fast & cheap) to:
+    - Find alternative sources for broken links
+    - Reword sentences if no alternative available
+    - Gracefully remove references to unavailable content
+
+    Args:
+        article_content: The HTML article content
+        broken_urls: List of {url, score, status, reason} for broken links
+        topic: Article topic for context
+
+    Returns:
+        Dict with refined_content, changes_made, cost
+    """
+    activity.logger.info(f"Refining {len(broken_urls)} broken links in article")
+
+    if not broken_urls:
+        return {
+            "success": True,
+            "refined_content": article_content,
+            "changes_made": [],
+            "cost": 0
+        }
+
+    try:
+        # Extract paragraphs containing broken URLs for context
+        broken_contexts = []
+        for item in broken_urls:
+            url = item.get("url", "")
+            reason = item.get("reason", "unknown")
+            status = item.get("status", "broken")
+
+            # Find the paragraph containing this URL
+            pattern = rf'<p[^>]*>(?:(?!</p>).)*{re.escape(url)}(?:(?!</p>).)*</p>'
+            match = re.search(pattern, article_content, re.DOTALL | re.IGNORECASE)
+
+            if match:
+                broken_contexts.append({
+                    "url": url,
+                    "reason": reason,
+                    "status": status,
+                    "paragraph": match.group(0)
+                })
+            else:
+                # Try finding in any tag
+                simple_pattern = rf'<a[^>]*href="{re.escape(url)}"[^>]*>([^<]+)</a>'
+                simple_match = re.search(simple_pattern, article_content)
+                if simple_match:
+                    broken_contexts.append({
+                        "url": url,
+                        "reason": reason,
+                        "status": status,
+                        "link_text": simple_match.group(1),
+                        "full_match": simple_match.group(0)
+                    })
+
+        if not broken_contexts:
+            activity.logger.warning("Could not find broken URLs in content")
+            return {
+                "success": True,
+                "refined_content": article_content,
+                "changes_made": [],
+                "cost": 0
+            }
+
+        # Build prompt for Haiku
+        broken_list = "\n".join([
+            f"- URL: {ctx['url']}\n  Status: {ctx['status']} ({ctx['reason']})\n  Context: {ctx.get('paragraph', ctx.get('link_text', 'N/A'))[:300]}"
+            for ctx in broken_contexts
+        ])
+
+        prompt = f"""You are editing an article about "{topic}". Some links in the article are broken or inaccessible.
+
+For each broken link below, provide a fix. Return ONLY a JSON array with your fixes.
+
+BROKEN LINKS:
+{broken_list}
+
+For each broken link, decide:
+1. If the link is to a general concept/fact that doesn't need a source, remove the link but keep the text
+2. If the link is critical for credibility, suggest removing the entire claim or rewording without the link
+3. If you know a working alternative source for the same information, suggest it (only if you're confident it exists)
+
+Return a JSON array like:
+```json
+[
+  {{
+    "url": "the broken url",
+    "action": "remove_link" | "reword" | "replace",
+    "original_html": "<a href=...>text</a>",
+    "fixed_html": "text without link OR reworded sentence OR <a href='new_url'>text</a>"
+  }}
+]
+```
+
+IMPORTANT:
+- Be conservative - when in doubt, just remove the link wrapper and keep the text
+- Don't invent sources - only suggest replacements if you're certain they exist
+- Keep fixes minimal - don't rewrite entire paragraphs"""
+
+        # Use Haiku for speed and cost
+        client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+
+        response = client.messages.create(
+            model="claude-3-5-haiku-20241022",
+            max_tokens=2000,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        response_text = response.content[0].text
+        cost = (response.usage.input_tokens * 0.25 + response.usage.output_tokens * 1.25) / 1_000_000
+
+        # Parse JSON response
+        json_match = re.search(r'```json\s*(\[.+?\])\s*```', response_text, re.DOTALL)
+        if not json_match:
+            json_match = re.search(r'(\[.+?\])', response_text, re.DOTALL)
+
+        if not json_match:
+            activity.logger.warning("Could not parse Haiku response, falling back to link removal")
+            # Fallback: just remove links
+            refined_content = article_content
+            for ctx in broken_contexts:
+                url = ctx["url"]
+                pattern = rf'<a[^>]*href="{re.escape(url)}"[^>]*>([^<]+)</a>'
+                refined_content = re.sub(pattern, r'\1', refined_content)
+            return {
+                "success": True,
+                "refined_content": refined_content,
+                "changes_made": [{"url": ctx["url"], "action": "remove_link_fallback"} for ctx in broken_contexts],
+                "cost": cost
+            }
+
+        fixes = json.loads(json_match.group(1))
+        changes_made = []
+        refined_content = article_content
+
+        for fix in fixes:
+            url = fix.get("url", "")
+            action = fix.get("action", "remove_link")
+            original = fix.get("original_html", "")
+            fixed = fix.get("fixed_html", "")
+
+            if original and fixed and original in refined_content:
+                refined_content = refined_content.replace(original, fixed)
+                changes_made.append({"url": url, "action": action})
+            elif url:
+                # Fallback: remove link wrapper
+                pattern = rf'<a[^>]*href="{re.escape(url)}"[^>]*>([^<]+)</a>'
+                refined_content = re.sub(pattern, r'\1', refined_content)
+                changes_made.append({"url": url, "action": "remove_link_fallback"})
+
+        activity.logger.info(f"Refined {len(changes_made)} broken links (cost: ${cost:.4f})")
+
+        return {
+            "success": True,
+            "refined_content": refined_content,
+            "changes_made": changes_made,
+            "cost": cost
+        }
+
+    except Exception as e:
+        activity.logger.error(f"Link refinement failed: {e}")
+        # Fallback: just remove all broken links
+        refined_content = article_content
+        for item in broken_urls:
+            url = item.get("url", "")
+            pattern = rf'<a[^>]*href="{re.escape(url)}"[^>]*>([^<]+)</a>'
+            refined_content = re.sub(pattern, r'\1', refined_content)
+
+        return {
+            "success": False,
+            "error": str(e),
+            "refined_content": refined_content,
+            "changes_made": [{"url": item["url"], "action": "remove_link_error"} for item in broken_urls],
+            "cost": 0
+        }
