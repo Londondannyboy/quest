@@ -137,17 +137,16 @@ async def test_full_flow(skip_video: bool = True):
         print(f"   Act {i+1}: {hint[:80]}...")
 
     video_prompt_result = await generate_four_act_video_prompt(
-        title=article.get("title", "Cyprus Digital Nomad Visa"),
-        four_act_content=four_act_content,
+        article=article,
         app="relocation",
-        video_duration=12
+        video_model="seedance"
     )
 
     if not video_prompt_result.get("success"):
         print(f"❌ Video prompt failed: {video_prompt_result.get('error')}")
         return
 
-    video_prompt = video_prompt_result.get("video_prompt", "")
+    video_prompt = video_prompt_result.get("prompt", "")
     print(f"\n✅ Video prompt generated ({len(video_prompt)} chars)")
     print(f"\n   PROMPT:\n   {video_prompt[:500]}...")
 
