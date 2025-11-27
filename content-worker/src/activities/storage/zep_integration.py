@@ -4,19 +4,83 @@ Zep Knowledge Graph Integration
 Activities for querying and syncing company data with Zep Cloud.
 """
 
+import os
 from temporalio import activity
-from typing import Dict, Any
+from typing import Dict, Any, List
 from zep_cloud.client import AsyncZep
 from zep_cloud.types import GraphSearchScope
 
 from src.utils.config import config
 from src.models.zep_ontology import (
     extract_company_entity_from_payload,
-    COMPANY_ENTITY_TYPE,
-    DEAL_ENTITY_TYPE,
-    PERSON_ENTITY_TYPE,
-    EDGE_TYPES
+    get_zep_ontology_config,
+    ZEP_ONTOLOGY_AVAILABLE,
+    ENTITY_TYPES,
+    EDGE_TYPES_CONFIG,
 )
+
+
+async def setup_zep_ontology(graph_ids: List[str] = None) -> Dict[str, Any]:
+    """
+    Register custom ontology with Zep for better entity/edge extraction.
+
+    This should be called ONCE when setting up your Zep graphs (not on every request).
+    Can be run via CLI: python -m src.activities.storage.zep_integration
+
+    Args:
+        graph_ids: Optional list of specific graph IDs to set ontology for.
+                   If None, sets for all known graphs (finance, relocation, jobs).
+
+    Returns:
+        Dict with results for each graph
+    """
+    if not config.ZEP_API_KEY:
+        return {"success": False, "error": "ZEP_API_KEY not configured"}
+
+    if not ZEP_ONTOLOGY_AVAILABLE:
+        return {"success": False, "error": "zep-cloud ontology classes not available"}
+
+    # Get all graph IDs if not specified
+    if graph_ids is None:
+        graph_ids = list(set([
+            os.getenv("ZEP_GRAPH_ID_FINANCE", "finance-knowledge"),
+            os.getenv("ZEP_GRAPH_ID_RELOCATION", "relocation"),
+            os.getenv("ZEP_GRAPH_ID_JOBS", "jobs"),
+        ]))
+
+    client = AsyncZep(api_key=config.ZEP_API_KEY)
+    ontology_config = get_zep_ontology_config()
+
+    results = {}
+    try:
+        # Set ontology for all specified graphs at once
+        # API uses graph_ids (plural) as a list
+        await client.graph.set_ontology(
+            entities=ontology_config["entities"],
+            edges=ontology_config["edges"],
+            graph_ids=graph_ids  # List of graph IDs
+        )
+        for graph_id in graph_ids:
+            results[graph_id] = {"success": True}
+            print(f"  Ontology set for graph: {graph_id}")
+
+    except Exception as e:
+        for graph_id in graph_ids:
+            results[graph_id] = {"success": False, "error": str(e)}
+        print(f"  Failed to set ontology: {e}")
+
+    # Summary
+    success_count = sum(1 for r in results.values() if r.get("success"))
+    print(f"\nOntology setup complete: {success_count}/{len(graph_ids)} graphs configured")
+    print(f"Entity types: {list(ENTITY_TYPES.keys())}")
+    print(f"Edge types: {list(EDGE_TYPES_CONFIG.keys())}")
+
+    return {
+        "success": success_count == len(graph_ids),
+        "results": results,
+        "entity_types": list(ENTITY_TYPES.keys()),
+        "edge_types": list(EDGE_TYPES_CONFIG.keys())
+    }
 
 
 def get_graph_id_for_app(app: str) -> str:
@@ -29,8 +93,6 @@ def get_graph_id_for_app(app: str) -> str:
     Returns:
         Zep graph ID for the specific app's knowledge graph
     """
-    import os
-
     # Get graph IDs from environment variables (with defaults)
     finance_graph = os.getenv("ZEP_GRAPH_ID_FINANCE", "finance-knowledge")
     relocation_graph = os.getenv("ZEP_GRAPH_ID_RELOCATION", "relocation")
@@ -94,56 +156,78 @@ async def query_zep_for_context(
         # Search query combining company name and domain
         search_query = f"{company_name} {domain}".strip()
 
-        # 1. Search episodes (narrative content)
+        # 1. Search EDGES (facts/relationships) - THIS IS THE KEY!
+        # scope="edges" returns the actual fact text we need
+        edge_results = None
         try:
-            activity.logger.info(f"  Searching episodes...")
-            episode_results = await client.graph.search(
+            activity.logger.info(f"  Searching edges (facts)...")
+            edge_results = await client.graph.search(
                 graph_id=graph_id,
                 query=search_query,
-                scope="episodes",  # Search narrative episodes
-                limit=20
+                scope="edges",  # Returns facts!
+                reranker="cross_encoder",  # Best relevance ranking
+                limit=30
             )
         except Exception as e:
-            activity.logger.warning(f"  ⚠️ Episode search failed: {e}")
-            episode_results = None
+            activity.logger.warning(f"  ⚠️ Edge search failed: {e}")
 
         # 2. Search nodes/entities (structured entities)
+        entity_results = None
         try:
-            activity.logger.info(f"  Searching entities...")
+            activity.logger.info(f"  Searching nodes (entities)...")
             entity_results = await client.graph.search(
                 graph_id=graph_id,
                 query=search_query,
-                scope="nodes",  # Search structured entities
+                scope="nodes",  # Returns entities
                 limit=20
             )
         except Exception as e:
-            activity.logger.warning(f"  ⚠️ Entity search failed: {e}")
-            entity_results = None
+            activity.logger.warning(f"  ⚠️ Node search failed: {e}")
 
-        # Extract structured entities from episode data
+        # Extract facts from edge search results (the primary source of valuable data)
+        extracted_facts = []
         extracted_deals = []
         extracted_people = []
 
-        # Parse episode data for extracted_entities
-        if episode_results and hasattr(episode_results, 'edges'):
-            try:
-                for edge in episode_results.edges:
-                    if hasattr(edge, 'fact') and edge.fact:
+        # Parse edge results - each edge.fact contains valuable relationship data
+        # Also extract temporal metadata (valid_at, invalid_at) for audit trail
+        if edge_results and hasattr(edge_results, 'edges') and edge_results.edges:
+            activity.logger.info(f"  Processing {len(edge_results.edges)} edges from search")
+            seen_facts = set()  # Dedupe by fact text
+
+            for edge in edge_results.edges:
+                # Extract the raw fact text - this is the valuable data!
+                if hasattr(edge, 'fact') and edge.fact:
+                    fact_text = edge.fact.strip()
+                    # Skip very short or trivial facts, and dedupe
+                    if len(fact_text) > 15 and fact_text not in seen_facts:
+                        seen_facts.add(fact_text)
+
+                        # Build fact object with temporal metadata for audit
+                        fact_obj = {
+                            "fact": fact_text,
+                            "uuid": getattr(edge, 'uuid_', None) or getattr(edge, 'uuid', None),
+                            "valid_at": str(edge.valid_at) if getattr(edge, 'valid_at', None) else None,
+                            "invalid_at": str(edge.invalid_at) if getattr(edge, 'invalid_at', None) else None,
+                            "name": getattr(edge, 'name', None),  # Relationship type (e.g., "IS_A", "HEADQUARTERED_IN")
+                        }
+                        extracted_facts.append(fact_obj)
+
+                        # Also try to extract structured entities if fact is JSON
                         try:
                             import json
-                            # Try to parse the fact as JSON
-                            fact_data = json.loads(edge.fact) if isinstance(edge.fact, str) else edge.fact
+                            fact_data = json.loads(fact_text) if isinstance(fact_text, str) else fact_text
                             if isinstance(fact_data, dict):
-                                # Extract entities if present
                                 entities = fact_data.get('extracted_entities', {})
                                 if entities.get('deals'):
                                     extracted_deals.extend(entities['deals'][:5])
                                 if entities.get('people'):
                                     extracted_people.extend(entities['people'][:5])
-                        except Exception:
+                        except (json.JSONDecodeError, TypeError):
+                            # Not JSON - that's fine, we already captured the raw fact text
                             pass
-            except Exception as e:
-                activity.logger.warning(f"  ⚠️ Failed to parse episodes: {e}")
+
+        activity.logger.info(f"  Extracted {len(extracted_facts)} raw facts from edges")
 
         # Extract from nodes
         articles = []
@@ -168,16 +252,18 @@ async def query_zep_for_context(
                 unique_deals.append(deal)
 
         activity.logger.info(
-            f"✅ Zep context: {len(articles)} articles, {len(unique_deals)} deals, {len(extracted_people)} people"
+            f"✅ Zep context: {len(articles)} articles, {len(unique_deals)} deals, "
+            f"{len(extracted_people)} people, {len(extracted_facts)} facts"
         )
 
         return {
             "articles": articles[:10],
-            "deals": unique_deals[:15],  # Return more deals
+            "deals": unique_deals[:15],
             "people": extracted_people[:10],
-            "found_existing_coverage": len(articles) > 0 or len(unique_deals) > 0,
-            "total_episodes": len(episode_results.edges) if episode_results and hasattr(episode_results, 'edges') else 0,
-            "total_entities": len(entity_results.nodes) if entity_results and hasattr(entity_results, 'nodes') else 0,
+            "facts": extracted_facts[:30],  # Raw facts from edge relationships
+            "found_existing_coverage": len(articles) > 0 or len(unique_deals) > 0 or len(extracted_facts) > 0,
+            "total_edges": len(edge_results.edges) if edge_results and hasattr(edge_results, 'edges') and edge_results.edges else 0,
+            "total_nodes": len(entity_results.nodes) if entity_results and hasattr(entity_results, 'nodes') and entity_results.nodes else 0,
             "available": True
         }
 
@@ -187,6 +273,7 @@ async def query_zep_for_context(
             "articles": [],
             "deals": [],
             "people": [],
+            "facts": [],
             "found_existing_coverage": False,
             "available": False,
             "error": str(e)
@@ -829,3 +916,52 @@ async def sync_v2_profile_to_zep_graph(
             "success": False,
             "error": str(e)
         }
+
+
+
+# ============================================================================
+# CLI ENTRY POINT
+# ============================================================================
+
+if __name__ == "__main__":
+    """
+    Run ontology setup from command line:
+    
+    Usage:
+        python -m src.activities.storage.zep_integration
+        
+    Or from content-worker directory:
+        python src/activities/storage/zep_integration.py
+    """
+    import asyncio
+    import sys
+    
+    print("=" * 60)
+    print("Zep Ontology Setup")
+    print("=" * 60)
+    print()
+    print("This will register custom entity and edge types with your Zep graphs.")
+    print("Entity types:", list(ENTITY_TYPES.keys()))
+    print("Edge types:", list(EDGE_TYPES_CONFIG.keys()))
+    print()
+    
+    # Check for confirmation flag
+    if "--yes" not in sys.argv and "-y" not in sys.argv:
+        confirm = input("Continue? (yes/no): ").strip().lower()
+        if confirm != "yes":
+            print("Cancelled.")
+            sys.exit(0)
+    
+    print()
+    print("Setting up ontology...")
+    result = asyncio.run(setup_zep_ontology())
+    
+    if result.get("success"):
+        print()
+        print("Success! Ontology registered for all graphs.")
+        print("Your data will now be extracted with proper entity/edge types.")
+    else:
+        print()
+        print(f"Some graphs failed: {result}")
+        sys.exit(1)
+

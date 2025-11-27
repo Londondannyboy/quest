@@ -9,7 +9,7 @@ from __future__ import annotations
 import psycopg
 import json
 from temporalio import activity
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from src.utils.config import config
@@ -360,7 +360,8 @@ async def save_article_to_neon(
     video_playback_id: Optional[str] = None,
     video_asset_id: Optional[str] = None,
     raw_research: Optional[str] = None,
-    video_narrative: Optional[Dict[str, Any]] = None
+    video_narrative: Optional[Dict[str, Any]] = None,
+    zep_facts: Optional[List[Dict[str, Any]]] = None
 ) -> str:
     """
     Save or update article in Neon database.
@@ -381,6 +382,7 @@ async def save_article_to_neon(
         video_asset_id: Mux asset ID for management
         raw_research: Full raw research data (unlimited TEXT)
         video_narrative: 3-act narrative structure for video-first articles (JSONB)
+        zep_facts: Facts from Zep knowledge graph used during generation (for audit)
 
     Returns:
         Article ID (str)
@@ -421,6 +423,7 @@ async def save_article_to_neon(
                             video_asset_id = %s,
                             raw_research = %s,
                             video_narrative = %s,
+                            zep_facts = COALESCE(%s, zep_facts),
                             updated_at = NOW()
                         WHERE id = %s
                         RETURNING id
@@ -442,8 +445,10 @@ async def save_article_to_neon(
                         video_asset_id,
                         raw_research,
                         json.dumps(video_narrative) if video_narrative else None,
+                        json.dumps(zep_facts) if zep_facts is not None else None,  # Preserve empty array []
                         article_id
                     ))
+                    activity.logger.info(f"zep_facts for UPDATE: {len(zep_facts) if zep_facts else 'None'} facts")
 
                     result = await cur.fetchone()
                     final_id = result[0] if result else article_id
@@ -471,10 +476,11 @@ async def save_article_to_neon(
                             video_asset_id,
                             raw_research,
                             video_narrative,
+                            zep_facts,
                             created_at,
                             updated_at
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
                         ON CONFLICT (slug)
                         DO UPDATE SET
                             title = EXCLUDED.title,
@@ -492,6 +498,7 @@ async def save_article_to_neon(
                             video_asset_id = EXCLUDED.video_asset_id,
                             raw_research = EXCLUDED.raw_research,
                             video_narrative = EXCLUDED.video_narrative,
+                            zep_facts = COALESCE(EXCLUDED.zep_facts, articles.zep_facts),
                             updated_at = NOW()
                         RETURNING id
                     """, (
@@ -511,8 +518,10 @@ async def save_article_to_neon(
                         video_playback_id,
                         video_asset_id,
                         raw_research,
-                        json.dumps(video_narrative) if video_narrative else None
+                        json.dumps(video_narrative) if video_narrative else None,
+                        json.dumps(zep_facts) if zep_facts is not None else None  # Preserve empty array []
                     ))
+                    activity.logger.info(f"zep_facts for INSERT: {len(zep_facts) if zep_facts else 'None'} facts")
 
                     result = await cur.fetchone()
                     final_id = str(result[0])

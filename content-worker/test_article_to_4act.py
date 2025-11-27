@@ -112,7 +112,7 @@ async def test_four_act_prompt(article):
     print("  Expecting: 4 acts from visual_hints, app config styling")
     print("=" * 70)
 
-    from src.activities.generation.media_prompts import generate_four_act_video_prompt
+    from src.activities.generation.article_generation import generate_four_act_video_prompt
 
     app = "relocation"
 

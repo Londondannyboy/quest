@@ -180,9 +180,22 @@ async def generate_four_act_article(
     app: str,
     research_context: Dict[str, Any],
     target_word_count: int = 1500,
-    custom_slug: str = None
+    custom_slug: str = None,
+    target_keyword: str = None,
+    secondary_keywords: List[str] = None
 ) -> Dict[str, Any]:
-    """Generate article content using Anthropic SDK directly."""
+    """Generate article content using Anthropic SDK directly.
+
+    Args:
+        topic: The article topic
+        article_type: Type of article (news, guide, etc.)
+        app: App name (relocation, placement, etc.)
+        research_context: Research data for the article
+        target_word_count: Target word count
+        custom_slug: Optional custom URL slug
+        target_keyword: Optional SEO target keyword (from DataForSEO research)
+        secondary_keywords: Optional list of secondary SEO keywords
+    """
     activity.logger.info(f"Generating {article_type} article: {topic}")
     if custom_slug:
         activity.logger.info(f"Using custom slug: {custom_slug}")
@@ -301,6 +314,27 @@ async def generate_four_act_article(
             yolo_motivational_kicks = ["Fortune favors the bold."]
             yolo_action_types = ["flight", "job", "apply"]
 
+        # Build SEO keyword guidance (optional - graceful if no keywords)
+        if target_keyword:
+            secondary_kw_list = ", ".join(secondary_keywords[:5]) if secondary_keywords else ""
+            seo_keyword_guidance = f"""===== SEO KEYWORD TARGETING =====
+TARGET KEYWORD: "{target_keyword}"
+{f'SECONDARY KEYWORDS: {secondary_kw_list}' if secondary_kw_list else ''}
+
+SEO REQUIREMENTS (IMPORTANT):
+- Include target keyword in the TITLE (naturally, not forced)
+- Include target keyword in the META description
+- Include target keyword in at least one H2 heading
+- Use target keyword naturally in the first paragraph
+- Sprinkle secondary keywords throughout where natural
+- DO NOT sacrifice narrative quality for keyword stuffing
+- If the keyword doesn't fit naturally, use a close variation
+- Aim for ~1-2% keyword density (natural, not robotic)
+"""
+            activity.logger.info(f"SEO targeting: '{target_keyword}' + {len(secondary_keywords or [])} secondary")
+        else:
+            seo_keyword_guidance = ""  # No SEO targeting - proceed normally
+
         # Build comprehensive system prompt with app context
         system_prompt = f"""You are an expert journalist writing for {app} - {app_desc}.
 
@@ -327,6 +361,8 @@ TITLE GUIDELINES:
 - Good examples: "Goldman Sachs Acquires AI Startup for $500M in Landmark Deal"
 - Meta description: 150-160 characters exactly (deliberately written)
 - Slug: clean, memorable, SEO-friendly (e.g., "cyprus-digital-nomad-visa-2025")
+
+{seo_keyword_guidance}
 
 Then the full article body in HTML with Tailwind CSS:
 
@@ -1007,6 +1043,9 @@ The STRUCTURED DATA section is MANDATORY - without it, no video can be generated
                 "timeline": structured_data.get("timeline", []),
                 "stat_highlight": structured_data.get("stat_highlight"),
                 "structured_sources": structured_data.get("sources", []),
+                # SEO keyword targeting (optional - from DataForSEO)
+                "target_keyword": target_keyword,
+                "secondary_keywords": secondary_keywords or [],
                 # GUIDE MODE: Structured data for fact sheet toggle view
                 "guide_mode": structured_data.get("guide_mode", {
                     "summary": "",

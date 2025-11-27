@@ -95,7 +95,7 @@ async def test_generate_four_act_video_prompt(client):
     from temporalio.worker import Worker
 
     # Import the actual activity
-    from src.activities.generation.media_prompts import generate_four_act_video_prompt
+    from src.activities.generation.article_generation import generate_four_act_video_prompt
 
     # Create a temporary worker just to execute this activity
     async with Worker(
@@ -121,7 +121,7 @@ async def test_via_activity_directly():
     print("=" * 70)
 
     # Import activities
-    from src.activities.generation.media_prompts import generate_four_act_video_prompt
+    from src.activities.generation.article_generation import generate_four_act_video_prompt
     from src.activities.media.video_generation import generate_article_video
     from src.activities.media.mux_client import upload_video_to_mux
 

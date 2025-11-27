@@ -19,7 +19,7 @@ load_dotenv()
 from src.workflows.company_creation import CompanyCreationWorkflow
 from src.workflows.article_creation import ArticleCreationWorkflow
 from src.workflows.news_creation import NewsCreationWorkflow
-from src.workflows.narrative_article_creation import NarrativeArticleCreationWorkflow
+# NarrativeArticleCreationWorkflow removed - superseded by 4-act workflow in ArticleCreationWorkflow
 
 # Import all activities
 from src.activities.normalize import (
@@ -38,6 +38,8 @@ from src.activities.research.serper import (
 from src.activities.research.dataforseo import (
     dataforseo_news_search,
     dataforseo_serp_search,
+    dataforseo_keyword_research,
+    dataforseo_keyword_difficulty,
 )
 
 from src.activities.research.news_assessment import (
@@ -119,16 +121,15 @@ from src.activities.generation.article_generation import (
     generate_four_act_article,  # 4-act article with four_act_content
     generate_narrative_article,  # Legacy 3-act narrative-driven article
     refine_broken_links,  # Phase 5b: Haiku fixes broken links in article
+    generate_four_act_video_prompt,  # Assembles video prompt from article sections
 )
 
 from src.activities.generation.research_curation import (
     curate_research_sources,
 )
 
-from src.activities.generation.media_prompts import (
-    generate_four_act_video_prompt,  # PRIMARY: 4-act video from article sections
-    generate_image_prompts,  # Image prompts (style-matched)
-)
+# generate_four_act_video_prompt moved to article_generation.py
+# generate_image_prompts removed (dead code - thumbnails come from video)
 
 from src.activities.generation.narrative_builder import (
     build_3_act_narrative,  # Video-first 3-act narrative structure
@@ -245,7 +246,7 @@ async def main():
     worker = Worker(
         client,
         task_queue=config.TEMPORAL_TASK_QUEUE,
-        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow, NewsCreationWorkflow, NarrativeArticleCreationWorkflow],
+        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow, NewsCreationWorkflow],
         activities=[
             # Normalization
             normalize_company_url,
@@ -261,6 +262,8 @@ async def main():
             # Research - DataForSEO
             dataforseo_news_search,
             dataforseo_serp_search,
+            dataforseo_keyword_research,  # SEO keyword research
+            dataforseo_keyword_difficulty,  # SEO keyword difficulty analysis
 
             # News Assessment
             assess_news_batch,
@@ -305,8 +308,7 @@ async def main():
             generate_four_act_article,  # 4-act article with four_act_content
             generate_narrative_article,  # Legacy 3-act narrative-driven article
             refine_broken_links,  # Phase 5b: Haiku fixes broken links
-            generate_four_act_video_prompt,  # PRIMARY: 4-act video from article sections
-            generate_image_prompts,  # Image prompts (style-matched)
+            generate_four_act_video_prompt,  # Assembles video prompt from article sections
             build_3_act_narrative,   # New: video-first 3-act narrative structure
             curate_research_sources,
             calculate_completeness_score,

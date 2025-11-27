@@ -1,369 +1,311 @@
 """
 Zep Ontology Definitions
 
-Define custom entity types for the Zep knowledge graph that align with our domain.
-These provide structured entity extraction while keeping Neon payload flexible.
+Custom entity and edge types for the Zep knowledge graph.
+Uses Zep's EntityModel format for proper ontology registration.
+
+Limits (per Zep docs):
+- Max 10 custom entity types
+- Max 10 custom edge types
+- Max 10 fields per model
 """
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 from typing import Optional, List
 
+# Try to import Zep's ontology classes, fall back to basic Pydantic if not available
+try:
+    from zep_cloud.external_clients.ontology import EntityModel, EntityText, EdgeModel
+    from zep_cloud import EntityEdgeSourceTarget
+    ZEP_ONTOLOGY_AVAILABLE = True
+except ImportError:
+    # Fallback for environments without zep-cloud
+    from pydantic import BaseModel as EntityModel
+    EntityText = Optional[str]
+    EdgeModel = EntityModel
+    EntityEdgeSourceTarget = None
+    ZEP_ONTOLOGY_AVAILABLE = False
 
-class CompanyEntity(BaseModel):
+
+# ============================================================================
+# ENTITY TYPES (max 10)
+# ============================================================================
+
+class CompanyEntity(EntityModel):
     """
-    Company entity type for Zep graph.
-
-    Extracted from flexible Neon V2 payload when fields are available.
+    Investment banks, placement agents, financial institutions.
+    Extracted from company profiles and articles.
     """
-    name: str = Field(description="Company legal name")
-    domain: str = Field(description="Company domain (e.g., evercore.com)")
-
-    # Optional structured fields - extracted from payload if available
-    industry: Optional[str] = Field(None, description="Primary industry")
-    headquarters_city: Optional[str] = Field(None, description="HQ city")
-    headquarters_country: Optional[str] = Field(None, description="HQ country")
-    founded_year: Optional[int] = Field(None, description="Year founded")
-    employee_range: Optional[str] = Field(None, description="Employee count range")
-    company_type: Optional[str] = Field(None, description="Type: placement_agent, etc.")
+    industry: EntityText = Field(default=None, description="Primary industry (e.g., Investment Banking, Private Equity)")
+    headquarters: EntityText = Field(default=None, description="HQ location (city, country)")
+    company_type: EntityText = Field(default=None, description="Type: placement_agent, investment_bank, pe_firm, etc.")
+    employee_range: EntityText = Field(default=None, description="Employee count range (e.g., 1000-5000)")
+    founded_year: EntityText = Field(default=None, description="Year company was founded")
 
 
-class DealEntity(BaseModel):
+class DealEntity(EntityModel):
     """
-    Deal/Transaction entity type for Zep graph.
-
-    Extracted from narrative sections when deal information is found.
+    M&A deals, capital raises, IPOs, fundraises.
+    Extracted from news articles and company deal history.
     """
-    deal_name: str = Field(description="Deal name or description")
-    deal_type: Optional[str] = Field(None, description="M&A, capital_raising, IPO, etc.")
-    value: Optional[str] = Field(None, description="Deal value (e.g., '$7.4B')")
-    date: Optional[str] = Field(None, description="Deal date or timeframe")
-    parties: Optional[List[str]] = Field(None, description="Companies involved")
+    deal_type: EntityText = Field(default=None, description="Type: M&A, capital_raise, IPO, fundraise, restructuring")
+    deal_value: EntityText = Field(default=None, description="Deal value (e.g., $7.4B, $500M)")
+    deal_date: EntityText = Field(default=None, description="Date or year of deal")
+    status: EntityText = Field(default=None, description="Status: announced, completed, pending")
 
 
-class PersonEntity(BaseModel):
+class PersonEntity(EntityModel):
     """
-    Person entity type for Zep graph.
-
-    Extracted when key people/executives are mentioned.
+    Executives, key people, board members.
+    Extracted from company profiles and news.
     """
-    name: str = Field(description="Person's full name")
-    role: Optional[str] = Field(None, description="Job title or role")
-    company: Optional[str] = Field(None, description="Associated company")
+    role: EntityText = Field(default=None, description="Job title (e.g., CEO, Managing Director)")
+    company: EntityText = Field(default=None, description="Primary company affiliation")
+    seniority: EntityText = Field(default=None, description="Level: executive, senior, mid-level")
 
 
-class JobEntity(BaseModel):
+class ArticleEntity(EntityModel):
     """
-    Job entity type for Zep graph.
-
-    Extracted from job postings and placement content.
+    News articles, guides, comparisons we've published.
+    Created when articles are synced to Zep.
     """
-    title: str = Field(description="Job title (e.g., 'Managing Director', 'VP of Sales')")
-    company: Optional[str] = Field(None, description="Company name posting the job")
-    location: Optional[str] = Field(None, description="Job location (city, country)")
-    salary_range: Optional[str] = Field(None, description="Salary range if known")
-    employment_type: Optional[str] = Field(None, description="full-time, contract, part-time")
-    seniority: Optional[str] = Field(None, description="junior, mid, senior, executive")
-    industry: Optional[str] = Field(None, description="Industry sector")
-    posted_date: Optional[str] = Field(None, description="When the job was posted")
+    article_type: EntityText = Field(default=None, description="Type: news, guide, comparison")
+    app: EntityText = Field(default=None, description="App context: placement, relocation, jobs")
+    topic: EntityText = Field(default=None, description="Main topic or subject")
 
 
-class LocationEntity(BaseModel):
+class LocationEntity(EntityModel):
     """
-    Location entity type for Zep graph.
-
-    Cities and regions for relocation and job placement context.
+    Cities and regions for relocation and job placement.
     """
-    city: str = Field(description="City name")
-    country: Optional[str] = Field(None, description="Country name")
-    region: Optional[str] = Field(None, description="Region/state/province")
-    cost_of_living: Optional[str] = Field(None, description="Cost of living indicator (low/medium/high)")
-    quality_of_life: Optional[str] = Field(None, description="Quality of life score or description")
-    timezone: Optional[str] = Field(None, description="Timezone")
+    country: EntityText = Field(default=None, description="Country name")
+    region: EntityText = Field(default=None, description="Region/state/province")
+    cost_of_living: EntityText = Field(default=None, description="Cost indicator: low, medium, high")
 
 
-class CountryEntity(BaseModel):
+class CountryEntity(EntityModel):
     """
-    Country entity type for Zep graph.
-
-    Country-level information for relocation context.
+    Countries with visa/relocation information.
     """
-    name: str = Field(description="Country name")
-    code: Optional[str] = Field(None, description="ISO country code (UK, US, CY)")
-    visa_types: Optional[str] = Field(None, description="Available visa types for workers")
-    work_permit_requirements: Optional[str] = Field(None, description="Work permit requirements")
-    tax_overview: Optional[str] = Field(None, description="Basic tax information for expats")
-    language: Optional[str] = Field(None, description="Primary language(s)")
+    code: EntityText = Field(default=None, description="ISO country code (UK, US, CY)")
+    visa_types: EntityText = Field(default=None, description="Available visa types")
+    tax_overview: EntityText = Field(default=None, description="Basic tax info for expats")
 
 
-class SkillEntity(BaseModel):
+class JobEntity(EntityModel):
     """
-    Skill entity type for Zep graph.
-
-    Technical and professional skills for job matching.
+    Job postings for recruitment/placement.
     """
-    name: str = Field(description="Skill name (e.g., 'Python', 'Financial Modeling')")
-    category: Optional[str] = Field(None, description="Category: technical, soft, domain, language")
+    company: EntityText = Field(default=None, description="Hiring company")
+    location: EntityText = Field(default=None, description="Job location")
+    seniority: EntityText = Field(default=None, description="Level: junior, mid, senior, executive")
+    salary_range: EntityText = Field(default=None, description="Compensation range")
 
 
-# Entity type configurations for Zep
-COMPANY_ENTITY_TYPE = {
-    "type": "Company",
-    "description": "Investment banking firms, placement agents, financial institutions",
-    "properties": {
-        "name": {"type": "string", "required": True},
-        "domain": {"type": "string", "required": True},
-        "industry": {"type": "string"},
-        "headquarters_city": {"type": "string"},
-        "headquarters_country": {"type": "string"},
-        "founded_year": {"type": "integer"},
-        "employee_range": {"type": "string"},
-        "company_type": {"type": "string"}
-    }
+class SkillEntity(EntityModel):
+    """
+    Technical and professional skills.
+    """
+    category: EntityText = Field(default=None, description="Category: technical, soft, domain, language")
+
+
+# ============================================================================
+# EDGE TYPES (max 10)
+# ============================================================================
+
+class AdvisedOnEdge(EdgeModel):
+    """Company advised on a deal/transaction."""
+    role: EntityText = Field(default=None, description="Advisory role: lead_advisor, co-advisor, etc.")
+
+
+class WorksAtEdge(EdgeModel):
+    """Person works at a company."""
+    start_date: EntityText = Field(default=None, description="When they started")
+
+
+class HeadquarteredInEdge(EdgeModel):
+    """Company is headquartered in a location."""
+    pass  # No additional properties needed
+
+
+class MentionsEdge(EdgeModel):
+    """Article mentions a company/person/deal."""
+    relevance: EntityText = Field(default=None, description="Relevance: primary, secondary, mentioned")
+
+
+class LocatedInEdge(EdgeModel):
+    """Job/Company is located in a city/region."""
+    pass
+
+
+class PartneredWithEdge(EdgeModel):
+    """Companies have a partnership."""
+    partnership_type: EntityText = Field(default=None, description="Type: strategic, distribution, etc.")
+
+
+class RequiresSkillEdge(EdgeModel):
+    """Job requires a skill."""
+    importance: EntityText = Field(default=None, description="essential, preferred, nice-to-have")
+
+
+class InCountryEdge(EdgeModel):
+    """Location is in a country."""
+    pass
+
+
+# ============================================================================
+# ONTOLOGY CONFIGURATION
+# ============================================================================
+
+# Entity types to register with Zep
+ENTITY_TYPES = {
+    "Company": CompanyEntity,
+    "Deal": DealEntity,
+    "Person": PersonEntity,
+    "Article": ArticleEntity,
+    "Location": LocationEntity,
+    "Country": CountryEntity,
+    "Job": JobEntity,
+    "Skill": SkillEntity,
 }
 
-DEAL_ENTITY_TYPE = {
-    "type": "Deal",
-    "description": "Transactions, M&A deals, capital raises, IPOs",
-    "properties": {
-        "deal_name": {"type": "string", "required": True},
-        "deal_type": {"type": "string"},
-        "value": {"type": "string"},
-        "date": {"type": "string"},
-        "parties": {"type": "array"}
-    }
-}
-
-PERSON_ENTITY_TYPE = {
-    "type": "Person",
-    "description": "Executives, key people, board members",
-    "properties": {
-        "name": {"type": "string", "required": True},
-        "role": {"type": "string"},
-        "company": {"type": "string"}
-    }
-}
-
-JOB_ENTITY_TYPE = {
-    "type": "Job",
-    "description": "Job postings and roles for recruitment/placement",
-    "properties": {
-        "title": {"type": "string", "required": True},
-        "company": {"type": "string"},
-        "location": {"type": "string"},
-        "salary_range": {"type": "string"},
-        "employment_type": {"type": "string"},
-        "seniority": {"type": "string"},
-        "industry": {"type": "string"},
-        "posted_date": {"type": "string"}
-    }
-}
-
-LOCATION_ENTITY_TYPE = {
-    "type": "Location",
-    "description": "Cities and regions for relocation and job placement",
-    "properties": {
-        "city": {"type": "string", "required": True},
-        "country": {"type": "string"},
-        "region": {"type": "string"},
-        "cost_of_living": {"type": "string"},
-        "quality_of_life": {"type": "string"},
-        "timezone": {"type": "string"}
-    }
-}
-
-COUNTRY_ENTITY_TYPE = {
-    "type": "Country",
-    "description": "Countries with relocation-relevant information",
-    "properties": {
-        "name": {"type": "string", "required": True},
-        "code": {"type": "string"},
-        "visa_types": {"type": "string"},
-        "work_permit_requirements": {"type": "string"},
-        "tax_overview": {"type": "string"},
-        "language": {"type": "string"}
-    }
-}
-
-SKILL_ENTITY_TYPE = {
-    "type": "Skill",
-    "description": "Technical and professional skills for job matching",
-    "properties": {
-        "name": {"type": "string", "required": True},
-        "category": {"type": "string"}
-    }
-}
-
-# Edge types for relationships
-EDGE_TYPES = {
-    # Existing edges
+# Edge types with source/target constraints
+# Format: "EDGE_NAME": (EdgeModel, [EntityEdgeSourceTarget(source="X", target="Y")])
+EDGE_TYPES_CONFIG = {
     "ADVISED_ON": {
-        "from": "Company",
-        "to": "Deal",
+        "model": AdvisedOnEdge,
+        "source": "Company",
+        "target": "Deal",
         "description": "Company advised on a deal"
     },
     "WORKS_AT": {
-        "from": "Person",
-        "to": "Company",
+        "model": WorksAtEdge,
+        "source": "Person",
+        "target": "Company",
         "description": "Person works at company"
     },
-    "PARTNERED_WITH": {
-        "from": "Company",
-        "to": "Company",
-        "description": "Companies have partnership"
-    },
-    # New edges for Jobs
-    "REQUIRES_ESSENTIAL": {
-        "from": "Job",
-        "to": "Skill",
-        "description": "Job requires this skill as essential/must-have"
-    },
-    "REQUIRES_PREFERRED": {
-        "from": "Job",
-        "to": "Skill",
-        "description": "Job prefers this skill as nice-to-have"
-    },
-    "HAS_SKILL": {
-        "from": "Person",
-        "to": "Skill",
-        "description": "Person has this skill"
-    },
-    "POSTED_BY": {
-        "from": "Job",
-        "to": "Company",
-        "description": "Job is posted by this company"
-    },
-    # New edges for Locations
-    "LOCATED_IN": {
-        "from": "Job",
-        "to": "Location",
-        "description": "Job is located in this city/region"
-    },
     "HEADQUARTERED_IN": {
-        "from": "Company",
-        "to": "Location",
-        "description": "Company headquarters in this location"
+        "model": HeadquarteredInEdge,
+        "source": "Company",
+        "target": "Location",
+        "description": "Company HQ location"
+    },
+    "MENTIONS": {
+        "model": MentionsEdge,
+        "source": "Article",
+        "target": None,  # Can mention Company, Person, Deal
+        "description": "Article mentions entity"
+    },
+    "LOCATED_IN": {
+        "model": LocatedInEdge,
+        "source": None,  # Job or Company
+        "target": "Location",
+        "description": "Entity located in city"
+    },
+    "PARTNERED_WITH": {
+        "model": PartneredWithEdge,
+        "source": "Company",
+        "target": "Company",
+        "description": "Partnership between companies"
+    },
+    "REQUIRES_SKILL": {
+        "model": RequiresSkillEdge,
+        "source": "Job",
+        "target": "Skill",
+        "description": "Job requires skill"
     },
     "IN_COUNTRY": {
-        "from": "Location",
-        "to": "Country",
-        "description": "Location is in this country"
-    }
+        "model": InCountryEdge,
+        "source": "Location",
+        "target": "Country",
+        "description": "Location is in country"
+    },
 }
 
+
+def get_zep_ontology_config():
+    """
+    Get the ontology configuration in Zep's expected format.
+
+    Returns dict with 'entities' and 'edges' ready for set_ontology().
+    """
+    if not ZEP_ONTOLOGY_AVAILABLE:
+        raise ImportError("zep-cloud package required for ontology setup")
+
+    entities = ENTITY_TYPES
+
+    edges = {}
+    for edge_name, config in EDGE_TYPES_CONFIG.items():
+        source_target = []
+        if config.get("source") and config.get("target"):
+            source_target.append(
+                EntityEdgeSourceTarget(
+                    source=config["source"],
+                    target=config["target"]
+                )
+            )
+        elif config.get("source"):
+            source_target.append(
+                EntityEdgeSourceTarget(source=config["source"])
+            )
+        elif config.get("target"):
+            source_target.append(
+                EntityEdgeSourceTarget(target=config["target"])
+            )
+
+        edges[edge_name] = (config["model"], source_target)
+
+    return {
+        "entities": entities,
+        "edges": edges
+    }
+
+
+# ============================================================================
+# LEGACY HELPER FUNCTIONS (for backwards compatibility)
+# ============================================================================
 
 def extract_company_entity_from_payload(company_name: str, domain: str, payload: dict) -> dict:
     """
     Extract structured company entity data from flexible V2 payload.
-
-    Args:
-        company_name: Company name
-        domain: Company domain
-        payload: V2 flexible payload
-
-    Returns:
-        Dict with Company entity attributes
     """
     return {
         "name": company_name,
         "domain": domain,
         "industry": payload.get("industry"),
-        "headquarters_city": payload.get("headquarters_city"),
-        "headquarters_country": payload.get("headquarters_country"),
-        "founded_year": payload.get("founded_year"),
+        "headquarters": payload.get("headquarters") or payload.get("headquarters_city"),
+        "company_type": payload.get("company_type", "unknown"),
         "employee_range": payload.get("employee_range"),
-        "company_type": payload.get("company_type", "unknown")
+        "founded_year": str(payload.get("founded_year")) if payload.get("founded_year") else None
     }
 
 
-def extract_job_entity_from_payload(job_data: dict) -> dict:
-    """
-    Extract structured job entity data from job payload.
-
-    Args:
-        job_data: Job data dict
-
-    Returns:
-        Dict with Job entity attributes
-    """
+def extract_deal_entity(deal_data: dict) -> dict:
+    """Extract deal entity from deal data."""
     return {
-        "title": job_data.get("title", ""),
-        "company": job_data.get("company_name") or job_data.get("company"),
-        "location": job_data.get("location"),
-        "salary_range": job_data.get("salary_range") or job_data.get("compensation"),
-        "employment_type": job_data.get("employment_type"),
-        "seniority": job_data.get("seniority_level") or job_data.get("seniority"),
-        "industry": job_data.get("industry") or job_data.get("role_category"),
-        "posted_date": str(job_data.get("posted_date")) if job_data.get("posted_date") else None
+        "name": deal_data.get("deal_name") or deal_data.get("name", "Unknown Deal"),
+        "deal_type": deal_data.get("deal_type"),
+        "deal_value": deal_data.get("value") or deal_data.get("deal_value"),
+        "deal_date": deal_data.get("date") or deal_data.get("deal_date"),
+        "status": deal_data.get("status", "completed")
     }
 
 
-def extract_location_entity(city: str, country: str = None, region: str = None) -> dict:
-    """
-    Create a location entity dict.
-
-    Args:
-        city: City name
-        country: Country name (optional)
-        region: Region/state (optional)
-
-    Returns:
-        Dict with Location entity attributes
-    """
+def extract_person_entity(person_data: dict) -> dict:
+    """Extract person entity from person data."""
     return {
-        "city": city,
-        "country": country,
-        "region": region,
-        "cost_of_living": None,
-        "quality_of_life": None,
-        "timezone": None
+        "name": person_data.get("name", "Unknown"),
+        "role": person_data.get("role") or person_data.get("title"),
+        "company": person_data.get("company"),
+        "seniority": person_data.get("seniority")
     }
 
 
-def extract_country_entity(name: str, code: str = None) -> dict:
-    """
-    Create a country entity dict.
-
-    Args:
-        name: Country name
-        code: ISO country code (optional)
-
-    Returns:
-        Dict with Country entity attributes
-    """
+def extract_article_entity(article_data: dict) -> dict:
+    """Extract article entity from article data."""
     return {
-        "name": name,
-        "code": code,
-        "visa_types": None,
-        "work_permit_requirements": None,
-        "tax_overview": None,
-        "language": None
+        "name": article_data.get("title", "Untitled"),
+        "article_type": article_data.get("article_type"),
+        "app": article_data.get("app"),
+        "topic": article_data.get("topic")
     }
-
-
-def extract_skill_entity(name: str, category: str = None) -> dict:
-    """
-    Create a skill entity dict.
-
-    Args:
-        name: Skill name
-        category: Skill category (optional)
-
-    Returns:
-        Dict with Skill entity attributes
-    """
-    return {
-        "name": name,
-        "category": category
-    }
-
-
-# All entity types for easy access
-ALL_ENTITY_TYPES = {
-    "Company": COMPANY_ENTITY_TYPE,
-    "Deal": DEAL_ENTITY_TYPE,
-    "Person": PERSON_ENTITY_TYPE,
-    "Job": JOB_ENTITY_TYPE,
-    "Location": LOCATION_ENTITY_TYPE,
-    "Country": COUNTRY_ENTITY_TYPE,
-    "Skill": SKILL_ENTITY_TYPE,
-}

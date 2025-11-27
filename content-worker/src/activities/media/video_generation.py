@@ -26,10 +26,10 @@ VIDEO_QUALITY_MODELS = {
     },
     "low": {
         "model": "bytedance/seedance-1-pro-fast",
-        "resolution": "480p",
-        "cost_per_second": 0.015,  # $0.18 for 12s
+        "resolution": "720p",  # Upgraded from 480p for better quality
+        "cost_per_second": 0.025,  # $0.30 for 12s (720p pricing)
         "default_duration": 12,
-        "description": "Budget friendly, 4-act structure - recommended"
+        "description": "Good quality 720p, 4-act structure - recommended"
     }
 }
 

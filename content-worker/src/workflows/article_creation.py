@@ -585,6 +585,13 @@ class ArticleCreationWorkflow:
         # raw_research was already built in Phase 3b (immediately after curation)
         workflow.logger.info(f"Using raw_research from Phase 3b ({len(raw_research)} chars)")
 
+        # Extract zep_facts for audit trail (includes uuid, valid_at for fact management)
+        zep_facts_for_audit = zep_context.get("facts", []) if zep_context else []
+        workflow.logger.info(f"Zep facts extracted: {len(zep_facts_for_audit)} facts (zep_context available: {zep_context is not None})")
+        if zep_facts_for_audit:
+            workflow.logger.info(f"Storing {len(zep_facts_for_audit)} Zep facts for audit trail")
+            workflow.logger.info(f"First fact sample: {zep_facts_for_audit[0].get('fact', '')[:100]}...")
+
         # Initial save - no video/images yet (they'll be added later)
         article_id = await workflow.execute_activity(
             "save_article_to_neon",
@@ -602,7 +609,9 @@ class ArticleCreationWorkflow:
                 None,  # video_url (added after video generation)
                 None,  # video_playback_id
                 None,  # video_asset_id
-                raw_research  # Full research data
+                raw_research,  # Full research data
+                None,  # video_narrative (added after video generation)
+                zep_facts_for_audit  # Zep facts used for this article (for audit/review)
             ],
             start_to_close_timeout=timedelta(seconds=30)
         )
