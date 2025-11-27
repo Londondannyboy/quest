@@ -5,6 +5,7 @@ HTTP endpoints for triggering Temporal workflows.
 """
 
 import os
+import re
 from datetime import datetime
 from typing import Optional, List
 from uuid import uuid4
@@ -13,6 +14,15 @@ from pydantic import BaseModel, Field
 
 from auth import validate_api_key
 from temporal_client import TemporalClientManager
+
+
+def slugify(text: str, max_length: int = 50) -> str:
+    """Convert text to URL-friendly slug."""
+    # Lowercase and replace spaces/special chars with hyphens
+    slug = re.sub(r'[^\w\s-]', '', text.lower())
+    slug = re.sub(r'[-\s]+', '-', slug).strip('-')
+    # Truncate to max_length
+    return slug[:max_length].rstrip('-')
 
 
 router = APIRouter(prefix="/v1/workflows", tags=["workflows"])
@@ -560,8 +570,9 @@ async def trigger_article_creation_workflow(
             detail=f"Failed to connect to Temporal: {str(e)}",
         )
 
-    # Generate workflow ID
-    workflow_id = f"article-creation-{request.app}-{uuid4()}"
+    # Generate workflow ID with topic slug for easy identification
+    topic_slug = slugify(request.topic)
+    workflow_id = f"4act-{request.app}-{topic_slug}-{uuid4().hex[:6]}"
 
     # Use content-worker task queue (same as CompanyCreationWorkflow)
     task_queue = os.getenv("CONTENT_WORKER_TASK_QUEUE", "quest-content-queue")
