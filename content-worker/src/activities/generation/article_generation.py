@@ -21,8 +21,46 @@ import json
 import google.generativeai as genai
 import anthropic
 
+# Pydantic for validation
+from pydantic import BaseModel, Field, field_validator
+
 from src.utils.config import config
 from src.config.app_config import get_app_config, APP_CONFIGS, CharacterStyle, CHARACTER_STYLE_PROMPTS
+
+
+# ===== PYDANTIC MODELS FOR 4-ACT VALIDATION =====
+
+class FourActSection(BaseModel):
+    """One act/section with all required fields."""
+    act: int = Field(..., ge=1, le=4, description="Act number 1-4")
+    title: str = Field(..., min_length=10, description="Section H2 title")
+    factoid: str = Field(..., min_length=10, description="Stat or fact for thumbnail overlay")
+    video_title: str = Field(..., min_length=2, max_length=30, description="Short 2-4 word title like 'The Grind'")
+    four_act_visual_hint: str = Field(..., min_length=100, max_length=400, description="45-55 word cinematic scene description")
+
+    @field_validator('four_act_visual_hint')
+    @classmethod
+    def validate_visual_hint(cls, v):
+        word_count = len(v.split())
+        if word_count < 30:
+            raise ValueError(f"four_act_visual_hint must be 45-55 words, got {word_count}")
+        return v
+
+
+class FourActContent(BaseModel):
+    """Validated 4-act content structure. MUST have exactly 4 sections."""
+    sections: List[FourActSection] = Field(..., min_length=4, max_length=4)
+
+    @field_validator('sections')
+    @classmethod
+    def validate_four_sections(cls, v):
+        if len(v) != 4:
+            raise ValueError(f"Must have exactly 4 sections, got {len(v)}")
+        # Verify acts are 1, 2, 3, 4
+        acts = sorted([s.act for s in v])
+        if acts != [1, 2, 3, 4]:
+            raise ValueError(f"Must have acts 1, 2, 3, 4 - got {acts}")
+        return v
 
 
 def extract_media_prompts(content: str) -> tuple:
@@ -1880,114 +1918,137 @@ VIDEO: 12 seconds, 4 acts × 3 seconds each.
     else:
         activity.logger.warning(f"⚠️ Article missing four_act_content (sections: {len(sections) if sections else 0})")
 
-    # ===== STEP 2: FALL BACK TO AI GENERATION =====
-    activity.logger.info("📝 Falling back to AI generation (Gemini 2.0 Flash)...")
+    # ===== STEP 2: GENERATE WITH AI + PYDANTIC VALIDATION =====
+    activity.logger.info("📝 Generating 4-act content via AI (Pydantic validated)...")
 
     # Extract article info for AI
     title = article.get("title", "")
     excerpt = article.get("excerpt", "")
-    content = article.get("content", "")[:3000]  # First 3000 chars
+    content = article.get("content", "")[:4000]  # First 4000 chars
 
-    # Build AI prompt
-    ai_prompt = f"""Generate a 4-act video prompt for this article. The video is 12 seconds (4 acts × 3 seconds each).
+    # Build AI prompt - request JSON for Pydantic validation
+    ai_prompt = f"""Generate 4-act video content for this article. Return ONLY valid JSON.
 
 ARTICLE TITLE: {title}
-
 ARTICLE EXCERPT: {excerpt}
-
-ARTICLE CONTENT (truncated):
+ARTICLE CONTENT:
 {content}
 
-===== OUTPUT FORMAT =====
-Return EXACTLY this structure with 45-55 words per act:
-
-ACT 1 (0s-3s): [2-4 word title]
-[45-55 word cinematic scene description. Documentary-style, shallow depth of field. Describe setting, lighting, camera movement, subject emotion.]
-
-ACT 2 (3s-6s): [2-4 word title]
-[45-55 word cinematic scene for discovery/opportunity moment]
-
-ACT 3 (6s-9s): [2-4 word title]
-[45-55 word cinematic scene for journey/process]
-
-ACT 4 (9s-12s): [2-4 word title ending with ?]
-[45-55 word cinematic scene for resolution/future outlook]
+===== REQUIRED JSON FORMAT =====
+{{
+  "sections": [
+    {{
+      "act": 1,
+      "title": "Section title from article",
+      "factoid": "Key stat or fact (10+ chars)",
+      "video_title": "2-4 word label like 'The Grind'",
+      "four_act_visual_hint": "45-55 word cinematic scene. Include: setting, lighting (warm golden/cool blue), camera movement (push in/track/orbit), subject emotion. Documentary style. NO text/words/signs."
+    }},
+    {{"act": 2, "title": "...", "factoid": "...", "video_title": "...", "four_act_visual_hint": "45-55 words for discovery moment"}},
+    {{"act": 3, "title": "...", "factoid": "...", "video_title": "...", "four_act_visual_hint": "45-55 words for journey/process"}},
+    {{"act": 4, "title": "...", "factoid": "...", "video_title": "Short label with ?", "four_act_visual_hint": "45-55 words for resolution"}}
+  ]
+}}
 
 ===== RULES =====
-{no_text_rule}
-{holistic}
-{character_prompt if character_prompt else "Use diverse professional subjects."}
-
-- Each act must be a complete visual scene, not abstract concepts
-- Include specific camera movements (push in, pull back, dolly, pan)
-- Include lighting details (warm golden, cool blue, harsh fluorescent)
-- Include emotional tone and subject body language
-- NO text, signs, logos, or readable content in ANY scene
+1. MUST have EXACTLY 4 sections with acts 1, 2, 3, 4
+2. Each four_act_visual_hint MUST be 45-55 words with camera/lighting details
+3. {no_text_rule}
+4. {character_prompt if character_prompt else "Use diverse professional subjects."}
+5. Return ONLY JSON, no other text
 
 Return ONLY the 4-act prompt, nothing else."""
 
-    try:
-        # Use Gemini 3 Pro
-        genai.configure(api_key=config.GOOGLE_API_KEY)
-        model = genai.GenerativeModel('gemini-2.0-flash')
+    max_retries = 2
+    last_error = None
 
-        response = model.generate_content(
-            ai_prompt,
-            generation_config=genai.types.GenerationConfig(
-                max_output_tokens=1500,
-                temperature=0.7  # Some creativity for visual descriptions
+    for attempt in range(max_retries):
+        try:
+            activity.logger.info(f"Attempt {attempt + 1}/{max_retries} to generate 4-act content")
+
+            # Use Gemini 2.0 Flash
+            genai.configure(api_key=config.GOOGLE_API_KEY)
+            model = genai.GenerativeModel('gemini-2.0-flash')
+
+            response = model.generate_content(
+                ai_prompt,
+                generation_config=genai.types.GenerationConfig(
+                    max_output_tokens=2000,
+                    temperature=0.5
+                )
             )
-        )
 
-        prompt = response.text.strip()
-        activity.logger.info(f"AI generated video prompt: {len(prompt)} chars")
+            response_text = response.text.strip()
+            activity.logger.info(f"AI response: {len(response_text)} chars")
 
-        # Validate 4-act structure
-        required_acts = ["ACT 1", "ACT 2", "ACT 3", "ACT 4"]
-        missing_acts = [act for act in required_acts if act not in prompt]
+            # Extract JSON from response
+            if "```json" in response_text:
+                response_text = response_text.split("```json")[1].split("```")[0]
+            elif "```" in response_text:
+                response_text = response_text.split("```")[1].split("```")[0]
 
-        if missing_acts:
-            activity.logger.warning(f"AI response missing acts: {missing_acts}")
-            # Try to fix by re-requesting or return error
+            # Find JSON object
+            json_match = re.search(r'\{[\s\S]*\}', response_text)
+            if not json_match:
+                raise ValueError("No JSON object found in AI response")
+
+            json_str = json_match.group()
+            data = json.loads(json_str)
+
+            # ===== PYDANTIC VALIDATION - MUST HAVE 4 VALID ACTS =====
+            validated = FourActContent(sections=[
+                FourActSection(**s) for s in data.get("sections", [])
+            ])
+
+            activity.logger.info(f"✅ Pydantic validation passed: 4 acts with valid visual hints")
+
+            # Assemble into video prompt format
+            act_prompts = []
+            for section in validated.sections:
+                act_num = section.act
+                start_time = (act_num - 1) * 3
+                end_time = act_num * 3
+                act_prompts.append(f"ACT {act_num} ({start_time}s-{end_time}s): {section.video_title}\n{section.four_act_visual_hint}")
+
+            acts_text = "\n\n".join(act_prompts)
+            holistic_block = f"\n{holistic}" if holistic else ""
+            character_block = f"\n{character_prompt}" if character_prompt else ""
+
+            final_prompt = f"""{no_text_rule}{character_block}{holistic_block}
+
+VIDEO: 12 seconds, 4 acts × 3 seconds each.
+
+{acts_text}"""
+
+            # Enforce character limit
+            was_truncated = len(final_prompt) > char_limit
+            if was_truncated:
+                final_prompt = final_prompt[:char_limit]
+
+            activity.logger.info(f"✅ 4-act video prompt generated: {len(final_prompt)} chars (Pydantic validated)")
+
             return {
-                "prompt": "",
+                "prompt": final_prompt,
                 "model": video_model,
-                "acts": 4 - len(missing_acts),
-                "success": False,
-                "error": f"AI response missing acts: {missing_acts}",
-                "cost": 0.001  # Estimate
+                "acts": 4,
+                "success": True,
+                "was_truncated": was_truncated,
+                "source": "ai_generated_validated",
+                "four_act_content": [s.model_dump() for s in validated.sections],  # Return for database storage
+                "cost": 0.001
             }
 
-        # Prepend no-text rule to final prompt
-        final_prompt = f"{no_text_rule}\n\nVIDEO: 12 seconds, 4 acts × 3 seconds each.\n\n{prompt}"
+        except Exception as e:
+            last_error = str(e)
+            activity.logger.warning(f"Attempt {attempt + 1} failed: {last_error}")
 
-        # Enforce character limit
-        was_truncated = False
-        if len(final_prompt) > char_limit:
-            activity.logger.warning(f"Prompt {len(final_prompt)} chars exceeds {char_limit} limit - truncating")
-            final_prompt = final_prompt[:char_limit]
-            was_truncated = True
+    # All retries failed - RAISE to fail the workflow
+    error_msg = f"❌ FAILED to generate valid 4-act video prompt after {max_retries} attempts. Last error: {last_error}"
+    activity.logger.error(error_msg)
+    raise ValueError(error_msg)
 
-        activity.logger.info(f"✅ 4-act video prompt generated via AI: {len(final_prompt)} chars")
 
-        return {
-            "prompt": final_prompt,
-            "model": video_model,
-            "acts": 4,
-            "success": True,
-            "was_truncated": was_truncated,
-            "source": "ai_generated",
-            "cost": 0.001  # Gemini 2.0 Flash is cheap
-        }
 
-    except Exception as e:
-        activity.logger.error(f"❌ AI video prompt generation failed: {e}")
-        return {
-            "prompt": "",
-            "model": video_model,
-            "acts": 0,
-            "success": False,
-            "source": "failed",
-            "error": str(e),
-            "cost": 0
-        }
+# NOTE: generate_four_act_content has been merged into generate_four_act_video_prompt
+# which now handles both structured content generation AND video prompt assembly
+# with Pydantic validation. Use generate_four_act_video_prompt instead.
