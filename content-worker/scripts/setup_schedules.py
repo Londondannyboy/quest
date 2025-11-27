@@ -7,7 +7,7 @@ Each app gets its own schedule with app-specific configuration.
 
 import asyncio
 import os
-from datetime import timedelta
+from datetime import timedelta, datetime
 from temporalio.client import Client, Schedule, ScheduleActionStartWorkflow, ScheduleSpec, ScheduleIntervalSpec, ScheduleState
 from dotenv import load_dotenv
 
@@ -41,8 +41,8 @@ async def create_news_creation_schedule(app: str, config: dict):
 
     task_queue = os.getenv("TEMPORAL_TASK_QUEUE", "quest-content-queue")
 
-    # Schedule ID
-    schedule_id = f"daily-{app}-news-creation"
+    # Schedule ID - includes technique (4act) for clarity
+    schedule_id = f"{app}-4act-news-daily"
 
     # Workflow input - with intelligent video prompts
     workflow_input = {
@@ -53,22 +53,26 @@ async def create_news_creation_schedule(app: str, config: dict):
     }
 
     try:
-        # Delete existing schedule if it exists
-        try:
-            handle = client.get_schedule_handle(schedule_id)
-            await handle.delete()
-            print(f"Deleted existing schedule: {schedule_id}")
-        except Exception:
-            pass  # Schedule doesn't exist
+        # Delete existing schedule if it exists (check both old and new naming)
+        for old_id in [schedule_id, f"daily-{app}-news-creation"]:
+            try:
+                handle = client.get_schedule_handle(old_id)
+                await handle.delete()
+                print(f"Deleted existing schedule: {old_id}")
+            except Exception:
+                pass  # Schedule doesn't exist
 
         # Create new schedule - runs every 24 hours
+        # Workflow ID includes date for easy identification
+        date_str = datetime.utcnow().strftime("%Y-%m-%d")
+
         await client.create_schedule(
             schedule_id,
             Schedule(
                 action=ScheduleActionStartWorkflow(
-                    "NewsCreationWorkflow",  # NEW: Updated workflow name
+                    "NewsCreationWorkflow",
                     workflow_input,
-                    id=f"news-creation-{app}-scheduled",
+                    id=f"4act-news-{app}-{date_str}",
                     task_queue=task_queue,
                 ),
                 spec=ScheduleSpec(
@@ -87,7 +91,9 @@ async def create_news_creation_schedule(app: str, config: dict):
 
         print(f"✅ Created schedule: {schedule_id}")
         print(f"   App: {app}")
-        print(f"   Workflow: NewsCreationWorkflow")
+        print(f"   Technique: 4-act video workflow")
+        print(f"   Parent workflow ID pattern: 4act-news-{app}-YYYY-MM-DD")
+        print(f"   Child workflow ID pattern: 4act-{app}-<topic-slug>-<uuid>")
         print(f"   Runs every 24 hours")
         print(f"   Task queue: {task_queue}")
         print(f"   Max articles: {config['max_articles_to_create']}")

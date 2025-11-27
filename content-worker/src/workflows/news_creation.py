@@ -13,6 +13,7 @@ Pipeline:
 7. Spawn ArticleCreationWorkflow with video-first configuration
 """
 
+import re
 from temporalio import workflow
 from datetime import timedelta
 from typing import Dict, Any, List
@@ -255,12 +256,17 @@ class NewsCreationWorkflow:
 
                 workflow.logger.info(f"Spawning 4-act article workflow for: {story.get('title', '')[:50]}...")
 
-                # Spawn child workflow with video-first configuration
+                # Spawn child workflow with descriptive ID including topic
+                story_title = story.get("title", "untitled")
+                # Slugify: lowercase, replace spaces/special chars with hyphens, limit length
+                topic_slug = re.sub(r'[^a-z0-9]+', '-', story_title.lower())[:50].strip('-')
+                workflow_id = f"4act-{app}-{topic_slug}-{workflow.uuid4().hex[:6]}"
+
                 try:
                     result = await workflow.execute_child_workflow(
                         "ArticleCreationWorkflow",
                         article_input,
-                        id=f"article-{app}-{workflow.uuid4().hex[:8]}",
+                        id=workflow_id,
                         task_queue=workflow.info().task_queue
                     )
 
