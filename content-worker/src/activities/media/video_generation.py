@@ -151,26 +151,23 @@ def transform_prompt_for_seedance(prompt: str) -> str:
     """
     Transform a universal prompt for Seedance model.
 
-    Seedance specific optimizations:
-    - Ignores negative prompts, so remove any "no X" instructions
-    - Needs degree adverbs for motion intensity (slowly, gently, dramatically)
-    - Prefers sequential action format
-    - Keep prompts focused - model expands automatically
-    - Add explicit no-text instruction (only thing it respects)
+    For 4-act prompts (already well-crafted): pass through unchanged
+    For auto-generated prompts: add motion adverbs and no-text instruction
     """
-    # Remove any negative instructions (Seedance ignores them anyway)
-    import re
-    prompt = re.sub(r'\b(no|without|avoid|don\'t include)\s+\w+', '', prompt, flags=re.IGNORECASE)
+    # 4-act prompts are already optimized with no_text_rule - don't mangle them
+    if "ACT 1" in prompt and "ACT 4" in prompt:
+        # Well-crafted 4-act prompt, return as-is
+        return prompt.strip()
 
+    # For auto-generated prompts only:
     # Ensure motion adverbs are present
     motion_adverbs = ['slowly', 'gently', 'gradually', 'quickly', 'softly', 'dramatically']
     has_adverb = any(adv in prompt.lower() for adv in motion_adverbs)
 
     if not has_adverb:
-        # Add default motion adverb if missing
         prompt = prompt.replace('camera ', 'camera moves slowly ')
 
-    # Add Seedance-specific instruction
+    # Add no-text instruction for auto-generated prompts
     seedance_prompt = f"{prompt.strip()} CRITICAL: Absolutely NO text, NO words, NO letters, NO typography - purely visual only."
 
     return seedance_prompt
