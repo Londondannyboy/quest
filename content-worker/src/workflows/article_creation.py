@@ -406,56 +406,75 @@ class ArticleCreationWorkflow:
 
         workflow.logger.info(f"Consolidated {len(all_source_urls)} source URLs for article generation")
 
-        # ===== PHASE 4b: VALIDATE SOURCE URLs BEFORE ARTICLE GENERATION (NON-BLOCKING) =====
-        # Validate URLs BEFORE giving to Sonnet so it only cites working sources
-        # This is NON-BLOCKING - if validation fails, we continue with unvalidated URLs
-        workflow.logger.info("Phase 4b: Validating source URLs (non-blocking)")
+        # ===== PHASE 4b: SCORE SOURCE URLs (NON-BLOCKING) =====
+        # Score URLs for Sonnet - doesn't block workflow, just provides confidence hints
+        # Sonnet can still use low-scored URLs but will prioritize high-scored ones
+        workflow.logger.info("Phase 4b: Scoring source URLs (non-blocking, advisory only)")
 
         urls_to_validate = [s["url"] for s in all_source_urls if s.get("url")]
-        validated_source_urls = all_source_urls  # Default: use all if validation fails
+        url_scores = {}  # url -> {score, status, reason}
+
+        # Default: all URLs get medium confidence if validation skipped/fails
+        for url in urls_to_validate:
+            url_scores[url] = {"score": 0.6, "status": "unvalidated", "reason": "validation_skipped"}
 
         if urls_to_validate:
             try:
-                # Validate up to 30 URLs using Railway Playwright service
-                # 10 concurrent requests × 12s timeout = ~36s for 30 URLs with parallelization
+                # Score up to 30 URLs using Railway Playwright service
+                # NON-BLOCKING: timeout/errors just leave URLs as "unvalidated"
                 validation_result = await workflow.execute_activity(
                     "playwright_url_cleanse",
-                    args=[urls_to_validate[:30], True],  # use_browser=True for full Playwright validation
-                    start_to_close_timeout=timedelta(minutes=2),  # 2 min for browser-based validation
-                    heartbeat_timeout=timedelta(seconds=30),  # Heartbeat every 30s
+                    args=[urls_to_validate[:30], True],
+                    start_to_close_timeout=timedelta(minutes=2),
+                    heartbeat_timeout=timedelta(seconds=30),
                     retry_policy=RetryPolicy(
-                        maximum_attempts=1,  # Don't retry - non-blocking
+                        maximum_attempts=1,
                         initial_interval=timedelta(seconds=1)
                     )
                 )
 
-                valid_url_set = set(validation_result.get("valid_urls", []))
-                invalid_count = len(validation_result.get("invalid_urls", []))
+                # Update scores from validation results
+                scored_urls = validation_result.get("scored_urls", [])
+                for item in scored_urls:
+                    url_scores[item["url"]] = {
+                        "score": item["score"],
+                        "status": item["status"],
+                        "reason": item["reason"]
+                    }
 
-                # Filter all_source_urls to only include validated URLs
-                if valid_url_set:
-                    validated_source_urls = [s for s in all_source_urls if s.get("url") in valid_url_set]
-                    workflow.logger.info(
-                        f"URL validation: {len(validated_source_urls)} valid, {invalid_count} filtered"
-                    )
-                else:
-                    # No valid URLs returned - use original list
-                    workflow.logger.warning("URL validation returned no valid URLs - using original list")
-                    validated_source_urls = all_source_urls
+                # Log summary
+                trusted = sum(1 for s in scored_urls if s.get("score", 0) >= 0.9)
+                uncertain = sum(1 for s in scored_urls if 0.4 <= s.get("score", 0) < 0.9)
+                low_conf = sum(1 for s in scored_urls if s.get("score", 0) < 0.4)
+                workflow.logger.info(
+                    f"URL scoring: {trusted} trusted, {uncertain} uncertain, {low_conf} low-confidence"
+                )
 
             except Exception as e:
-                # Non-blocking: log warning and continue with unvalidated URLs
-                workflow.logger.warning(f"URL validation failed (non-blocking): {e}")
-                workflow.logger.info("Continuing with unvalidated URLs - Phase 5b will catch broken links")
+                # Non-blocking: log and continue with default scores
+                workflow.logger.warning(f"URL scoring failed (non-blocking): {e}")
+                workflow.logger.info("Continuing with default confidence scores")
 
-        # Build research context using CURATED sources + VALIDATED URLs
+        # Annotate source URLs with scores for Sonnet
+        scored_source_urls = []
+        for source in all_source_urls:
+            url = source.get("url", "")
+            score_info = url_scores.get(url, {"score": 0.6, "status": "unvalidated", "reason": "not_checked"})
+            scored_source_urls.append({
+                **source,
+                "validation_score": score_info["score"],
+                "validation_status": score_info["status"],
+                "validation_reason": score_info["reason"]
+            })
+
+        # Build research context with SCORED URLs (Sonnet decides what to use)
         research_context = {
             "curated_sources": curation_result.get("curated_sources", []),
             "key_facts": curation_result.get("key_facts", []),
             "perspectives": curation_result.get("perspectives", []),
             "high_authority_sources": curation_result.get("high_authority_sources", []),
             "article_outline": curation_result.get("article_outline", []),
-            "all_source_urls": validated_source_urls,  # VALIDATED URLs only - Sonnet can cite with confidence
+            "all_source_urls": scored_source_urls,  # SCORED URLs - Sonnet prioritizes high scores
             "news_articles": all_news_articles[:20],
             "crawled_pages": crawled_pages[:15],
             "exa_results": exa_data.get("results", [])[:10],
@@ -481,44 +500,50 @@ class ArticleCreationWorkflow:
             f"{article['section_count']} sections"
         )
 
-        # ===== PHASE 5b: VALIDATE ARTICLE LINKS =====
-        workflow.logger.info("Phase 5b: Validating article links")
+        # ===== PHASE 5b: SCORE ARTICLE LINKS (NON-BLOCKING) =====
+        # Only remove definitely broken links (score < 0.2), keep uncertain ones
+        workflow.logger.info("Phase 5b: Scoring article links (non-blocking)")
 
         import re
-        # Extract all URLs from article content
         url_pattern = r'href="(https?://[^"]+)"'
         article_urls = list(set(re.findall(url_pattern, article.get("content", ""))))
 
         if article_urls:
             try:
-                # Validate article links using Railway Playwright service
-                # Full browser validation catches JS-rendered paywalls
                 validation_result = await workflow.execute_activity(
                     "playwright_url_cleanse",
-                    args=[article_urls[:20], True],  # use_browser=True for full validation
-                    start_to_close_timeout=timedelta(minutes=2),  # 2 min for browser-based validation
+                    args=[article_urls[:20], True],
+                    start_to_close_timeout=timedelta(minutes=2),
                     heartbeat_timeout=timedelta(seconds=30),
-                    retry_policy=RetryPolicy(maximum_attempts=1)  # Don't retry - non-critical
+                    retry_policy=RetryPolicy(maximum_attempts=1)
                 )
 
-                invalid_urls = {item['url'] for item in validation_result.get('invalid_urls', [])}
+                # Only remove definitely broken links (404s, empty pages)
+                # Keep paywalls/uncertain - user might have access
+                scored = validation_result.get("scored_urls", [])
+                definitely_broken = {
+                    s["url"] for s in scored
+                    if s.get("score", 1) < 0.2  # Very low confidence = definitely broken
+                }
 
-                if invalid_urls:
-                    workflow.logger.info(f"Removing {len(invalid_urls)} broken/paywalled links")
+                if definitely_broken:
+                    workflow.logger.info(f"Removing {len(definitely_broken)} broken links (score < 0.2)")
                     content = article["content"]
-                    for bad_url in invalid_urls:
-                        # Replace broken link with just the text
+                    for bad_url in definitely_broken:
                         pattern = rf'<a[^>]*href="{re.escape(bad_url)}"[^>]*>([^<]+)</a>'
                         content = re.sub(pattern, r'\1', content)
                     article["content"] = content
-                else:
-                    workflow.logger.info(f"All {len(article_urls)} links validated OK")
+
+                # Log summary
+                ok = sum(1 for s in scored if s.get("score", 0) >= 0.9)
+                uncertain = sum(1 for s in scored if 0.2 <= s.get("score", 0) < 0.9)
+                workflow.logger.info(f"Link scoring: {ok} OK, {uncertain} uncertain, {len(definitely_broken)} removed")
+
             except Exception as e:
-                # Graceful fail - link validation is not critical
-                workflow.logger.warning(f"Phase 5b: Link validation failed (non-critical): {e}")
-                workflow.logger.info("Continuing with unvalidated links")
+                workflow.logger.warning(f"Phase 5b: Link scoring failed (non-blocking): {e}")
+                workflow.logger.info("Continuing with unscored links")
         else:
-            workflow.logger.info("No external links to validate")
+            workflow.logger.info("No external links to score")
 
         # Initialize video_result
         video_result = None

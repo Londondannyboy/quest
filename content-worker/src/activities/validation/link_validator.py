@@ -359,9 +359,48 @@ async def playwright_url_cleanse(urls: List[str], use_browser: bool = True) -> D
         f"({len(auto_approved)} auto-approved, {browser_checked} browser-checked)"
     )
 
+    # Build scored results for Sonnet/Gemini
+    # High confidence = definitely use, Low confidence = use with caution
+    scored_urls = []
+
+    # Auto-approved (high authority) = highest confidence
+    for url in auto_approved:
+        scored_urls.append({"url": url, "score": 1.0, "status": "trusted", "reason": "high_authority_domain"})
+
+    # Browser-validated OK = high confidence
+    for url in valid_urls:
+        if url not in auto_approved:
+            scored_urls.append({"url": url, "score": 0.9, "status": "validated", "reason": "browser_check_passed"})
+
+    # Failed validation = low confidence (but still usable with caution)
+    for item in invalid_urls:
+        url = item["url"]
+        reason = item.get("reason", "unknown")
+
+        # Known paywalls = very low but not zero (might have free preview)
+        if "paywall" in reason:
+            scored_urls.append({"url": url, "score": 0.2, "status": "paywall", "reason": reason})
+        # Bot blocks = medium-low (might work for users)
+        elif "bot_block" in reason:
+            scored_urls.append({"url": url, "score": 0.3, "status": "bot_blocked", "reason": reason})
+        # Timeouts/errors = medium (might be temporary)
+        elif "timeout" in reason or "error" in reason:
+            scored_urls.append({"url": url, "score": 0.5, "status": "uncertain", "reason": reason})
+        # 404/broken = very low
+        elif "404" in reason or "insufficient" in reason:
+            scored_urls.append({"url": url, "score": 0.1, "status": "broken", "reason": reason})
+        else:
+            scored_urls.append({"url": url, "score": 0.4, "status": "flagged", "reason": reason})
+
+    activity.logger.info(
+        f"Validation complete: {len(valid_urls)} valid, {len(invalid_urls)} flagged "
+        f"({len(auto_approved)} trusted, {browser_checked} browser-checked)"
+    )
+
     return {
         "valid_urls": valid_urls,
         "invalid_urls": invalid_urls,
+        "scored_urls": scored_urls,  # For Sonnet/Gemini to prioritize
         "auto_approved": len(auto_approved),
         "paywall_blocked": len(paywall_blocked),
         "browser_checked": browser_checked,
