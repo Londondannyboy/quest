@@ -99,7 +99,8 @@ from src.activities.media.prompt_images import (
 )
 
 from src.activities.media.video_generation import (
-    generate_four_act_video,  # 4-act 12-second video
+    generate_four_act_video,  # 4-act 12-second video for articles
+    generate_company_video,  # Simple 3s branding video for company profiles
 )
 
 from src.activities.media.mux_client import (
@@ -297,7 +298,8 @@ async def main():
             generate_article_images_from_prompts,
             analyze_article_sections,
             # Video
-            generate_four_act_video,  # 4-act 12-second video
+            generate_four_act_video,  # 4-act 12-second video for articles
+            generate_company_video,  # Simple 3s branding video for company profiles
             upload_video_to_mux,
             upload_video_file_to_mux,
             delete_mux_asset,

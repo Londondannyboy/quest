@@ -236,6 +236,46 @@ class NewsCreationWorkflow:
                                     f"(Previous coverage: {most_recent.get('title', '')})"
                                 )
 
+                # ===== PHASE 3.6: KEYWORD RESEARCH (if not provided) =====
+                # Auto-research keywords for SEO optimization
+                target_keyword = story.get("target_keyword")  # From dashboard, if specified
+                secondary_keywords = story.get("secondary_keywords", [])
+                keyword_volume = None
+                keyword_difficulty = None
+
+                if not target_keyword:
+                    workflow.logger.info(f"Phase 3.6: Auto-researching keywords for: {story_title[:50]}...")
+                    try:
+                        keyword_result = await workflow.execute_activity(
+                            "dataforseo_keyword_research",
+                            args=[story_title, geographic_focus[0] if geographic_focus else "UK", 10],
+                            start_to_close_timeout=timedelta(minutes=2)
+                        )
+
+                        keywords_list = keyword_result.get("keywords", [])
+                        if keywords_list:
+                            # Pick best keyword (highest opportunity_score)
+                            best = max(keywords_list, key=lambda k: k.get("opportunity_score", 0))
+                            target_keyword = best.get("keyword")
+                            keyword_volume = best.get("search_volume")
+                            keyword_difficulty = best.get("difficulty_score")
+
+                            # Get 3-5 secondary keywords (excluding best)
+                            secondary_keywords = [
+                                k.get("keyword") for k in keywords_list[:6]
+                                if k.get("keyword") != target_keyword
+                            ][:5]
+
+                            workflow.logger.info(
+                                f"Keyword selected: '{target_keyword}' "
+                                f"(vol={keyword_volume}, diff={keyword_difficulty:.1f}, opp={best.get('opportunity_score', 0):.2f})"
+                            )
+                        else:
+                            workflow.logger.info("No keywords returned from research")
+                    except Exception as e:
+                        workflow.logger.warning(f"Keyword research failed (non-blocking): {e}")
+                        # Continue without keywords - article still generates
+
                 # ===== BUILD ARTICLE INPUT WITH 4-ACT VIDEO CONFIGURATION =====
                 # Video prompt is now generated FROM the article's 4-act sections (article-first approach)
                 # ArticleCreationWorkflow generates article with four_act_visual_hint per section,
@@ -251,7 +291,12 @@ class NewsCreationWorkflow:
                     "video_model": "seedance",
                     # video_prompt is now generated FROM article sections (4-act approach)
                     "content_images": "with_content",
-                    "num_research_sources": 10
+                    "num_research_sources": 10,
+                    # SEO keyword targeting (Phase 3.6)
+                    "target_keyword": target_keyword,
+                    "keyword_volume": keyword_volume,
+                    "keyword_difficulty": keyword_difficulty,
+                    "secondary_keywords": secondary_keywords
                 }
 
                 workflow.logger.info(f"Spawning 4-act article workflow for: {story.get('title', '')[:50]}...")
@@ -274,7 +319,9 @@ class NewsCreationWorkflow:
                         "title": story.get("title"),
                         "article_id": result.get("article_id"),
                         "slug": result.get("slug"),
-                        "priority": story_assessment.get("priority")
+                        "priority": story_assessment.get("priority"),
+                        "target_keyword": target_keyword,
+                        "keyword_volume": keyword_volume
                     })
 
                     workflow.logger.info(f"Article created: {result.get('slug')}")

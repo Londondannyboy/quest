@@ -99,11 +99,31 @@ def extract_structured_data(response_text: str) -> Dict[str, Any]:
     }
 
     # Find structured data section
+    # First try: with ```json code fence
     match = re.search(r'---\s*STRUCTURED\s*DATA\s*---\s*```json\s*(.+?)\s*```', response_text, re.DOTALL | re.IGNORECASE)
 
     if not match:
-        # Try without code block
-        match = re.search(r'---\s*STRUCTURED\s*DATA\s*---\s*(\{.+?\})\s*(?=---|$)', response_text, re.DOTALL | re.IGNORECASE)
+        # Second try: find the JSON by locating opening brace and finding balanced closing brace
+        header_match = re.search(r'---\s*STRUCTURED\s*DATA\s*---\s*', response_text, re.IGNORECASE)
+        if header_match:
+            start_pos = header_match.end()
+            # Find the first { after the header
+            brace_pos = response_text.find('{', start_pos)
+            if brace_pos != -1:
+                # Find balanced closing brace
+                depth = 0
+                end_pos = brace_pos
+                for i, char in enumerate(response_text[brace_pos:], start=brace_pos):
+                    if char == '{':
+                        depth += 1
+                    elif char == '}':
+                        depth -= 1
+                        if depth == 0:
+                            end_pos = i + 1
+                            break
+                if depth == 0:
+                    json_str = response_text[brace_pos:end_pos]
+                    match = type('Match', (), {'group': lambda self, n: json_str})()  # Fake match object
 
     if match:
         json_str = match.group(1).strip()

@@ -88,29 +88,63 @@ async def generate_four_act_video(
     Returns:
         Dict with video_url, quality, duration, cost, four_act_config
     """
-    # Use quality config default duration if not explicitly set
+    # Get quality config
     quality_config = VIDEO_QUALITY_MODELS.get(quality, VIDEO_QUALITY_MODELS["low"])
-    if duration == 3:  # Old default, upgrade to 12
-        duration = quality_config.get("default_duration", 12)
 
-    activity.logger.info(f"Generating 4-act video for article: {title[:50]}...")
-    activity.logger.info(f"Model: {video_model}, Quality: {quality}, Duration: {duration}s (4 acts)")
+    # Determine act structure based on duration
+    is_four_act = duration == 12
+    act_label = "4 acts" if is_four_act else f"{duration}s single"
+
+    activity.logger.info(f"Generating video for: {title[:50]}...")
+    activity.logger.info(f"Model: {video_model}, Quality: {quality}, Duration: {duration}s ({act_label})")
     activity.logger.info(f"✓ Received parameters: app={app}, aspect_ratio={aspect_ratio}")
-    activity.logger.info(f"✓ video_prompt is {'PROVIDED' if video_prompt else 'NOT PROVIDED (will auto-generate)'}")
-    if video_prompt:
-        activity.logger.info(f"  Custom prompt: {video_prompt[:80]}...")
+    activity.logger.info(f"✓ video_prompt: {'PROVIDED' if video_prompt else 'MISSING (will fail for 4-act)'}")
 
     # Get quality configuration
     quality_config = VIDEO_QUALITY_MODELS.get(quality, VIDEO_QUALITY_MODELS["medium"])
     resolution = quality_config["resolution"]
 
-    # Use custom prompt if provided, otherwise generate from content
-    if video_prompt and video_prompt.strip():
+    # For 12-second 4-act videos: REQUIRE proper 4-act structured prompt
+    # No fallback to legacy generate_video_prompt() - fail hard if prompt is missing/invalid
+    if is_four_act:
+        if not video_prompt or not video_prompt.strip():
+            error_msg = (
+                "❌ 4-ACT VIDEO FAILED: No structured prompt provided.\n"
+                "4-act video REQUIRES a prompt from generate_four_act_video_prompt.\n"
+                "ROOT CAUSE: Article likely missing four_act_content or four_act_visual_hint in sections.\n"
+                "FIX: Check JSON extraction from Sonnet response. Ensure STRUCTURED DATA section is parsed."
+            )
+            activity.logger.error(error_msg)
+            raise ValueError(error_msg)
+
         prompt = video_prompt.strip()
-        activity.logger.info(f"Using custom prompt: {prompt[:100]}...")
+
+        # Validate 4-act structure exists in prompt
+        required_acts = ["ACT 1", "ACT 2", "ACT 3", "ACT 4"]
+        missing_acts = [act for act in required_acts if act not in prompt]
+
+        if missing_acts:
+            error_msg = (
+                f"❌ 4-ACT VIDEO FAILED: Malformed prompt - missing {missing_acts}.\n"
+                f"Prompt must contain ACT 1, ACT 2, ACT 3, ACT 4 structure.\n"
+                f"ROOT CAUSE: generate_four_act_video_prompt didn't extract all 4 sections.\n"
+                f"Received: {prompt[:300]}..."
+            )
+            activity.logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        activity.logger.info(f"✓ 4-act prompt validated: all 4 acts present")
+        activity.logger.info(f"4-act prompt: {prompt[:150]}...")
     else:
-        prompt = generate_video_prompt(title, content, app)
-        activity.logger.info(f"Generated prompt: {prompt[:100]}...")
+        # Non-4-act videos (company videos use generate_company_video instead)
+        if video_prompt and video_prompt.strip():
+            prompt = video_prompt.strip()
+            activity.logger.info(f"Using custom prompt: {prompt[:100]}...")
+        else:
+            raise ValueError(
+                f"Video prompt required. For articles use generate_four_act_video with 4-act prompt. "
+                f"For companies use generate_company_video."
+            )
 
     # Generate video based on selected model
     if video_model == "wan-2.5":
@@ -144,6 +178,77 @@ async def generate_four_act_video(
         "prompt_used": prompt[:200],  # Return first 200 chars of prompt for debugging
         "four_act_config": four_act_config,  # For thumbnail extraction
         "acts": 4 if duration == 12 else 1
+    }
+
+
+@activity.defn
+async def generate_company_video(
+    company_name: str,
+    app: str = "placement",
+    quality: str = "low",
+    duration: int = 3,
+    aspect_ratio: str = "16:9",
+    video_model: str = "seedance",
+    video_prompt: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Generate a simple branding video for a company profile.
+
+    Creates a short 3-5 second video focused on company identity/logo.
+    NOT a 4-act narrative - just a clean professional visual.
+
+    Args:
+        company_name: Company name for branding
+        app: Application name (placement, relocation, etc.)
+        quality: Video quality tier (high, medium, low)
+        duration: Video duration in seconds (default 3s)
+        aspect_ratio: Video aspect ratio (default 16:9)
+        video_model: Model to use (seedance, wan-2.5)
+        video_prompt: Custom prompt (if None, auto-generated)
+
+    Returns:
+        Dict with video_url, quality, duration, cost
+    """
+    activity.logger.info(f"Generating company video for: {company_name}")
+    activity.logger.info(f"Model: {video_model}, Quality: {quality}, Duration: {duration}s")
+
+    # Get quality config
+    quality_config = VIDEO_QUALITY_MODELS.get(quality, VIDEO_QUALITY_MODELS["low"])
+    resolution = quality_config["resolution"]
+
+    # Use custom prompt if provided, otherwise generate simple branding prompt
+    if video_prompt and video_prompt.strip():
+        prompt = video_prompt.strip()
+        activity.logger.info(f"Using custom prompt: {prompt[:100]}...")
+    else:
+        # Simple company branding prompt
+        prompt = f"""Professional corporate identity reveal. Clean modern aesthetic, {company_name} company branding.
+Elegant motion graphics, subtle light rays, premium quality feel.
+Smooth camera movement, shallow depth of field, high production value.
+CRITICAL: NO text, NO words, NO letters - purely visual brand essence."""
+        activity.logger.info(f"Generated branding prompt: {prompt[:100]}...")
+
+    # Generate video
+    if video_model == "wan-2.5":
+        video_url = await generate_with_wan(prompt, duration, resolution, aspect_ratio)
+        actual_model = "wan-video/wan-2.5-t2v"
+        cost = 0.02 * duration
+    else:
+        video_url = await generate_with_seedance(prompt, duration, resolution, aspect_ratio)
+        actual_model = "bytedance/seedance-1-pro-fast"
+        cost = quality_config["cost_per_second"] * duration
+
+    activity.logger.info(f"Company video generated: {video_url}")
+    activity.logger.info(f"Model: {actual_model}, Cost: ${cost:.3f}")
+
+    return {
+        "video_url": video_url,
+        "quality": quality,
+        "resolution": resolution,
+        "duration": duration,
+        "cost": cost,
+        "model": actual_model,
+        "prompt_used": prompt[:200]
     }
 
 
@@ -206,12 +311,23 @@ def transform_prompt_for_wan(prompt: str) -> tuple[str, str]:
 
 def generate_video_prompt(title: str, content: str, app: str) -> str:
     """
-    Generate a video prompt based on article content with sentiment analysis.
+    DEPRECATED: Do not use this function.
 
-    Creates a cinematic prompt that captures the essence of the article
-    without attempting to include text (which AI video models struggle with).
-    Includes Quest branding in kinetic white illuminated background.
+    This legacy function generates single-block prompts that don't work with
+    the 4-act video framework. Articles MUST use generate_four_act_video_prompt
+    to extract structured prompts from article sections.
+
+    For company videos, use generate_company_video instead.
+
+    This function is kept only for backwards compatibility with old tests.
     """
+    import warnings
+    warnings.warn(
+        "generate_video_prompt is DEPRECATED. Use generate_four_act_video_prompt for articles "
+        "or generate_company_video for company profiles.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     # App-specific visual themes
     app_themes = {
         "placement": {

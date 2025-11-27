@@ -72,6 +72,12 @@ class ArticleCreationWorkflow:
         num_sources = input_dict.get("num_research_sources", 10)
         custom_slug = input_dict.get("slug")  # Optional custom slug for SEO
 
+        # SEO keyword targeting (from NewsCreationWorkflow Phase 3.6 or dashboard)
+        target_keyword = input_dict.get("target_keyword")
+        keyword_volume = input_dict.get("keyword_volume")
+        keyword_difficulty = input_dict.get("keyword_difficulty")
+        secondary_keywords = input_dict.get("secondary_keywords", [])
+
         # 4-ACT VIDEO CONFIGURATION
         # - All articles generate ONE 12-second 4-act video
         # - Thumbnails extracted from Mux at different timestamps
@@ -483,7 +489,7 @@ class ArticleCreationWorkflow:
 
         article_result = await workflow.execute_activity(
             "generate_four_act_article",
-            args=[topic, article_type, app, research_context, target_word_count, custom_slug],
+            args=[topic, article_type, app, research_context, target_word_count, custom_slug, target_keyword, secondary_keywords],
             start_to_close_timeout=timedelta(minutes=3)
         )
 
@@ -611,7 +617,12 @@ class ArticleCreationWorkflow:
                 None,  # video_asset_id
                 raw_research,  # Full research data
                 None,  # video_narrative (added after video generation)
-                zep_facts_for_audit  # Zep facts used for this article (for audit/review)
+                zep_facts_for_audit,  # Zep facts used for this article (for audit/review)
+                # SEO keyword targeting (from Phase 3.6 or dashboard)
+                target_keyword,
+                keyword_volume,
+                keyword_difficulty,
+                secondary_keywords
             ],
             start_to_close_timeout=timedelta(seconds=30)
         )
@@ -858,7 +869,13 @@ class ArticleCreationWorkflow:
                     video_result.get("video_playback_id"),
                     video_result.get("video_asset_id"),
                     None,  # raw_research already saved
-                    article.get("video_narrative")  # 4-act video narrative with thumbnails
+                    article.get("video_narrative"),  # 4-act video narrative with thumbnails
+                    None,  # zep_facts already saved
+                    # SEO keywords (preserve from initial save via COALESCE)
+                    None,  # target_keyword - preserved
+                    None,  # keyword_volume - preserved
+                    None,  # keyword_difficulty - preserved
+                    None   # secondary_keywords - preserved
                 ],
                 start_to_close_timeout=timedelta(seconds=30)
             )

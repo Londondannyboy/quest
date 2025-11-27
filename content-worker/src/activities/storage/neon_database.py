@@ -361,7 +361,12 @@ async def save_article_to_neon(
     video_asset_id: Optional[str] = None,
     raw_research: Optional[str] = None,
     video_narrative: Optional[Dict[str, Any]] = None,
-    zep_facts: Optional[List[Dict[str, Any]]] = None
+    zep_facts: Optional[List[Dict[str, Any]]] = None,
+    # SEO keyword targeting
+    target_keyword: Optional[str] = None,
+    keyword_volume: Optional[int] = None,
+    keyword_difficulty: Optional[float] = None,
+    secondary_keywords: Optional[List[str]] = None
 ) -> str:
     """
     Save or update article in Neon database.
@@ -383,6 +388,10 @@ async def save_article_to_neon(
         raw_research: Full raw research data (unlimited TEXT)
         video_narrative: 3-act narrative structure for video-first articles (JSONB)
         zep_facts: Facts from Zep knowledge graph used during generation (for audit)
+        target_keyword: Primary SEO target keyword
+        keyword_volume: Monthly search volume for target keyword
+        keyword_difficulty: Difficulty score (0-100) for target keyword
+        secondary_keywords: List of secondary keywords to target
 
     Returns:
         Article ID (str)
@@ -424,6 +433,10 @@ async def save_article_to_neon(
                             raw_research = %s,
                             video_narrative = %s,
                             zep_facts = COALESCE(%s, zep_facts),
+                            target_keyword = COALESCE(%s, target_keyword),
+                            keyword_volume = COALESCE(%s, keyword_volume),
+                            keyword_difficulty = COALESCE(%s, keyword_difficulty),
+                            secondary_keywords = COALESCE(%s, secondary_keywords),
                             updated_at = NOW()
                         WHERE id = %s
                         RETURNING id
@@ -446,9 +459,15 @@ async def save_article_to_neon(
                         raw_research,
                         json.dumps(video_narrative) if video_narrative else None,
                         json.dumps(zep_facts) if zep_facts is not None else None,  # Preserve empty array []
+                        target_keyword,
+                        keyword_volume,
+                        keyword_difficulty,
+                        json.dumps(secondary_keywords) if secondary_keywords else None,
                         article_id
                     ))
                     activity.logger.info(f"zep_facts for UPDATE: {len(zep_facts) if zep_facts else 'None'} facts")
+                    if target_keyword:
+                        activity.logger.info(f"SEO keyword: '{target_keyword}' (vol={keyword_volume}, diff={keyword_difficulty})")
 
                     result = await cur.fetchone()
                     final_id = result[0] if result else article_id
@@ -477,10 +496,14 @@ async def save_article_to_neon(
                             raw_research,
                             video_narrative,
                             zep_facts,
+                            target_keyword,
+                            keyword_volume,
+                            keyword_difficulty,
+                            secondary_keywords,
                             created_at,
                             updated_at
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
                         ON CONFLICT (slug)
                         DO UPDATE SET
                             title = EXCLUDED.title,
@@ -499,6 +522,10 @@ async def save_article_to_neon(
                             raw_research = EXCLUDED.raw_research,
                             video_narrative = EXCLUDED.video_narrative,
                             zep_facts = COALESCE(EXCLUDED.zep_facts, articles.zep_facts),
+                            target_keyword = COALESCE(EXCLUDED.target_keyword, articles.target_keyword),
+                            keyword_volume = COALESCE(EXCLUDED.keyword_volume, articles.keyword_volume),
+                            keyword_difficulty = COALESCE(EXCLUDED.keyword_difficulty, articles.keyword_difficulty),
+                            secondary_keywords = COALESCE(EXCLUDED.secondary_keywords, articles.secondary_keywords),
                             updated_at = NOW()
                         RETURNING id
                     """, (
@@ -519,9 +546,15 @@ async def save_article_to_neon(
                         video_asset_id,
                         raw_research,
                         json.dumps(video_narrative) if video_narrative else None,
-                        json.dumps(zep_facts) if zep_facts is not None else None  # Preserve empty array []
+                        json.dumps(zep_facts) if zep_facts is not None else None,  # Preserve empty array []
+                        target_keyword,
+                        keyword_volume,
+                        keyword_difficulty,
+                        json.dumps(secondary_keywords) if secondary_keywords else None
                     ))
                     activity.logger.info(f"zep_facts for INSERT: {len(zep_facts) if zep_facts else 'None'} facts")
+                    if target_keyword:
+                        activity.logger.info(f"SEO keyword: '{target_keyword}' (vol={keyword_volume}, diff={keyword_difficulty})")
 
                     result = await cur.fetchone()
                     final_id = str(result[0])

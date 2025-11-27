@@ -359,10 +359,9 @@ class CompanyCreationWorkflow:
             profile_snippet = list(payload.get("profile_sections", {}).values())[0].get("content", "")[:500] if payload.get("profile_sections") else f"A professional company {company_name}"
 
             video_gen_result = await workflow.execute_activity(
-                "generate_article_video",  # Reuse activity - it works for company content too
+                "generate_company_video",  # Simple branding video (not 4-act)
                 args=[
-                    company_name,  # Use company name as title
-                    profile_snippet,  # Use profile snippet as content context
+                    company_name,  # Company name for branding
                     input_data.app,
                     video_quality,
                     video_duration,
