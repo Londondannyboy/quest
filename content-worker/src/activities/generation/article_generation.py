@@ -1930,27 +1930,48 @@ VIDEO: 12 seconds, 4 acts × 3 seconds each.
     words_per_act = model_info.get("words_per_act", "45-55")
 
     # ===== GET APP TEMPLATE FOR ACT ROLES/MOODS =====
+    # Select template based on article_type, not just default
     technical_notes = ""
+    article_type = article.get("article_type", "news")
+
+    # Map article_type to template name
+    ARTICLE_TYPE_TO_TEMPLATE = {
+        "news": "news_story",
+        "guide": "transformation",  # Personal journey/how-to
+        "comparison": "market_analysis",
+        "profile": "profile",
+        "deal": "deal_story",
+        "analysis": "market_analysis",
+    }
+
     if app_config:
         video_prompt_template = app_config.article_theme.video_prompt_template
-        default_template = video_prompt_template.get_template()
         technical_notes = getattr(video_prompt_template, 'technical_notes', "")
 
-        if default_template:
-            act_1_role = default_template.act_1_role
-            act_1_mood = default_template.act_1_mood
-            act_2_role = default_template.act_2_role
-            act_2_mood = default_template.act_2_mood
-            act_3_role = default_template.act_3_role
-            act_3_mood = default_template.act_3_mood
-            act_4_role = default_template.act_4_role
-            act_4_mood = default_template.act_4_mood
-            activity.logger.info(f"Using app template: {default_template.name}")
+        # Try to get template matching article_type, fall back to default
+        template_name = ARTICLE_TYPE_TO_TEMPLATE.get(article_type)
+        selected_template = video_prompt_template.get_template(template_name)
+
+        if not selected_template:
+            # Fall back to default template
+            selected_template = video_prompt_template.get_template()
+
+        if selected_template:
+            act_1_role = selected_template.act_1_role
+            act_1_mood = selected_template.act_1_mood
+            act_2_role = selected_template.act_2_role
+            act_2_mood = selected_template.act_2_mood
+            act_3_role = selected_template.act_3_role
+            act_3_mood = selected_template.act_3_mood
+            act_4_role = selected_template.act_4_role
+            act_4_mood = selected_template.act_4_mood
+            activity.logger.info(f"Using template '{selected_template.name}' for article_type '{article_type}'")
         else:
             act_1_role, act_1_mood = "THE SETUP - Problem/challenge", "Tension, stakes"
             act_2_role, act_2_mood = "THE OPPORTUNITY - Discovery/hope", "Hope, revelation"
             act_3_role, act_3_mood = "THE JOURNEY - Process/action", "Progress, momentum"
             act_4_role, act_4_mood = "THE RESOLUTION - Outcome/future", "Achievement, possibility"
+            activity.logger.warning(f"No template found for article_type '{article_type}', using generic")
     else:
         act_1_role, act_1_mood = "THE SETUP - Problem/challenge", "Tension, stakes"
         act_2_role, act_2_mood = "THE OPPORTUNITY - Discovery/hope", "Hope, revelation"
