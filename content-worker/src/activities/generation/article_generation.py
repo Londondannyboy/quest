@@ -544,26 +544,30 @@ After the Editorial Footer, include this JSON block for video thumbnail and comp
     {{
       "act": 1,
       "title": "Section 1 H2 title exactly as in article",
+      "video_title": "SHORT 2-4 word video label (e.g., 'The Grind', 'Discovery', 'The Journey', 'New Life')",
       "factoid": "One compelling stat or fact for this section (shown on thumbnail overlay)",
-      "four_act_visual_hint": "60-80 word cinematic scene description for this section's video act. Include: subject + action, environment + lighting, camera movement, color/mood. Must have MOTION. Example: 'Woman in grey blazer stares at rain-streaked window in cramped London flat, turns slowly away from laptop showing spreadsheets, rubs temples with visible exhaustion. Camera pushes in gently from medium to close-up. Cool blue-grey tones, harsh fluorescent overhead mixing with grey daylight. Documentary realism, shallow depth of field.'"
+      "four_act_visual_hint": "45-55 word cinematic scene. Example: 'Exhausted professional in cramped flat stares at rain-streaked window, laptop glowing harsh. Camera pushes slowly to close-up as subject rubs temples. Cool blue-grey tones, harsh fluorescent light. Documentary realism, shallow depth of field.'"
     }},
     {{
       "act": 2,
       "title": "Section 2 H2 title",
+      "video_title": "SHORT 2-4 word video label",
       "factoid": "Compelling stat for section 2",
-      "four_act_visual_hint": "60-80 word cinematic scene for act 2 (the opportunity/discovery moment)"
+      "four_act_visual_hint": "45-55 word cinematic scene for act 2 (opportunity/discovery)"
     }},
     {{
       "act": 3,
       "title": "Section 3 H2 title",
+      "video_title": "SHORT 2-4 word video label",
       "factoid": "Compelling stat for section 3",
-      "four_act_visual_hint": "60-80 word cinematic scene for act 3 (the journey/process)"
+      "four_act_visual_hint": "45-55 word cinematic scene for act 3 (journey/process)"
     }},
     {{
       "act": 4,
       "title": "Section 4 H2 title",
+      "video_title": "SHORT 2-4 word video label",
       "factoid": "Compelling stat for section 4",
-      "four_act_visual_hint": "60-80 word cinematic scene for act 4 (the payoff/resolution)"
+      "four_act_visual_hint": "45-55 word cinematic scene for act 4 (payoff/resolution)"
     }}
   ],
   "callouts": [
@@ -633,14 +637,14 @@ ACT 4 (9-12s) - {act_4_role}
 {no_text_rule}
 Technical: {technical_notes}
 
-VISUAL_HINT REQUIREMENTS (CRITICAL FOR VIDEO):
-- 60-80 words each
+VISUAL_HINT REQUIREMENTS (CRITICAL FOR VIDEO - STRICT LENGTH):
+- 45-55 words MAXIMUM (strict limit to fit 4 acts in 2000 chars)
+- video_title must be 2-4 words only (e.g., "The Grind", "Discovery", "New Life")
 - Must describe MOTION (action sequences, camera movement)
-- Include: subject appearance, environment, lighting, camera movement, color grade
-- Be SPECIFIC to YOUR article topic - use locations and settings from the actual content
+- Include: subject + action, environment, lighting, camera movement, color grade
 - NO TEXT/WORDS in scenes - purely visual. Screens show abstract colors only.
-- Follow this formula: [Subject + Action] + [Environment + Lighting] + [Camera Movement] + [Color/Mood]
-- DO NOT copy the examples above - CREATE NEW visuals specific to YOUR topic
+- Formula: [Subject + Action] + [Environment] + [Camera] + [Color/Mood]
+- Be specific to YOUR topic but CONCISE
 
 Source links are MANDATORY - articles without <a href> tags will be rejected.
 The STRUCTURED DATA section is MANDATORY - without it, no video can be generated."""

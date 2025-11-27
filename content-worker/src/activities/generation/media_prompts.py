@@ -19,7 +19,7 @@ VIDEO_MODEL_GUIDANCE = {
     "seedance": {
         "strengths": "Fast, good motion, cinematic quality",
         "weaknesses": "Cannot render text at all - completely ignore any text requests",
-        "optimal_length": "60-80 words per act",  # Strict limit to fit 4 acts in 2000 chars
+        "optimal_length": "45-55 words per act",  # Strict limit to fit 4 acts in 2000 chars
         "char_limit": 2000,
         "tips": [
             "Use degree adverbs for motion: slowly, gently, dramatically",
@@ -107,21 +107,23 @@ async def generate_four_act_video_prompt(
 
     # Build the 4-act prompt from visual hints
     # Each four_act_visual_hint already contains complete style guidance
+    # Use video_title (short 2-4 word label) instead of full title to save chars
     act_prompts = []
     for i, section in enumerate(sections[:4]):
         act_num = i + 1
         four_act_visual_hint = section.get("four_act_visual_hint", "")
-        title = section.get("title", f"Section {act_num}")
+        # Prefer short video_title over long article title
+        video_title = section.get("video_title") or section.get("title", f"Act {act_num}")
 
         # Calculate timing: 3 seconds per act
         start_time = (act_num - 1) * 3
         end_time = act_num * 3
 
         if four_act_visual_hint:
-            act_prompts.append(f"ACT {act_num} ({start_time}s-{end_time}s): {title}\n{four_act_visual_hint}")
+            act_prompts.append(f"ACT {act_num} ({start_time}s-{end_time}s): {video_title}\n{four_act_visual_hint}")
         else:
             activity.logger.warning(f"Section {act_num} has no four_act_visual_hint")
-            act_prompts.append(f"ACT {act_num} ({start_time}s-{end_time}s): {title}\n[Cinematic visual for: {title}]")
+            act_prompts.append(f"ACT {act_num} ({start_time}s-{end_time}s): {video_title}\n[Cinematic visual]")
 
     acts_text = "\n\n".join(act_prompts)
 
