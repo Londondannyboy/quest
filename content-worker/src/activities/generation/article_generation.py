@@ -1795,100 +1795,143 @@ async def generate_four_act_video_prompt(
     character_style: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Assemble a 4-act video prompt from article's structured sections.
+    Generate a 4-act video prompt using AI (Gemini 3 Pro).
 
-    The article is written FIRST with 4 sections, each containing a
-    four_act_visual_hint (45-55 words for Seedance). This activity
-    simply combines those hints into the final video prompt.
+    This is a SEPARATE AI call from article generation - more reliable than
+    trying to generate video hints inline with article content.
 
     Args:
-        article: Article dict with four_act_content containing four_act_visual_hint per section
+        article: Article dict with title, content, excerpt
         app: Application (relocation, placement, pe_news)
         video_model: Target model (seedance or wan-2.5)
-        character_style: Override character style (none, male, female, asian_male, asian_female, black_male, black_female, diverse)
-                        If None, uses app config default.
+        character_style: Override character style
 
     Returns:
-        {"prompt": str, "model": str, "acts": int, "success": bool, "was_truncated": bool, "cost": float}
+        {"prompt": str, "model": str, "acts": int, "success": bool, "cost": float}
     """
-    activity.logger.info(f"Assembling 4-act video prompt: {article.get('title', 'Untitled')[:50]}...")
-
-    # Get structured sections from article
-    sections = article.get("four_act_content", [])
-
-    if not sections:
-        activity.logger.error("No four_act_content found in article - cannot assemble prompt")
-        return {
-            "prompt": "",
-            "model": video_model,
-            "acts": 0,
-            "success": False,
-            "error": "No four_act_content in article",
-            "cost": 0
-        }
+    activity.logger.info(f"🎬 Generating 4-act video prompt via AI: {article.get('title', 'Untitled')[:50]}...")
 
     # Get app config for no-text rule, holistic guidelines, and character style
     app_config = APP_CONFIGS.get(app)
     if app_config:
         no_text_rule = app_config.article_theme.video_prompt_template.no_text_rule
         holistic = getattr(app_config.article_theme.video_prompt_template, 'holistic_guidelines', '')
-        # Use override character_style if provided, otherwise use app default
         effective_style = CharacterStyle(character_style) if character_style else app_config.character_style
     else:
         no_text_rule = "CRITICAL: NO text, words, letters, numbers anywhere. Purely visual."
         holistic = ""
         effective_style = CharacterStyle(character_style) if character_style else CharacterStyle.DIVERSE
 
-    # Get character style prompt text
     character_prompt = CHARACTER_STYLE_PROMPTS.get(effective_style, "")
-    activity.logger.info(f"Character style: {effective_style.value} -> '{character_prompt}'")
+    activity.logger.info(f"Character style: {effective_style.value}")
 
     # Get model character limit
     model_info = VIDEO_MODEL_LIMITS.get(video_model, VIDEO_MODEL_LIMITS["seedance"])
     char_limit = model_info.get("char_limit", 2000)
 
-    # Build the 4-act prompt from visual hints
-    act_prompts = []
-    for i, section in enumerate(sections[:4]):
-        act_num = i + 1
-        four_act_visual_hint = section.get("four_act_visual_hint", "")
-        video_title = section.get("video_title") or section.get("title", f"Act {act_num}")
+    # Extract article info for AI
+    title = article.get("title", "")
+    excerpt = article.get("excerpt", "")
+    content = article.get("content", "")[:3000]  # First 3000 chars
 
-        start_time = (act_num - 1) * 3
-        end_time = act_num * 3
+    # Build AI prompt
+    ai_prompt = f"""Generate a 4-act video prompt for this article. The video is 12 seconds (4 acts × 3 seconds each).
 
-        if four_act_visual_hint:
-            act_prompts.append(f"ACT {act_num} ({start_time}s-{end_time}s): {video_title}\n{four_act_visual_hint}")
-        else:
-            activity.logger.warning(f"Section {act_num} has no four_act_visual_hint")
-            act_prompts.append(f"ACT {act_num} ({start_time}s-{end_time}s): {video_title}\n[Cinematic visual]")
+ARTICLE TITLE: {title}
 
-    acts_text = "\n\n".join(act_prompts)
+ARTICLE EXCERPT: {excerpt}
 
-    # Build prompt - no_text_rule ONCE at start, character style, holistic guidelines if present
-    holistic_block = f"\n{holistic}" if holistic else ""
-    character_block = f"\n{character_prompt}" if character_prompt else ""
-    prompt = f"""{no_text_rule}{character_block}{holistic_block}
+ARTICLE CONTENT (truncated):
+{content}
 
-VIDEO: 12 seconds, 4 acts × 3 seconds each.
+===== OUTPUT FORMAT =====
+Return EXACTLY this structure with 45-55 words per act:
 
-{acts_text}"""
+ACT 1 (0s-3s): [2-4 word title]
+[45-55 word cinematic scene description. Documentary-style, shallow depth of field. Describe setting, lighting, camera movement, subject emotion.]
 
-    # Enforce character limit
-    was_truncated = False
-    if len(prompt) > char_limit:
-        activity.logger.warning(f"Prompt {len(prompt)} chars exceeds {char_limit} limit - truncating")
-        prompt = prompt[:char_limit]
-        was_truncated = True
+ACT 2 (3s-6s): [2-4 word title]
+[45-55 word cinematic scene for discovery/opportunity moment]
 
-    acts_with_hints = len([s for s in sections[:4] if s.get("four_act_visual_hint")])
-    activity.logger.info(f"Assembled 4-act prompt: {len(prompt)} chars, {acts_with_hints}/4 acts with visual hints")
+ACT 3 (6s-9s): [2-4 word title]
+[45-55 word cinematic scene for journey/process]
 
-    return {
-        "prompt": prompt,
-        "model": video_model,
-        "acts": len(sections[:4]),
-        "success": True,
-        "was_truncated": was_truncated,
-        "cost": 0  # No API call - just assembling existing visual hints
-    }
+ACT 4 (9s-12s): [2-4 word title ending with ?]
+[45-55 word cinematic scene for resolution/future outlook]
+
+===== RULES =====
+{no_text_rule}
+{holistic}
+{character_prompt if character_prompt else "Use diverse professional subjects."}
+
+- Each act must be a complete visual scene, not abstract concepts
+- Include specific camera movements (push in, pull back, dolly, pan)
+- Include lighting details (warm golden, cool blue, harsh fluorescent)
+- Include emotional tone and subject body language
+- NO text, signs, logos, or readable content in ANY scene
+
+Return ONLY the 4-act prompt, nothing else."""
+
+    try:
+        # Use Gemini 3 Pro
+        genai.configure(api_key=config.GOOGLE_API_KEY)
+        model = genai.GenerativeModel('gemini-2.0-flash')
+
+        response = model.generate_content(
+            ai_prompt,
+            generation_config=genai.types.GenerationConfig(
+                max_output_tokens=1500,
+                temperature=0.7  # Some creativity for visual descriptions
+            )
+        )
+
+        prompt = response.text.strip()
+        activity.logger.info(f"AI generated video prompt: {len(prompt)} chars")
+
+        # Validate 4-act structure
+        required_acts = ["ACT 1", "ACT 2", "ACT 3", "ACT 4"]
+        missing_acts = [act for act in required_acts if act not in prompt]
+
+        if missing_acts:
+            activity.logger.warning(f"AI response missing acts: {missing_acts}")
+            # Try to fix by re-requesting or return error
+            return {
+                "prompt": "",
+                "model": video_model,
+                "acts": 4 - len(missing_acts),
+                "success": False,
+                "error": f"AI response missing acts: {missing_acts}",
+                "cost": 0.001  # Estimate
+            }
+
+        # Prepend no-text rule to final prompt
+        final_prompt = f"{no_text_rule}\n\nVIDEO: 12 seconds, 4 acts × 3 seconds each.\n\n{prompt}"
+
+        # Enforce character limit
+        was_truncated = False
+        if len(final_prompt) > char_limit:
+            activity.logger.warning(f"Prompt {len(final_prompt)} chars exceeds {char_limit} limit - truncating")
+            final_prompt = final_prompt[:char_limit]
+            was_truncated = True
+
+        activity.logger.info(f"✅ 4-act video prompt generated: {len(final_prompt)} chars")
+
+        return {
+            "prompt": final_prompt,
+            "model": video_model,
+            "acts": 4,
+            "success": True,
+            "was_truncated": was_truncated,
+            "cost": 0.001  # Gemini 2.0 Flash is cheap
+        }
+
+    except Exception as e:
+        activity.logger.error(f"❌ AI video prompt generation failed: {e}")
+        return {
+            "prompt": "",
+            "model": video_model,
+            "acts": 0,
+            "success": False,
+            "error": str(e),
+            "cost": 0
+        }
