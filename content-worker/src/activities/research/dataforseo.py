@@ -225,15 +225,39 @@ async def dataforseo_serp_search(
                                             "type": "people_also_ask"
                                         })
 
-                            # AI Overview - extract reference URLs
+                            # AI Overview - extract FULL CONTENT (critical for research)
+                            # This contains Google's AI-generated summary which is incredibly valuable
                             elif item_type == "ai_overview":
+                                # Extract the full AI Overview text/content
+                                ai_text = item.get("text", "")
+                                ai_items = item.get("items", [])
+
+                                # Build full AI overview content
+                                if ai_text:
+                                    ai_overview_urls.append({
+                                        "type": "ai_overview_content",
+                                        "text": ai_text,
+                                        "query": query
+                                    })
+
+                                # Extract individual items/sections from AI Overview
+                                for ai_item in ai_items:
+                                    item_text = ai_item.get("text", "")
+                                    if item_text:
+                                        ai_overview_urls.append({
+                                            "type": "ai_overview_section",
+                                            "text": item_text[:1000],
+                                            "query": query
+                                        })
+
+                                # Also extract reference URLs
                                 refs = item.get("references", [])
                                 for ref in refs:
                                     if ref.get("url"):
                                         ai_overview_urls.append({
                                             "url": ref.get("url"),
                                             "title": ref.get("title", ""),
-                                            "type": "ai_overview"
+                                            "type": "ai_overview_reference"
                                         })
 
                             # Top stories (news)

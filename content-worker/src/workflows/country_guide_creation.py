@@ -214,23 +214,27 @@ class CountryGuideCreationWorkflow:
 
             workflow.logger.info(f"Launching {len(serp_tasks)} SERP searches ({len(search_topics)} topics × {len(regions)} regions)")
 
-            # News search - use discovered keywords for news too
+            # NEWS: Use Serper.dev (24-hour recency, better for fresh news)
+            # DataForSEO is better for SERP, Serper is better for news timeliness
             news_keywords = search_topics[:6] if search_topics else [f"{country_name} relocation"]
             news_task = workflow.execute_activity(
-                "dataforseo_news_search",
+                "serper_news_search",  # Serper.dev - 24hr recency
                 args=[
-                    news_keywords,  # Use discovered keywords or fallback
+                    news_keywords,  # Use discovered keywords
                     regions,        # UK + US
-                    20              # 20 depth per query
+                    20,             # depth per query
+                    "past_week"     # past_week for country guides (not as time-sensitive as news workflow)
                 ],
-                start_to_close_timeout=timedelta(minutes=3),
+                start_to_close_timeout=timedelta(minutes=2),
                 retry_policy=RetryPolicy(maximum_attempts=2)
             )
 
-            # Exa for authoritative/editorial sources
+            # EXA: Authoritative/editorial sources - USE DISCOVERED KEYWORDS
+            # Build Exa query from discovered keywords for better results
+            exa_query = discovered_keywords[0] if discovered_keywords else f"{country_name} relocation guide"
             exa_task = workflow.execute_activity(
                 "exa_research_topic",
-                args=[f"{country_name} relocation guide", "guide", app],
+                args=[exa_query, "guide", app],
                 start_to_close_timeout=timedelta(minutes=2),
                 retry_policy=RetryPolicy(maximum_attempts=2)
             )
@@ -250,6 +254,7 @@ class CountryGuideCreationWorkflow:
             research_content = []
             news_articles = []
             paa_questions = []
+            ai_overview_content = []  # NEW: Collect AI Overview answers
             seen_urls = set()
 
             # Process Exa results first (authoritative sources)
@@ -261,7 +266,7 @@ class CountryGuideCreationWorkflow:
                         seen_urls.add(url)
                 workflow.logger.info(f"Exa: {len(exa_result.get('urls', []))} URLs")
 
-            # Process all 12 SERP results
+            # Process all SERP results - extract URLs, AI Overview, PAA
             serp_url_count = 0
             for df_result in serp_results:
                 if not isinstance(df_result, Exception) and df_result:
@@ -278,11 +283,33 @@ class CountryGuideCreationWorkflow:
                         if item.get("snippet"):
                             research_content.append(item["snippet"])
 
-                    # Collect PAA questions (great for FAQ)
+                    # Collect PAA questions (CRITICAL for FAQ generation)
                     paa = df_result.get("paa_questions", [])
                     paa_questions.extend(paa)
 
-            workflow.logger.info(f"SERP: {serp_url_count} unique URLs from 12 searches")
+                    # Collect AI Overview content (Google's AI-curated answers - CRITICAL)
+                    # This includes the full AI Overview text which reveals topics like
+                    # "Family Reunification D6", "Healthcare SNS" that we might miss
+                    ai_urls = df_result.get("ai_overview_urls", [])
+                    for ai_item in ai_urls:
+                        if isinstance(ai_item, dict):
+                            item_type = ai_item.get("type", "")
+                            if item_type in ["ai_overview_content", "ai_overview_section"]:
+                                # This is the actual AI Overview text - most valuable!
+                                ai_overview_content.append({
+                                    "type": item_type,
+                                    "text": ai_item.get("text", ""),
+                                    "query": ai_item.get("query", df_result.get("query", ""))
+                                })
+                            elif item_type == "ai_overview_reference":
+                                # Reference URLs
+                                ai_overview_content.append({
+                                    "url": ai_item.get("url", ""),
+                                    "title": ai_item.get("title", ""),
+                                    "type": "reference"
+                                })
+
+            workflow.logger.info(f"SERP: {serp_url_count} URLs, {len(paa_questions)} PAA, {len(ai_overview_content)} AI Overview refs")
 
             # Process news results
             if not isinstance(news_result, Exception) and news_result:
@@ -364,7 +391,10 @@ class CountryGuideCreationWorkflow:
             "summaries": research_content[:15],
             "crawled_sources": crawled_content[:20],
             "news_articles": news_articles[:10] if 'news_articles' in dir() else [],
-            "paa_questions": list(set(paa_questions))[:20] if 'paa_questions' in dir() else [],  # Dedupe
+            # PAA Questions - CRITICAL for FAQ generation (what Google thinks people ask)
+            "paa_questions": list(set(paa_questions))[:25] if 'paa_questions' in dir() else [],
+            # AI Overview references - Google's AI-curated authoritative sources
+            "ai_overview_sources": ai_overview_content[:15] if 'ai_overview_content' in dir() else [],
             "seo_keywords": seo_keywords.get("primary_keywords", [])[:15],
             "seo_questions": seo_keywords.get("questions", [])[:20],
             # Keyword discovery data - what people actually search for

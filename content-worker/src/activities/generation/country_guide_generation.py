@@ -204,6 +204,62 @@ Address visa requirements, tax treaties, and practical considerations for EACH u
 Structure your content to address these ACTUAL search intents, not assumed topics.
 """
 
+    # Build PAA guidance - Google's "People Also Ask" questions
+    paa_guidance = ""
+    paa_questions = research_context.get("paa_questions", [])
+    if paa_questions:
+        paa_guidance = f"""
+===== PEOPLE ALSO ASK (from Google SERP) =====
+These are ACTUAL questions Google shows for {country_name} relocation searches.
+Your FAQ section MUST answer these:
+
+{chr(10).join(['- ' + q for q in paa_questions[:15]])}
+
+These questions reveal what people REALLY want to know. Prioritize answering these in your FAQ section.
+"""
+
+    # Build AI Overview guidance - this is CRITICAL
+    # Google's AI Overview contains structured info like "Family Reunification D6", "Healthcare SNS"
+    ai_guidance = ""
+    ai_sources = research_context.get("ai_overview_sources", [])
+    if ai_sources:
+        # Extract AI Overview text content
+        ai_text_content = []
+        ai_references = []
+
+        for source in ai_sources:
+            source_type = source.get("type", "")
+            if source_type in ["ai_overview_content", "ai_overview_section"]:
+                text = source.get("text", "")
+                if text:
+                    ai_text_content.append(text)
+            elif source_type == "reference" and source.get("title"):
+                ai_references.append(source.get("title", ""))
+
+        if ai_text_content:
+            ai_guidance = f"""
+===== GOOGLE AI OVERVIEW (CRITICAL - USE THIS!) =====
+This is what Google's AI says about {country_name} relocation.
+It often contains VITAL topics we might miss (e.g., "Family Reunification D6 Visa", "Healthcare SNS system").
+
+INCLUDE THESE TOPICS IN YOUR GUIDE:
+
+{chr(10).join([text[:800] for text in ai_text_content[:5]])}
+
+**AI Overview References:**
+{chr(10).join(['- ' + ref for ref in ai_references[:8]])}
+
+Ensure your guide covers ALL visa types mentioned (D7, D8, D6 Family Reunification, Golden Visa, Work Visas).
+Ensure you cover Healthcare (SNS public system + private options).
+"""
+        elif ai_references:
+            ai_guidance = f"""
+===== AI OVERVIEW REFERENCES =====
+Google's AI cites these sources - reference them:
+
+{chr(10).join(['- ' + ref for ref in ai_references[:8]])}
+"""
+
     # Build system prompt for country guide
     system_prompt = f"""You are an expert relocation consultant writing a comprehensive guide for {country_name}.
 
@@ -219,6 +275,10 @@ If keyword research reveals interest from specific nationalities (e.g., "portuga
 dedicate FAQ sections or subsections to those audiences.
 
 {discovered_guidance}
+
+{paa_guidance}
+
+{ai_guidance}
 
 ===== CROSS-PLATFORM FOCUS =====
 This guide serves multiple platforms:
