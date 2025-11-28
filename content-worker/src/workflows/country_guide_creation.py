@@ -119,21 +119,10 @@ class CountryGuideCreationWorkflow:
             workflow.logger.warning(f"SEO research failed (non-blocking): {e}")
 
         # ===== PHASE 3: AUTHORITATIVE RESEARCH =====
-        workflow.logger.info("Phase 3: Authoritative Research - Exa + DataForSEO")
+        workflow.logger.info("Phase 3: Authoritative Research - Exa + DataForSEO SERP")
 
-        # Build research queries for country guide
-        research_queries = [
-            f"{country_name} visa requirements official",
-            f"{country_name} digital nomad visa 2025",
-            f"{country_name} tax residency expat",
-            f"{country_name} cost of living expat",
-            f"{country_name} golden visa investment",
-            f"{country_name} retirement visa requirements",
-            f"{country_name} corporate tax rate",
-            f"relocate to {country_name} guide",
-        ]
-
-        # Parallel research: Exa + DataForSEO
+        # Parallel research: Exa + DataForSEO with SPECIFIC search queries
+        # DataForSEO query should be a real search query like "Portugal digital nomad visa"
         try:
             exa_task = workflow.execute_activity(
                 "exa_research_topic",
@@ -142,12 +131,13 @@ class CountryGuideCreationWorkflow:
                 retry_policy=RetryPolicy(maximum_attempts=2)
             )
 
+            # Use a proper search query - what a real user would search
             dataforseo_task = workflow.execute_activity(
                 "dataforseo_serp_search",
                 args=[
-                    f"{country_name} visa tax cost of living expat relocation",
+                    f"{country_name} visa requirements 2025",  # Real search query
                     "UK",
-                    50,  # depth
+                    100,  # depth - get more results
                     True,  # include AI overview
                     6  # people also ask depth
                 ],
@@ -155,8 +145,22 @@ class CountryGuideCreationWorkflow:
                 retry_policy=RetryPolicy(maximum_attempts=2)
             )
 
-            exa_result, dataforseo_result = await asyncio.gather(
-                exa_task, dataforseo_task, return_exceptions=True
+            # Second SERP search for tax/cost topics
+            dataforseo_task_2 = workflow.execute_activity(
+                "dataforseo_serp_search",
+                args=[
+                    f"moving to {country_name} cost of living",  # Second query
+                    "UK",
+                    50,
+                    True,
+                    4
+                ],
+                start_to_close_timeout=timedelta(minutes=2),
+                retry_policy=RetryPolicy(maximum_attempts=2)
+            )
+
+            exa_result, dataforseo_result, dataforseo_result_2 = await asyncio.gather(
+                exa_task, dataforseo_task, dataforseo_task_2, return_exceptions=True
             )
 
             # Combine results
@@ -167,17 +171,34 @@ class CountryGuideCreationWorkflow:
                 research_content.append(exa_result.get("summary", ""))
                 research_urls.extend(exa_result.get("urls", [])[:20])
                 metrics["research_sources"] += len(exa_result.get("urls", []))
+                workflow.logger.info(f"Exa returned {len(exa_result.get('urls', []))} URLs")
 
-            if not isinstance(dataforseo_result, Exception):
-                items = dataforseo_result.get("items", [])
-                for item in items[:30]:
-                    if item.get("url"):
-                        research_urls.append(item["url"])
-                    if item.get("description"):
-                        research_content.append(item["description"])
-                metrics["research_sources"] += len(items)
+            # FIX: Use correct field names from dataforseo_serp_search activity
+            # Activity returns: {"results": [...], "all_urls": [...], ...}
+            for df_result in [dataforseo_result, dataforseo_result_2]:
+                if not isinstance(df_result, Exception):
+                    # Get all_urls which contains deduplicated URLs from all SERP features
+                    all_urls = df_result.get("all_urls", [])
+                    for item in all_urls[:30]:
+                        url = item.get("url") if isinstance(item, dict) else item
+                        if url:
+                            research_urls.append(url)
 
-            workflow.logger.info(f"Research collected: {len(research_urls)} URLs, {len(research_content)} summaries")
+                    # Also get organic results for snippets
+                    results = df_result.get("results", [])
+                    for item in results[:20]:
+                        if item.get("snippet"):
+                            research_content.append(item["snippet"])
+
+                    # Get People Also Ask questions for FAQ
+                    paa = df_result.get("paa_questions", [])
+                    if paa:
+                        workflow.logger.info(f"DataForSEO PAA questions: {paa[:5]}")
+
+                    metrics["research_sources"] += len(all_urls)
+                    workflow.logger.info(f"DataForSEO SERP returned {len(all_urls)} URLs for '{df_result.get('query', 'unknown')}'")
+
+            workflow.logger.info(f"Research collected: {len(research_urls)} URLs, {len(research_content)} snippets")
 
         except Exception as e:
             workflow.logger.error(f"Research phase failed: {e}")

@@ -13,6 +13,8 @@ from slugify import slugify
 import re
 import json
 
+# AI SDKs - Gemini primary, Anthropic fallback
+import google.generativeai as genai
 import anthropic
 
 from src.utils.config import config
@@ -339,21 +341,45 @@ RESEARCH DATA:
 Use ALL of this research. Be specific. Include real numbers, dates, and requirements.
 Every claim needs a source link. This guide should be the definitive resource for anyone considering {country_name}."""
 
-    # Generate with Claude
-    activity.logger.info("Using AI: anthropic:claude-sonnet-4")
-    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+    # Generate with Gemini (primary) or Claude (fallback)
+    # Prefer Gemini for cost efficiency and consistency with article generation
+    use_gemini = bool(config.GOOGLE_API_KEY)
 
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=16000,
-        system=system_prompt,
-        messages=[{"role": "user", "content": research_prompt}]
-    )
+    if use_gemini:
+        activity.logger.info("Using AI: google:gemini-2.5-pro-preview")
+        genai.configure(api_key=config.GOOGLE_API_KEY)
 
-    response_text = response.content[0].text
+        model = genai.GenerativeModel(
+            model_name='gemini-2.5-pro-preview-06-05',
+            system_instruction=system_prompt
+        )
+
+        response = model.generate_content(
+            research_prompt,
+            generation_config=genai.GenerationConfig(
+                max_output_tokens=16000,
+                temperature=0.7
+            )
+        )
+
+        response_text = response.text
+    else:
+        # Fallback to Claude
+        activity.logger.info("Using AI: anthropic:claude-sonnet-4 (fallback)")
+        client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=16000,
+            system=system_prompt,
+            messages=[{"role": "user", "content": research_prompt}]
+        )
+
+        response_text = response.content[0].text
 
     # Log response length for debugging
-    activity.logger.info(f"Claude response received: {len(response_text)} chars")
+    ai_provider = "Gemini" if use_gemini else "Claude"
+    activity.logger.info(f"{ai_provider} response received: {len(response_text)} chars")
     activity.logger.info(f"First 500 chars: {response_text[:500]}")
 
     # Parse response - look for TITLE: anywhere in first 20 lines
