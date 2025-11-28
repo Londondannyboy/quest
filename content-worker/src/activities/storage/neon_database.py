@@ -366,7 +366,12 @@ async def save_article_to_neon(
     target_keyword: Optional[str] = None,
     keyword_volume: Optional[int] = None,
     keyword_difficulty: Optional[float] = None,
-    secondary_keywords: Optional[List[str]] = None
+    secondary_keywords: Optional[List[str]] = None,
+    # Country guide content modes
+    content_story: Optional[str] = None,
+    content_guide: Optional[str] = None,
+    content_yolo: Optional[str] = None,
+    content_voices: Optional[List[Dict[str, Any]]] = None
 ) -> str:
     """
     Save or update article in Neon database.
@@ -392,6 +397,10 @@ async def save_article_to_neon(
         keyword_volume: Monthly search volume for target keyword
         keyword_difficulty: Difficulty score (0-100) for target keyword
         secondary_keywords: List of secondary keywords to target
+        content_story: Story mode content (narrative style) for country guides
+        content_guide: Guide mode content (practical style) for country guides
+        content_yolo: YOLO mode content (adventure style) for country guides
+        content_voices: Curated expat voices/testimonials for enrichment
 
     Returns:
         Article ID (str)
@@ -409,6 +418,13 @@ async def save_article_to_neon(
                 meta_description = payload.get("meta_description", "")[:160] if payload.get("meta_description") else ""
                 word_count = payload.get("word_count", 0)
                 article_angle = payload.get("article_angle") or article_type  # Use article_type as angle
+
+                # Extract content modes from payload if not explicitly provided
+                # These are used for country guide articles with story/guide/yolo modes
+                _content_story = content_story or payload.get("content_story")
+                _content_guide = content_guide or payload.get("content_guide")
+                _content_yolo = content_yolo or payload.get("content_yolo")
+                _content_voices = content_voices or payload.get("curation", {}).get("voices") or payload.get("content_voices")
 
                 if article_id:
                     # Update existing article
@@ -437,6 +453,10 @@ async def save_article_to_neon(
                             keyword_volume = COALESCE(%s, keyword_volume),
                             keyword_difficulty = COALESCE(%s, keyword_difficulty),
                             secondary_keywords = COALESCE(%s, secondary_keywords),
+                            content_story = COALESCE(%s, content_story),
+                            content_guide = COALESCE(%s, content_guide),
+                            content_yolo = COALESCE(%s, content_yolo),
+                            content_voices = COALESCE(%s, content_voices),
                             updated_at = NOW()
                         WHERE id = %s
                         RETURNING id
@@ -463,9 +483,15 @@ async def save_article_to_neon(
                         keyword_volume,
                         keyword_difficulty,
                         json.dumps(secondary_keywords) if secondary_keywords else None,
+                        _content_story,
+                        _content_guide,
+                        _content_yolo,
+                        json.dumps(_content_voices) if _content_voices else None,
                         article_id
                     ))
                     activity.logger.info(f"zep_facts for UPDATE: {len(zep_facts) if zep_facts else 'None'} facts")
+                    if _content_story:
+                        activity.logger.info(f"Content modes: story={len(_content_story)} chars, guide={len(_content_guide or '')} chars, yolo={len(_content_yolo or '')} chars")
                     if target_keyword:
                         activity.logger.info(f"SEO keyword: '{target_keyword}' (vol={keyword_volume}, diff={keyword_difficulty})")
 
@@ -500,10 +526,14 @@ async def save_article_to_neon(
                             keyword_volume,
                             keyword_difficulty,
                             secondary_keywords,
+                            content_story,
+                            content_guide,
+                            content_yolo,
+                            content_voices,
                             created_at,
                             updated_at
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
                         ON CONFLICT (slug)
                         DO UPDATE SET
                             title = EXCLUDED.title,
@@ -526,6 +556,10 @@ async def save_article_to_neon(
                             keyword_volume = COALESCE(EXCLUDED.keyword_volume, articles.keyword_volume),
                             keyword_difficulty = COALESCE(EXCLUDED.keyword_difficulty, articles.keyword_difficulty),
                             secondary_keywords = COALESCE(EXCLUDED.secondary_keywords, articles.secondary_keywords),
+                            content_story = COALESCE(EXCLUDED.content_story, articles.content_story),
+                            content_guide = COALESCE(EXCLUDED.content_guide, articles.content_guide),
+                            content_yolo = COALESCE(EXCLUDED.content_yolo, articles.content_yolo),
+                            content_voices = COALESCE(EXCLUDED.content_voices, articles.content_voices),
                             updated_at = NOW()
                         RETURNING id
                     """, (
@@ -550,9 +584,15 @@ async def save_article_to_neon(
                         target_keyword,
                         keyword_volume,
                         keyword_difficulty,
-                        json.dumps(secondary_keywords) if secondary_keywords else None
+                        json.dumps(secondary_keywords) if secondary_keywords else None,
+                        _content_story,
+                        _content_guide,
+                        _content_yolo,
+                        json.dumps(_content_voices) if _content_voices else None
                     ))
                     activity.logger.info(f"zep_facts for INSERT: {len(zep_facts) if zep_facts else 'None'} facts")
+                    if _content_story:
+                        activity.logger.info(f"Content modes: story={len(_content_story)} chars, guide={len(_content_guide or '')} chars, yolo={len(_content_yolo or '')} chars")
                     if target_keyword:
                         activity.logger.info(f"SEO keyword: '{target_keyword}' (vol={keyword_volume}, diff={keyword_difficulty})")
 

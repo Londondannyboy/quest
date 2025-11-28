@@ -547,7 +547,10 @@ class CountryGuideCreationWorkflow:
         article["content_guide"] = content_modes["guide"].get("content", "")
         article["content_yolo"] = content_modes["yolo"].get("content", "")
 
-        # Save curation data for future reference
+        # Add voices at top level for dedicated column (content_voices)
+        article["content_voices"] = research_context.get("voices", [])
+
+        # Save curation data for future reference (also in payload for backup)
         article["curation"] = {
             "voices": research_context.get("voices", []),
             "key_facts": research_context.get("key_facts", []),
