@@ -26,14 +26,25 @@ def get_mux_client():
 @activity.defn
 async def upload_video_to_mux(
     video_url: str,
-    public: bool = True
+    public: bool = True,
+    # Passthrough metadata for tagging
+    cluster_id: Optional[str] = None,
+    article_id: Optional[int] = None,
+    country: Optional[str] = None,
+    article_mode: Optional[str] = None,
+    tags: Optional[list] = None
 ) -> Dict[str, Any]:
     """
-    Upload a video to Mux from a URL.
+    Upload a video to Mux from a URL with optional passthrough metadata.
 
     Args:
         video_url: URL of the video file to upload
         public: Whether the video should be publicly accessible
+        cluster_id: UUID grouping related videos (for cluster architecture)
+        article_id: Associated article ID
+        country: Country name for the video
+        article_mode: Content mode (story, guide, yolo, voices)
+        tags: List of tags for categorization
 
     Returns:
         Dict with asset_id, playback_id, duration, and all generated URLs
@@ -46,9 +57,29 @@ async def upload_video_to_mux(
     # Create asset from URL
     playback_policy = [mux_python.PlaybackPolicy.PUBLIC] if public else [mux_python.PlaybackPolicy.SIGNED]
 
+    # Build passthrough metadata string (MUX stores as string, max 255 chars)
+    # Format: key1=value1;key2=value2
+    passthrough_parts = []
+    if cluster_id:
+        passthrough_parts.append(f"cluster={cluster_id[:36]}")
+    if article_id:
+        passthrough_parts.append(f"article={article_id}")
+    if country:
+        passthrough_parts.append(f"country={country[:20]}")
+    if article_mode:
+        passthrough_parts.append(f"mode={article_mode}")
+    if tags:
+        passthrough_parts.append(f"tags={','.join(tags[:5])}")
+
+    passthrough = ";".join(passthrough_parts)[:255] if passthrough_parts else None
+
+    if passthrough:
+        activity.logger.info(f"Passthrough metadata: {passthrough}")
+
     create_asset_request = mux_python.CreateAssetRequest(
         input=[mux_python.InputSettings(url=video_url)],
         playback_policy=playback_policy,
+        passthrough=passthrough,
     )
 
     asset = assets_api.create_asset(create_asset_request)
@@ -75,6 +106,7 @@ async def upload_video_to_mux(
                 "playback_id": playback_id,
                 "duration": duration,
                 "status": "ready",
+                "passthrough": passthrough,
                 **urls
             }
         elif asset_status.data.status == "errored":

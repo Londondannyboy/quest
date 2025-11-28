@@ -22,6 +22,7 @@ from src.workflows.news_creation import NewsCreationWorkflow
 from src.workflows.country_guide_creation import CountryGuideCreationWorkflow
 from src.workflows.segment_video_workflow import SegmentVideoWorkflow
 from src.workflows.crawl_url_workflow import CrawlUrlWorkflow
+from src.workflows.cluster_article_workflow import ClusterArticleWorkflow
 # NarrativeArticleCreationWorkflow removed - superseded by 4-act workflow in ArticleCreationWorkflow
 
 # Import all activities
@@ -168,6 +169,10 @@ from src.activities.storage.neon_database import (
     get_article_by_slug,
     update_article_four_act_content,  # NEW: Update four_act_content briefs and video_prompt
     save_spawn_candidate,
+    # Video tags for cluster architecture
+    save_video_tags,
+    get_videos_by_cluster,
+    get_videos_by_country,
 )
 
 from src.activities.storage.neon_countries import (
@@ -275,7 +280,7 @@ async def main():
     worker = Worker(
         client,
         task_queue=config.TEMPORAL_TASK_QUEUE,
-        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow, NewsCreationWorkflow, CountryGuideCreationWorkflow, SegmentVideoWorkflow, CrawlUrlWorkflow],
+        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow, NewsCreationWorkflow, CountryGuideCreationWorkflow, SegmentVideoWorkflow, CrawlUrlWorkflow, ClusterArticleWorkflow],
         activities=[
             # Normalization
             normalize_company_url,
@@ -361,6 +366,10 @@ async def main():
             update_article_four_act_content,  # NEW: Update briefs and video_prompt
             get_recent_articles_from_neon,
             save_spawn_candidate,  # Article spawn candidates
+            # Video tags for cluster architecture
+            save_video_tags,
+            get_videos_by_cluster,
+            get_videos_by_country,
 
             # Country Guide Database
             save_or_create_country,
@@ -405,6 +414,7 @@ async def main():
     print("   - NewsCreationWorkflow (Scheduled with intelligent video prompts)")
     print("   - CountryGuideCreationWorkflow (8-motivation country guides)")
     print("   - SegmentVideoWorkflow (Child workflow for segment videos)")
+    print("   - ClusterArticleWorkflow (Child workflow for cluster articles)")
     print("   - CrawlUrlWorkflow (Child workflow for individual URL crawls)")
 
     print("\n📋 Registered Activities:")

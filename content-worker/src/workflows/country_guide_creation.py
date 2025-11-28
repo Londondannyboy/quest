@@ -56,7 +56,8 @@ class CountryGuideCreationWorkflow:
                 "relocation_motivations": ["corporate", ...],  # Optional, defaults to all
                 "relocation_tags": ["eu-member", ...],  # Optional
                 "video_quality": "medium",  # Optional
-                "target_word_count": 4000  # Optional
+                "target_word_count": 4000,  # Optional
+                "use_cluster_architecture": False  # Optional - creates 4 separate articles instead of 1
             }
 
         Returns:
@@ -70,6 +71,7 @@ class CountryGuideCreationWorkflow:
         relocation_tags = input_dict.get("relocation_tags")
         video_quality = input_dict.get("video_quality", "medium")
         target_word_count = input_dict.get("target_word_count", 4000)
+        use_cluster_architecture = input_dict.get("use_cluster_architecture", False)
 
         workflow.logger.info(f"Creating country guide for {country_name} ({country_code})")
 
@@ -571,6 +573,223 @@ class CountryGuideCreationWorkflow:
             f"{metrics['word_count_guide']} (Guide), {metrics['word_count_yolo']} (YOLO), "
             f"{len(article.get('motivations', []))} motivations"
         )
+
+        # ===== CLUSTER ARCHITECTURE BRANCH =====
+        # If use_cluster_architecture is True, create 4 separate articles via child workflows
+        # instead of one article with 4 content columns
+        #
+        # IMPORTANT: Primary article (STORY) must complete FIRST before cluster siblings.
+        # This ensures we always get a "home run" primary article even if cluster creation fails.
+        if use_cluster_architecture:
+            workflow.logger.info("===== CLUSTER ARCHITECTURE MODE =====")
+            workflow.logger.info("Phase A: Create PRIMARY (Story) article first")
+
+            # Generate cluster UUID
+            cluster_id = str(workflow.uuid4())
+            workflow.logger.info(f"Cluster ID: {cluster_id}")
+
+            # Base slug from story article
+            base_slug = article.get("slug")
+
+            cluster_articles = []
+            parent_id = None
+            character_reference_url = None
+
+            # ===== PHASE A: CREATE PRIMARY (STORY) ARTICLE FIRST =====
+            # This MUST succeed before we create any other cluster articles
+            story_input = {
+                "country_name": country_name,
+                "country_code": country_code,
+                "cluster_id": cluster_id,
+                "article_mode": "story",
+                "parent_id": None,  # Story is the parent
+                "base_slug": base_slug,
+                "title": article.get("title"),
+                "content": content_modes["story"].get("content", ""),
+                "meta_description": article.get("meta_description", ""),
+                "excerpt": article.get("excerpt", ""),
+                "payload": article,
+                "app": app,
+                "video_quality": video_quality,
+                "character_reference_url": None,
+                "research_context": research_context,
+            }
+
+            workflow.logger.info("Creating STORY (primary) article with video...")
+
+            story_result = await workflow.execute_child_workflow(
+                "ClusterArticleWorkflow",
+                story_input,
+                id=f"cluster-{country_code.lower()}-story-{workflow.uuid4().hex[:8]}",
+                task_queue="quest-content-queue",
+                execution_timeout=timedelta(minutes=20)
+            )
+
+            if not story_result.get("success"):
+                workflow.logger.error(f"PRIMARY article failed: {story_result}")
+                raise RuntimeError(f"Primary article creation failed for {country_name}")
+
+            # Primary article succeeded - capture parent_id and character reference
+            parent_id = story_result.get("article_id")
+            character_reference_url = story_result.get("character_reference_url")
+            cluster_articles.append(story_result)
+
+            workflow.logger.info(
+                f"✅ PRIMARY ARTICLE COMPLETE: article_id={parent_id}, "
+                f"slug={story_result.get('slug')}, video={story_result.get('video_playback_id')}"
+            )
+            if character_reference_url:
+                workflow.logger.info(f"Character reference: {character_reference_url[:60]}...")
+
+            # ===== PHASE B: CREATE REMAINING CLUSTER ARTICLES (Gravy) =====
+            # These are bonus - primary is already safe in Neon
+            workflow.logger.info("Phase B: Creating remaining cluster articles (Guide/YOLO/Voices)")
+
+            remaining_modes = [
+                {
+                    "mode": "guide",
+                    "content": content_modes["guide"].get("content", ""),
+                    "meta_description": f"Practical guide for relocating to {country_name}. Step-by-step visa requirements, cost of living, and essential tips.",
+                    "excerpt": f"Your practical guide to relocating to {country_name}.",
+                },
+                {
+                    "mode": "yolo",
+                    "content": content_modes["yolo"].get("content", ""),
+                    "meta_description": f"The adventurous guide to {country_name} relocation. Bold moves, unique experiences, and living life fully.",
+                    "excerpt": f"YOLO guide: {country_name} for the adventurous.",
+                },
+                {
+                    "mode": "voices",
+                    "content": "",  # Voices mode uses testimonials, not markdown content
+                    "meta_description": f"Real expat voices and experiences from {country_name}. Authentic stories from people who made the move.",
+                    "excerpt": f"Hear from real expats in {country_name}.",
+                },
+            ]
+
+            for config in remaining_modes:
+                mode = config["mode"]
+                workflow.logger.info(f"Creating {mode.upper()} cluster article...")
+
+                child_input = {
+                    "country_name": country_name,
+                    "country_code": country_code,
+                    "cluster_id": cluster_id,
+                    "article_mode": mode,
+                    "parent_id": parent_id,  # Link to story as parent
+                    "base_slug": base_slug,
+                    "title": article.get("title"),
+                    "content": config["content"],
+                    "meta_description": config["meta_description"],
+                    "excerpt": config["excerpt"],
+                    "payload": article,
+                    "app": app,
+                    "video_quality": video_quality,
+                    "character_reference_url": character_reference_url,
+                    "research_context": research_context,
+                }
+
+                try:
+                    child_result = await workflow.execute_child_workflow(
+                        "ClusterArticleWorkflow",
+                        child_input,
+                        id=f"cluster-{country_code.lower()}-{mode}-{workflow.uuid4().hex[:8]}",
+                        task_queue="quest-content-queue",
+                        execution_timeout=timedelta(minutes=20)
+                    )
+
+                    if child_result.get("success"):
+                        cluster_articles.append(child_result)
+                        workflow.logger.info(
+                            f"  ✅ {mode.upper()} complete: article_id={child_result.get('article_id')}, "
+                            f"slug={child_result.get('slug')}"
+                        )
+                    else:
+                        workflow.logger.warning(f"  ⚠️ {mode.upper()} failed (non-blocking): {child_result}")
+
+                except Exception as e:
+                    # Non-blocking - primary is already saved, these are gravy
+                    workflow.logger.warning(f"  ⚠️ {mode.upper()} workflow failed (non-blocking): {e}")
+                    continue
+
+            # Update country and sync to Zep using story article
+            story_article = next((a for a in cluster_articles if a.get("article_mode") == "story"), None)
+            article_id = story_article.get("article_id") if story_article else None
+
+            if article_id:
+                # Link to country
+                await workflow.execute_activity(
+                    "link_article_to_country",
+                    args=[article_id, country_code, "country_comprehensive"],
+                    start_to_close_timeout=timedelta(seconds=30)
+                )
+
+                # Extract and update country facts
+                extracted_facts = await workflow.execute_activity(
+                    "extract_country_facts",
+                    args=[article],
+                    start_to_close_timeout=timedelta(seconds=30)
+                )
+
+                await workflow.execute_activity(
+                    "update_country_facts",
+                    args=[country_code, extracted_facts, True],
+                    start_to_close_timeout=timedelta(seconds=30)
+                )
+
+                # Sync story to Zep
+                try:
+                    await workflow.execute_activity(
+                        "sync_article_to_zep",
+                        args=[
+                            str(article_id),
+                            article.get("title", ""),
+                            article.get("slug", ""),
+                            article.get("content", ""),
+                            article.get("excerpt", ""),
+                            "country_guide",
+                            [],
+                            app
+                        ],
+                        start_to_close_timeout=timedelta(minutes=1)
+                    )
+                except Exception as e:
+                    workflow.logger.warning(f"Zep sync failed: {e}")
+
+                # Publish the country
+                await workflow.execute_activity(
+                    "publish_country",
+                    args=[country_code],
+                    start_to_close_timeout=timedelta(seconds=30)
+                )
+
+            metrics["cluster_id"] = cluster_id
+            metrics["cluster_articles"] = len(cluster_articles)
+
+            workflow.logger.info(f"===== CLUSTER CREATION COMPLETE =====")
+            workflow.logger.info(f"Created {len(cluster_articles)} cluster articles for {country_name}")
+
+            return {
+                "article_id": article_id,
+                "country_id": country_id,
+                "country_code": country_code,
+                "cluster_id": cluster_id,
+                "slug": article.get("slug"),
+                "title": article.get("title"),
+                "status": "published",
+                "cluster_articles": [
+                    {
+                        "article_id": a.get("article_id"),
+                        "slug": a.get("slug"),
+                        "mode": a.get("article_mode"),
+                        "video_playback_id": a.get("video_playback_id"),
+                    }
+                    for a in cluster_articles
+                ],
+                "metrics": metrics
+            }
+
+        # ===== LEGACY SINGLE-ARTICLE MODE =====
+        # Original behavior: save all content modes to one article
 
         # ===== PHASE 8: SAVE ARTICLE =====
         workflow.logger.info("Phase 8: Save Article to database")

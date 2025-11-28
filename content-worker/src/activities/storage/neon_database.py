@@ -367,11 +367,15 @@ async def save_article_to_neon(
     keyword_volume: Optional[int] = None,
     keyword_difficulty: Optional[float] = None,
     secondary_keywords: Optional[List[str]] = None,
-    # Country guide content modes
+    # Country guide content modes (legacy - single article approach)
     content_story: Optional[str] = None,
     content_guide: Optional[str] = None,
     content_yolo: Optional[str] = None,
-    content_voices: Optional[List[Dict[str, Any]]] = None
+    content_voices: Optional[List[Dict[str, Any]]] = None,
+    # Cluster architecture (new - separate articles per mode)
+    cluster_id: Optional[str] = None,
+    parent_id: Optional[int] = None,
+    article_mode: Optional[str] = None  # story, guide, yolo, voices
 ) -> str:
     """
     Save or update article in Neon database.
@@ -401,6 +405,9 @@ async def save_article_to_neon(
         content_guide: Guide mode content (practical style) for country guides
         content_yolo: YOLO mode content (adventure style) for country guides
         content_voices: Curated expat voices/testimonials for enrichment
+        cluster_id: UUID grouping related articles (Story/Guide/YOLO/Voices variants)
+        parent_id: ID of parent article in cluster (NULL for parent/Story article)
+        article_mode: Content mode: story, guide, yolo, or voices
 
     Returns:
         Article ID (str)
@@ -457,6 +464,9 @@ async def save_article_to_neon(
                             content_guide = COALESCE(%s, content_guide),
                             content_yolo = COALESCE(%s, content_yolo),
                             content_voices = COALESCE(%s, content_voices),
+                            cluster_id = COALESCE(%s, cluster_id),
+                            parent_id = COALESCE(%s, parent_id),
+                            article_mode = COALESCE(%s, article_mode),
                             updated_at = NOW()
                         WHERE id = %s
                         RETURNING id
@@ -487,6 +497,9 @@ async def save_article_to_neon(
                         _content_guide,
                         _content_yolo,
                         json.dumps(_content_voices) if _content_voices else None,
+                        cluster_id,
+                        parent_id,
+                        article_mode,
                         article_id
                     ))
                     activity.logger.info(f"zep_facts for UPDATE: {len(zep_facts) if zep_facts else 'None'} facts")
@@ -530,10 +543,13 @@ async def save_article_to_neon(
                             content_guide,
                             content_yolo,
                             content_voices,
+                            cluster_id,
+                            parent_id,
+                            article_mode,
                             created_at,
                             updated_at
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
                         ON CONFLICT (slug)
                         DO UPDATE SET
                             title = EXCLUDED.title,
@@ -560,6 +576,9 @@ async def save_article_to_neon(
                             content_guide = COALESCE(EXCLUDED.content_guide, articles.content_guide),
                             content_yolo = COALESCE(EXCLUDED.content_yolo, articles.content_yolo),
                             content_voices = COALESCE(EXCLUDED.content_voices, articles.content_voices),
+                            cluster_id = COALESCE(EXCLUDED.cluster_id, articles.cluster_id),
+                            parent_id = COALESCE(EXCLUDED.parent_id, articles.parent_id),
+                            article_mode = COALESCE(EXCLUDED.article_mode, articles.article_mode),
                             updated_at = NOW()
                         RETURNING id
                     """, (
@@ -588,11 +607,16 @@ async def save_article_to_neon(
                         _content_story,
                         _content_guide,
                         _content_yolo,
-                        json.dumps(_content_voices) if _content_voices else None
+                        json.dumps(_content_voices) if _content_voices else None,
+                        cluster_id,
+                        parent_id,
+                        article_mode
                     ))
                     activity.logger.info(f"zep_facts for INSERT: {len(zep_facts) if zep_facts else 'None'} facts")
                     if _content_story:
                         activity.logger.info(f"Content modes: story={len(_content_story)} chars, guide={len(_content_guide or '')} chars, yolo={len(_content_yolo or '')} chars")
+                    if cluster_id:
+                        activity.logger.info(f"Cluster: id={cluster_id}, parent_id={parent_id}, mode={article_mode}")
                     if target_keyword:
                         activity.logger.info(f"SEO keyword: '{target_keyword}' (vol={keyword_volume}, diff={keyword_difficulty})")
 
@@ -895,3 +919,191 @@ async def save_spawn_candidate(
     except Exception as e:
         activity.logger.error(f"Failed to save spawn candidate: {e}")
         return None
+
+
+@activity.defn
+async def save_video_tags(
+    video_playback_id: str,
+    mux_asset_id: str,
+    cluster_id: Optional[str] = None,
+    article_id: Optional[int] = None,
+    country: Optional[str] = None,
+    article_mode: Optional[str] = None,
+    tags: Optional[List[str]] = None
+) -> Optional[int]:
+    """
+    Save video metadata to the video_tags table for queryability.
+
+    This mirrors the MUX passthrough metadata and enables:
+    - Querying videos by country, mode, or cluster
+    - Building video galleries and collections
+    - Analytics on video content
+
+    Args:
+        video_playback_id: MUX playback ID (required)
+        mux_asset_id: MUX asset ID
+        cluster_id: UUID grouping related videos
+        article_id: Associated article ID
+        country: Country name for the video
+        article_mode: Content mode (story, guide, yolo, voices)
+        tags: List of tags for categorization
+
+    Returns:
+        video_tags row ID or None if failed
+    """
+    activity.logger.info(f"Saving video tags for playback_id: {video_playback_id}")
+
+    try:
+        async with await psycopg.AsyncConnection.connect(
+            config.DATABASE_URL
+        ) as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("""
+                    INSERT INTO video_tags (
+                        video_playback_id,
+                        mux_asset_id,
+                        cluster_id,
+                        article_id,
+                        country,
+                        article_mode,
+                        tags,
+                        created_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                    RETURNING id
+                """, (
+                    video_playback_id,
+                    mux_asset_id,
+                    cluster_id,
+                    article_id,
+                    country,
+                    article_mode,
+                    json.dumps(tags) if tags else '[]'
+                ))
+
+                result = await cur.fetchone()
+                tag_id = result[0] if result else None
+
+                await conn.commit()
+
+                activity.logger.info(
+                    f"Saved video tags: id={tag_id}, playback={video_playback_id}, "
+                    f"country={country}, mode={article_mode}"
+                )
+                return tag_id
+
+    except Exception as e:
+        activity.logger.error(f"Failed to save video tags: {e}")
+        return None
+
+
+@activity.defn
+async def get_videos_by_cluster(cluster_id: str) -> List[Dict[str, Any]]:
+    """
+    Get all videos in a cluster.
+
+    Args:
+        cluster_id: Cluster UUID
+
+    Returns:
+        List of video_tags records
+    """
+    activity.logger.info(f"Fetching videos for cluster: {cluster_id}")
+
+    try:
+        async with await psycopg.AsyncConnection.connect(
+            config.DATABASE_URL
+        ) as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("""
+                    SELECT
+                        id,
+                        video_playback_id,
+                        mux_asset_id,
+                        cluster_id,
+                        article_id,
+                        country,
+                        article_mode,
+                        tags,
+                        created_at
+                    FROM video_tags
+                    WHERE cluster_id = %s
+                    ORDER BY created_at ASC
+                """, (cluster_id,))
+
+                rows = await cur.fetchall()
+
+                return [
+                    {
+                        "id": row[0],
+                        "video_playback_id": row[1],
+                        "mux_asset_id": row[2],
+                        "cluster_id": str(row[3]) if row[3] else None,
+                        "article_id": row[4],
+                        "country": row[5],
+                        "article_mode": row[6],
+                        "tags": row[7] if row[7] else [],
+                        "created_at": row[8].isoformat() if row[8] else None
+                    }
+                    for row in rows
+                ]
+
+    except Exception as e:
+        activity.logger.error(f"Failed to fetch videos by cluster: {e}")
+        return []
+
+
+@activity.defn
+async def get_videos_by_country(country: str) -> List[Dict[str, Any]]:
+    """
+    Get all videos for a country.
+
+    Args:
+        country: Country name
+
+    Returns:
+        List of video_tags records
+    """
+    activity.logger.info(f"Fetching videos for country: {country}")
+
+    try:
+        async with await psycopg.AsyncConnection.connect(
+            config.DATABASE_URL
+        ) as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("""
+                    SELECT
+                        id,
+                        video_playback_id,
+                        mux_asset_id,
+                        cluster_id,
+                        article_id,
+                        country,
+                        article_mode,
+                        tags,
+                        created_at
+                    FROM video_tags
+                    WHERE LOWER(country) = LOWER(%s)
+                    ORDER BY created_at DESC
+                """, (country,))
+
+                rows = await cur.fetchall()
+
+                return [
+                    {
+                        "id": row[0],
+                        "video_playback_id": row[1],
+                        "mux_asset_id": row[2],
+                        "cluster_id": str(row[3]) if row[3] else None,
+                        "article_id": row[4],
+                        "country": row[5],
+                        "article_mode": row[6],
+                        "tags": row[7] if row[7] else [],
+                        "created_at": row[8].isoformat() if row[8] else None
+                    }
+                    for row in rows
+                ]
+
+    except Exception as e:
+        activity.logger.error(f"Failed to fetch videos by country: {e}")
+        return []
