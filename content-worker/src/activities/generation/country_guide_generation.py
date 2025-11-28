@@ -174,7 +174,29 @@ Include these keywords naturally in headings and content.
     # Build system prompt for country guide
     system_prompt = f"""You are an expert relocation consultant writing a comprehensive guide for {country_name}.
 
-You MUST cover ALL 8 relocation motivations with equal depth and authority:
+===== INTERNATIONAL PERSPECTIVE =====
+This guide serves an INTERNATIONAL English-speaking audience, primarily:
+- **UK citizens** - Address UK-specific concerns (NHS vs private healthcare, UK tax treaties, pension transfers from UK)
+- **US citizens** - Address US-specific concerns (FATCA, US tax obligations abroad, social security totalization)
+- **Other English-speaking expats** - Include relevant info for Australians, Canadians, Irish, etc.
+
+When discussing tax, visas, or financial matters:
+- Mention differences between UK and US citizens where relevant
+- Note any bilateral tax treaties with UK and USA
+- Include examples of real expats from different countries
+- Consider both "leaving the UK" and "leaving the US" perspectives
+
+===== FINANCE & WEALTH FOCUS =====
+This guide is ALSO used for financial planning. Include comprehensive coverage of:
+- Banking options for non-residents and new residents
+- Investment opportunities and restrictions
+- Property purchase rules for foreigners
+- Tax optimization strategies (legal)
+- Wealth protection and trust structures
+- Currency considerations and money transfer
+
+===== 8 RELOCATION MOTIVATIONS =====
+Cover ALL 8 motivations with equal depth and authority:
 1. CORPORATE - Company-sponsored moves, business visas, corporate tax
 2. TRUST - Asset protection, estate planning, trust structures
 3. WEALTH - Tax optimization, golden visas, investment options, banking

@@ -119,11 +119,53 @@ class CountryGuideCreationWorkflow:
             workflow.logger.warning(f"SEO research failed (non-blocking): {e}")
 
         # ===== PHASE 3: AUTHORITATIVE RESEARCH =====
-        workflow.logger.info("Phase 3: Authoritative Research - Exa + DataForSEO SERP")
+        # Comprehensive multi-region SERP + News searches
+        # 6 topics × 2 regions (UK + US) = 12 SERP searches + 1 News search
+        workflow.logger.info("Phase 3: Authoritative Research - 6 topics × 2 regions SERP + News")
 
-        # Parallel research: Exa + DataForSEO with SPECIFIC search queries
-        # DataForSEO query should be a real search query like "Portugal digital nomad visa"
+        # 6 core search topics for country guides
+        search_topics = [
+            f"{country_name} relocation",       # 1. Relocation intent
+            f"{country_name} finance expat",    # 2. Finance/banking
+            f"{country_name} visa",             # 3. Visa requirements
+            f"{country_name} tax expat",        # 4. Tax for expats
+            f"{country_name} cost of living",   # 5. Cost info
+            f"{country_name} property market",  # 6. Property/real estate
+        ]
+
+        # Search both UK and US regions for international perspective
+        regions = ["UK", "US"]
+
         try:
+            # Build parallel SERP tasks: 6 topics × 2 regions = 12 searches
+            # Depth: 20 results each (page 1-2 of Google)
+            serp_tasks = []
+            for topic in search_topics:
+                for region in regions:
+                    serp_tasks.append(
+                        workflow.execute_activity(
+                            "dataforseo_serp_search",
+                            args=[topic, region, 20, True, 4],  # 20 depth, AI overview, PAA
+                            start_to_close_timeout=timedelta(minutes=2),
+                            retry_policy=RetryPolicy(maximum_attempts=2)
+                        )
+                    )
+
+            workflow.logger.info(f"Launching {len(serp_tasks)} SERP searches (6 topics × 2 regions)")
+
+            # News search - all 6 topics for both regions
+            news_task = workflow.execute_activity(
+                "dataforseo_news_search",
+                args=[
+                    search_topics,  # All 6 topics
+                    regions,        # UK + US
+                    20              # 20 depth per query
+                ],
+                start_to_close_timeout=timedelta(minutes=3),
+                retry_policy=RetryPolicy(maximum_attempts=2)
+            )
+
+            # Exa for authoritative/editorial sources
             exa_task = workflow.execute_activity(
                 "exa_research_topic",
                 args=[f"{country_name} relocation guide", "guide", app],
@@ -131,79 +173,84 @@ class CountryGuideCreationWorkflow:
                 retry_policy=RetryPolicy(maximum_attempts=2)
             )
 
-            # Use a proper search query - what a real user would search
-            dataforseo_task = workflow.execute_activity(
-                "dataforseo_serp_search",
-                args=[
-                    f"{country_name} visa requirements 2025",  # Real search query
-                    "UK",
-                    100,  # depth - get more results
-                    True,  # include AI overview
-                    6  # people also ask depth
-                ],
-                start_to_close_timeout=timedelta(minutes=2),
-                retry_policy=RetryPolicy(maximum_attempts=2)
+            # Run all in parallel (12 SERP + 1 News + 1 Exa = 14 parallel calls)
+            all_results = await asyncio.gather(
+                *serp_tasks, news_task, exa_task, return_exceptions=True
             )
 
-            # Second SERP search for tax/cost topics
-            dataforseo_task_2 = workflow.execute_activity(
-                "dataforseo_serp_search",
-                args=[
-                    f"moving to {country_name} cost of living",  # Second query
-                    "UK",
-                    50,
-                    True,
-                    4
-                ],
-                start_to_close_timeout=timedelta(minutes=2),
-                retry_policy=RetryPolicy(maximum_attempts=2)
-            )
+            # Separate results
+            serp_results = all_results[:-2]   # First 12 are SERP
+            news_result = all_results[-2]      # News result
+            exa_result = all_results[-1]       # Exa result
 
-            exa_result, dataforseo_result, dataforseo_result_2 = await asyncio.gather(
-                exa_task, dataforseo_task, dataforseo_task_2, return_exceptions=True
-            )
-
-            # Combine results
+            # Combine results with deduplication
             research_urls = []
             research_content = []
+            news_articles = []
+            paa_questions = []
+            seen_urls = set()
 
-            if not isinstance(exa_result, Exception):
+            # Process Exa results first (authoritative sources)
+            if not isinstance(exa_result, Exception) and exa_result:
                 research_content.append(exa_result.get("summary", ""))
-                research_urls.extend(exa_result.get("urls", [])[:20])
-                metrics["research_sources"] += len(exa_result.get("urls", []))
-                workflow.logger.info(f"Exa returned {len(exa_result.get('urls', []))} URLs")
+                for url in exa_result.get("urls", [])[:15]:
+                    if url and url not in seen_urls:
+                        research_urls.append(url)
+                        seen_urls.add(url)
+                workflow.logger.info(f"Exa: {len(exa_result.get('urls', []))} URLs")
 
-            # FIX: Use correct field names from dataforseo_serp_search activity
-            # Activity returns: {"results": [...], "all_urls": [...], ...}
-            for df_result in [dataforseo_result, dataforseo_result_2]:
-                if not isinstance(df_result, Exception):
-                    # Get all_urls which contains deduplicated URLs from all SERP features
+            # Process all 12 SERP results
+            serp_url_count = 0
+            for df_result in serp_results:
+                if not isinstance(df_result, Exception) and df_result:
                     all_urls = df_result.get("all_urls", [])
-                    for item in all_urls[:30]:
+                    for item in all_urls[:15]:  # Top 15 per SERP
                         url = item.get("url") if isinstance(item, dict) else item
-                        if url:
+                        if url and url not in seen_urls:
                             research_urls.append(url)
+                            seen_urls.add(url)
+                            serp_url_count += 1
 
-                    # Also get organic results for snippets
-                    results = df_result.get("results", [])
-                    for item in results[:20]:
+                    # Collect snippets for context
+                    for item in df_result.get("results", [])[:8]:
                         if item.get("snippet"):
                             research_content.append(item["snippet"])
 
-                    # Get People Also Ask questions for FAQ
+                    # Collect PAA questions (great for FAQ)
                     paa = df_result.get("paa_questions", [])
-                    if paa:
-                        workflow.logger.info(f"DataForSEO PAA questions: {paa[:5]}")
+                    paa_questions.extend(paa)
 
-                    metrics["research_sources"] += len(all_urls)
-                    workflow.logger.info(f"DataForSEO SERP returned {len(all_urls)} URLs for '{df_result.get('query', 'unknown')}'")
+            workflow.logger.info(f"SERP: {serp_url_count} unique URLs from 12 searches")
 
-            workflow.logger.info(f"Research collected: {len(research_urls)} URLs, {len(research_content)} snippets")
+            # Process news results
+            if not isinstance(news_result, Exception) and news_result:
+                articles = news_result.get("articles", [])
+                for article in articles[:30]:  # Top 30 news
+                    url = article.get("url")
+                    if url and url not in seen_urls:
+                        research_urls.append(url)
+                        seen_urls.add(url)
+                        news_articles.append({
+                            "title": article.get("title", ""),
+                            "url": url,
+                            "snippet": article.get("snippet", ""),
+                            "source": article.get("source", ""),
+                            "timestamp": article.get("timestamp", "")
+                        })
+                workflow.logger.info(f"News: {len(news_articles)} unique articles")
+
+            # Dedupe PAA questions
+            paa_questions = list(set(paa_questions))
+
+            metrics["research_sources"] = len(research_urls)
+            workflow.logger.info(f"✅ Research complete: {len(research_urls)} URLs, {len(research_content)} snippets, {len(news_articles)} news, {len(paa_questions)} PAA questions")
 
         except Exception as e:
             workflow.logger.error(f"Research phase failed: {e}")
             research_urls = []
             research_content = []
+            news_articles = []
+            paa_questions = []
 
         # ===== PHASE 4: CRAWL SOURCES =====
         workflow.logger.info("Phase 4: Crawl Sources - Crawl4AI batch crawl")
@@ -214,17 +261,18 @@ class CountryGuideCreationWorkflow:
                 # Pre-filter URLs by relevancy
                 filtered_urls = await workflow.execute_activity(
                     "prefilter_urls_by_relevancy",
-                    args=[research_urls[:40], f"{country_name} relocation visa tax"],
+                    args=[research_urls[:50], f"{country_name} relocation visa tax finance"],
                     start_to_close_timeout=timedelta(minutes=2)
                 )
 
-                relevant_urls = [u.get("url") for u in filtered_urls.get("relevant", [])][:15]
+                relevant_urls = [u.get("url") for u in filtered_urls.get("relevant", [])][:20]
+                workflow.logger.info(f"Filtered to {len(relevant_urls)} relevant URLs from {len(research_urls)}")
 
                 if relevant_urls:
                     crawl_result = await workflow.execute_activity(
-                        "crawl4ai_batch",  # Activity name is "crawl4ai_batch" not "crawl4ai_batch_crawl"
+                        "crawl4ai_batch",
                         args=[relevant_urls],
-                        start_to_close_timeout=timedelta(minutes=3),
+                        start_to_close_timeout=timedelta(minutes=5),  # More time for more URLs
                         retry_policy=RetryPolicy(maximum_attempts=2)
                     )
 
@@ -233,11 +281,11 @@ class CountryGuideCreationWorkflow:
                             crawled_content.append({
                                 "url": result.get("url"),
                                 "title": result.get("title", ""),
-                                "content": result.get("content", "")[:8000]  # Limit per source
+                                "content": result.get("content", "")[:10000]  # More content per source
                             })
 
                     metrics["crawled_urls"] = len(crawled_content)
-                    workflow.logger.info(f"Crawled {len(crawled_content)} sources")
+                    workflow.logger.info(f"Crawled {len(crawled_content)} sources successfully")
 
             except Exception as e:
                 workflow.logger.warning(f"Crawl phase failed (non-blocking): {e}")
@@ -245,14 +293,18 @@ class CountryGuideCreationWorkflow:
         # ===== PHASE 5: CURATE RESEARCH =====
         workflow.logger.info("Phase 5: Curate Research - AI filter and summarize")
 
-        # Build research context for generation (will be enhanced by curation)
+        # Build research context for generation
+        # Include international perspective guidance
         research_context = {
             "country": country_name,
             "code": country_code,
-            "summaries": research_content[:10],
-            "crawled_sources": crawled_content[:15],
-            "seo_keywords": seo_keywords.get("primary_keywords", [])[:10],
-            "questions": seo_keywords.get("questions", [])[:15]
+            "perspective": "International - primarily UK and US citizens, but also applicable to other English-speaking expats",
+            "summaries": research_content[:15],
+            "crawled_sources": crawled_content[:20],
+            "news_articles": news_articles[:10] if 'news_articles' in dir() else [],
+            "paa_questions": list(set(paa_questions))[:20] if 'paa_questions' in dir() else [],  # Dedupe
+            "seo_keywords": seo_keywords.get("primary_keywords", [])[:15],
+            "seo_questions": seo_keywords.get("questions", [])[:20]
         }
 
         try:
@@ -260,20 +312,21 @@ class CountryGuideCreationWorkflow:
             curation_result = await workflow.execute_activity(
                 "curate_research_sources",
                 args=[
-                    f"{country_name} relocation guide",  # topic
+                    f"{country_name} relocation and finance guide for UK and US citizens",  # topic
                     crawled_content,  # crawled_pages (list of dicts)
-                    [],  # news_articles (empty for country guides)
-                    [],  # exa_results (empty - we already have exa in crawled_content)
-                    20   # max_sources
+                    news_articles if 'news_articles' in dir() else [],  # news_articles
+                    [],  # exa_results (already included in crawled_content)
+                    25   # max_sources - more for comprehensive guide
                 ],
-                start_to_close_timeout=timedelta(minutes=2)
+                start_to_close_timeout=timedelta(minutes=3)
             )
 
             research_context["curated_summary"] = curation_result.get("summary", "")
             research_context["key_facts"] = curation_result.get("key_facts", [])
             research_context["curated_sources"] = curation_result.get("curated_sources", [])
+            research_context["voices"] = curation_result.get("voices", [])  # Human perspectives
 
-            workflow.logger.info(f"Curation complete: {len(research_context.get('curated_sources', []))} curated sources")
+            workflow.logger.info(f"Curation complete: {len(research_context.get('curated_sources', []))} sources, {len(research_context.get('key_facts', []))} facts")
 
         except Exception as e:
             workflow.logger.warning(f"Curation failed (non-blocking): {e}")
