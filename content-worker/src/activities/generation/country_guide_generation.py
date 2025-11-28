@@ -171,20 +171,62 @@ QUESTIONS TO ANSWER: {[q.get("keyword", "") for q in questions]}
 Include these keywords naturally in headings and content.
 """
 
+    # Build guidance from DISCOVERED keywords and audiences
+    # This is the key insight from DataForSEO Labs - what people ACTUALLY search for
+    discovered_guidance = ""
+    discovered_keywords = research_context.get("discovered_keywords", [])
+    unique_audiences = research_context.get("unique_audiences", [])
+    content_themes = research_context.get("content_themes", {})
+
+    if discovered_keywords or unique_audiences:
+        discovered_guidance = f"""
+===== DISCOVERED SEARCH INTENT (CRITICAL) =====
+These are ACTUAL search queries people use - your content MUST address these:
+
+**TOP SEARCHED KEYWORDS:**
+{chr(10).join(['- ' + kw for kw in discovered_keywords[:15]]) if discovered_keywords else '- No keywords discovered'}
+
+**UNIQUE AUDIENCES TO ADDRESS:**
+{chr(10).join(['- ' + (a.get("keyword", "") if isinstance(a, dict) else str(a)) + f' (volume: {a.get("volume", "?")})' for a in unique_audiences[:10]]) if unique_audiences else '- Standard UK/US expat audience'}
+
+These audiences reveal GLOBAL interest - not just UK/US expats!
+For example, if "portugal visa for indians" appears, include a dedicated section or FAQ for Indian nationals.
+Address visa requirements, tax treaties, and practical considerations for EACH unique audience discovered.
+
+**CONTENT THEMES BY SEARCH VOLUME:**
+"""
+        for theme, keywords in content_themes.items():
+            if keywords:
+                top_kws = [k.get("keyword", "") if isinstance(k, dict) else str(k) for k in keywords[:3]]
+                discovered_guidance += f"- {theme.upper()}: {', '.join(top_kws)}\n"
+
+        discovered_guidance += """
+Structure your content to address these ACTUAL search intents, not assumed topics.
+"""
+
     # Build system prompt for country guide
     system_prompt = f"""You are an expert relocation consultant writing a comprehensive guide for {country_name}.
 
-===== INTERNATIONAL PERSPECTIVE =====
-This guide serves an INTERNATIONAL English-speaking audience, primarily:
-- **UK citizens** - Address UK-specific concerns (NHS vs private healthcare, UK tax treaties, pension transfers from UK)
+===== GLOBAL AUDIENCE (NOT JUST UK/US) =====
+This guide serves a GLOBAL English-speaking audience:
+- **UK citizens** - Address UK-specific concerns (NHS vs private healthcare, UK tax treaties, pension transfers)
 - **US citizens** - Address US-specific concerns (FATCA, US tax obligations abroad, social security totalization)
-- **Other English-speaking expats** - Include relevant info for Australians, Canadians, Irish, etc.
+- **Indian nationals** - If discovered in search data, address Indian visa requirements, tax treaties with India
+- **Other nationalities** - Australians, Canadians, Irish, South Africans, Singaporeans, etc.
 
-When discussing tax, visas, or financial matters:
-- Mention differences between UK and US citizens where relevant
-- Note any bilateral tax treaties with UK and USA
-- Include examples of real expats from different countries
-- Consider both "leaving the UK" and "leaving the US" perspectives
+The world is moving around - not just British and Americans!
+If keyword research reveals interest from specific nationalities (e.g., "portugal visa for indians"),
+dedicate FAQ sections or subsections to those audiences.
+
+{discovered_guidance}
+
+===== CROSS-PLATFORM FOCUS =====
+This guide serves multiple platforms:
+- **relocation.quest** - Primary focus: comprehensive relocation guidance
+- **placement.quest** - Job opportunities, career considerations, work permits
+- **Rainmaker** - Finance, wealth management, investment opportunities
+
+Balance the content to be holistic while keeping relocation as the core focus.
 
 ===== FINANCE & WEALTH FOCUS =====
 This guide is ALSO used for financial planning. Include comprehensive coverage of:
