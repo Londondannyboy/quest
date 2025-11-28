@@ -343,7 +343,16 @@ class CountryGuideCreationWorkflow:
         try:
             await workflow.execute_activity(
                 "sync_article_to_zep",
-                args=[article_id, article.get("title"), article.get("content", ""), app],
+                args=[
+                    str(article_id),  # article_id
+                    article.get("title", ""),  # title
+                    article.get("slug", ""),  # slug
+                    article.get("content", ""),  # content
+                    article.get("excerpt", ""),  # excerpt
+                    "country_guide",  # article_type
+                    [],  # mentioned_companies
+                    app  # app
+                ],
                 start_to_close_timeout=timedelta(minutes=1)
             )
             workflow.logger.info("Article synced to Zep")
