@@ -551,30 +551,79 @@ with tab_country:
     st.subheader("Create Country Relocation Guide")
     st.markdown("*Comprehensive guide covering all 8 relocation motivations*")
 
-    # Country Name (required)
-    country_name = st.text_input(
-        "Country Name *",
-        placeholder="Portugal",
-        help="Full country name",
-        key="country_name"
+    # Pre-populated country list with codes and languages
+    COUNTRIES = {
+        "Portugal (PT)": {"code": "PT", "language": "Portuguese, English"},
+        "Spain (ES)": {"code": "ES", "language": "Spanish, English"},
+        "Cyprus (CY)": {"code": "CY", "language": "Greek, Turkish, English"},
+        "Malta (MT)": {"code": "MT", "language": "Maltese, English"},
+        "Greece (GR)": {"code": "GR", "language": "Greek, English"},
+        "Italy (IT)": {"code": "IT", "language": "Italian, English"},
+        "France (FR)": {"code": "FR", "language": "French, English"},
+        "Netherlands (NL)": {"code": "NL", "language": "Dutch, English"},
+        "Germany (DE)": {"code": "DE", "language": "German, English"},
+        "Ireland (IE)": {"code": "IE", "language": "English, Irish"},
+        "Switzerland (CH)": {"code": "CH", "language": "German, French, Italian, English"},
+        "Monaco (MC)": {"code": "MC", "language": "French, English"},
+        "Andorra (AD)": {"code": "AD", "language": "Catalan, Spanish, French"},
+        "United Arab Emirates (AE)": {"code": "AE", "language": "Arabic, English"},
+        "Qatar (QA)": {"code": "QA", "language": "Arabic, English"},
+        "Bahrain (BH)": {"code": "BH", "language": "Arabic, English"},
+        "Saudi Arabia (SA)": {"code": "SA", "language": "Arabic, English"},
+        "Oman (OM)": {"code": "OM", "language": "Arabic, English"},
+        "Thailand (TH)": {"code": "TH", "language": "Thai, English"},
+        "Malaysia (MY)": {"code": "MY", "language": "Malay, English"},
+        "Singapore (SG)": {"code": "SG", "language": "English, Mandarin, Malay, Tamil"},
+        "Indonesia (ID)": {"code": "ID", "language": "Indonesian, English"},
+        "Vietnam (VN)": {"code": "VN", "language": "Vietnamese, English"},
+        "Philippines (PH)": {"code": "PH", "language": "Filipino, English"},
+        "Japan (JP)": {"code": "JP", "language": "Japanese, English"},
+        "South Korea (KR)": {"code": "KR", "language": "Korean, English"},
+        "Taiwan (TW)": {"code": "TW", "language": "Mandarin, English"},
+        "Hong Kong (HK)": {"code": "HK", "language": "Cantonese, English, Mandarin"},
+        "Australia (AU)": {"code": "AU", "language": "English"},
+        "New Zealand (NZ)": {"code": "NZ", "language": "English, Māori"},
+        "Canada (CA)": {"code": "CA", "language": "English, French"},
+        "United States (US)": {"code": "US", "language": "English, Spanish"},
+        "Mexico (MX)": {"code": "MX", "language": "Spanish, English"},
+        "Costa Rica (CR)": {"code": "CR", "language": "Spanish, English"},
+        "Panama (PA)": {"code": "PA", "language": "Spanish, English"},
+        "Belize (BZ)": {"code": "BZ", "language": "English, Spanish"},
+        "Colombia (CO)": {"code": "CO", "language": "Spanish, English"},
+        "Brazil (BR)": {"code": "BR", "language": "Portuguese, English"},
+        "Argentina (AR)": {"code": "AR", "language": "Spanish, English"},
+        "Uruguay (UY)": {"code": "UY", "language": "Spanish, English"},
+        "Chile (CL)": {"code": "CL", "language": "Spanish, English"},
+        "Mauritius (MU)": {"code": "MU", "language": "English, French, Creole"},
+        "South Africa (ZA)": {"code": "ZA", "language": "English, Afrikaans, Zulu"},
+        "Morocco (MA)": {"code": "MA", "language": "Arabic, French, English"},
+        "Egypt (EG)": {"code": "EG", "language": "Arabic, English"},
+        "St Kitts and Nevis (KN)": {"code": "KN", "language": "English"},
+        "Antigua and Barbuda (AG)": {"code": "AG", "language": "English"},
+        "Dominica (DM)": {"code": "DM", "language": "English"},
+        "Grenada (GD)": {"code": "GD", "language": "English"},
+        "Barbados (BB)": {"code": "BB", "language": "English"},
+        "Cayman Islands (KY)": {"code": "KY", "language": "English"},
+        "British Virgin Islands (VG)": {"code": "VG", "language": "English"},
+    }
+
+    # Country dropdown
+    selected_country = st.selectbox(
+        "Select Country *",
+        options=list(COUNTRIES.keys()),
+        index=0,
+        help="Choose a country for the relocation guide",
+        key="country_select"
     )
 
-    # Country Code (required)
-    country_code = st.text_input(
-        "Country Code (ISO 3166-1 alpha-2) *",
-        placeholder="PT",
-        max_chars=2,
-        help="Two-letter country code (e.g., PT for Portugal, TH for Thailand)",
-        key="country_code"
-    )
+    # Extract country info
+    country_info = COUNTRIES[selected_country]
+    country_code = country_info["code"]
+    country_name = selected_country.split(" (")[0]  # "Portugal (PT)" -> "Portugal"
+    country_language = country_info["language"]
 
-    # Languages (optional)
-    country_language = st.text_input(
-        "Languages (optional)",
-        placeholder="Portuguese, English",
-        help="Primary languages spoken",
-        key="country_language"
-    )
+    # Show selected info
+    st.caption(f"📍 **{country_name}** | Code: `{country_code}` | Languages: {country_language}")
 
     # Relocation Motivations
     st.divider()
@@ -609,43 +658,36 @@ with tab_country:
 
     # Video option
     st.divider()
-    col1, col2 = st.columns(2)
+    st.markdown("**Video Settings**")
 
-    with col1:
-        generate_country_video = st.checkbox(
-            "Generate Video",
-            value=True,
-            help="Generate 4-act cinematic video",
-            key="country_video"
+    generate_country_video = st.checkbox(
+        "Generate 4-Act Video (Seedance)",
+        value=True,
+        help="12-second cinematic video using Seedance model. Thumbnails extracted for article sections.",
+        key="country_video"
+    )
+
+    if generate_country_video:
+        country_video_quality = st.radio(
+            "Resolution",
+            ["480p (fast, ~$0.05)", "720p (recommended, ~$0.08)", "1080p (slow, ~$0.12)"],
+            index=1,
+            horizontal=True,
+            key="country_video_quality"
         )
-
-        if generate_country_video:
-            country_video_quality = st.selectbox(
-                "Video Quality",
-                ["low", "medium", "high"],
-                index=1,
-                help="low: 480p, medium: 720p, high: 1080p",
-                key="country_video_quality"
-            )
-        else:
-            country_video_quality = None
-
-    with col2:
-        country_word_count = st.slider(
-            "Target Word Count",
-            min_value=2000,
-            max_value=8000,
-            value=4000,
-            step=500,
-            help="Target length of the guide",
-            key="country_word_count"
-        )
+        # Map display to actual value
+        quality_map = {"480p (fast, ~$0.05)": "low", "720p (recommended, ~$0.08)": "medium", "1080p (slow, ~$0.12)": "high"}
+        country_video_quality = quality_map[country_video_quality]
+    else:
+        country_video_quality = None
 
     # Cost/time estimate
     st.divider()
-    st.caption("💰 **Estimated cost:** $0.15-0.25")
+    video_cost = {"low": 0.05, "medium": 0.08, "high": 0.12}.get(country_video_quality, 0)
+    total_cost = 0.10 + video_cost  # Research + AI + video
+    st.caption(f"💰 **Estimated cost:** ${total_cost:.2f}")
     st.caption("⏱️ **Estimated time:** 8-15 minutes")
-    st.caption("📋 **Outputs:** Country guide article + Video + Country facts JSONB")
+    st.caption("📋 **Outputs:** Country guide + 4-act video + Country facts JSONB")
 
     # Submit button
     st.divider()

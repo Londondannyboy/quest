@@ -263,7 +263,7 @@ class CountryGuideCreationWorkflow:
         try:
             zep_context = await workflow.execute_activity(
                 "query_zep_for_context",
-                args=[f"{country_name} relocation visa tax", app, 5],
+                args=[f"{country_name} relocation visa tax", country_name.lower(), app],
                 start_to_close_timeout=timedelta(seconds=30)
             )
 
