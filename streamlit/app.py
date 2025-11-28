@@ -79,7 +79,7 @@ with st.sidebar:
     st.caption("Powered by Temporal + Gemini 2.5 Flash")
 
 # Main navigation tabs
-tab_company, tab_article, tab_zep = st.tabs(["🏢 Company Profile", "📝 Article Creation", "🧠 Zep Facts"])
+tab_company, tab_article, tab_country, tab_zep = st.tabs(["🏢 Company Profile", "📝 Article Creation", "🌍 Country Guide", "🧠 Zep Facts"])
 
 # ===== COMPANY PROFILE TAB =====
 with tab_company:
@@ -524,6 +524,204 @@ with tab_article:
                         steps += f"\n\n                        **Estimated time:** {time_estimate}"
 
                         st.markdown(steps)
+
+                    else:
+                        # Error response
+                        st.error(f"❌ **Error {response.status_code}**")
+
+                        try:
+                            error_data = response.json()
+                            st.code(error_data, language="json")
+                        except:
+                            st.text(response.text)
+
+                except requests.exceptions.Timeout:
+                    st.error("❌ Request timed out. The workflow may still have started - check Temporal UI.")
+
+                except requests.exceptions.ConnectionError:
+                    st.error(f"❌ Could not connect to Gateway at {GATEWAY_URL}")
+                    st.info("Check that the Gateway URL is correct and the service is running.")
+
+                except Exception as e:
+                    st.error(f"❌ Unexpected error: {str(e)}")
+                    st.code(str(e), language="text")
+
+# ===== COUNTRY GUIDE TAB =====
+with tab_country:
+    st.subheader("Create Country Relocation Guide")
+    st.markdown("*Comprehensive guide covering all 8 relocation motivations*")
+
+    # Country Name (required)
+    country_name = st.text_input(
+        "Country Name *",
+        placeholder="Portugal",
+        help="Full country name",
+        key="country_name"
+    )
+
+    # Country Code (required)
+    country_code = st.text_input(
+        "Country Code (ISO 3166-1 alpha-2) *",
+        placeholder="PT",
+        max_chars=2,
+        help="Two-letter country code (e.g., PT for Portugal, TH for Thailand)",
+        key="country_code"
+    )
+
+    # Languages (optional)
+    country_language = st.text_input(
+        "Languages (optional)",
+        placeholder="Portuguese, English",
+        help="Primary languages spoken",
+        key="country_language"
+    )
+
+    # Relocation Motivations
+    st.divider()
+    st.markdown("**Relocation Motivations** *(select all that apply)*")
+
+    all_motivations = [
+        ("corporate", "💼 Corporate", "Business setup, corporate tax"),
+        ("trust", "🛡️ Trust", "Asset protection, trusts"),
+        ("wealth", "💎 Wealth", "Wealth management, private banking"),
+        ("retirement", "🌅 Retirement", "Retirement visas, pension"),
+        ("digital-nomad", "💻 Digital Nomad", "Remote work visas"),
+        ("lifestyle", "🌴 Lifestyle", "Quality of life, climate"),
+        ("new-start", "🚀 New Start", "Fresh beginning, escape"),
+        ("family", "👨‍👩‍👧‍👦 Family", "Family relocation, schools"),
+    ]
+
+    selected_motivations = []
+    cols = st.columns(4)
+    for i, (key, label, desc) in enumerate(all_motivations):
+        with cols[i % 4]:
+            if st.checkbox(label, value=True, help=desc, key=f"mot_{key}"):
+                selected_motivations.append(key)
+
+    # Tags (optional)
+    st.divider()
+    tags_input = st.text_input(
+        "Tags (optional)",
+        placeholder="eu-member, schengen, english-speaking",
+        help="Comma-separated tags for the country",
+        key="country_tags"
+    )
+
+    # Video option
+    st.divider()
+    col1, col2 = st.columns(2)
+
+    with col1:
+        generate_country_video = st.checkbox(
+            "Generate Video",
+            value=True,
+            help="Generate 4-act cinematic video",
+            key="country_video"
+        )
+
+        if generate_country_video:
+            country_video_quality = st.selectbox(
+                "Video Quality",
+                ["low", "medium", "high"],
+                index=1,
+                help="low: 480p, medium: 720p, high: 1080p",
+                key="country_video_quality"
+            )
+        else:
+            country_video_quality = None
+
+    with col2:
+        country_word_count = st.slider(
+            "Target Word Count",
+            min_value=2000,
+            max_value=8000,
+            value=4000,
+            step=500,
+            help="Target length of the guide",
+            key="country_word_count"
+        )
+
+    # Cost/time estimate
+    st.divider()
+    st.caption("💰 **Estimated cost:** $0.15-0.25")
+    st.caption("⏱️ **Estimated time:** 8-15 minutes")
+    st.caption("📋 **Outputs:** Country guide article + Video + Country facts JSONB")
+
+    # Submit button
+    st.divider()
+
+    if st.button("🌍 Create Country Guide", type="primary", use_container_width=True, key="create_country"):
+        # Validation
+        if not country_name:
+            st.error("❌ Please provide a country name")
+        elif not country_code or len(country_code) != 2:
+            st.error("❌ Please provide a valid 2-letter country code")
+        elif not selected_motivations:
+            st.error("❌ Please select at least one motivation")
+        else:
+            # Show progress
+            with st.spinner("🌍 Creating country guide... This takes 8-15 minutes"):
+                try:
+                    # Parse tags
+                    tags = [t.strip() for t in tags_input.split(",")] if tags_input else None
+
+                    # Build request payload
+                    request_payload = {
+                        "country_name": country_name,
+                        "country_code": country_code.upper(),
+                        "app": "relocation",
+                        "language": country_language if country_language else None,
+                        "relocation_motivations": selected_motivations,
+                        "relocation_tags": tags,
+                        "video_quality": country_video_quality,
+                        "target_word_count": country_word_count,
+                    }
+
+                    response = requests.post(
+                        f"{GATEWAY_URL}/v1/workflows/country-guide",
+                        headers={
+                            "Content-Type": "application/json",
+                            "X-API-Key": API_KEY
+                        },
+                        json=request_payload,
+                        timeout=30
+                    )
+
+                    # Handle response
+                    if response.status_code == 200 or response.status_code == 201:
+                        data = response.json()
+
+                        # Success message
+                        st.success("✅ **Country Guide Workflow Started!**")
+
+                        # Workflow details
+                        st.info(f"**Workflow ID:**\n```\n{data['workflow_id']}\n```")
+
+                        st.info(f"**Country:** {country_name} ({country_code.upper()})")
+                        st.info(f"**Motivations:** {len(selected_motivations)} selected")
+
+                        if "message" in data:
+                            st.info(f"**Timeline:** {data['message']}")
+
+                        # Temporal link
+                        temporal_url = f"https://cloud.temporal.io/namespaces/quickstart-quest.zivkb/workflows/{data['workflow_id']}"
+                        st.markdown(f"### [📊 Monitor in Temporal UI]({temporal_url})")
+
+                        # Instructions
+                        st.divider()
+                        st.markdown("""
+                        **What's happening:**
+                        1. 📊 SEO Research (DataForSEO keywords)
+                        2. 🔍 Authoritative Research (Exa + DataForSEO)
+                        3. 📥 Crawling discovered URLs
+                        4. 🧠 Querying Zep knowledge graph
+                        5. ✍️ Generating 8-motivation guide
+                        6. 💾 Saving article & updating country facts
+                        7. 📹 Generating 4-act video
+                        8. ✅ Publishing guide
+
+                        **Expected time:** 8-15 minutes
+                        """)
 
                     else:
                         # Error response

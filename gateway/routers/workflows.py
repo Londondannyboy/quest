@@ -619,6 +619,18 @@ async def trigger_article_creation_workflow(
 # NEWS MONITOR WORKFLOW ENDPOINT
 # ============================================================================
 
+class CountryGuideRequest(BaseModel):
+    """Request to trigger CountryGuideCreationWorkflow"""
+    country_name: str = Field(..., description="Country name (e.g., Portugal, Thailand)", min_length=2)
+    country_code: str = Field(..., description="ISO 3166-1 alpha-2 code (e.g., PT, TH)", min_length=2, max_length=2)
+    app: str = Field(default="relocation", description="App context (relocation)")
+    language: Optional[str] = Field(default=None, description="Official languages (e.g., 'Portuguese, English')")
+    relocation_motivations: Optional[List[str]] = Field(default=None, description="List: corporate, trust, wealth, retirement, digital-nomad, lifestyle, new-start, family")
+    relocation_tags: Optional[List[str]] = Field(default=None, description="Tags like eu-member, schengen, english-speaking")
+    video_quality: str = Field(default="medium", description="Video quality: low, medium, high")
+    target_word_count: int = Field(default=4000, description="Target word count for guide")
+
+
 class NewsMonitorRequest(BaseModel):
     """Request to trigger NewsMonitorWorkflow"""
     app: str = Field(default="placement", description="App: placement, relocation")
@@ -691,6 +703,107 @@ async def trigger_news_monitor_workflow(
             started_at=datetime.utcnow(),
             app=request.app,
             message=f"News monitoring started for {request.app}. Will create up to {request.max_articles_to_create} articles. Use workflow_id to check status.",
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start workflow: {str(e)}",
+        )
+
+
+# ============================================================================
+# COUNTRY GUIDE WORKFLOW ENDPOINT
+# ============================================================================
+
+@router.post("/country-guide", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED)
+async def trigger_country_guide_workflow(
+    request: CountryGuideRequest,
+    api_key: str = Depends(validate_api_key),
+) -> WorkflowResponse:
+    """
+    Trigger CountryGuideCreationWorkflow for comprehensive country relocation guides
+
+    Creates a full country guide covering all 8 relocation motivations:
+    - corporate, trust, wealth, retirement, digital-nomad, lifestyle, new-start, family
+
+    Workflow phases (8-15 minutes):
+    1. Country Setup - Create/update country row
+    2. SEO Research - DataForSEO keyword research
+    3. Authoritative Research - Exa + DataForSEO for gov sites, tax info
+    4. Crawl Sources - Crawl4AI batch crawl
+    5. Curate Research - AI filter and summarize
+    6. Zep Context - Query knowledge graph
+    7. Generate Guide - AI generates 8-motivation content
+    8. Save Article - Save to articles table
+    9. Link to Country - Set country_code and guide_type
+    10. Update Country Facts - Merge facts into countries.facts JSONB
+    11. Sync to Zep - Update knowledge graph
+    12. Generate Video - 4-act Seedance video
+    13. Final Update - Add video, publish
+
+    Requires X-API-Key header for authentication.
+
+    Args:
+        request: Country guide creation parameters
+        api_key: Validated API key from header
+
+    Returns:
+        Workflow execution details with workflow_id for status tracking
+
+    Example:
+        POST /v1/workflows/country-guide
+        {
+            "country_name": "Portugal",
+            "country_code": "PT",
+            "app": "relocation",
+            "video_quality": "medium"
+        }
+    """
+    # Get Temporal client
+    try:
+        client = await TemporalClientManager.get_client()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Failed to connect to Temporal: {str(e)}",
+        )
+
+    # Generate workflow ID
+    country_slug = slugify(request.country_name)
+    workflow_id = f"country-guide-{country_slug}-{uuid4().hex[:6]}"
+
+    # Use content-worker task queue
+    task_queue = os.getenv("CONTENT_WORKER_TASK_QUEUE", "quest-content-queue")
+
+    try:
+        # Prepare workflow input
+        workflow_input = {
+            "country_name": request.country_name,
+            "country_code": request.country_code.upper(),
+            "app": request.app,
+            "language": request.language,
+            "relocation_motivations": request.relocation_motivations,
+            "relocation_tags": request.relocation_tags,
+            "video_quality": request.video_quality,
+            "target_word_count": request.target_word_count,
+        }
+
+        # Start workflow execution
+        handle = await client.start_workflow(
+            "CountryGuideCreationWorkflow",
+            workflow_input,
+            id=workflow_id,
+            task_queue=task_queue,
+        )
+
+        return WorkflowResponse(
+            workflow_id=handle.id,
+            status="started",
+            started_at=datetime.utcnow(),
+            topic=f"{request.country_name} Country Guide",
+            app=request.app,
+            message=f"Country guide workflow started for {request.country_name} ({request.country_code}). Expected completion: 8-15 minutes. Use workflow_id to check status.",
         )
 
     except Exception as e:
