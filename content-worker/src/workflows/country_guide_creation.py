@@ -359,47 +359,59 @@ class CountryGuideCreationWorkflow:
         except Exception as e:
             workflow.logger.warning(f"Zep sync failed (non-blocking): {e}")
 
-        # ===== PHASE 12: GENERATE VIDEO =====
+        # ===== PHASE 12: GENERATE VIDEO (BLOCKING) =====
         video_url = None
         video_playback_id = None
         video_asset_id = None
 
         if video_quality:
-            workflow.logger.info("Phase 12: Generate 4-act video")
+            workflow.logger.info("Phase 12: Generate 4-act video (BLOCKING - will fail workflow if video fails)")
 
-            try:
-                # Generate video prompt from four_act_content
-                four_act_content = article.get("four_act_content", [])
-                video_prompt = await workflow.execute_activity(
-                    "generate_country_video_prompt",
-                    args=[country_name, four_act_content],
-                    start_to_close_timeout=timedelta(seconds=30)
+            # Generate video prompt from four_act_content
+            four_act_content = article.get("four_act_content", [])
+            video_prompt = await workflow.execute_activity(
+                "generate_country_video_prompt",
+                args=[country_name, four_act_content],
+                start_to_close_timeout=timedelta(seconds=30)
+            )
+
+            workflow.logger.info(f"Generated video prompt: {video_prompt[:100] if video_prompt else 'NONE'}...")
+
+            # Generate video - BLOCKING (no try/except, will fail workflow if video fails)
+            # Args: title, content, app, quality, duration, aspect_ratio, video_model, video_prompt
+            video_result = await workflow.execute_activity(
+                "generate_four_act_video",
+                args=[
+                    article.get("title", ""),      # title
+                    article.get("content", ""),    # content
+                    app,                           # app
+                    video_quality,                 # quality
+                    12,                            # duration (4-act = 12s)
+                    "16:9",                        # aspect_ratio
+                    "seedance",                    # video_model
+                    video_prompt                   # video_prompt - THE ACTUAL PROMPT!
+                ],
+                start_to_close_timeout=timedelta(minutes=10),
+                retry_policy=RetryPolicy(maximum_attempts=2)
+            )
+
+            # Video result contains video_url directly (from Replicate)
+            video_url = video_result.get("video_url")
+            workflow.logger.info(f"Video generated: {video_url[:60] if video_url else 'NONE'}...")
+
+            if video_url:
+                # Upload to Mux
+                mux_result = await workflow.execute_activity(
+                    "upload_video_to_mux",
+                    args=[video_url],
+                    start_to_close_timeout=timedelta(minutes=5)
                 )
 
-                # Generate video
-                video_result = await workflow.execute_activity(
-                    "generate_four_act_video",
-                    args=[video_prompt, video_quality],
-                    start_to_close_timeout=timedelta(minutes=10),
-                    retry_policy=RetryPolicy(maximum_attempts=2)
-                )
+                video_url = mux_result.get("playback_url")
+                video_playback_id = mux_result.get("playback_id")
+                video_asset_id = mux_result.get("asset_id")
 
-                if video_result.get("video_path"):
-                    # Upload to Mux
-                    mux_result = await workflow.execute_activity(
-                        "upload_video_to_mux",
-                        args=[video_result["video_path"]],
-                        start_to_close_timeout=timedelta(minutes=5)
-                    )
-
-                    video_url = mux_result.get("playback_url")
-                    video_playback_id = mux_result.get("playback_id")
-                    video_asset_id = mux_result.get("asset_id")
-
-                    workflow.logger.info(f"Video uploaded to Mux: {video_playback_id}")
-
-            except Exception as e:
-                workflow.logger.warning(f"Video generation failed (non-blocking): {e}")
+                workflow.logger.info(f"Video uploaded to Mux: {video_playback_id}")
         else:
             workflow.logger.info("Phase 12: Skipping video (video_quality not set)")
 
