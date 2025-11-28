@@ -389,19 +389,22 @@ class CountryGuideCreationWorkflow:
                 workflow.logger.info(f"Filtered to {len(relevant_urls)} relevant URLs from {len(research_urls)}")
 
                 if relevant_urls:
+                    # Topic for BM25 filtering - matches article_creation pattern
+                    crawl_topic = f"{country_name} relocation visa living expat guide"
                     crawl_result = await workflow.execute_activity(
                         "crawl4ai_batch",
-                        args=[relevant_urls],
-                        start_to_close_timeout=timedelta(minutes=5),  # More time for more URLs
+                        args=[relevant_urls, crawl_topic, []],  # urls, topic, keywords
+                        start_to_close_timeout=timedelta(minutes=10),  # 10 min like article_creation
                         retry_policy=RetryPolicy(maximum_attempts=2)
                     )
 
-                    for result in crawl_result.get("results", []):
-                        if result.get("content"):
+                    # Activity returns {"pages": [...]} not {"results": [...]}
+                    for page in crawl_result.get("pages", []):
+                        if page.get("content"):
                             crawled_content.append({
-                                "url": result.get("url"),
-                                "title": result.get("title", ""),
-                                "content": result.get("content", "")[:10000]  # More content per source
+                                "url": page.get("url"),
+                                "title": page.get("title", ""),
+                                "content": page.get("content", "")[:10000]  # More content per source
                             })
 
                     metrics["crawled_urls"] = len(crawled_content)
