@@ -133,13 +133,199 @@ def extract_country_guide_data(response_text: str) -> Dict[str, Any]:
     return guide_data
 
 
+def get_mode_specific_prompt(
+    mode: str,
+    country_name: str,
+    voices: List[Dict[str, Any]]
+) -> str:
+    """
+    Get mode-specific writing instructions for Story/Guide/YOLO modes.
+
+    Args:
+        mode: One of "story", "guide", "yolo"
+        country_name: Country name for context
+        voices: List of extracted voices from curation
+
+    Returns:
+        Mode-specific prompt additions
+    """
+    # Format voices for prompts
+    voices_text = ""
+    if voices:
+        for v in voices[:10]:
+            voice_type = v.get("type", "unknown")
+            source = v.get("source", "Unknown")
+            quote = v.get("quote", "")
+            stance = v.get("stance", "neutral")
+            insight = v.get("key_insight", "")
+            voices_text += f"\n- [{voice_type.upper()}] {source} ({stance}): \"{quote[:200]}...\" - Insight: {insight}"
+
+    if mode == "story":
+        return f"""
+===== STORY MODE: NARRATIVE WRITING STYLE =====
+
+Write this guide as a NARRATIVE JOURNEY - like a documentary or travel memoir.
+The reader is the protagonist considering a life change.
+
+**NARRATIVE STRUCTURE:**
+- Open with a scene: "The fluorescent lights flicker as another grey London morning bleeds into afternoon..."
+- Use second-person ("you") to draw the reader in
+- Build emotional arc: Frustration → Discovery → Possibility → Transformation
+- Weave facts into story naturally ("You learn that the D7 visa costs just €90...")
+- Use sensory details: sounds, smells, visuals of {country_name}
+- End sections with forward momentum
+
+**INCORPORATING VOICES:**
+Weave these real voices into your narrative as blockquotes and personal anecdotes:
+{voices_text if voices_text else "No voices available - create compelling narrative arc"}
+
+Use blockquotes for impact:
+<blockquote class="border-l-4 border-blue-500 pl-4 italic my-4">
+  "Quote from expat or expert..."
+  <cite class="block text-sm text-gray-500 mt-2">— Attribution</cite>
+</blockquote>
+
+**TONE:**
+- Warm, empathetic, slightly wistful
+- Literary but accessible (Malcolm Gladwell meets travel memoir)
+- Build tension and release
+- End with hope and possibility
+
+**EXAMPLE OPENING:**
+"It starts, as these things often do, with a grey morning. You're scrolling through your phone on the Northern Line,
+faces illuminated by screen glow, rain streaking the windows above. €900 for a one-bedroom flat. 52% marginal tax.
+And then you see it: a photo of golden beaches, white villages tumbling down hillsides, and a headline that reads
+'{country_name}: The Digital Nomad's Mediterranean Secret.' Something shifts."
+"""
+
+    elif mode == "guide":
+        return f"""
+===== GUIDE MODE: PRACTICAL REFERENCE STYLE =====
+
+Write this as a COMPREHENSIVE REFERENCE GUIDE - think government handbook meets expert consultation.
+The reader wants facts, costs, timelines, and checklists.
+
+**STRUCTURE:**
+- Start with TL;DR summary box at the top of each section
+- Use tables for comparisons (tax rates, visa costs, etc.)
+- Numbered/bulleted lists for requirements and steps
+- Clear headings and subheadings for scannability
+- Cost breakdowns with exact figures
+
+**INCORPORATING VOICES:**
+Add "What Expats Say" testimonial boxes throughout:
+{voices_text if voices_text else "No voices available - focus on factual content"}
+
+Use testimonial cards:
+<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 my-4">
+  <p class="text-blue-800">"Quote from expat..."</p>
+  <p class="text-sm text-blue-600 mt-2">— Name, Background</p>
+</div>
+
+**FORMAT REQUIREMENTS:**
+- Quick Summary boxes at section starts
+- Comparison tables where applicable
+- Step-by-step numbered lists
+- Cost calculators/breakdowns
+- Timeline estimates
+- Checklist formats for requirements
+
+**EXAMPLE OPENING:**
+"## Quick Summary: {country_name} at a Glance
+
+| Factor | Details |
+|--------|---------|
+| Digital Nomad Visa | €90 application, €760/month minimum income |
+| Processing Time | 60-90 days |
+| Tax Rate | 20% flat rate for NHR |
+| Cost of Living | €1,500-2,500/month single |
+| Healthcare | SNS public + private options |
+
+**Bottom Line:** {country_name} offers one of Europe's most accessible relocation paths with favorable tax treatment and low cost of living."
+
+**TONE:**
+- Professional, authoritative, trustworthy
+- Data-driven with specific numbers
+- Balanced (pros AND cons)
+- Practical and actionable
+"""
+
+    elif mode == "yolo":
+        return f"""
+===== YOLO MODE: PROVOCATIVE ACTION-ORIENTED STYLE =====
+
+Write this as a MOTIVATIONAL KICK IN THE PANTS - direct, provocative, action-oriented.
+The reader is overthinking. You're cutting through the BS.
+
+**YOLO CHARACTERISTICS:**
+- Big bold declarations
+- Call out the absurdity of staying put
+- Direct comparisons that sting ("Your Zone 2 flat vs Mediterranean villa")
+- Action-oriented CTAs throughout
+- Humor and irreverence
+- Real talk about risks AND rewards
+
+**INCORPORATING VOICES:**
+Use voices as social proof and "real talk" bullets:
+{voices_text if voices_text else "No voices available - be the provocative voice yourself"}
+
+Format as reality checks:
+<div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 my-4">
+  <p class="font-bold text-yellow-800">🔥 REAL TALK</p>
+  <p class="text-yellow-700">"Everyone who moved said the same thing: why didn't I do this sooner?"</p>
+</div>
+
+**FORMAT REQUIREMENTS:**
+- Bold declarative headers ("Just Book the Flight")
+- Comparison callouts (London vs {country_name})
+- Action buttons/CTAs throughout
+- "Stop overthinking" moments
+- Fun disclaimer at the end
+- Energy and momentum
+
+**EXAMPLE OPENING:**
+"# Stop Scrolling. Start Living.
+
+Your flat costs £2,100/month. For that privilege, you get:
+- 149 days of sunshine (yes, really)
+- A Northern Line commute with someone's armpit in your face
+- 52% tax on anything you earn over £125k
+
+Meanwhile, in {country_name}:
+- 300+ days of sunshine
+- A 3-bedroom villa with a pool for €1,200/month
+- 20% flat tax rate (NHR program)
+- Beaches. Everywhere.
+
+**The only thing stopping you is... you.**
+
+Let's break down exactly how to make this happen. No fluff. Just action."
+
+**TONE:**
+- Provocative but not reckless
+- Energetic and punchy
+- Humor with substance
+- Direct address ("you need to...")
+- Permission-giving ("It's okay to want more")
+
+**END WITH:**
+A fun disclaimer: "YOLO Mode is for inspiration. Please do actual research before selling your flat and booking a one-way ticket. But also... life is short. 🌊"
+"""
+
+    else:
+        # Default to story mode
+        return get_mode_specific_prompt("story", country_name, voices)
+
+
 @activity.defn
 async def generate_country_guide_content(
     country_name: str,
     country_code: str,
     research_context: Dict[str, Any],
     seo_keywords: Optional[Dict[str, Any]] = None,
-    target_word_count: int = 4000
+    target_word_count: int = 4000,
+    mode: str = "story",
+    voices: Optional[List[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
     """
     Generate comprehensive country guide content covering all 8 motivations.
@@ -150,11 +336,13 @@ async def generate_country_guide_content(
         research_context: Research data including visa info, tax rates, cost of living
         seo_keywords: Optional SEO research from DataForSEO
         target_word_count: Target word count for the guide
+        mode: Content mode - "story" (narrative), "guide" (practical), "yolo" (punchy)
+        voices: Optional list of extracted voices from curation for enrichment
 
     Returns:
         Dict with title, slug, content, payload (matching [country].astro expectations)
     """
-    activity.logger.info(f"Generating country guide for {country_name} ({country_code})")
+    activity.logger.info(f"Generating country guide for {country_name} ({country_code}) - MODE: {mode.upper()}")
 
     # Build SEO keyword guidance
     seo_guidance = ""
@@ -300,6 +488,12 @@ This guide is ALSO used for financial planning. Include comprehensive coverage o
 
 ===== PRACTICAL SETTLING-IN TOPICS (CRITICAL!) =====
 These are topics competitors rank well for - MUST include:
+- **Where to Live** - Compare top cities/regions for expats (NOT just the capital!):
+  - Capital city pros/cons
+  - Alternative cities (e.g., Chiang Mai not just Bangkok, Porto not just Lisbon, Barcelona not just Madrid)
+  - Coastal vs inland, urban vs rural
+  - Best areas for families, digital nomads, retirees
+  - Cost of living comparison between cities
 - **Pet Relocation** - How to bring pets (EU Pet Passport, microchipping, vaccinations, quarantine)
 - **Driving License** - Converting foreign license, car purchase, insurance requirements
 - **School Search** - International schools, public vs private, enrollment process, fees
@@ -371,6 +565,8 @@ For EACH of the 8 motivations, write a detailed section:
 - Bold key statistics: <strong>12.5% corporate tax</strong>
 - Use blockquotes for key quotes or warnings
 - Lists for requirements and steps
+
+{get_mode_specific_prompt(mode, country_name, voices or [])}
 
 ===== REQUIRED SECTIONS =====
 After the 8 motivation sections, include:
@@ -483,11 +679,11 @@ Every claim needs a source link. This guide should be the definitive resource fo
     use_gemini = bool(config.GOOGLE_API_KEY)
 
     if use_gemini:
-        activity.logger.info("Using AI: google:gemini-2.5-pro-preview")
+        activity.logger.info("Using AI: google:gemini-3-pro-preview")
         genai.configure(api_key=config.GOOGLE_API_KEY)
 
         model = genai.GenerativeModel(
-            model_name='gemini-2.5-pro-preview-06-05',
+            model_name='gemini-3-pro-preview',
             system_instruction=system_prompt
         )
 
@@ -631,6 +827,7 @@ Every claim needs a source link. This guide should be the definitive resource fo
         "country_code": country_code,
         "guide_type": "country_comprehensive",
         "word_count": word_count,
+        "content_mode": mode,  # story/guide/yolo
         # Country guide specific payload
         "overview": guide_data.get("overview", {}),
         "motivations": guide_data.get("motivations", []),
@@ -641,7 +838,7 @@ Every claim needs a source link. This guide should be the definitive resource fo
         "extracted_facts": guide_data.get("facts", {})
     }
 
-    activity.logger.info(f"✅ Generated {country_name} guide: {word_count} words, {len(guide_data.get('motivations', []))} motivations")
+    activity.logger.info(f"✅ Generated {country_name} guide [{mode.upper()} mode]: {word_count} words, {len(guide_data.get('motivations', []))} motivations")
 
     return payload
 
@@ -745,3 +942,208 @@ CRITICAL: NO text, words, letters, numbers, signs, or logos anywhere in the vide
 
     activity.logger.info(f"Generated video prompt: {len(video_prompt)} chars")
     return video_prompt
+
+
+# Segment video templates for multi-video country guides
+SEGMENT_VIDEO_TEMPLATES = {
+    "hero": {
+        "title": "Your Journey to {country}",
+        "style": "Cinematic, warm color grade, smooth camera movements, shallow depth of field",
+        "acts": [
+            {
+                "title": "THE DRAW",
+                "hint": "Sweeping aerial of {country}'s most iconic landscape, golden hour light, camera slowly pushing forward. Warm Mediterranean tones, cinematic lens flare."
+            },
+            {
+                "title": "THE OPPORTUNITY",
+                "hint": "Modern professional working at laptop in beautiful {country} cafe or coworking space, soft natural light streaming in, camera orbits slowly. Teal and warm tones."
+            },
+            {
+                "title": "THE JOURNEY",
+                "hint": "Person walking through charming streets, exploring markets, settling into new apartment. Tracking shot, vibrant colors, documentary style."
+            },
+            {
+                "title": "THE NEW LIFE",
+                "hint": "Happy expat enjoying life - beach sunset, rooftop dinner, or community gathering. Pull back to wide shot, golden hour, lens flare, satisfying conclusion."
+            }
+        ]
+    },
+    "family": {
+        "title": "Family Life in {country}",
+        "style": "Warm, personal, intimate lighting, handheld feel but stable",
+        "acts": [
+            {
+                "title": "SCHOOL DAYS",
+                "hint": "Morning scene: parent and child arriving at international school in {country}. Green grounds, modern buildings, other families visible. Warm morning light, hopeful energy."
+            },
+            {
+                "title": "PETS & PARKS",
+                "hint": "Golden retriever or family dog running on {country} beach or park. Kids playing nearby. Bright afternoon light, joyful energy, tracking shot following the dog."
+            },
+            {
+                "title": "HEALTHCARE",
+                "hint": "Modern {country} clinic or hospital waiting area. Clean, professional, parent with child calmly waiting. Soft clinical lighting but warm undertones, reassuring atmosphere."
+            },
+            {
+                "title": "FAMILY DINNER",
+                "hint": "Outdoor terrace dinner scene in {country}. Family gathered around table, local dishes, golden sunset light, laughter and connection. Slow orbit shot, intimate and warm."
+            }
+        ]
+    },
+    "finance": {
+        "title": "Finance & Admin in {country}",
+        "style": "Professional, clean, modern lighting, confident and capable",
+        "acts": [
+            {
+                "title": "PROPERTY VIEWING",
+                "hint": "Modern {country} apartment or villa interior. Professional real estate agent showing around, natural light streaming through windows. Person exploring, touching surfaces, imagining life here."
+            },
+            {
+                "title": "BANK MEETING",
+                "hint": "Clean {country} bank office. Professional meeting with banker, documents on table, modern interior. Handshake moment, confident expressions, everything going smoothly."
+            },
+            {
+                "title": "SIGNING PAPERS",
+                "hint": "Close-up of pen signing important document, then pull back to reveal professional office in {country}. Legal advisor present, coffee cups, serious but positive atmosphere."
+            },
+            {
+                "title": "KEYS IN HAND",
+                "hint": "Person standing outside new {country} property, receiving keys. Smile of accomplishment, door opening to reveal beautiful interior. Light flooding in, new chapter beginning."
+            }
+        ]
+    },
+    "daily": {
+        "title": "Daily Life in {country}",
+        "style": "Relaxed, documentary, natural light, slice-of-life feel",
+        "acts": [
+            {
+                "title": "SCENIC DRIVE",
+                "hint": "Dashboard or window view driving through {country} countryside or coastal road. Beautiful scenery passing, relaxed music implied, golden hour light, freedom feeling."
+            },
+            {
+                "title": "HOME SETUP",
+                "hint": "New {country} apartment being made home. Unpacking boxes, arranging furniture, hanging art on walls. Soft afternoon light, nesting energy, making it yours."
+            },
+            {
+                "title": "LOCAL MARKET",
+                "hint": "{country} farmers market or local grocery. Fresh produce, local vendors, learning the shopping routine. Vibrant colors, authentic atmosphere, belonging starting."
+            },
+            {
+                "title": "NEIGHBORHOOD CAFE",
+                "hint": "Sitting at neighborhood cafe in {country}, laptop or book, becoming a regular. Barista knows your order, nod to neighbors, local life achieved. Warm afternoon light, contentment."
+            }
+        ]
+    },
+    "yolo": {
+        "title": "YOLO Mode: Just Do It",
+        "style": "FAST CUTS (0.5-1s per shot), energetic, shaky/tracking camera, high contrast, punchy colors, ONE slow-mo moment at the dive",
+        "acts": [
+            {
+                "title": "FRUSTRATION → ACTIVATION",
+                "hint": "Grey office, rain on window, person with head in hands at desk. SMASH CUT - explosive flash of light, dramatic shake. Energy burst, transformation beginning. FAST: 0.5s shots."
+            },
+            {
+                "title": "THE SPRINT",
+                "hint": "RAPID CUTS: Running through airport terminal (tracking shot), grabbing bag, jumping into taxi (door slam), plane window takeoff. Urgency, momentum, no looking back. Each shot 0.75s."
+            },
+            {
+                "title": "ARRIVAL & ACTION",
+                "hint": "RAPID CUTS: Landing, sunny {country} streets through taxi window, rapid signing papers, keys handed over, apartment door opening, boxes being moved. Pure momentum. Each shot 0.75s."
+            },
+            {
+                "title": "THE PAYOFF",
+                "hint": "Sprint across {country} beach (wide shot), building to SLOW-MO dive into Mediterranean, underwater shot looking up at sun through water, pure bliss. Slow-mo on impact, then serene underwater."
+            }
+        ]
+    }
+}
+
+
+@activity.defn
+async def generate_segment_video_prompt(
+    country_name: str,
+    segment: str,
+    four_act_content: Optional[List[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
+    """
+    Generate video prompt for a specific segment of the country guide.
+
+    Args:
+        country_name: Country name for context
+        segment: One of "hero", "family", "finance", "daily", "yolo"
+        four_act_content: Optional four_act_content from article (used for hero video)
+
+    Returns:
+        Dict with segment info and video_prompt
+    """
+    activity.logger.info(f"Generating {segment.upper()} video prompt for {country_name}")
+
+    # Get template for this segment
+    template = SEGMENT_VIDEO_TEMPLATES.get(segment)
+    if not template:
+        activity.logger.warning(f"Unknown segment '{segment}', falling back to hero")
+        template = SEGMENT_VIDEO_TEMPLATES["hero"]
+
+    # For hero segment, use four_act_content if available
+    if segment == "hero" and four_act_content and len(four_act_content) >= 4:
+        activity.logger.info("Using four_act_content for hero video")
+        prompts = []
+        for i, act in enumerate(four_act_content[:4]):
+            act_num = i + 1
+            start_time = i * 3
+            end_time = (i + 1) * 3
+            hint = act.get("four_act_visual_hint", template["acts"][i]["hint"].format(country=country_name))
+            title = act.get("title", template["acts"][i]["title"])
+
+            prompts.append(f"""ACT {act_num} ({start_time}-{end_time}s) {title.upper()}:
+{hint}""")
+    else:
+        # Use template for all other segments
+        prompts = []
+        for i, act_template in enumerate(template["acts"]):
+            act_num = i + 1
+            start_time = i * 3
+            end_time = (i + 1) * 3
+            hint = act_template["hint"].format(country=country_name)
+            title = act_template["title"]
+
+            prompts.append(f"""ACT {act_num} ({start_time}-{end_time}s) {title}:
+{hint}""")
+
+    # Build full video prompt
+    title = template["title"].format(country=country_name)
+    style = template["style"]
+
+    # YOLO has special instructions
+    if segment == "yolo":
+        video_prompt = f"""🚀 YOLO ACTION VIDEO - FAST PACED - {country_name.upper()}:
+
+CRITICAL STYLE: {style}
+
+{chr(10).join(prompts)}
+
+CRITICAL REQUIREMENTS:
+- Fast cuts throughout (0.5-1s per shot) EXCEPT slow-mo dive in Act 4
+- Energetic, shaky camera movements
+- High contrast, saturated colors
+- Build energy through Acts 1-3
+- ONE moment of slow-motion: the Mediterranean dive in Act 4
+- Music implied: high energy, building tension
+- NO text, words, letters, numbers, signs, or logos anywhere"""
+    else:
+        video_prompt = f"""4-ACT {segment.upper()} VIDEO FOR {country_name.upper()}:
+
+{chr(10).join(prompts)}
+
+STYLE: {style}
+CRITICAL: NO text, words, letters, numbers, signs, or logos anywhere in the video."""
+
+    activity.logger.info(f"Generated {segment} video prompt: {len(video_prompt)} chars")
+
+    return {
+        "segment": segment,
+        "title": title,
+        "video_prompt": video_prompt,
+        "style": style,
+        "cluster": "yolo" if segment == "yolo" else "story"  # YOLO is separate cluster
+    }

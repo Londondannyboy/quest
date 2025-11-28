@@ -67,6 +67,10 @@ from src.activities.research.exa import (
     exa_find_similar_companies,
 )
 
+from src.activities.research.reddit import (
+    reddit_search_expat_content,  # Reddit JSON API for expat voices
+)
+
 from src.activities.research.ambiguity import (
     check_research_ambiguity,
     validate_company_match,
@@ -130,9 +134,10 @@ from src.activities.generation.article_generation import (
 )
 
 from src.activities.generation.country_guide_generation import (
-    generate_country_guide_content,  # 8-motivation country guide
+    generate_country_guide_content,  # 8-motivation country guide (now with mode: story/guide/yolo)
     extract_country_facts,  # Extract facts for countries.facts JSONB
     generate_country_video_prompt,  # Country-specific 4-act video prompt
+    generate_segment_video_prompt,  # Multi-video: hero/family/finance/daily/yolo prompts
 )
 
 from src.activities.generation.research_curation import (
@@ -302,6 +307,9 @@ async def main():
             exa_research_topic,
             exa_find_similar_companies,
 
+            # Reddit
+            reddit_search_expat_content,  # Expat voices from Reddit
+
             # Ambiguity & Validation
             check_research_ambiguity,
             validate_company_match,
@@ -362,6 +370,7 @@ async def main():
             generate_country_guide_content,
             extract_country_facts,
             generate_country_video_prompt,
+            generate_segment_video_prompt,  # Multi-video: hero/family/finance/daily/yolo
 
             # Zep Integration
             query_zep_for_context,
