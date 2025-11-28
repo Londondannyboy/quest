@@ -164,7 +164,7 @@ async def curate_research_sources(
                 "type": "crawled",
                 "url": page.get("url", ""),
                 "title": title,
-                "content": content[:6000],  # 6k chars per source
+                "content": content[:15000],  # 15k chars per source for richer voice extraction
                 "source": page.get("source", "")
             })
 
@@ -201,7 +201,7 @@ async def curate_research_sources(
             "type": "research",
             "url": result.get("url", ""),
             "title": title,
-            "content": content[:6000],
+            "content": content[:15000],  # 15k chars per source for richer voice extraction
             "source": "exa"
         })
 
@@ -245,6 +245,7 @@ YOUR TASK: Deeply analyze ALL {len(all_sources)} sources and extract EVERYTHING 
 6. COMPARISONS - How does this compare to alternatives?
 7. CHANGES - What's new in 2024-2025? What changed recently?
 8. GOTCHAS - Common mistakes, warnings, things people overlook
+9. VOICES - Extract 5-10 human perspectives (experts, testimonials, officials, media) with attribution
 
 Be EXHAUSTIVE. The writer needs EVERYTHING to create a comprehensive, insightful article.
 Missing a key fact or interesting angle = lower quality article.
@@ -271,6 +272,52 @@ OUTPUT ONLY VALID JSON (no markdown, no explanation):
   "direct_quotes": [
     {{"quote": "Exact quote from source", "attribution": "Who said it", "source_id": "crawl_0"}},
     {{"quote": "Another valuable quote", "attribution": "Expert name", "source_id": "news_2"}}
+  ],
+  "voices": [
+    {{
+      "type": "expert",
+      "source": "Name, Title/Role",
+      "credibility": "Why they're credible (e.g., '15 years immigration law')",
+      "stance": "positive|negative|neutral|mixed",
+      "quote": "Their exact words or paraphrased insight",
+      "context": "What they were discussing",
+      "key_insight": "The main takeaway from this voice",
+      "source_id": "crawl_0"
+    }},
+    {{
+      "type": "testimonial",
+      "source": "Name, Background",
+      "credibility": "Their relevant experience (e.g., 'Relocated from UK to Cyprus in 2024')",
+      "stance": "positive",
+      "quote": "Their personal experience",
+      "context": "Discussing their relocation journey",
+      "before_after": {{
+        "before": "What their situation was before",
+        "after": "What it is now"
+      }},
+      "key_insight": "Main lesson from their experience",
+      "source_id": "crawl_1"
+    }},
+    {{
+      "type": "official",
+      "source": "Government agency/official name",
+      "credibility": "Official capacity",
+      "stance": "neutral",
+      "quote": "Official statement or policy",
+      "context": "Policy announcement/clarification",
+      "key_insight": "Key policy point",
+      "source_id": "news_0"
+    }},
+    {{
+      "type": "media",
+      "source": "Publication/journalist name",
+      "credibility": "Publication reputation",
+      "stance": "mixed",
+      "quote": "Commentary or analysis",
+      "context": "News coverage context",
+      "key_insight": "Key observation",
+      "source_id": "news_1"
+    }}
   ],
   "comparisons": [
     "Compared to Portugal: ...",
@@ -323,6 +370,24 @@ Look for RELATED topics that appear frequently in sources but are DIFFERENT enou
 - Complementary topics (if visa, look for "tax residency", "cost of living" angles)
 - Only include if confidence >= 0.7 (mentioned substantially in multiple sources)
 
+VOICES (5-10 required):
+Extract human perspectives that bring the topic to life. Prioritize diversity of voice types:
+- "expert": Immigration lawyers, tax advisors, industry professionals with credentials
+- "testimonial": Real people who experienced this (expats, relocators, users) with before/after transformations
+- "official": Government statements, policy announcements, regulatory bodies
+- "media": Journalists, commentators, publications with analysis
+
+For each voice, capture:
+- The exact quote or close paraphrase
+- Full attribution (name + role/background)
+- Credibility signal (why should readers trust this voice?)
+- Stance (positive/negative/neutral/mixed on the topic)
+- Context (what were they discussing?)
+- Key insight (the main takeaway)
+- For testimonials: include before_after transformation if available
+
+Aim for balance: at least 2 expert, 2 testimonial, and mix of stances (not all positive).
+
 Generate 5-7 article_outline sections that create a COMPREHENSIVE article structure.
 Each section should have specific key_points, not generic placeholders.
 
@@ -340,6 +405,7 @@ OUTPUT (JSON only):"""
             "key_facts": [],
             "opinions_and_sentiment": [],
             "unique_angles": [],
+            "voices": [],
             "article_outline": [],
             "total_input": len(all_sources),
             "total_output": min(len(all_sources), max_sources),
@@ -373,6 +439,7 @@ OUTPUT (JSON only):"""
                 "curated_sources": all_sources[:max_sources],
                 "key_facts": [],
                 "perspectives": [],
+                "voices": [],
                 "article_outline": [],
                 "total_input": len(all_sources),
                 "total_output": max_sources,
@@ -416,6 +483,7 @@ OUTPUT (JSON only):"""
         opinions_and_sentiment = curation_result.get("opinions_and_sentiment", [])
         unique_angles = curation_result.get("unique_angles", [])
         direct_quotes = curation_result.get("direct_quotes", [])
+        voices = curation_result.get("voices", [])
         comparisons = curation_result.get("comparisons", [])
         recent_changes = curation_result.get("recent_changes", [])
         warnings = curation_result.get("warnings_and_gotchas", [])
@@ -424,10 +492,17 @@ OUTPUT (JSON only):"""
         timeline = curation_result.get("timeline", [])
         spawn_opportunities = curation_result.get("spawn_opportunities", [])
 
+        # Count voice types for logging
+        voice_types = {}
+        for v in voices:
+            vtype = v.get("type", "unknown")
+            voice_types[vtype] = voice_types.get(vtype, 0) + 1
+
         activity.logger.info(
             f"Curation complete: {len(curated_with_content)} sources, "
             f"{len(key_facts)} facts, {len(opinions_and_sentiment)} opinions, "
-            f"{len(unique_angles)} angles, {len(article_outline)} outline sections"
+            f"{len(unique_angles)} angles, {len(article_outline)} outline sections, "
+            f"{len(voices)} voices ({voice_types})"
         )
 
         # Log spawn opportunities if found
@@ -440,6 +515,7 @@ OUTPUT (JSON only):"""
             "opinions_and_sentiment": opinions_and_sentiment,
             "unique_angles": unique_angles,
             "direct_quotes": direct_quotes,
+            "voices": voices,
             "comparisons": comparisons,
             "recent_changes": recent_changes,
             "warnings_and_gotchas": warnings,
@@ -462,6 +538,7 @@ OUTPUT (JSON only):"""
             "opinions_and_sentiment": [],
             "unique_angles": [],
             "direct_quotes": [],
+            "voices": [],
             "comparisons": [],
             "recent_changes": [],
             "warnings_and_gotchas": [],
