@@ -41,6 +41,7 @@ from src.activities.research.dataforseo import (
     dataforseo_serp_search,
     dataforseo_keyword_research,
     dataforseo_keyword_difficulty,
+    dataforseo_related_keywords,  # Keyword cluster discovery (first step in research)
     research_country_seo_keywords,  # Country guide SEO research
 )
 
@@ -284,6 +285,7 @@ async def main():
             dataforseo_serp_search,
             dataforseo_keyword_research,  # SEO keyword research
             dataforseo_keyword_difficulty,  # SEO keyword difficulty analysis
+            dataforseo_related_keywords,  # Keyword cluster discovery (first step)
             research_country_seo_keywords,  # Country guide SEO research
 
             # News Assessment

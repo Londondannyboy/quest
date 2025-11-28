@@ -95,8 +95,63 @@ class CountryGuideCreationWorkflow:
         country_slug = country_result.get("slug")
         workflow.logger.info(f"Country {'created' if country_result.get('created') else 'updated'}: {country_slug} (ID: {country_id})")
 
-        # ===== PHASE 2: SEO RESEARCH =====
-        workflow.logger.info("Phase 2: SEO Research - DataForSEO keyword research")
+        # ===== PHASE 2: KEYWORD DISCOVERY =====
+        # First step: Discover what people actually search for using DataForSEO Labs
+        # This reveals unique audiences (e.g., "portugal visa for indians")
+        workflow.logger.info("Phase 2: Keyword Discovery - DataForSEO Labs related_keywords")
+
+        keyword_discovery = {}
+        discovered_keywords = []
+        unique_audiences = []
+        content_themes = {}
+
+        try:
+            # Run keyword discovery for both US and UK regions in parallel
+            kw_us_task = workflow.execute_activity(
+                "dataforseo_related_keywords",
+                args=[f"{country_name} relocation", "US", 3, 50],
+                start_to_close_timeout=timedelta(minutes=2),
+                retry_policy=RetryPolicy(maximum_attempts=2)
+            )
+            kw_uk_task = workflow.execute_activity(
+                "dataforseo_related_keywords",
+                args=[f"{country_name} relocation", "UK", 3, 50],
+                start_to_close_timeout=timedelta(minutes=2),
+                retry_policy=RetryPolicy(maximum_attempts=2)
+            )
+
+            kw_us, kw_uk = await asyncio.gather(kw_us_task, kw_uk_task, return_exceptions=True)
+
+            # Combine results
+            if not isinstance(kw_us, Exception):
+                keyword_discovery["us"] = kw_us
+                discovered_keywords.extend(kw_us.get("top_for_serp", []))
+                unique_audiences.extend(kw_us.get("unique_audiences", []))
+                for theme, kws in kw_us.get("content_themes", {}).items():
+                    if theme not in content_themes:
+                        content_themes[theme] = []
+                    content_themes[theme].extend(kws)
+                workflow.logger.info(f"US keywords: {kw_us.get('total', 0)} found, {len(kw_us.get('unique_audiences', []))} unique audiences")
+
+            if not isinstance(kw_uk, Exception):
+                keyword_discovery["uk"] = kw_uk
+                discovered_keywords.extend(kw_uk.get("top_for_serp", []))
+                unique_audiences.extend(kw_uk.get("unique_audiences", []))
+                for theme, kws in kw_uk.get("content_themes", {}).items():
+                    if theme not in content_themes:
+                        content_themes[theme] = []
+                    content_themes[theme].extend(kws)
+                workflow.logger.info(f"UK keywords: {kw_uk.get('total', 0)} found, {len(kw_uk.get('unique_audiences', []))} unique audiences")
+
+            # Dedupe discovered keywords
+            discovered_keywords = list(dict.fromkeys(discovered_keywords))[:15]
+            workflow.logger.info(f"Keyword discovery complete: {len(discovered_keywords)} top keywords for SERP")
+
+        except Exception as e:
+            workflow.logger.warning(f"Keyword discovery failed (non-blocking): {e}")
+
+        # ===== PHASE 2B: SEO RESEARCH =====
+        workflow.logger.info("Phase 2B: SEO Research - DataForSEO detailed keyword research")
 
         seo_keywords = {}
         try:
@@ -119,25 +174,31 @@ class CountryGuideCreationWorkflow:
             workflow.logger.warning(f"SEO research failed (non-blocking): {e}")
 
         # ===== PHASE 3: AUTHORITATIVE RESEARCH =====
-        # Comprehensive multi-region SERP + News searches
-        # 6 topics × 2 regions (UK + US) = 12 SERP searches + 1 News search
-        workflow.logger.info("Phase 3: Authoritative Research - 6 topics × 2 regions SERP + News")
+        # Use DISCOVERED keywords to drive SERP/News searches
+        # Fall back to default topics if discovery failed
+        workflow.logger.info("Phase 3: Authoritative Research - SERP + News driven by discovered keywords")
 
-        # 6 core search topics for country guides
-        search_topics = [
-            f"{country_name} relocation",       # 1. Relocation intent
-            f"{country_name} finance expat",    # 2. Finance/banking
-            f"{country_name} visa",             # 3. Visa requirements
-            f"{country_name} tax expat",        # 4. Tax for expats
-            f"{country_name} cost of living",   # 5. Cost info
-            f"{country_name} property market",  # 6. Property/real estate
-        ]
+        # Build search topics from discovered keywords OR fall back to defaults
+        if discovered_keywords:
+            # Use top discovered keywords (what people actually search)
+            search_topics = discovered_keywords[:10]
+            workflow.logger.info(f"Using {len(search_topics)} DISCOVERED keywords for SERP searches")
+        else:
+            # Fallback: default topics
+            search_topics = [
+                f"{country_name} relocation",
+                f"{country_name} visa requirements",
+                f"{country_name} cost of living",
+                f"{country_name} tax expat",
+                f"{country_name} property",
+            ]
+            workflow.logger.info(f"Using {len(search_topics)} DEFAULT keywords for SERP searches")
 
         # Search both UK and US regions for international perspective
         regions = ["UK", "US"]
 
         try:
-            # Build parallel SERP tasks: 6 topics × 2 regions = 12 searches
+            # Build parallel SERP tasks: topics × regions
             # Depth: 20 results each (page 1-2 of Google)
             serp_tasks = []
             for topic in search_topics:
@@ -151,13 +212,14 @@ class CountryGuideCreationWorkflow:
                         )
                     )
 
-            workflow.logger.info(f"Launching {len(serp_tasks)} SERP searches (6 topics × 2 regions)")
+            workflow.logger.info(f"Launching {len(serp_tasks)} SERP searches ({len(search_topics)} topics × {len(regions)} regions)")
 
-            # News search - all 6 topics for both regions
+            # News search - use discovered keywords for news too
+            news_keywords = search_topics[:6] if search_topics else [f"{country_name} relocation"]
             news_task = workflow.execute_activity(
                 "dataforseo_news_search",
                 args=[
-                    search_topics,  # All 6 topics
+                    news_keywords,  # Use discovered keywords or fallback
                     regions,        # UK + US
                     20              # 20 depth per query
                 ],
@@ -294,7 +356,7 @@ class CountryGuideCreationWorkflow:
         workflow.logger.info("Phase 5: Curate Research - AI filter and summarize")
 
         # Build research context for generation
-        # Include international perspective guidance
+        # Include international perspective guidance + keyword discovery insights
         research_context = {
             "country": country_name,
             "code": country_code,
@@ -304,7 +366,11 @@ class CountryGuideCreationWorkflow:
             "news_articles": news_articles[:10] if 'news_articles' in dir() else [],
             "paa_questions": list(set(paa_questions))[:20] if 'paa_questions' in dir() else [],  # Dedupe
             "seo_keywords": seo_keywords.get("primary_keywords", [])[:15],
-            "seo_questions": seo_keywords.get("questions", [])[:20]
+            "seo_questions": seo_keywords.get("questions", [])[:20],
+            # Keyword discovery data - what people actually search for
+            "discovered_keywords": discovered_keywords[:20],
+            "unique_audiences": unique_audiences[:15],  # e.g., "portugal visa for indians"
+            "content_themes": content_themes,  # Grouped by theme (cost, visa, tax, etc.)
         }
 
         try:

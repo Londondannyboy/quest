@@ -735,3 +735,184 @@ async def research_country_seo_keywords(
         "researched_at": datetime.utcnow().isoformat(),
         "source": "dataforseo"
     }
+
+
+@activity.defn
+async def dataforseo_related_keywords(
+    seed_keyword: str,
+    region: str = "US",
+    depth: int = 3,
+    limit: int = 50
+) -> Dict[str, Any]:
+    """
+    Discover related keyword clusters using DataForSEO Labs API.
+
+    This is the FIRST step in research - discovers what people actually search for
+    and unique audiences (e.g., "portugal visa for indians" that you wouldn't think of).
+
+    Args:
+        seed_keyword: Starting keyword (e.g., "Portugal relocation")
+        region: Region code (US, UK, etc.)
+        depth: How deep to explore related keywords (1-3, higher = more)
+        limit: Max keywords to return
+
+    Returns:
+        Dict with:
+        - keywords: List of discovered keywords with volume, CPC, intent
+        - unique_audiences: Keywords revealing specific audiences
+        - top_by_volume: Best keywords by search volume
+        - content_ideas: Grouped themes for content
+    """
+    url = "https://api.dataforseo.com/v3/dataforseo_labs/google/related_keywords/live"
+    auth = get_auth_header()
+
+    location_code = LOCATION_CODES.get(region, 2840)
+
+    payload = [{
+        "keyword": seed_keyword,
+        "location_code": location_code,
+        "language_code": "en",
+        "depth": depth,
+        "limit": 100,  # Get more, filter later
+        "include_seed_keyword": True,
+        "include_serp_info": True
+    }]
+
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.post(
+                url,
+                json=payload,
+                headers={
+                    "Authorization": auth,
+                    "Content-Type": "application/json"
+                },
+                timeout=aiohttp.ClientTimeout(total=90)
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+
+                    keywords = []
+                    unique_audiences = []
+                    content_themes = {}
+                    cost = 0
+
+                    if data.get("tasks") and data["tasks"][0].get("result"):
+                        result = data["tasks"][0]["result"][0]
+                        items = result.get("items", [])
+                        cost = data["tasks"][0].get("cost", 0)
+
+                        for item in items:
+                            kw_data = item.get("keyword_data", {})
+                            kw_info = kw_data.get("keyword_info", {})
+                            kw_props = kw_data.get("keyword_properties", {})
+                            intent_info = kw_data.get("search_intent_info", {})
+                            related = item.get("related_keywords", [])
+
+                            keyword = kw_data.get("keyword", "")
+                            volume = kw_info.get("search_volume", 0) or 0
+                            cpc = kw_info.get("cpc", 0) or 0
+                            competition = kw_info.get("competition_level", "UNKNOWN")
+                            main_intent = intent_info.get("main_intent", "informational")
+                            difficulty = kw_props.get("keyword_difficulty", 0) or 0
+
+                            kw_entry = {
+                                "keyword": keyword,
+                                "volume": volume,
+                                "cpc": round(cpc, 2) if cpc else 0,
+                                "competition": competition,
+                                "difficulty": difficulty,
+                                "intent": main_intent,
+                                "related": related[:5] if related else [],
+                                "depth": item.get("depth", 0)
+                            }
+
+                            keywords.append(kw_entry)
+
+                            # Detect unique audiences (nationality-specific, demographic-specific)
+                            audience_markers = [
+                                "indian", "american", "british", "chinese", "australian",
+                                "family", "single", "retiree", "student", "digital nomad",
+                                "expat", "foreigner"
+                            ]
+                            kw_lower = keyword.lower()
+                            for marker in audience_markers:
+                                if marker in kw_lower and volume > 10:
+                                    unique_audiences.append(kw_entry)
+                                    break
+
+                            # Group by theme for content ideas
+                            theme_markers = {
+                                "cost": ["cost", "price", "expensive", "cheap", "afford"],
+                                "visa": ["visa", "permit", "residency", "citizenship"],
+                                "tax": ["tax", "taxes", "taxation"],
+                                "property": ["property", "real estate", "rent", "buy", "house"],
+                                "lifestyle": ["living", "life", "pros", "cons", "quality"],
+                                "work": ["work", "job", "employment", "remote", "nomad"],
+                                "healthcare": ["health", "medical", "hospital", "insurance"],
+                                "negative": ["bad", "hate", "worst", "dark", "cons", "negative"]
+                            }
+
+                            for theme, markers in theme_markers.items():
+                                if any(m in kw_lower for m in markers):
+                                    if theme not in content_themes:
+                                        content_themes[theme] = []
+                                    content_themes[theme].append(kw_entry)
+                                    break
+
+                        # Sort by volume
+                        keywords.sort(key=lambda x: x["volume"], reverse=True)
+                        unique_audiences.sort(key=lambda x: x["volume"], reverse=True)
+
+                        for theme in content_themes:
+                            content_themes[theme].sort(key=lambda x: x["volume"], reverse=True)
+                            content_themes[theme] = content_themes[theme][:10]  # Top 10 per theme
+
+                    # Extract top keywords for SERP searches
+                    top_for_serp = [kw["keyword"] for kw in keywords[:15] if kw["volume"] >= 50]
+
+                    activity.logger.info(
+                        f"DataForSEO related keywords: {len(keywords)} found for '{seed_keyword}', "
+                        f"{len(unique_audiences)} unique audiences, {len(content_themes)} themes"
+                    )
+
+                    return {
+                        "keywords": keywords[:limit],
+                        "unique_audiences": unique_audiences[:20],
+                        "top_by_volume": keywords[:20],
+                        "content_themes": content_themes,
+                        "top_for_serp": top_for_serp,  # Use these for SERP searches
+                        "seed_keyword": seed_keyword,
+                        "region": region,
+                        "total": len(keywords),
+                        "cost": cost
+                    }
+
+                else:
+                    error_text = await response.text()
+                    activity.logger.error(f"DataForSEO related keywords error: {response.status} - {error_text[:200]}")
+                    return {
+                        "keywords": [],
+                        "unique_audiences": [],
+                        "top_by_volume": [],
+                        "content_themes": {},
+                        "top_for_serp": [],
+                        "seed_keyword": seed_keyword,
+                        "total": 0,
+                        "cost": 0,
+                        "error": f"HTTP {response.status}"
+                    }
+
+        except Exception as e:
+            activity.logger.error(f"DataForSEO related keywords exception: {e}")
+            return {
+                "keywords": [],
+                "unique_audiences": [],
+                "top_by_volume": [],
+                "content_themes": {},
+                "top_for_serp": [],
+                "seed_keyword": seed_keyword,
+                "total": 0,
+                "cost": 0,
+                "error": str(e)
+            }
