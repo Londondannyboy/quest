@@ -384,7 +384,8 @@ class CountryGuideCreationWorkflow:
                     start_to_close_timeout=timedelta(minutes=2)
                 )
 
-                relevant_urls = [u.get("url") for u in filtered_urls.get("relevant", [])][:20]
+                # Activity returns {"relevant_urls": [url1, url2, ...]} - list of strings
+                relevant_urls = filtered_urls.get("relevant_urls", [])[:20]
                 workflow.logger.info(f"Filtered to {len(relevant_urls)} relevant URLs from {len(research_urls)}")
 
                 if relevant_urls:
