@@ -201,7 +201,7 @@ class CountryGuideCreationWorkflow:
 
                 if relevant_urls:
                     crawl_result = await workflow.execute_activity(
-                        "crawl4ai_batch_crawl",
+                        "crawl4ai_batch",  # Activity name is "crawl4ai_batch" not "crawl4ai_batch_crawl"
                         args=[relevant_urls],
                         start_to_close_timeout=timedelta(minutes=3),
                         retry_policy=RetryPolicy(maximum_attempts=2)

@@ -352,38 +352,122 @@ Every claim needs a source link. This guide should be the definitive resource fo
 
     response_text = response.content[0].text
 
-    # Parse response
+    # Log response length for debugging
+    activity.logger.info(f"Claude response received: {len(response_text)} chars")
+    activity.logger.info(f"First 500 chars: {response_text[:500]}")
+
+    # Parse response - look for TITLE: anywhere in first 20 lines
     lines = response_text.strip().split('\n')
     title = ""
     meta = ""
     slug = ""
 
-    for line in lines[:10]:
-        if line.startswith("TITLE:"):
-            title = line.replace("TITLE:", "").strip()
-        elif line.startswith("META:"):
-            meta = line.replace("META:", "").strip()
-        elif line.startswith("SLUG:"):
-            slug = line.replace("SLUG:", "").strip()
+    for line in lines[:20]:
+        line_stripped = line.strip()
+        if line_stripped.startswith("TITLE:"):
+            title = line_stripped.replace("TITLE:", "").strip()
+        elif line_stripped.startswith("META:"):
+            meta = line_stripped.replace("META:", "").strip()
+        elif line_stripped.startswith("SLUG:"):
+            slug = line_stripped.replace("SLUG:", "").strip()
 
-    # Extract HTML content (between metadata and structured data)
+    activity.logger.info(f"Parsed metadata - Title: '{title[:50]}...', Slug: '{slug}'")
+
+    # Extract HTML content - try multiple patterns
+    content = ""
+
+    # Pattern 1: Between SLUG: and ---COUNTRY GUIDE DATA---
     content_match = re.search(r'SLUG:.*?\n(.+?)---COUNTRY GUIDE DATA---', response_text, re.DOTALL)
-    content = content_match.group(1).strip() if content_match else ""
+    if content_match:
+        content = content_match.group(1).strip()
+        activity.logger.info(f"Pattern 1 matched: {len(content)} chars")
+
+    # Pattern 2: Between SLUG: and ```json (if no marker)
+    if not content:
+        content_match = re.search(r'SLUG:.*?\n(.+?)```json', response_text, re.DOTALL)
+        if content_match:
+            content = content_match.group(1).strip()
+            activity.logger.info(f"Pattern 2 matched: {len(content)} chars")
+
+    # Pattern 3: Everything after SLUG: line until we hit JSON-like content
+    if not content:
+        slug_match = re.search(r'SLUG:.*?\n', response_text)
+        if slug_match:
+            after_slug = response_text[slug_match.end():]
+            # Find where JSON starts
+            json_start = after_slug.find('{"')
+            if json_start == -1:
+                json_start = after_slug.find('---')
+            if json_start > 100:  # At least some content
+                content = after_slug[:json_start].strip()
+                activity.logger.info(f"Pattern 3 matched: {len(content)} chars")
+
+    # Pattern 4: Look for first <section or <p tag and extract from there
+    if not content:
+        html_match = re.search(r'(<(?:section|p|div)[^>]*>.*)', response_text, re.DOTALL)
+        if html_match:
+            html_content = html_match.group(1)
+            # Cut at JSON data marker
+            json_marker = html_content.find('---COUNTRY GUIDE DATA---')
+            if json_marker > 0:
+                content = html_content[:json_marker].strip()
+            else:
+                json_marker = html_content.find('```json')
+                if json_marker > 0:
+                    content = html_content[:json_marker].strip()
+                else:
+                    content = html_content.strip()
+            activity.logger.info(f"Pattern 4 (HTML tags) matched: {len(content)} chars")
+
+    # Fallback: Use full response minus metadata
+    if not content:
+        activity.logger.warning("No content pattern matched - using full response as fallback")
+        # Remove the first few metadata lines
+        content_lines = []
+        found_content = False
+        for line in lines:
+            if found_content:
+                content_lines.append(line)
+            elif line.strip().startswith('<') or (not any(line.startswith(p) for p in ['TITLE:', 'META:', 'SLUG:', '---'])):
+                found_content = True
+                content_lines.append(line)
+        content = '\n'.join(content_lines)
+        # Cut at JSON data marker
+        json_marker = content.find('---COUNTRY GUIDE DATA---')
+        if json_marker > 0:
+            content = content[:json_marker].strip()
 
     # Extract structured data
     guide_data = extract_country_guide_data(response_text)
+    activity.logger.info(f"Extracted guide data: {len(guide_data.get('motivations', []))} motivations, {len(guide_data.get('faq', []))} FAQs")
+
+    # Validate we got real content
+    word_count = len(content.split()) if content else 0
+    if word_count < 500:
+        activity.logger.error(f"CONTENT GENERATION FAILED: Only {word_count} words generated (minimum 500)")
+        activity.logger.error(f"Full response for debugging: {response_text[:2000]}...")
+        raise ValueError(
+            f"Country guide generation failed - only {word_count} words. "
+            f"Expected 4000+. Claude may not have followed the format. "
+            f"Check logs for full response."
+        )
+
+    # Generate title if not parsed
+    if not title:
+        title = f"{country_name} Relocation Guide 2025: Complete Guide for Every Situation"
+        activity.logger.warning(f"Title not parsed, using default: {title}")
 
     # Build payload matching [country].astro expectations
     payload = {
         "title": title,
         "slug": slug or slugify(f"{country_name}-relocation-guide"),
         "content": content,
-        "excerpt": meta,
-        "meta_description": meta[:160],
+        "excerpt": meta or f"Comprehensive guide to relocating to {country_name}.",
+        "meta_description": (meta or f"Complete {country_name} relocation guide")[:160],
         "article_type": "country_guide",
         "country_code": country_code,
         "guide_type": "country_comprehensive",
-        "word_count": len(content.split()),
+        "word_count": word_count,
         # Country guide specific payload
         "overview": guide_data.get("overview", {}),
         "motivations": guide_data.get("motivations", []),
@@ -394,7 +478,7 @@ Every claim needs a source link. This guide should be the definitive resource fo
         "extracted_facts": guide_data.get("facts", {})
     }
 
-    activity.logger.info(f"Generated {country_name} guide: {len(content.split())} words, {len(guide_data.get('motivations', []))} motivations")
+    activity.logger.info(f"✅ Generated {country_name} guide: {word_count} words, {len(guide_data.get('motivations', []))} motivations")
 
     return payload
 
