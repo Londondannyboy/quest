@@ -603,3 +603,91 @@ async def serper_httpx_deep_articles(
         "cost": 0.0,  # Free - using Crawl4AI
         "success": len(crawled_articles) > 0
     }
+
+
+@activity.defn(name="serper_scrape")
+async def serper_scrape_url(url: str) -> Dict[str, Any]:
+    """
+    Scrape a single URL using Serper.dev scrape API.
+    
+    Faster and more reliable than crawl4ai for many sites.
+    Uses Serper credits but provides clean extracted content.
+    
+    Args:
+        url: URL to scrape
+        
+    Returns:
+        Dict with success, url, title, content, crawler
+    """
+    activity.logger.info(f"Serper scrape: {url[:60]}...")
+    
+    if not config.SERPER_API_KEY:
+        return {
+            "success": False,
+            "url": url,
+            "error": "SERPER_API_KEY not configured",
+            "crawler": "serper"
+        }
+    
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                "https://scrape.serper.dev/",
+                headers={
+                    "X-API-KEY": config.SERPER_API_KEY,
+                    "Content-Type": "application/json"
+                },
+                json={"url": url}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Serper scrape returns text content directly
+                content = data.get("text", "")
+                title = data.get("title", "")
+                
+                if not content or len(content) < 100:
+                    activity.logger.warning(f"Serper scrape: insufficient content ({len(content)} chars)")
+                    return {
+                        "success": False,
+                        "url": url,
+                        "error": f"Insufficient content: {len(content)} chars",
+                        "crawler": "serper"
+                    }
+                
+                activity.logger.info(f"Serper scrape success: {len(content)} chars")
+                
+                return {
+                    "success": True,
+                    "url": url,
+                    "title": title,
+                    "content": content[:15000],  # Cap at 15k chars
+                    "content_length": len(content),
+                    "crawler": "serper"
+                }
+            else:
+                activity.logger.error(f"Serper scrape failed: HTTP {response.status_code}")
+                return {
+                    "success": False,
+                    "url": url,
+                    "error": f"HTTP {response.status_code}",
+                    "crawler": "serper"
+                }
+                
+    except httpx.TimeoutException:
+        activity.logger.error(f"Serper scrape timeout for {url[:50]}")
+        return {
+            "success": False,
+            "url": url,
+            "error": "Timeout",
+            "crawler": "serper"
+        }
+    except Exception as e:
+        activity.logger.error(f"Serper scrape error: {type(e).__name__}: {e}")
+        return {
+            "success": False,
+            "url": url,
+            "error": f"{type(e).__name__}: {str(e)}",
+            "crawler": "serper"
+        }

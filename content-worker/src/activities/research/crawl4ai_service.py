@@ -266,12 +266,31 @@ async def crawl4ai_batch_crawl(urls: list, topic: str = "", keywords: list = Non
                     "stats": {"crawler": "crawl4ai"}
                 }
 
-        except Exception as e:
-            activity.logger.error(f"Crawl4AI error: {e}")
+        except httpx.TimeoutException as e:
+            activity.logger.error(f"Crawl4AI timeout after 270s: {type(e).__name__}")
             return {
                 "success": False,
                 "pages": [],
-                "error": str(e),
+                "error": f"Timeout after 270s: {type(e).__name__}",
+                "stats": {"crawler": "crawl4ai", "timeout": True}
+            }
+        except httpx.RequestError as e:
+            activity.logger.error(f"Crawl4AI request error: {type(e).__name__}: {e}")
+            return {
+                "success": False,
+                "pages": [],
+                "error": f"Request error: {type(e).__name__}: {str(e) or 'no details'}",
+                "stats": {"crawler": "crawl4ai"}
+            }
+        except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
+            activity.logger.error(f"Crawl4AI error: {type(e).__name__}: {e}")
+            activity.logger.error(f"Traceback: {tb}")
+            return {
+                "success": False,
+                "pages": [],
+                "error": f"{type(e).__name__}: {str(e) or 'no message'} - see logs",
                 "stats": {"crawler": "crawl4ai"}
             }
 

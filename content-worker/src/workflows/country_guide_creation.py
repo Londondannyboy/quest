@@ -389,26 +389,44 @@ class CountryGuideCreationWorkflow:
                 workflow.logger.info(f"Filtered to {len(relevant_urls)} relevant URLs from {len(research_urls)}")
 
                 if relevant_urls:
-                    # Topic for BM25 filtering - matches article_creation pattern
+                    # Launch individual crawl workflows for each URL (more reliable than batch)
                     crawl_topic = f"{country_name} relocation visa living expat guide"
-                    crawl_result = await workflow.execute_activity(
-                        "crawl4ai_batch",
-                        args=[relevant_urls, crawl_topic, []],  # urls, topic, keywords
-                        start_to_close_timeout=timedelta(minutes=10),  # 10 min like article_creation
-                        retry_policy=RetryPolicy(maximum_attempts=2)
-                    )
+                    workflow.logger.info(f"Starting {len(relevant_urls)} individual crawl workflows")
 
-                    # Activity returns {"pages": [...]} not {"results": [...]}
-                    for page in crawl_result.get("pages", []):
-                        if page.get("content"):
-                            crawled_content.append({
-                                "url": page.get("url"),
-                                "title": page.get("title", ""),
-                                "content": page.get("content", "")[:10000]  # More content per source
-                            })
+                    # Spawn all child workflows in parallel
+                    crawl_handles = []
+                    for i, url in enumerate(relevant_urls[:15]):  # Cap at 15 URLs
+                        child_input = {
+                            "url": url,
+                            "topic": crawl_topic,
+                            "country_code": country_code,
+                            "crawler": "crawl4ai"  # Use crawl4ai for all (Serper scrape not working)
+                        }
+                        handle = await workflow.start_child_workflow(
+                            "CrawlUrlWorkflow",
+                            child_input,
+                            id=f"crawl-{country_code.lower()}-{workflow.uuid4().hex[:8]}-{i}",
+                            task_queue="quest-content-queue",
+                            execution_timeout=timedelta(minutes=3),
+                            retry_policy=RetryPolicy(maximum_attempts=2)
+                        )
+                        crawl_handles.append(handle)
+
+                    # Wait for all to complete
+                    for handle in crawl_handles:
+                        try:
+                            result = await handle
+                            if result.get("success") and result.get("content"):
+                                crawled_content.append({
+                                    "url": result.get("url"),
+                                    "title": result.get("title", ""),
+                                    "content": result.get("content", "")[:10000]
+                                })
+                        except Exception as e:
+                            workflow.logger.warning(f"Crawl child workflow failed: {e}")
 
                     metrics["crawled_urls"] = len(crawled_content)
-                    workflow.logger.info(f"Crawled {len(crawled_content)} sources successfully")
+                    workflow.logger.info(f"Crawled {len(crawled_content)} sources successfully via child workflows")
 
             except Exception as e:
                 workflow.logger.warning(f"Crawl phase failed (non-blocking): {e}")

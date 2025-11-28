@@ -21,6 +21,7 @@ from src.workflows.article_creation import ArticleCreationWorkflow
 from src.workflows.news_creation import NewsCreationWorkflow
 from src.workflows.country_guide_creation import CountryGuideCreationWorkflow
 from src.workflows.segment_video_workflow import SegmentVideoWorkflow
+from src.workflows.crawl_url_workflow import CrawlUrlWorkflow
 # NarrativeArticleCreationWorkflow removed - superseded by 4-act workflow in ArticleCreationWorkflow
 
 # Import all activities
@@ -35,6 +36,7 @@ from src.activities.research.serper import (
     serper_article_search,
     fetch_targeted_research,
     serper_httpx_deep_articles,  # Deep article crawling with httpx
+    serper_scrape_url,  # Single URL scrape via Serper API
 )
 
 from src.activities.research.dataforseo import (
@@ -273,7 +275,7 @@ async def main():
     worker = Worker(
         client,
         task_queue=config.TEMPORAL_TASK_QUEUE,
-        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow, NewsCreationWorkflow, CountryGuideCreationWorkflow, SegmentVideoWorkflow],
+        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow, NewsCreationWorkflow, CountryGuideCreationWorkflow, SegmentVideoWorkflow, CrawlUrlWorkflow],
         activities=[
             # Normalization
             normalize_company_url,
@@ -285,6 +287,7 @@ async def main():
             serper_article_search,  # Article search for article creation workflow
             fetch_targeted_research,
             serper_httpx_deep_articles,  # Deep article crawling with httpx
+            serper_scrape_url,  # Single URL scrape via Serper API (50/50 with crawl4ai)
 
             # Research - DataForSEO
             dataforseo_news_search,
@@ -402,6 +405,7 @@ async def main():
     print("   - NewsCreationWorkflow (Scheduled with intelligent video prompts)")
     print("   - CountryGuideCreationWorkflow (8-motivation country guides)")
     print("   - SegmentVideoWorkflow (Child workflow for segment videos)")
+    print("   - CrawlUrlWorkflow (Child workflow for individual URL crawls)")
 
     print("\n📋 Registered Activities:")
     activity_groups = [

@@ -271,26 +271,48 @@ class ArticleCreationWorkflow:
         )
 
         # ===== PHASE 2b: CRAWL RELEVANT URLs =====
+        # Use individual child workflows instead of batch (more reliable)
 
-        workflow.logger.info(f"Batch crawling {len(urls_to_crawl)} URLs with topic filtering")
+        workflow.logger.info(f"Starting {len(urls_to_crawl)} individual crawl workflows")
 
-        # Use batch crawl with BM25 topic filtering
-        # Extracts only content relevant to the article topic
-        # Note: No heartbeat_timeout - Crawl4AI is a single long HTTP call to external service
-        # 10 minute timeout (generous guardrail for slow external service)
-        crawl_result = await workflow.execute_activity(
-            "crawl4ai_batch",
-            args=[urls_to_crawl, topic, []],  # urls, topic, keywords
-            start_to_close_timeout=timedelta(minutes=10)
-        )
+        # Spawn all child workflows in parallel
+        crawl_handles = []
+        for i, url in enumerate(urls_to_crawl[:15]):  # Cap at 15 URLs
+            child_input = {
+                "url": url,
+                "topic": topic,
+                "country_code": "",
+                "crawler": "crawl4ai"
+            }
+            handle = await workflow.start_child_workflow(
+                "CrawlUrlWorkflow",
+                child_input,
+                id=f"crawl-article-{workflow.uuid4().hex[:8]}-{i}",
+                task_queue="quest-content-queue",
+                execution_timeout=timedelta(minutes=3),
+                retry_policy=RetryPolicy(maximum_attempts=2)
+            )
+            crawl_handles.append(handle)
 
-        crawled_pages = crawl_result.get("pages", [])
-        crawl_stats = crawl_result.get("stats", {})
+        # Wait for all to complete and collect results
+        crawled_pages = []
+        successful_count = 0
+        for handle in crawl_handles:
+            try:
+                result = await handle
+                if result.get("success") and result.get("content"):
+                    crawled_pages.append({
+                        "url": result.get("url"),
+                        "title": result.get("title", ""),
+                        "content": result.get("content", "")[:10000]
+                    })
+                    successful_count += 1
+            except Exception as e:
+                workflow.logger.warning(f"Crawl child workflow failed: {e}")
 
         workflow.logger.info(
             f"Crawled {len(crawled_pages)} pages "
-            f"({crawl_stats.get('successful', 0)}/{crawl_stats.get('total', 0)} successful, "
-            f"crawler: {crawl_stats.get('crawler', 'unknown')})"
+            f"({successful_count}/{len(urls_to_crawl[:15])} successful via child workflows)"
         )
 
         # ===== PHASE 3: CURATE RESEARCH SOURCES =====
