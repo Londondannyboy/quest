@@ -386,15 +386,26 @@ async def prefilter_urls_by_relevancy(
     skipped = []
 
     for candidate in url_candidates:
-        url = candidate.get("url", "")
-        title = candidate.get("title", "")
-        snippet = candidate.get("snippet", "")
-        source = candidate.get("source", "unknown")
+        # Handle both string URLs and dict format
+        if isinstance(candidate, str):
+            url = candidate
+            title = ""
+            snippet = ""
+            source = "unknown"
+        else:
+            url = candidate.get("url", "")
+            title = candidate.get("title", "")
+            snippet = candidate.get("snippet", "")
+            source = candidate.get("source", "unknown")
 
         if not url:
             continue
 
-        if is_relevant(title, snippet):
+        # If no metadata available (string URLs), include by default
+        # Can only filter if we have title/snippet to check
+        has_metadata = bool(title or snippet)
+
+        if not has_metadata or is_relevant(title, snippet):
             relevant_urls.append(url)
         else:
             skipped.append({
