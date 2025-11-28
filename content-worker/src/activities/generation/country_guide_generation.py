@@ -296,6 +296,19 @@ This guide is ALSO used for financial planning. Include comprehensive coverage o
 - Tax optimization strategies (legal)
 - Wealth protection and trust structures
 - Currency considerations and money transfer
+- Mortgage and credit options for foreigners
+
+===== PRACTICAL SETTLING-IN TOPICS (CRITICAL!) =====
+These are topics competitors rank well for - MUST include:
+- **Pet Relocation** - How to bring pets (EU Pet Passport, microchipping, vaccinations, quarantine)
+- **Driving License** - Converting foreign license, car purchase, insurance requirements
+- **School Search** - International schools, public vs private, enrollment process, fees
+- **Utilities Setup** - Electricity, water, gas, internet, mobile providers
+- **Administrative Setup** - NIF (tax number), NISS (social security), healthcare registration
+- **Professional Qualifications** - Recognition of foreign degrees and certifications
+- **Insurance** - Health insurance options, home insurance, car insurance
+- **Emergencies** - Local emergency numbers, embassy contacts, healthcare access
+- **Returning to Home Country** - What to consider if plans change
 
 ===== 8 RELOCATION MOTIVATIONS =====
 Cover ALL 8 motivations with equal depth and authority:
