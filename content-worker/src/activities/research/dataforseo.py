@@ -7,7 +7,7 @@ import os
 import base64
 import json
 import aiohttp
-from typing import Any
+from typing import Any, Dict, Optional
 from temporalio import activity
 
 # DataForSEO location codes
@@ -539,7 +539,7 @@ PLANNING_PATTERNS = {
 }
 
 
-def categorize_keyword(keyword: str) -> dict[str, str | None]:
+def categorize_keyword(keyword: str) -> Dict[str, Optional[str]]:
     """Categorize a keyword by motivation and planning type."""
     keyword_lower = keyword.lower()
 
