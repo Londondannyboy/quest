@@ -681,13 +681,16 @@ with tab_country:
     else:
         country_video_quality = None
 
+    # Guide length (simplified - just use default 4000 words for comprehensive guide)
+    country_word_count = 4000
+
     # Cost/time estimate
     st.divider()
     video_cost = {"low": 0.05, "medium": 0.08, "high": 0.12}.get(country_video_quality, 0)
     total_cost = 0.10 + video_cost  # Research + AI + video
     st.caption(f"💰 **Estimated cost:** ${total_cost:.2f}")
     st.caption("⏱️ **Estimated time:** 8-15 minutes")
-    st.caption("📋 **Outputs:** Country guide + 4-act video + Country facts JSONB")
+    st.caption("📋 **Outputs:** ~4,000 word guide + 4-act video + Country facts")
 
     # Submit button
     st.divider()
