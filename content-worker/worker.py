@@ -20,6 +20,7 @@ from src.workflows.company_creation import CompanyCreationWorkflow
 from src.workflows.article_creation import ArticleCreationWorkflow
 from src.workflows.news_creation import NewsCreationWorkflow
 from src.workflows.country_guide_creation import CountryGuideCreationWorkflow
+from src.workflows.segment_video_workflow import SegmentVideoWorkflow
 # NarrativeArticleCreationWorkflow removed - superseded by 4-act workflow in ArticleCreationWorkflow
 
 # Import all activities
@@ -272,7 +273,7 @@ async def main():
     worker = Worker(
         client,
         task_queue=config.TEMPORAL_TASK_QUEUE,
-        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow, NewsCreationWorkflow, CountryGuideCreationWorkflow],
+        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow, NewsCreationWorkflow, CountryGuideCreationWorkflow, SegmentVideoWorkflow],
         activities=[
             # Normalization
             normalize_company_url,
@@ -400,6 +401,7 @@ async def main():
     print("   - ArticleCreationWorkflow")
     print("   - NewsCreationWorkflow (Scheduled with intelligent video prompts)")
     print("   - CountryGuideCreationWorkflow (8-motivation country guides)")
+    print("   - SegmentVideoWorkflow (Child workflow for segment videos)")
 
     print("\n📋 Registered Activities:")
     activity_groups = [

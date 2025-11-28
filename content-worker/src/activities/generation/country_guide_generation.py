@@ -945,114 +945,120 @@ CRITICAL: NO text, words, letters, numbers, signs, or logos anywhere in the vide
 
 
 # Segment video templates for multi-video country guides
+# DETAILED PROMPTS - Cyprus style (50-60 words per act with camera, lighting, emotion)
 SEGMENT_VIDEO_TEMPLATES = {
     "hero": {
         "title": "Your Journey to {country}",
         "style": "Cinematic, warm color grade, smooth camera movements, shallow depth of field",
+        "preamble": "CRITICAL: NO clearly readable text, words, letters, signs, logos anywhere. Screens show abstract colors only. SAME SUBJECT throughout all 4 acts - follow ONE professional's journey. Cast: 30s professional, Mediterranean features, dark hair, casual smart clothing.",
         "acts": [
             {
-                "title": "THE DRAW",
-                "hint": "Sweeping aerial of {country}'s most iconic landscape, golden hour light, camera slowly pushing forward. Warm Mediterranean tones, cinematic lens flare."
+                "title": "The London Grind",
+                "hint": "Exhausted remote worker in cramped city flat stares at rain-streaked window, laptop glowing harsh blue. Camera pushes slowly to close-up as subject rubs temples, sighs deeply. Cool grey-blue tones, harsh fluorescent light. Documentary realism, shallow depth of field."
             },
             {
-                "title": "THE OPPORTUNITY",
-                "hint": "Modern professional working at laptop in beautiful {country} cafe or coworking space, soft natural light streaming in, camera orbits slowly. Teal and warm tones."
+                "title": "The {country} Dream",
+                "hint": "Same professional at home office bathed in warm lamplight, researching {country} on laptop screen showing abstract warm colors. Face transforms from fatigue to hope, gentle smile emerging. Golden hour light through window, colors shifting warm. Camera holds on emotional shift."
             },
             {
-                "title": "THE JOURNEY",
-                "hint": "Person walking through charming streets, exploring markets, settling into new apartment. Tracking shot, vibrant colors, documentary style."
+                "title": "The Journey",
+                "hint": "Suitcase packing montage, hands folding summer clothes gently. Airport departure lounge glimpse, airplane window view of Mediterranean coastline approaching. Camera tracks alongside luggage, colors transitioning from grey urban to brilliant blue-gold Mediterranean light."
             },
             {
-                "title": "THE NEW LIFE",
-                "hint": "Happy expat enjoying life - beach sunset, rooftop dinner, or community gathering. Pull back to wide shot, golden hour, lens flare, satisfying conclusion."
+                "title": "{country} Success",
+                "hint": "Professional works confidently on sunny {country} terrace overlooking scenic vista, laptop closed beside fresh coffee. Camera orbits slowly around subject enjoying genuine moment of satisfaction. Golden hour Mediterranean light, warm amber tones, local trees swaying gently."
             }
         ]
     },
     "family": {
         "title": "Family Life in {country}",
-        "style": "Warm, personal, intimate lighting, handheld feel but stable",
+        "style": "Warm, personal, intimate lighting, handheld feel but stable, documentary authenticity",
+        "preamble": "CRITICAL: NO clearly readable text, words, letters, signs, logos anywhere. SAME FAMILY throughout all 4 acts - follow ONE family's journey. Cast: parents (30s-40s), two children (ages 8 and 11), golden retriever. Mediterranean features, casual summer clothing.",
         "acts": [
             {
-                "title": "SCHOOL DAYS",
-                "hint": "Morning scene: parent and child arriving at international school in {country}. Green grounds, modern buildings, other families visible. Warm morning light, hopeful energy."
+                "title": "School Morning",
+                "hint": "Parent and child walking hand-in-hand toward modern international school gates in {country}. Other families visible in soft focus. Child looks up excitedly at new surroundings. Camera tracks alongside at child height. Warm golden morning light, green grounds, hopeful energy building."
             },
             {
-                "title": "PETS & PARKS",
-                "hint": "Golden retriever or family dog running on {country} beach or park. Kids playing nearby. Bright afternoon light, joyful energy, tracking shot following the dog."
+                "title": "Weekend Adventures",
+                "hint": "Golden retriever bounds across {country} beach, children chasing behind laughing. Parents watch contentedly from blanket. Camera follows dog in tracking shot, then pulls back to reveal whole family scene. Bright afternoon Mediterranean light, joyful energy, vibrant saturated colors."
             },
             {
-                "title": "HEALTHCARE",
-                "hint": "Modern {country} clinic or hospital waiting area. Clean, professional, parent with child calmly waiting. Soft clinical lighting but warm undertones, reassuring atmosphere."
+                "title": "Healthcare Confidence",
+                "hint": "Modern {country} clinic interior, parent sits calmly with child in clean waiting area. Friendly nurse approaches with warm smile, child relaxes visibly. Camera holds steady, capturing reassurance on faces. Soft clinical lighting with warm undertones, professional yet welcoming atmosphere."
             },
             {
-                "title": "FAMILY DINNER",
-                "hint": "Outdoor terrace dinner scene in {country}. Family gathered around table, local dishes, golden sunset light, laughter and connection. Slow orbit shot, intimate and warm."
+                "title": "Family Table",
+                "hint": "Outdoor terrace dinner scene as sun sets over {country} landscape. Family gathered around table laden with local dishes, grandmother passing plates. Laughter and animated conversation. Camera orbits slowly around table. Golden sunset light, warm amber tones, deep sense of belonging achieved."
             }
         ]
     },
     "finance": {
         "title": "Finance & Admin in {country}",
-        "style": "Professional, clean, modern lighting, confident and capable",
+        "style": "Professional, clean, modern lighting, confident and capable, premium feel",
+        "preamble": "CRITICAL: NO clearly readable text, words, letters, signs, logos anywhere. Documents show abstract patterns only. SAME SUBJECT throughout all 4 acts - follow ONE professional's admin journey. Cast: 40s professional, sharp business casual, confident posture, wedding ring visible.",
         "acts": [
             {
-                "title": "PROPERTY VIEWING",
-                "hint": "Modern {country} apartment or villa interior. Professional real estate agent showing around, natural light streaming through windows. Person exploring, touching surfaces, imagining life here."
+                "title": "Property Discovery",
+                "hint": "Sunlight streams through floor-to-ceiling windows of modern {country} apartment. Professional explores space, hand trailing along marble countertop, gazing at scenic view. Real estate agent gestures expansively. Camera follows subject's eyeline to vista. Natural light flooding in, aspirational atmosphere, possibility palpable."
             },
             {
-                "title": "BANK MEETING",
-                "hint": "Clean {country} bank office. Professional meeting with banker, documents on table, modern interior. Handshake moment, confident expressions, everything going smoothly."
+                "title": "Banking Partnership",
+                "hint": "Clean modern {country} bank office, professional seated across from friendly banker. Documents with abstract patterns on polished desk. Banker explains enthusiastically, client nods with growing confidence. Handshake moment, genuine smiles. Camera holds on connection. Professional lighting, trust established."
             },
             {
-                "title": "SIGNING PAPERS",
-                "hint": "Close-up of pen signing important document, then pull back to reveal professional office in {country}. Legal advisor present, coffee cups, serious but positive atmosphere."
+                "title": "The Signature",
+                "hint": "Close-up of confident hand signing important document with quality pen. Camera pulls back slowly to reveal bright {country} legal office, advisor nodding approvingly. Coffee cups, morning light through windows. Serious but positive expressions, milestone moment captured. Warm professional tones."
             },
             {
-                "title": "KEYS IN HAND",
-                "hint": "Person standing outside new {country} property, receiving keys. Smile of accomplishment, door opening to reveal beautiful interior. Light flooding in, new chapter beginning."
+                "title": "Keys to New Life",
+                "hint": "Person stands outside beautiful {country} property as agent hands over keys. Close-up of keys dropping into palm, then wide shot as new owner opens door. Light floods into frame revealing stunning interior. Camera pushes forward through doorway. Pure accomplishment, new chapter beginning."
             }
         ]
     },
     "daily": {
         "title": "Daily Life in {country}",
-        "style": "Relaxed, documentary, natural light, slice-of-life feel",
+        "style": "Relaxed, documentary, natural light, slice-of-life authenticity, European cinema feel",
+        "preamble": "CRITICAL: NO clearly readable text, words, letters, signs, logos anywhere. SAME SUBJECT throughout all 4 acts - follow ONE person's daily routine. Cast: 30s creative professional, relaxed linen clothing, content expression, comfortable in new environment.",
         "acts": [
             {
-                "title": "SCENIC DRIVE",
-                "hint": "Dashboard or window view driving through {country} countryside or coastal road. Beautiful scenery passing, relaxed music implied, golden hour light, freedom feeling."
+                "title": "Coastal Drive",
+                "hint": "Dashboard POV driving along stunning {country} coastal road, turquoise sea glimpsed through window. Driver's hand relaxed on wheel, window down, warm breeze implied. Camera captures scenery passing, then subject's contented profile. Golden hour light, freedom feeling, colors shifting from road grey to ocean blue-gold."
             },
             {
-                "title": "HOME SETUP",
-                "hint": "New {country} apartment being made home. Unpacking boxes, arranging furniture, hanging art on walls. Soft afternoon light, nesting energy, making it yours."
+                "title": "Making Home",
+                "hint": "Bright {country} apartment being transformed into home. Hands carefully unpack books onto shelf, hang artwork on white wall, arrange plants on sunny windowsill. Camera follows hands intimately, then pulls back to reveal cozy space taking shape. Soft afternoon light, nesting energy, personal touches appearing."
             },
             {
-                "title": "LOCAL MARKET",
-                "hint": "{country} farmers market or local grocery. Fresh produce, local vendors, learning the shopping routine. Vibrant colors, authentic atmosphere, belonging starting."
+                "title": "Market Rhythm",
+                "hint": "Bustling {country} farmers market, subject selecting fresh produce, exchanging smile with vendor. Vibrant colors of fruits and vegetables fill frame. Camera moves through crowd at shoulder height, stopping as subject finds perfect tomatoes. Authentic atmosphere, belonging starting, Saturday morning ritual established."
             },
             {
-                "title": "NEIGHBORHOOD CAFE",
-                "hint": "Sitting at neighborhood cafe in {country}, laptop or book, becoming a regular. Barista knows your order, nod to neighbors, local life achieved. Warm afternoon light, contentment."
+                "title": "Neighborhood Regular",
+                "hint": "Subject sits at favorite neighborhood cafe, laptop open, coffee arriving without ordering. Barista nods knowingly, subject waves to passing neighbor. Camera orbits slowly as local life flows around comfortable scene. Warm afternoon light, dappled shade, contentment achieved, new community embraced."
             }
         ]
     },
     "yolo": {
         "title": "YOLO Mode: Just Do It",
-        "style": "FAST CUTS (0.5-1s per shot), energetic, shaky/tracking camera, high contrast, punchy colors, ONE slow-mo moment at the dive",
+        "style": "FAST CUTS (0.5-1s per shot), energetic, shaky/tracking camera, high contrast, punchy colors",
+        "preamble": "CRITICAL: NO text anywhere. SAME SUBJECT throughout all 4 acts - follow ONE person's spontaneous leap. Cast: late 20s, athletic build, determined expression, dressed for action. FAST PACED throughout Acts 1-3, then ONE slow-mo moment at the dive in Act 4.",
         "acts": [
             {
-                "title": "FRUSTRATION → ACTIVATION",
-                "hint": "Grey office, rain on window, person with head in hands at desk. SMASH CUT - explosive flash of light, dramatic shake. Energy burst, transformation beginning. FAST: 0.5s shots."
+                "title": "Breaking Point",
+                "hint": "Grey office cubicle, rain hammering window, subject slumps with head in hands. Harsh fluorescent flicker. SMASH CUT to hand slamming laptop shut. Eyes snap up with sudden determination. Camera shakes with energy burst. Cool grey tones exploding to warm flash. Transformation igniting. FAST: 0.5s cuts."
             },
             {
-                "title": "THE SPRINT",
-                "hint": "RAPID CUTS: Running through airport terminal (tracking shot), grabbing bag, jumping into taxi (door slam), plane window takeoff. Urgency, momentum, no looking back. Each shot 0.75s."
+                "title": "The Sprint",
+                "hint": "RAPID CUTS: Running through airport terminal, tracking shot. Hand grabs passport. Feet pound escalator. Bag hurled onto conveyor. Security sprint. Gate closing, just making it. Plane window, takeoff thrust. Clouds below. Each shot 0.75s. Urgent handheld camera. High contrast. No looking back. Momentum building."
             },
             {
-                "title": "ARRIVAL & ACTION",
-                "hint": "RAPID CUTS: Landing, sunny {country} streets through taxi window, rapid signing papers, keys handed over, apartment door opening, boxes being moved. Pure momentum. Each shot 0.75s."
+                "title": "Arrival Montage",
+                "hint": "RAPID CUTS: Wheels touchdown. {country} sun blasting through airplane window. Taxi weaving through new streets. Keys slapped into palm. Apartment door bursting open. Boxes being dragged in. Fridge stocked. Balcony discovered. View revealed. Each shot 0.75s. Pure momentum. Colors saturated. Energy peaking."
             },
             {
-                "title": "THE PAYOFF",
-                "hint": "Sprint across {country} beach (wide shot), building to SLOW-MO dive into Mediterranean, underwater shot looking up at sun through water, pure bliss. Slow-mo on impact, then serene underwater."
+                "title": "The Leap",
+                "hint": "Wide shot: subject sprints across empty {country} beach toward sea, arms pumping. Camera tracks alongside. Building speed. Then: SLOW MOTION as subject launches into Mediterranean dive, body suspended mid-air against blue sky. Underwater shot looking up through crystal water at sun. Pure bliss achieved. Serene resolution."
             }
         ]
     }
@@ -1067,6 +1073,11 @@ async def generate_segment_video_prompt(
 ) -> Dict[str, Any]:
     """
     Generate video prompt for a specific segment of the country guide.
+
+    Uses detailed Cyprus-style prompts with:
+    - 50-60 words per act
+    - Specific camera movements, lighting, emotional beats
+    - Preamble with critical NO TEXT instruction and cast guidance
 
     Args:
         country_name: Country name for context
@@ -1084,66 +1095,41 @@ async def generate_segment_video_prompt(
         activity.logger.warning(f"Unknown segment '{segment}', falling back to hero")
         template = SEGMENT_VIDEO_TEMPLATES["hero"]
 
-    # For hero segment, use four_act_content if available
-    if segment == "hero" and four_act_content and len(four_act_content) >= 4:
-        activity.logger.info("Using four_act_content for hero video")
-        prompts = []
-        for i, act in enumerate(four_act_content[:4]):
-            act_num = i + 1
-            start_time = i * 3
-            end_time = (i + 1) * 3
-            hint = act.get("four_act_visual_hint", template["acts"][i]["hint"].format(country=country_name))
-            title = act.get("title", template["acts"][i]["title"])
-
-            prompts.append(f"""ACT {act_num} ({start_time}-{end_time}s) {title.upper()}:
-{hint}""")
-    else:
-        # Use template for all other segments
-        prompts = []
-        for i, act_template in enumerate(template["acts"]):
-            act_num = i + 1
-            start_time = i * 3
-            end_time = (i + 1) * 3
-            hint = act_template["hint"].format(country=country_name)
-            title = act_template["title"]
-
-            prompts.append(f"""ACT {act_num} ({start_time}-{end_time}s) {title}:
-{hint}""")
-
-    # Build full video prompt
-    title = template["title"].format(country=country_name)
+    # Get preamble and style
+    preamble = template.get("preamble", "CRITICAL: NO clearly readable text, words, letters, signs, logos anywhere.")
     style = template["style"]
+    title = template["title"].format(country=country_name)
 
-    # YOLO has special instructions
-    if segment == "yolo":
-        video_prompt = f"""🚀 YOLO ACTION VIDEO - FAST PACED - {country_name.upper()}:
+    # Build act prompts
+    prompts = []
+    for i, act_template in enumerate(template["acts"]):
+        act_num = i + 1
+        start_time = i * 3
+        end_time = (i + 1) * 3
 
-CRITICAL STYLE: {style}
+        # Format title and hint with country name
+        act_title = act_template["title"].format(country=country_name)
+        hint = act_template["hint"].format(country=country_name)
+
+        prompts.append(f"""ACT {act_num} ({start_time}s-{end_time}s): {act_title}
+{hint}""")
+
+    # Build full video prompt with preamble
+    video_prompt = f"""{preamble}
+
+VIDEO: 12 seconds, 4 acts × 3 seconds each.
 
 {chr(10).join(prompts)}
 
-CRITICAL REQUIREMENTS:
-- Fast cuts throughout (0.5-1s per shot) EXCEPT slow-mo dive in Act 4
-- Energetic, shaky camera movements
-- High contrast, saturated colors
-- Build energy through Acts 1-3
-- ONE moment of slow-motion: the Mediterranean dive in Act 4
-- Music implied: high energy, building tension
-- NO text, words, letters, numbers, signs, or logos anywhere"""
-    else:
-        video_prompt = f"""4-ACT {segment.upper()} VIDEO FOR {country_name.upper()}:
-
-{chr(10).join(prompts)}
-
-STYLE: {style}
-CRITICAL: NO text, words, letters, numbers, signs, or logos anywhere in the video."""
+STYLE: {style}"""
 
     activity.logger.info(f"Generated {segment} video prompt: {len(video_prompt)} chars")
+    activity.logger.info(f"Prompt preview: {video_prompt[:200]}...")
 
     return {
         "segment": segment,
         "title": title,
         "video_prompt": video_prompt,
         "style": style,
-        "cluster": "yolo" if segment == "yolo" else "story"  # YOLO is separate cluster
+        "cluster": "yolo" if segment == "yolo" else "story"
     }

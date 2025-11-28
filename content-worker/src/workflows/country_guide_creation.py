@@ -620,115 +620,93 @@ class CountryGuideCreationWorkflow:
         except Exception as e:
             workflow.logger.warning(f"Zep sync failed (non-blocking): {e}")
 
-        # ===== PHASE 12: GENERATE 5 SEGMENT VIDEOS (SEQUENTIAL) =====
-        # Hero, Family, Finance, Daily, YOLO - each ~2-3 min generation + upload
-        # Total: ~15-20 minutes, ~$1.50 cost (5 × $0.30 Seedance)
+        # ===== PHASE 12: GENERATE 5 SEGMENT VIDEOS (CHILD WORKFLOWS) =====
+        # Each segment is a separate child workflow for:
+        # - Isolated failures (one video failing doesn't block others)
+        # - Independent retries
+        # - Clearer monitoring in Temporal UI
+        # - Each video gets its own optimized prompt
+        #
+        # SEQUENTIAL execution to maintain character consistency:
+        # 1. Generate HERO video first
+        # 2. Extract character reference frame from hero (Mux thumbnail at 1.5s)
+        # 3. Pass reference to subsequent videos for visual continuity
 
         segment_videos = []
         video_url = None  # Primary hero video URL (backwards compat)
         video_playback_id = None
         video_asset_id = None
+        character_reference_url = None  # Face frame from hero video for consistency
 
         if video_quality:
-            workflow.logger.info("Phase 12: Generate 5 segment videos (BLOCKING)")
+            workflow.logger.info("Phase 12: Generate 5 segment videos via child workflows")
 
             four_act_content = article.get("four_act_content", [])
             segments = ["hero", "family", "finance", "daily", "yolo"]
 
             for i, segment in enumerate(segments):
-                workflow.logger.info(f"  [{i+1}/5] Generating {segment.upper()} video...")
+                workflow.logger.info(f"  [{i+1}/5] Spawning {segment.upper()} video workflow...")
 
-                # Generate video prompt for this segment
-                prompt_result = await workflow.execute_activity(
-                    "generate_segment_video_prompt",
-                    args=[
-                        country_name,
-                        segment,
-                        four_act_content if segment == "hero" else None
-                    ],
-                    start_to_close_timeout=timedelta(seconds=30)
-                )
+                # Build child workflow input
+                child_input = {
+                    "country_name": country_name,
+                    "country_code": country_code,
+                    "segment": segment,
+                    "video_quality": video_quality,
+                    "article_id": article_id,
+                    "four_act_content": four_act_content if segment == "hero" else None,
+                    "character_reference_url": character_reference_url  # None for hero, face URL for others
+                }
 
-                video_prompt = prompt_result.get("video_prompt", "")
-                segment_title = prompt_result.get("title", f"{segment.title()} Video")
-                cluster = prompt_result.get("cluster", "story")
-
-                workflow.logger.info(f"    Prompt: {video_prompt[:80]}...")
-
-                # Generate video - BLOCKING
-                video_result = await workflow.execute_activity(
-                    "generate_four_act_video",
-                    args=[
-                        segment_title,              # title
-                        article.get("content", ""), # content
-                        app,                        # app
-                        video_quality,              # quality
-                        12,                         # duration (4-act = 12s)
-                        "16:9",                     # aspect_ratio
-                        "seedance",                 # video_model
-                        video_prompt                # video_prompt
-                    ],
-                    start_to_close_timeout=timedelta(minutes=10),
-                    retry_policy=RetryPolicy(maximum_attempts=2)
-                )
-
-                raw_video_url = video_result.get("video_url")
-                workflow.logger.info(f"    Generated: {raw_video_url[:60] if raw_video_url else 'NONE'}...")
-
-                # HARD FAIL for HERO video - workflow should fail if primary video fails
-                if not raw_video_url and segment == "hero":
-                    raise ValueError(
-                        f"HERO video generation failed for {country_name}. "
-                        f"Cannot proceed without primary video. "
-                        f"Video result: {video_result}"
+                try:
+                    # Execute child workflow
+                    child_result = await workflow.execute_child_workflow(
+                        "SegmentVideoWorkflow",
+                        child_input,
+                        id=f"segment-video-{country_code.lower()}-{segment}-{workflow.uuid4().hex[:8]}",
+                        task_queue="quest-content-queue",
+                        execution_timeout=timedelta(minutes=15)
                     )
 
-                # WARN for non-hero video failures (continue with remaining videos)
-                if not raw_video_url and segment != "hero":
-                    workflow.logger.warning(f"    ⚠️ {segment.upper()} video failed - continuing without it")
-                    continue
+                    if child_result.get("success"):
+                        segment_video = child_result.get("segment_video", {})
+                        segment_videos.append(segment_video)
 
-                if raw_video_url:
-                    # Upload to Mux
-                    mux_result = await workflow.execute_activity(
-                        "upload_video_to_mux",
-                        args=[raw_video_url],
-                        start_to_close_timeout=timedelta(minutes=5)
-                    )
+                        playback_id = child_result.get("playback_id")
+                        asset_id = child_result.get("asset_id")
+                        stream_url = child_result.get("video_url")
 
-                    playback_id = mux_result.get("playback_id")
-                    asset_id = mux_result.get("asset_id")
-                    stream_url = mux_result.get("playback_url")
+                        workflow.logger.info(f"    ✅ {segment.upper()} complete: {playback_id}")
 
-                    workflow.logger.info(f"    Uploaded to Mux: {playback_id}")
+                        # For HERO video: extract character reference for subsequent videos
+                        # Use frame at 1.5s (Act 1 close-up) as character reference
+                        if segment == "hero" and playback_id:
+                            video_url = stream_url
+                            video_playback_id = playback_id
+                            video_asset_id = asset_id
+                            # Mux thumbnail at Act 1 close-up moment
+                            character_reference_url = f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=1.5&width=1024"
+                            workflow.logger.info(f"    📸 Character reference extracted: {character_reference_url[:60]}...")
+                    else:
+                        error = child_result.get("error", "Unknown error")
+                        workflow.logger.warning(f"    ⚠️ {segment.upper()} failed: {error}")
 
-                    # Build segment video object
-                    segment_video = {
-                        "id": segment,
-                        "title": segment_title,
-                        "video_url": stream_url,
-                        "playback_id": playback_id,
-                        "asset_id": asset_id,
-                        "position": i + 1,
-                        "cluster": cluster,
-                        "thumbnail_hero": f"https://image.mux.com/{playback_id}/thumbnail.jpg?time=10.5&width=1200",
-                        "animated_gif": f"https://image.mux.com/{playback_id}/animated.gif?start=8&end=12&width=640&fps=12",
-                        "thumbnails": [
-                            {
-                                "act": act_num + 1,
-                                "time": act_num * 3 + 1.5,
-                                "url": f"https://image.mux.com/{playback_id}/thumbnail.jpg?time={act_num * 3 + 1.5}&width=800"
-                            }
-                            for act_num in range(4)
-                        ]
-                    }
-                    segment_videos.append(segment_video)
+                        # HARD FAIL for HERO video - can't proceed without primary video
+                        if segment == "hero":
+                            raise ValueError(
+                                f"HERO video generation failed for {country_name}. "
+                                f"Cannot proceed without primary video. "
+                                f"Error: {error}"
+                            )
 
-                    # First video (hero) is the primary for backwards compat
+                except Exception as e:
+                    workflow.logger.error(f"    ❌ {segment.upper()} workflow failed: {e}")
+
+                    # HARD FAIL for HERO video
                     if segment == "hero":
-                        video_url = stream_url
-                        video_playback_id = playback_id
-                        video_asset_id = asset_id
+                        raise ValueError(f"HERO video workflow failed: {e}")
+                    # Continue for non-hero failures
+                    continue
 
             workflow.logger.info(f"✅ Generated {len(segment_videos)}/5 segment videos")
         else:

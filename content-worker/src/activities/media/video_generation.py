@@ -64,7 +64,8 @@ async def generate_four_act_video(
     duration: int = 12,  # Default to 12s for 4-act structure
     aspect_ratio: str = "16:9",
     video_model: str = "seedance",
-    video_prompt: Optional[str] = None
+    video_prompt: Optional[str] = None,
+    reference_image: Optional[str] = None  # Character reference for visual consistency
 ) -> Dict[str, Any]:
     """
     Generate a video for an article using AI video generation.
@@ -84,6 +85,7 @@ async def generate_four_act_video(
         aspect_ratio: Video aspect ratio (default 16:9)
         video_model: Model to use (seedance, wan-2.5)
         video_prompt: Custom prompt (if None, auto-generated)
+        reference_image: URL to reference image for character consistency
 
     Returns:
         Dict with video_url, quality, duration, cost, four_act_config
@@ -146,6 +148,10 @@ async def generate_four_act_video(
                 f"For companies use generate_company_video."
             )
 
+    # Log reference image if provided
+    if reference_image:
+        activity.logger.info(f"✓ Reference image provided for character consistency: {reference_image[:60]}...")
+
     # Generate video based on selected model
     if video_model == "wan-2.5":
         video_url = await generate_with_wan(prompt, duration, resolution, aspect_ratio)
@@ -157,8 +163,8 @@ async def generate_four_act_video(
         actual_model = "google/gemini"
         cost = quality_config["cost_per_second"] * duration
     else:
-        # Default to Seedance
-        video_url = await generate_with_seedance(prompt, duration, resolution, aspect_ratio)
+        # Default to Seedance - pass reference image for character consistency
+        video_url = await generate_with_seedance(prompt, duration, resolution, aspect_ratio, reference_image)
         actual_model = "bytedance/seedance-1-pro-fast"
         cost = quality_config["cost_per_second"] * duration
 
@@ -411,12 +417,15 @@ async def generate_with_seedance(
     prompt: str,
     duration: int,
     resolution: str,
-    aspect_ratio: str
+    aspect_ratio: str,
+    reference_image: Optional[str] = None
 ) -> str:
     """Generate video using Seedance on Replicate with heartbeats.
 
     Note: Seedance struggles with text rendering - only single words work reliably.
     Uses model-specific prompt transformation for optimal results.
+
+    If reference_image is provided, uses image-to-video mode for character consistency.
     """
     import time
 
@@ -430,18 +439,26 @@ async def generate_with_seedance(
     activity.logger.info(f"Calling Seedance: {resolution}, {duration}s")
     activity.logger.info(f"Transformed prompt: {seedance_prompt[:100]}...")
 
+    # Build input parameters
+    input_params = {
+        "prompt": seedance_prompt,
+        "duration": duration,
+        "resolution": resolution,
+        "aspect_ratio": aspect_ratio,
+        "camera_fixed": False,
+        "fps": 24
+    }
+
+    # Add reference image for character consistency (image-to-video mode)
+    if reference_image:
+        activity.logger.info(f"Using reference image for character consistency")
+        input_params["image"] = reference_image
+
     # Create prediction (non-blocking)
     client = replicate.Client(api_token=replicate_token)
     prediction = client.predictions.create(
         model="bytedance/seedance-1-pro-fast",
-        input={
-            "prompt": seedance_prompt,
-            "duration": duration,
-            "resolution": resolution,
-            "aspect_ratio": aspect_ratio,
-            "camera_fixed": False,
-            "fps": 24
-        }
+        input=input_params
     )
 
     activity.logger.info(f"Prediction created: {prediction.id}")
