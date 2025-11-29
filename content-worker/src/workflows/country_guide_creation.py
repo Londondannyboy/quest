@@ -719,7 +719,7 @@ class CountryGuideCreationWorkflow:
                 # Link to country
                 await workflow.execute_activity(
                     "link_article_to_country",
-                    args=[article_id, country_code, "country_comprehensive"],
+                    args=[str(article_id), country_code, "country_comprehensive"],
                     start_to_close_timeout=timedelta(seconds=30)
                 )
 
@@ -946,7 +946,7 @@ class CountryGuideCreationWorkflow:
 
         await workflow.execute_activity(
             "link_article_to_country",
-            args=[article_id, country_code, "country_comprehensive"],
+            args=[str(article_id), country_code, "country_comprehensive"],
             start_to_close_timeout=timedelta(seconds=30)
         )
 
