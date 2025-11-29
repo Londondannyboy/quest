@@ -813,8 +813,8 @@ class CountryGuideCreationWorkflow:
 
             # Get top keywords from country's seo_keywords
             # Topic cluster filtering thresholds (hardcoded to avoid sandbox import issues)
-            MIN_VOLUME = 30        # Minimum monthly search volume
-            MAX_DIFFICULTY = 60    # Maximum keyword difficulty (0-100)
+            MIN_VOLUME = 10        # Minimum monthly search volume (lowered to capture long-tail)
+            MAX_DIFFICULTY = 70    # Maximum keyword difficulty (0-100)
             MAX_COUNT = 15         # Maximum topic cluster articles to create
 
             top_keywords = []
