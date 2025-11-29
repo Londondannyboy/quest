@@ -125,6 +125,15 @@ class ClusterArticleWorkflow:
         # ===== PHASE 3: SAVE ARTICLE =====
         workflow.logger.info(f"Phase 3: Save {article_mode} article")
 
+        # Determine which content_* column to populate based on article_mode
+        # This ensures the frontend can detect the mode even without cluster siblings
+        # Note: content_voices is JSONB for testimonials, not HTML - handled separately
+        initial_content_story = content if article_mode == "story" else None
+        initial_content_guide = content if article_mode == "guide" else None
+        initial_content_yolo = content if article_mode == "yolo" else None
+        # For voices mode, pass the voices array (JSONB), not HTML content
+        initial_content_voices = research_context.get("voices", []) if article_mode == "voices" else None
+
         article_id = await workflow.execute_activity(
             "save_article_to_neon",
             args=[
@@ -148,10 +157,10 @@ class ClusterArticleWorkflow:
                 None,  # keyword_volume
                 None,  # keyword_difficulty
                 None,  # secondary_keywords
-                None,  # content_story (legacy)
-                None,  # content_guide (legacy)
-                None,  # content_yolo (legacy)
-                None,  # content_voices (legacy)
+                initial_content_story,
+                initial_content_guide,
+                initial_content_yolo,
+                initial_content_voices,
                 cluster_id,  # cluster_id
                 parent_id,  # parent_id
                 article_mode  # article_mode
@@ -261,6 +270,15 @@ class ClusterArticleWorkflow:
                 }
             }
 
+        # Determine which content_* column to populate based on article_mode
+        # This ensures the frontend can detect the mode even without cluster siblings
+        # Note: content_voices is JSONB for testimonials, not HTML - handled separately
+        content_story = content if article_mode == "story" else None
+        content_guide = content if article_mode == "guide" else None
+        content_yolo = content if article_mode == "yolo" else None
+        # For voices mode, pass the voices array (JSONB), not HTML content
+        content_voices = research_context.get("voices", []) if article_mode == "voices" else None
+
         # Final update with video and publish
         await workflow.execute_activity(
             "save_article_to_neon",
@@ -285,10 +303,10 @@ class ClusterArticleWorkflow:
                 None,  # keyword_volume
                 None,  # keyword_difficulty
                 None,  # secondary_keywords
-                None,  # content_story
-                None,  # content_guide
-                None,  # content_yolo
-                None,  # content_voices
+                content_story,
+                content_guide,
+                content_yolo,
+                content_voices,
                 cluster_id,
                 parent_id,
                 article_mode
