@@ -467,7 +467,11 @@ async def save_article_to_neon(
                             cluster_id = COALESCE(%s, cluster_id),
                             parent_id = COALESCE(%s, parent_id),
                             article_mode = COALESCE(%s, article_mode),
-                            updated_at = NOW()
+                            updated_at = NOW(),
+                            published_at = CASE
+                                WHEN %s = 'published' AND published_at IS NULL THEN NOW()
+                                ELSE published_at
+                            END
                         WHERE id = %s
                         RETURNING id
                     """, (
@@ -500,6 +504,7 @@ async def save_article_to_neon(
                         cluster_id,
                         parent_id,
                         article_mode,
+                        status,  # For published_at CASE
                         article_id
                     ))
                     activity.logger.info(f"zep_facts for UPDATE: {len(zep_facts) if zep_facts else 'None'} facts")
