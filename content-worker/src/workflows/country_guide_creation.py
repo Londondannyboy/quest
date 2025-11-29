@@ -774,17 +774,31 @@ class CountryGuideCreationWorkflow:
             topic_cluster_articles = []
 
             # Get top keywords from country's seo_keywords
-            # Minimum volume threshold: 20 (adjust based on competition)
+            # Dynamic filtering based on config thresholds
+            from utils.config import Config
+            MIN_VOLUME = Config.TOPIC_CLUSTER_MIN_VOLUME
+            MAX_DIFFICULTY = Config.TOPIC_CLUSTER_MAX_DIFFICULTY
+            MAX_COUNT = Config.TOPIC_CLUSTER_MAX_COUNT
+
             top_keywords = []
 
             # Extract keywords from seo_keywords structure
+            # Filter by volume >= MIN_VOLUME AND competition <= MAX_DIFFICULTY
             if seo_keywords:
                 long_tail = seo_keywords.get("long_tail", [])
                 for kw in long_tail:
-                    if kw.get("volume", 0) >= 20:
+                    volume = kw.get("volume", 0)
+                    # Use 'competition' field as difficulty (0-100 scale)
+                    difficulty = kw.get("competition", kw.get("difficulty", 50))
+
+                    if volume >= MIN_VOLUME and difficulty <= MAX_DIFFICULTY:
+                        # Calculate opportunity score: higher volume + lower difficulty = better
+                        opportunity_score = volume * (100 - difficulty) / 100
                         top_keywords.append({
                             "keyword": kw.get("keyword"),
-                            "volume": kw.get("volume", 0),
+                            "volume": volume,
+                            "difficulty": difficulty,
+                            "opportunity_score": opportunity_score,
                             "cpc": kw.get("cpc", 0),
                             "planning_type": kw.get("planning_type", "general")
                         })
@@ -798,14 +812,22 @@ class CountryGuideCreationWorkflow:
                     seen_keywords.add(kw_lower)
                     deduped_keywords.append(kw)
 
-            # Sort by volume and take top 5
-            deduped_keywords.sort(key=lambda x: x.get("volume", 0), reverse=True)
-            top_keywords = deduped_keywords[:5]
+            # Sort by opportunity score (best opportunities first) and cap at MAX_COUNT
+            deduped_keywords.sort(key=lambda x: x.get("opportunity_score", 0), reverse=True)
+            top_keywords = deduped_keywords[:MAX_COUNT]
+
+            workflow.logger.info(
+                f"Topic cluster filtering: {len(deduped_keywords)} passed filters "
+                f"(vol>={MIN_VOLUME}, diff<={MAX_DIFFICULTY}), taking top {len(top_keywords)}"
+            )
 
             if top_keywords:
                 workflow.logger.info(f"Phase C: Creating {len(top_keywords)} topic cluster articles")
                 for kw in top_keywords:
-                    workflow.logger.info(f"  - '{kw['keyword']}' (vol={kw['volume']}, type={kw['planning_type']})")
+                    workflow.logger.info(
+                        f"  - '{kw['keyword']}' (vol={kw['volume']}, diff={kw.get('difficulty', '?')}, "
+                        f"score={kw.get('opportunity_score', 0):.1f}, type={kw['planning_type']})"
+                    )
 
                 # Get parent video data for topic clusters to reuse
                 parent_playback_id = story_result.get("video_playback_id") if story_result else None

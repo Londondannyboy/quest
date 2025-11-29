@@ -109,6 +109,12 @@ class Config:
     CONFIDENCE_THRESHOLD: float = float(os.getenv("CONFIDENCE_THRESHOLD", "0.7"))
     MAX_RESEARCH_ATTEMPTS: int = int(os.getenv("MAX_RESEARCH_ATTEMPTS", "2"))
 
+    # ===== TOPIC CLUSTER SEO SETTINGS =====
+    # Dynamic filtering: volume >= MIN AND difficulty <= MAX, sorted by opportunity score
+    TOPIC_CLUSTER_MIN_VOLUME: int = int(os.getenv("TOPIC_CLUSTER_MIN_VOLUME", "30"))
+    TOPIC_CLUSTER_MAX_DIFFICULTY: int = int(os.getenv("TOPIC_CLUSTER_MAX_DIFFICULTY", "60"))
+    TOPIC_CLUSTER_MAX_COUNT: int = int(os.getenv("TOPIC_CLUSTER_MAX_COUNT", "15"))
+
     # Image settings
     GENERATE_FEATURED_IMAGES: bool = os.getenv("GENERATE_FEATURED_IMAGES", "true").lower() == "true"
     LOGO_SIZE: str = os.getenv("LOGO_SIZE", "400x400")

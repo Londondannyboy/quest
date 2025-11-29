@@ -136,7 +136,9 @@ def extract_country_guide_data(response_text: str) -> Dict[str, Any]:
 def get_mode_specific_prompt(
     mode: str,
     country_name: str,
-    voices: List[Dict[str, Any]]
+    voices: List[Dict[str, Any]],
+    primary_slug: str = None,
+    sibling_slugs: List[str] = None
 ) -> str:
     """
     Get mode-specific writing instructions for Story/Guide/YOLO modes.
@@ -145,10 +147,37 @@ def get_mode_specific_prompt(
         mode: One of "story", "guide", "yolo"
         country_name: Country name for context
         voices: List of extracted voices from curation
+        primary_slug: Primary cluster article slug for internal linking
+        sibling_slugs: List of sibling article slugs for cross-linking
 
     Returns:
         Mode-specific prompt additions
     """
+    # Build internal linking instructions (applies to ALL modes)
+    internal_links_section = f"""
+
+===== INTERNAL LINKS (Critical for SEO) =====
+
+You MUST include 3-5 internal links naturally throughout the content:
+
+**Required Links:**
+- Link back to primary guide: /{primary_slug or country_name.lower() + '-relocation-guide'} (mention 1-2 times with descriptive anchor text)
+"""
+
+    if sibling_slugs:
+        internal_links_section += f"""
+**Cross-Link Opportunities (pick 2-3):**
+{chr(10).join(f'- /{slug}' for slug in sibling_slugs[:5])}
+"""
+
+    internal_links_section += f"""
+**Link Format:**
+- Use descriptive anchor text: "our [comprehensive {country_name} guide](/slug)" NOT "click here"
+- Distribute links naturally - don't cluster them
+- Each link should feel contextually relevant
+
+**Example:** "For a detailed breakdown of visa costs, see our [complete {country_name} relocation guide](/{primary_slug or country_name.lower() + '-relocation-guide'})."
+"""
     # Format voices for prompts
     voices_text = ""
     if voices:
@@ -194,9 +223,9 @@ Use blockquotes for impact:
 **EXAMPLE OPENING:**
 "It starts, as these things often do, with a grey morning. You're scrolling through your phone on the Northern Line,
 faces illuminated by screen glow, rain streaking the windows above. €900 for a one-bedroom flat. 52% marginal tax.
-And then you see it: a photo of golden beaches, white villages tumbling down hillsides, and a headline that reads
-'{country_name}: The Digital Nomad's Mediterranean Secret.' Something shifts."
-"""
+And then you see it: a photo of {country_name}'s iconic scenery - historic architecture, stunning landscapes, a life that feels different - and a headline that reads
+'{country_name}: Europe's Best-Kept Secret.' Something shifts."
+""" + internal_links_section
 
     elif mode == "guide":
         return f"""
@@ -248,7 +277,7 @@ Use testimonial cards:
 - Data-driven with specific numbers
 - Balanced (pros AND cons)
 - Practical and actionable
-"""
+""" + internal_links_section
 
     elif mode == "yolo":
         return f"""
@@ -310,11 +339,11 @@ Let's break down exactly how to make this happen. No fluff. Just action."
 
 **END WITH:**
 A fun disclaimer: "YOLO Mode is for inspiration. Please do actual research before selling your flat and booking a one-way ticket. But also... life is short. 🌊"
-"""
+""" + internal_links_section
 
     else:
         # Default to story mode
-        return get_mode_specific_prompt("story", country_name, voices)
+        return get_mode_specific_prompt("story", country_name, voices, primary_slug, sibling_slugs)
 
 
 @activity.defn
@@ -640,27 +669,44 @@ After all content, include this JSON block:
       "act": 1,
       "title": "Why {country_name}? The Appeal",
       "factoid": "Key statistic about {country_name}",
-      "four_act_visual_hint": "45-55 word cinematic scene: [Beautiful establishing shot of {country_name}, camera movement, lighting, atmosphere]"
+      "four_act_visual_hint": "45-55 word cinematic scene showing AUTHENTIC {country_name} landscape (see geography notes below)"
     }},
     {{
       "act": 2,
       "title": "The Opportunity: What {country_name} Offers",
       "factoid": "Key benefit statistic",
-      "four_act_visual_hint": "45-55 word scene showing opportunity/possibility"
+      "four_act_visual_hint": "45-55 word scene showing opportunity in AUTHENTIC {country_name} setting"
     }},
     {{
       "act": 3,
       "title": "Making the Move: The Journey",
       "factoid": "Practical statistic (visa processing, etc.)",
-      "four_act_visual_hint": "45-55 word scene showing transition/action"
+      "four_act_visual_hint": "45-55 word scene showing transition/action in recognizable {country_name} location"
     }},
     {{
       "act": 4,
       "title": "Life in {country_name}: The Payoff",
       "factoid": "Quality of life statistic",
-      "four_act_visual_hint": "45-55 word scene showing successful new life"
+      "four_act_visual_hint": "45-55 word scene showing successful new life in AUTHENTIC {country_name} environment"
     }}
   ]
+
+  **CRITICAL: GEOGRAPHIC ACCURACY FOR VISUAL HINTS**
+  Visual hints MUST reflect {country_name}'s ACTUAL geography and landmarks:
+
+  - **Landlocked countries** (Slovakia, Austria, Switzerland, Czech Republic, Hungary): NO beaches, oceans, or coastal scenes!
+    Use: mountains, castles, historic old towns, alpine meadows, rivers, vineyards, forests
+  - **Coastal countries** (Portugal, Spain, Croatia, Greece): Can use beaches AND historic towns, coastal cliffs
+  - **Nordic countries** (Norway, Sweden, Finland): Fjords, northern lights, forests, modern cities
+  - **Tropical destinations** (Thailand, Bali, Mexico): Beaches appropriate, but include temples, rice terraces, markets
+
+  For {country_name}, think about its ICONIC features:
+  - Capital city landmarks, historic architecture
+  - Natural landscapes unique to this country
+  - Seasonal characteristics (Mediterranean sun, alpine snow, etc.)
+  - Cultural settings (cafes, markets, festivals)
+
+  NEVER use generic "beach/ocean" scenes unless {country_name} actually has significant coastline!
 }}
 ```
 """
@@ -916,7 +962,7 @@ ACT 2 (3-6s) THE OPPORTUNITY: Modern professional working at laptop in beautiful
 
 ACT 3 (6-9s) THE JOURNEY: Montage feel - person walking through charming streets, exploring markets, settling into new apartment. Tracking shot, vibrant colors, documentary style.
 
-ACT 4 (9-12s) THE NEW LIFE: Happy expat enjoying life - beach sunset, rooftop dinner, or community gathering. Pull back to wide shot, golden hour, lens flare, satisfying conclusion.
+ACT 4 (9-12s) THE NEW LIFE: Happy expat enjoying life in authentic {country_name} setting - use iconic local scenery (mountain vista, historic town square, vineyard terrace, or coastline only if coastal country). Pull back to wide shot, golden hour, lens flare, satisfying conclusion.
 
 STYLE: Cinematic, warm color grade, smooth camera movements, shallow depth of field.
 NO TEXT/LOGOS."""
@@ -1086,7 +1132,7 @@ PACING: FAST throughout Acts 1-3, then ONE slow-mo moment at the dive in Act 4."
             },
             {
                 "title": "The Leap",
-                "hint": "WIDE TRACKING: subject sprints across {country} beach toward sea. Building speed. Then SLOW MOTION as subject launches into dive, body suspended mid-air against blue sky. UNDERWATER shot looking up through crystal water at sun. Bliss achieved."
+                "hint": "WIDE TRACKING: subject sprints through iconic {country} landscape (use country-appropriate scenery: mountains, historic streets, or coastline if coastal). Building speed. Then SLOW MOTION as subject leaps joyfully, body suspended mid-air. Sun flare, pure freedom moment."
             }
         ]
     },
@@ -1142,7 +1188,7 @@ Cast: parents (30s-40s), two children (ages 8 and 11), golden retriever.
             },
             {
                 "title": "Weekend Adventures",
-                "hint": "TRACKING SHOT, golden retriever bounds across {country} beach, children chasing. Camera follows dog, then PULLS BACK to reveal whole family. Bright afternoon light, joyful energy, saturated colors."
+                "hint": "TRACKING SHOT, golden retriever bounds through {country} park/nature area (mountains, forest, meadow - match country's geography), children chasing. Camera follows dog, then PULLS BACK to reveal whole family. Bright afternoon light, joyful energy."
             },
             {
                 "title": "Healthcare Confidence",
@@ -1201,8 +1247,8 @@ Cast: 30s creative professional, relaxed linen clothing, content expression.
 {clothing}""",
         "acts": [
             {
-                "title": "Coastal Drive",
-                "hint": "POV through windshield, driving {country} coastal road, turquoise sea glimpsed. Driver's hand relaxed on wheel, window down. Camera captures scenery, then subject's contented profile. Golden hour, freedom."
+                "title": "Scenic Drive",
+                "hint": "POV through windshield, driving scenic {country} road (mountain pass, vineyard valley, or coastline if coastal country). Driver's hand relaxed on wheel, window down. Camera captures iconic {country} scenery, then subject's contented profile. Golden hour, freedom."
             },
             {
                 "title": "Making Home",
@@ -1377,7 +1423,10 @@ search results. This article should be THE answer Google wants to show.
 3. **Deep sections** - 3-5 H2 sections covering all aspects of this topic
 4. **Comparison data** - vs UK, vs US, vs other countries
 5. **FAQ section** - Answer "People Also Ask" questions for this keyword
-6. **Internal link** - Link back to parent guide: /{parent_slug}
+6. **Internal links (3-5 total):**
+   - Link to parent guide: /{parent_slug} (2 mentions with descriptive anchor text)
+   - Cross-link to 1-2 related topic pages if contextually relevant
+   - Use natural anchor text: "our [comprehensive {country_name} guide](/{parent_slug})" NOT "click here"
 
 ===== WRITING STYLE =====
 - INLINE CSS ONLY (no Tailwind classes)
@@ -1448,7 +1497,9 @@ REQUIREMENTS:
 - Mention "{target_keyword}" 8-12 times naturally
 - Include comparison table (vs UK, vs other EU countries)
 - Include 5-8 FAQ questions
-- Link back to /{parent_slug} for comprehensive guide
+- Include 3-5 internal links total:
+  - Link to /{parent_slug} at least 2 times with descriptive anchor text
+  - Cross-link to related topics if relevant
 - Use INLINE CSS only (no Tailwind classes)
 
 Write with authority. This should be THE definitive resource for "{target_keyword}"."""
