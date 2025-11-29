@@ -572,8 +572,8 @@ class CountryGuideCreationWorkflow:
                     mode,    # NEW: content mode
                     voices   # NEW: voices for enrichment
                 ],
-                start_to_close_timeout=timedelta(minutes=5),
-                retry_policy=RetryPolicy(maximum_attempts=2)
+                start_to_close_timeout=timedelta(minutes=7),  # Increased for comprehensive content
+                retry_policy=RetryPolicy(maximum_attempts=3)  # Extra retry for thin content rejection
             )
 
             content_modes[mode] = mode_result

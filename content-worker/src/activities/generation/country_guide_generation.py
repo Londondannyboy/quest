@@ -574,18 +574,35 @@ For EACH of the 8 motivations, write a detailed section:
 
 {seo_guidance}
 
-===== CONTENT REQUIREMENTS =====
+===== CONTENT REQUIREMENTS (CRITICAL - READ CAREFULLY) =====
 
-1. **MINIMUM {target_word_count} WORDS** - This must be comprehensive
-2. **8 MOTIVATION SECTIONS** - Each motivation gets its own <section id="motivation-id">
-3. **PLANNING SUBSECTIONS** - Each motivation section has H3 subsections for:
-   - Visa options (requirements, costs, processing time)
-   - Tax implications (rates, deductions, treaties)
-   - Cost of living (housing, healthcare, daily expenses)
-   - Practical considerations (banking, healthcare access, language)
+**ABSOLUTE MINIMUM: {target_word_count} WORDS TOTAL**
+This is NON-NEGOTIABLE. Content under this threshold is UNUSABLE.
+
+**SECTION DEPTH REQUIREMENTS:**
+1. **8 MOTIVATION SECTIONS** - Each motivation gets its own <section id="motivation-id">
+   - **EACH motivation section MUST be 400-600 words minimum**
+   - This means 8 sections × 500 avg = 4000+ words just for motivations
+   - Thin sections are REJECTED - write comprehensively!
+
+2. **PLANNING SUBSECTIONS** - Each motivation section MUST have detailed H3 subsections:
+   - Visa options (requirements, costs, processing time) - 100+ words
+   - Tax implications (rates, deductions, treaties) - 100+ words
+   - Cost of living (housing, healthcare, daily expenses) - 100+ words
+   - Practical considerations (banking, healthcare access, language) - 100+ words
+
+3. **DEPTH OVER BREADTH** - Better to write MORE about each topic than to skim surfaces
+   - Include real examples, case studies, specific scenarios
+   - Compare with UK/US baselines for context
+   - Address common questions within each section
+   - Include practical tips and insider knowledge
+
 4. **RICH SOURCE LINKS** - Every paragraph needs source citations
 5. **SPECIFIC DATA** - Real numbers: tax rates, visa costs, income requirements, processing times
 6. **AVOID AI PHRASES** - No "dive into", "leverage", "unlock", etc.
+
+**QUALITY CHECK:** Before finishing, mentally verify each motivation section has substantial content.
+If any section feels thin (under 300 words), EXPAND IT with more detail, examples, and data.
 
 ===== WRITING STYLE =====
 - Professional but accessible
@@ -846,15 +863,15 @@ Every claim needs a source link. This guide should be the definitive resource fo
     guide_data = extract_country_guide_data(response_text)
     activity.logger.info(f"Extracted guide data: {len(guide_data.get('motivations', []))} motivations, {len(guide_data.get('faq', []))} FAQs")
 
-    # Validate we got real content
+    # Validate we got real content - require substantial depth
     word_count = len(content.split()) if content else 0
-    if word_count < 500:
-        activity.logger.error(f"CONTENT GENERATION FAILED: Only {word_count} words generated (minimum 500)")
+    if word_count < 2500:
+        activity.logger.error(f"CONTENT GENERATION FAILED: Only {word_count} words generated (minimum 2500 required)")
         activity.logger.error(f"Full response for debugging: {response_text[:2000]}...")
         raise ValueError(
             f"Country guide generation failed - only {word_count} words. "
-            f"Expected 4000+. Claude may not have followed the format. "
-            f"Check logs for full response."
+            f"Expected 4000+, minimum 2500 for usable content. "
+            f"Retry will generate more comprehensive content."
         )
 
     # Generate title if not parsed
