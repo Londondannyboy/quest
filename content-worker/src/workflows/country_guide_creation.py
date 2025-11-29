@@ -554,11 +554,11 @@ class CountryGuideCreationWorkflow:
         voices = research_context.get("voices", [])
         workflow.logger.info(f"Using {len(voices)} voices for content enrichment")
 
-        # Generate all 3 modes - SEQUENTIALLY (each uses ~$0.05 Gemini, ~1-2 min)
+        # Generate all 4 modes - SEQUENTIALLY (each uses ~$0.05 Gemini, ~1-2 min)
         # Story mode is primary (used for metadata, motivations, faq, four_act_content)
         content_modes = {}
 
-        for mode in ["story", "guide", "yolo"]:
+        for mode in ["story", "guide", "yolo", "voices"]:
             workflow.logger.info(f"Generating {mode.upper()} mode content...")
 
             mode_result = await workflow.execute_activity(
@@ -582,10 +582,11 @@ class CountryGuideCreationWorkflow:
         # Use STORY mode as primary (has all metadata, motivations, etc.)
         article = content_modes["story"]
 
-        # Add all 3 content versions to payload
+        # Add all 4 content versions to payload
         article["content_story"] = content_modes["story"].get("content", "")
         article["content_guide"] = content_modes["guide"].get("content", "")
         article["content_yolo"] = content_modes["yolo"].get("content", "")
+        article["content_voices_html"] = content_modes["voices"].get("content", "")  # HTML version
 
         # Add voices at top level for dedicated column (content_voices)
         article["content_voices"] = research_context.get("voices", [])
@@ -605,10 +606,12 @@ class CountryGuideCreationWorkflow:
         metrics["word_count_story"] = content_modes["story"].get("word_count", 0)
         metrics["word_count_guide"] = content_modes["guide"].get("word_count", 0)
         metrics["word_count_yolo"] = content_modes["yolo"].get("word_count", 0)
+        metrics["word_count_voices"] = content_modes["voices"].get("word_count", 0)
 
         workflow.logger.info(
             f"Guide generated: {metrics['word_count']} words (Story), "
             f"{metrics['word_count_guide']} (Guide), {metrics['word_count_yolo']} (YOLO), "
+            f"{metrics['word_count_voices']} (Voices), "
             f"{len(article.get('motivations', []))} motivations"
         )
 
@@ -698,7 +701,7 @@ class CountryGuideCreationWorkflow:
                 },
                 {
                     "mode": "voices",
-                    "content": "",  # Voices mode uses testimonials, not markdown content
+                    "content": content_modes["voices"].get("content", ""),  # Generated HTML content featuring testimonials
                     "meta_description": f"Real expat voices and experiences from {country_name}. Authentic stories from people who made the move.",
                     "excerpt": f"Hear from real expats in {country_name}.",
                 },
@@ -1186,7 +1189,7 @@ class CountryGuideCreationWorkflow:
 
         # Add segment videos to metrics
         metrics["segment_videos"] = len(segment_videos)
-        metrics["content_modes"] = 3  # story, guide, yolo
+        metrics["content_modes"] = 4  # story, guide, yolo, voices
 
         return {
             "article_id": article_id,

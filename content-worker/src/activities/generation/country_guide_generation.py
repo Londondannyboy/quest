@@ -341,6 +341,58 @@ Let's break down exactly how to make this happen. No fluff. Just action."
 A fun disclaimer: "YOLO Mode is for inspiration. Please do actual research before selling your flat and booking a one-way ticket. But also... life is short. 🌊"
 """ + internal_links_section
 
+    elif mode == "voices":
+        return f"""
+===== VOICES MODE: TESTIMONIAL & COMMUNITY STYLE =====
+
+**PRIMARY FOCUS:** This is about REAL PEOPLE and their REAL EXPERIENCES. The expat voices ARE the content.
+
+**STRUCTURE:**
+1. Opening: Set the scene - why these voices matter
+2. Each major section features 2-3 testimonials as the centerpiece
+3. Your commentary connects and contextualizes the voices
+4. Let the expats speak for themselves through extended quotes
+
+**INCORPORATING VOICES - THESE ARE YOUR STARS:**
+{voices_text if voices_text else "No voices available - create fictional but realistic testimonials"}
+
+**FORMATTING VOICES:**
+Use blockquote format for every testimonial:
+
+> "Quote from expat goes here - make it substantial, 2-3 sentences minimum."
+> — **Name**, relocated from [Country] in [Year]
+
+**SECTION STRUCTURE:**
+Each H2 section should:
+1. Brief intro (1-2 sentences max)
+2. 2-3 testimonial blockquotes
+3. Brief synthesis (1-2 sentences connecting them)
+4. Transition to next theme
+
+**THEMES TO EXPLORE:**
+- First impressions & arrival stories
+- The bureaucracy battles (visas, paperwork)
+- Finding community & making friends
+- Cost of living reality checks
+- Work & career adjustments
+- Culture shock moments
+- What they wish they knew before
+- Would they do it again?
+
+**TONE:**
+- Warm and personal
+- Documentary authenticity
+- Community-focused ("you're not alone")
+- Encouraging but honest
+- Let struggles be voiced alongside wins
+
+**AVOID:**
+- Generic advice without personal stories
+- Your opinions overshadowing expat voices
+- Sanitizing the difficult parts
+- Making it feel corporate or promotional
+""" + internal_links_section
+
     else:
         # Default to story mode
         return get_mode_specific_prompt("story", country_name, voices, primary_slug, sibling_slugs)
