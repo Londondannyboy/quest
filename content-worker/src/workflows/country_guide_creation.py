@@ -390,6 +390,44 @@ class CountryGuideCreationWorkflow:
                 relevant_urls = filtered_urls.get("relevant_urls", [])[:20]
                 workflow.logger.info(f"Filtered to {len(relevant_urls)} relevant URLs from {len(research_urls)}")
 
+                # ===== PHASE 4b: URL Pre-Cleanse (Playwright) =====
+                # Score URLs via browser to filter out 404s, paywalls, bot blocks
+                # NON-BLOCKING: if this fails, continue with all URLs
+                if relevant_urls:
+                    try:
+                        workflow.logger.info(f"Phase 4b: Pre-cleansing {len(relevant_urls)} URLs via Playwright")
+                        cleanse_result = await workflow.execute_activity(
+                            "playwright_pre_cleanse",
+                            args=[relevant_urls],
+                            start_to_close_timeout=timedelta(minutes=2),
+                            heartbeat_timeout=timedelta(seconds=30),
+                            retry_policy=RetryPolicy(
+                                maximum_attempts=1,
+                                initial_interval=timedelta(seconds=1)
+                            )
+                        )
+
+                        # Filter to only high-confidence URLs (score >= 0.4)
+                        scored_urls = cleanse_result.get("scored_urls", [])
+                        cleansed_urls = [
+                            item["url"] for item in scored_urls
+                            if item.get("score", 0) >= 0.4
+                        ]
+
+                        # Log cleansing results
+                        trusted = sum(1 for s in scored_urls if s.get("score", 0) >= 0.9)
+                        flagged = len(relevant_urls) - len(cleansed_urls)
+                        workflow.logger.info(
+                            f"URL pre-cleanse: {len(cleansed_urls)} valid, {trusted} trusted, {flagged} filtered out"
+                        )
+
+                        if cleansed_urls:
+                            relevant_urls = cleansed_urls
+
+                    except Exception as e:
+                        workflow.logger.warning(f"URL pre-cleanse failed (non-blocking): {e}")
+                        # Continue with original URLs
+
                 if relevant_urls:
                     # Launch individual crawl workflows for each URL (more reliable than batch)
                     crawl_topic = f"{country_name} relocation visa living expat guide"
