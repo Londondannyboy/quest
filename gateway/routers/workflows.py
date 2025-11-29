@@ -629,6 +629,7 @@ class CountryGuideRequest(BaseModel):
     relocation_tags: Optional[List[str]] = Field(default=None, description="Tags like eu-member, schengen, english-speaking")
     video_quality: str = Field(default="medium", description="Video quality: low, medium, high")
     target_word_count: int = Field(default=4000, description="Target word count for guide")
+    use_cluster_architecture: bool = Field(default=False, description="Create 4 separate cluster articles (story/guide/yolo/voices) + topic clusters instead of single article")
 
 
 class NewsMonitorRequest(BaseModel):
@@ -787,6 +788,7 @@ async def trigger_country_guide_workflow(
             "relocation_tags": request.relocation_tags,
             "video_quality": request.video_quality,
             "target_word_count": request.target_word_count,
+            "use_cluster_architecture": request.use_cluster_architecture,
         }
 
         # Start workflow execution
