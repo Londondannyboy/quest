@@ -1308,3 +1308,243 @@ STYLE: {style}"""
         "energy": energy,
         "cluster": "yolo" if segment == "yolo" else "story"
     }
+
+
+# ============================================================================
+# TOPIC CLUSTER CONTENT GENERATION
+# ============================================================================
+# Generate SEO-targeted content for specific keywords like "slovakia cost of living"
+
+@activity.defn
+async def generate_topic_cluster_content(
+    country_name: str,
+    country_code: str,
+    target_keyword: str,
+    keyword_volume: int,
+    planning_type: str,
+    research_context: Dict[str, Any],
+    parent_slug: str
+) -> Dict[str, Any]:
+    """
+    Generate SEO-targeted content for a specific keyword topic.
+
+    Unlike general country guides, this focuses DEEPLY on one topic
+    to capture search traffic for that specific keyword.
+
+    Args:
+        country_name: Country name (e.g., "Slovakia")
+        country_code: ISO code (e.g., "SK")
+        target_keyword: Exact keyword to target (e.g., "slovakia cost of living")
+        keyword_volume: Monthly search volume
+        planning_type: Category (housing, visa, tax, retirement, etc.)
+        research_context: Shared research data from parent guide
+        parent_slug: Slug of parent guide for internal linking
+
+    Returns:
+        Dict with content, excerpt, meta_description, faq, word_count
+    """
+    activity.logger.info(
+        f"Generating topic cluster content: '{target_keyword}' for {country_name} "
+        f"(vol={keyword_volume}, type={planning_type})"
+    )
+
+    # Build topic-specific system prompt
+    system_prompt = f"""You are an SEO expert and relocation specialist writing a definitive guide
+targeting the EXACT keyword: "{target_keyword}"
+
+===== PRIMARY SEO TARGET =====
+TARGET KEYWORD: {target_keyword}
+SEARCH VOLUME: {keyword_volume}/month
+PLANNING TYPE: {planning_type}
+
+YOUR MISSION: Create THE definitive resource for "{target_keyword}" that will DOMINATE
+search results. This article should be THE answer Google wants to show.
+
+===== KEYWORD DENSITY REQUIREMENTS =====
+- Use "{target_keyword}" EXACTLY as written in:
+  - H1 title
+  - First paragraph (first 100 words)
+  - At least 2 H2 headings
+  - Meta description
+  - Naturally throughout (8-12 times total for 2000 words)
+- Use VARIATIONS naturally:
+  - "{country_name} cost of living" / "cost of living in {country_name}"
+  - "{country_name} living costs" / "how much does it cost to live in {country_name}"
+
+===== CONTENT STRUCTURE =====
+1. **Hook paragraph** - Address search intent immediately. What does someone searching "{target_keyword}" want to know?
+2. **Key data summary** - Table or bullet list with the MOST searched-for facts
+3. **Deep sections** - 3-5 H2 sections covering all aspects of this topic
+4. **Comparison data** - vs UK, vs US, vs other countries
+5. **FAQ section** - Answer "People Also Ask" questions for this keyword
+6. **Internal link** - Link back to parent guide: /{parent_slug}
+
+===== WRITING STYLE =====
+- INLINE CSS ONLY (no Tailwind classes)
+- Data-driven: specific numbers, dates, costs
+- Practical: actionable advice
+- Authority: cite sources, be definitive
+- UK/US perspective: address both audiences
+
+===== OUTPUT FORMAT =====
+Start with metadata lines:
+TITLE: [SEO-optimized title containing "{target_keyword}"]
+META: [160-char meta description containing "{target_keyword}"]
+EXCERPT: [2-sentence excerpt containing "{target_keyword}"]
+
+Then write HTML content with INLINE STYLES:
+
+<p style="font-size: 1.125rem; line-height: 1.75; color: #374151; margin-bottom: 1.5rem;">
+Opening paragraph with {target_keyword}...
+</p>
+
+<h2 style="font-size: 1.5rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem;">
+Section Heading
+</h2>
+
+<table style="width: 100%; border-collapse: collapse; margin: 1.5rem 0;">
+<tr style="background: #f9fafb;">
+<th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid #e5e7eb;">Item</th>
+<th style="padding: 0.75rem; text-align: right; border-bottom: 2px solid #e5e7eb;">Cost</th>
+</tr>
+...
+</table>
+
+End with JSON FAQ block:
+---FAQ DATA---
+```json
+[
+  {{"q": "How much does it cost to live in {country_name}?", "a": "..."}},
+  ...
+]
+```
+"""
+
+    # Build research prompt with relevant context
+    # Filter research_context to just the relevant planning_type data
+    relevant_context = {
+        "country": country_name,
+        "target_keyword": target_keyword,
+        "planning_type": planning_type,
+        "summaries": research_context.get("summaries", [])[:10],
+        "crawled_sources": [
+            s for s in research_context.get("crawled_sources", [])[:15]
+            if planning_type.lower() in str(s).lower() or target_keyword.lower() in str(s).lower()
+        ],
+        "paa_questions": [
+            q for q in research_context.get("paa_questions", [])[:20]
+            if any(term in q.lower() for term in target_keyword.lower().split())
+        ],
+        "seo_keywords": research_context.get("seo_keywords", [])[:10],
+    }
+
+    research_prompt = f"""Write a comprehensive, SEO-optimized article targeting: "{target_keyword}"
+
+RESEARCH DATA (filtered for {planning_type}):
+{json.dumps(relevant_context, indent=2, default=str)[:30000]}
+
+REQUIREMENTS:
+- MINIMUM 1500 words
+- Mention "{target_keyword}" 8-12 times naturally
+- Include comparison table (vs UK, vs other EU countries)
+- Include 5-8 FAQ questions
+- Link back to /{parent_slug} for comprehensive guide
+- Use INLINE CSS only (no Tailwind classes)
+
+Write with authority. This should be THE definitive resource for "{target_keyword}"."""
+
+    # Generate with Gemini
+    use_gemini = bool(config.GOOGLE_API_KEY)
+
+    if use_gemini:
+        activity.logger.info("Using AI: google:gemini-3-pro-preview")
+        genai.configure(api_key=config.GOOGLE_API_KEY)
+
+        model = genai.GenerativeModel(
+            model_name='gemini-3-pro-preview',
+            system_instruction=system_prompt
+        )
+
+        response = model.generate_content(
+            research_prompt,
+            generation_config=genai.GenerationConfig(
+                max_output_tokens=8000,
+                temperature=0.7
+            )
+        )
+
+        response_text = response.text
+    else:
+        # Fallback to Claude
+        activity.logger.info("Using AI: anthropic:claude-sonnet-4 (fallback)")
+        client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=8000,
+            system=system_prompt,
+            messages=[{"role": "user", "content": research_prompt}]
+        )
+
+        response_text = response.content[0].text
+
+    activity.logger.info(f"Response received: {len(response_text)} chars")
+
+    # Parse response
+    lines = response_text.strip().split('\n')
+    title = ""
+    meta = ""
+    excerpt = ""
+
+    for line in lines[:15]:
+        line_stripped = line.strip()
+        if line_stripped.startswith("TITLE:"):
+            title = line_stripped.replace("TITLE:", "").strip()
+        elif line_stripped.startswith("META:"):
+            meta = line_stripped.replace("META:", "").strip()
+        elif line_stripped.startswith("EXCERPT:"):
+            excerpt = line_stripped.replace("EXCERPT:", "").strip()
+
+    # Extract content
+    content = ""
+    content_match = re.search(r'EXCERPT:.*?\n(.+?)---FAQ DATA---', response_text, re.DOTALL)
+    if content_match:
+        content = content_match.group(1).strip()
+    else:
+        # Fallback: everything after EXCERPT
+        excerpt_match = re.search(r'EXCERPT:.*?\n', response_text)
+        if excerpt_match:
+            after_excerpt = response_text[excerpt_match.end():]
+            faq_marker = after_excerpt.find('---FAQ DATA---')
+            if faq_marker > 0:
+                content = after_excerpt[:faq_marker].strip()
+            else:
+                content = after_excerpt.strip()
+
+    # Extract FAQ
+    faq = []
+    faq_match = re.search(r'---FAQ DATA---\s*```json\s*(.+?)\s*```', response_text, re.DOTALL)
+    if faq_match:
+        try:
+            faq = json.loads(faq_match.group(1))
+        except json.JSONDecodeError:
+            activity.logger.warning("Failed to parse FAQ JSON")
+
+    word_count = len(content.split()) if content else 0
+
+    activity.logger.info(
+        f"Generated topic cluster content: {word_count} words, {len(faq)} FAQs "
+        f"for '{target_keyword}'"
+    )
+
+    return {
+        "content": content,
+        "title": title or f"{target_keyword.title()} - Complete Guide 2025",
+        "excerpt": excerpt or f"Everything you need to know about {target_keyword}.",
+        "meta_description": (meta or f"Complete guide to {target_keyword}")[:160],
+        "faq": faq,
+        "word_count": word_count,
+        "target_keyword": target_keyword,
+        "keyword_volume": keyword_volume,
+        "planning_type": planning_type,
+    }

@@ -23,6 +23,7 @@ from src.workflows.country_guide_creation import CountryGuideCreationWorkflow
 from src.workflows.segment_video_workflow import SegmentVideoWorkflow
 from src.workflows.crawl_url_workflow import CrawlUrlWorkflow
 from src.workflows.cluster_article_workflow import ClusterArticleWorkflow
+from src.workflows.topic_cluster_workflow import TopicClusterWorkflow
 # NarrativeArticleCreationWorkflow removed - superseded by 4-act workflow in ArticleCreationWorkflow
 
 # Import all activities
@@ -142,6 +143,7 @@ from src.activities.generation.country_guide_generation import (
     extract_country_facts,  # Extract facts for countries.facts JSONB
     generate_country_video_prompt,  # Country-specific 4-act video prompt
     generate_segment_video_prompt,  # Multi-video: hero/family/finance/daily/yolo prompts
+    generate_topic_cluster_content,  # SEO-targeted topic cluster articles
 )
 
 from src.activities.generation.research_curation import (
@@ -280,7 +282,7 @@ async def main():
     worker = Worker(
         client,
         task_queue=config.TEMPORAL_TASK_QUEUE,
-        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow, NewsCreationWorkflow, CountryGuideCreationWorkflow, SegmentVideoWorkflow, CrawlUrlWorkflow, ClusterArticleWorkflow],
+        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow, NewsCreationWorkflow, CountryGuideCreationWorkflow, SegmentVideoWorkflow, CrawlUrlWorkflow, ClusterArticleWorkflow, TopicClusterWorkflow],
         activities=[
             # Normalization
             normalize_company_url,
@@ -384,6 +386,7 @@ async def main():
             extract_country_facts,
             generate_country_video_prompt,
             generate_segment_video_prompt,  # Multi-video: hero/family/finance/daily/yolo
+            generate_topic_cluster_content,  # SEO-targeted topic cluster articles
 
             # Zep Integration
             query_zep_for_context,
@@ -416,6 +419,7 @@ async def main():
     print("   - SegmentVideoWorkflow (Child workflow for segment videos)")
     print("   - ClusterArticleWorkflow (Child workflow for cluster articles)")
     print("   - CrawlUrlWorkflow (Child workflow for individual URL crawls)")
+    print("   - TopicClusterWorkflow (SEO-targeted topic cluster articles)")
 
     print("\n📋 Registered Activities:")
     activity_groups = [

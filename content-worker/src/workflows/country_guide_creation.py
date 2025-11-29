@@ -762,8 +762,103 @@ class CountryGuideCreationWorkflow:
                     start_to_close_timeout=timedelta(seconds=30)
                 )
 
+            # ===== PHASE C: TOPIC CLUSTER ARTICLES (SEO-Targeted) =====
+            # Create dedicated articles for high-value keywords discovered in Phase 2
+            # These are DIFFERENT from mode articles - they target specific search queries
+            #
+            # Example for Slovakia:
+            # - /slovakia-cost-of-living (70 vol)
+            # - /slovakia-visa-requirements (40 vol)
+            # - /slovakia-golden-visa (10 vol)
+
+            topic_cluster_articles = []
+
+            # Get top keywords from country's seo_keywords
+            # Minimum volume threshold: 20 (adjust based on competition)
+            top_keywords = []
+
+            # Extract keywords from seo_keywords structure
+            if seo_keywords:
+                long_tail = seo_keywords.get("long_tail", [])
+                for kw in long_tail:
+                    if kw.get("volume", 0) >= 20:
+                        top_keywords.append({
+                            "keyword": kw.get("keyword"),
+                            "volume": kw.get("volume", 0),
+                            "cpc": kw.get("cpc", 0),
+                            "planning_type": kw.get("planning_type", "general")
+                        })
+
+            # Dedupe by keyword (case-insensitive)
+            seen_keywords = set()
+            deduped_keywords = []
+            for kw in top_keywords:
+                kw_lower = kw["keyword"].lower() if kw.get("keyword") else ""
+                if kw_lower and kw_lower not in seen_keywords:
+                    seen_keywords.add(kw_lower)
+                    deduped_keywords.append(kw)
+
+            # Sort by volume and take top 5
+            deduped_keywords.sort(key=lambda x: x.get("volume", 0), reverse=True)
+            top_keywords = deduped_keywords[:5]
+
+            if top_keywords:
+                workflow.logger.info(f"Phase C: Creating {len(top_keywords)} topic cluster articles")
+                for kw in top_keywords:
+                    workflow.logger.info(f"  - '{kw['keyword']}' (vol={kw['volume']}, type={kw['planning_type']})")
+
+                # Get parent video data for topic clusters to reuse
+                parent_playback_id = story_result.get("video_playback_id") if story_result else None
+                parent_four_act_content = article.get("four_act_content", []) if article else []
+
+                for kw in top_keywords:
+                    try:
+                        topic_result = await workflow.execute_child_workflow(
+                            "TopicClusterWorkflow",
+                            {
+                                "country_name": country_name,
+                                "country_code": country_code,
+                                "cluster_id": cluster_id,
+                                "parent_id": parent_id,
+                                "parent_slug": base_slug,
+                                "target_keyword": kw["keyword"],
+                                "keyword_volume": kw.get("volume", 0),
+                                "keyword_difficulty": kw.get("difficulty"),
+                                "keyword_cpc": kw.get("cpc", 0),
+                                "planning_type": kw.get("planning_type", "general"),
+                                "research_context": research_context,
+                                "app": app,
+                                # Reuse parent video - no new video generation
+                                "parent_playback_id": parent_playback_id,
+                                "parent_four_act_content": parent_four_act_content,
+                            },
+                            id=f"topic-{country_code.lower()}-{workflow.uuid4().hex[:8]}",
+                            task_queue="quest-content-queue",
+                            execution_timeout=timedelta(minutes=10)  # Faster without video gen
+                        )
+
+                        if topic_result.get("success"):
+                            topic_cluster_articles.append(topic_result)
+                            workflow.logger.info(
+                                f"  ✅ Topic '{kw['keyword']}' complete: "
+                                f"article_id={topic_result.get('article_id')}, "
+                                f"slug={topic_result.get('slug')}"
+                            )
+                        else:
+                            workflow.logger.warning(f"  ⚠️ Topic '{kw['keyword']}' failed")
+
+                    except Exception as e:
+                        # Non-blocking - mode articles are already saved
+                        workflow.logger.warning(f"  ⚠️ Topic '{kw['keyword']}' workflow failed: {e}")
+                        continue
+
+                workflow.logger.info(f"Created {len(topic_cluster_articles)} topic cluster articles")
+            else:
+                workflow.logger.info("Phase C: No high-volume keywords found, skipping topic clusters")
+
             metrics["cluster_id"] = cluster_id
             metrics["cluster_articles"] = len(cluster_articles)
+            metrics["topic_cluster_articles"] = len(topic_cluster_articles)
 
             workflow.logger.info(f"===== CLUSTER CREATION COMPLETE =====")
             workflow.logger.info(f"Created {len(cluster_articles)} cluster articles for {country_name}")
@@ -784,6 +879,16 @@ class CountryGuideCreationWorkflow:
                         "video_playback_id": a.get("video_playback_id"),
                     }
                     for a in cluster_articles
+                ],
+                "topic_cluster_articles": [
+                    {
+                        "article_id": a.get("article_id"),
+                        "slug": a.get("slug"),
+                        "target_keyword": a.get("target_keyword"),
+                        "keyword_volume": a.get("keyword_volume"),
+                        "video_playback_id": a.get("video_playback_id"),
+                    }
+                    for a in topic_cluster_articles
                 ],
                 "metrics": metrics
             }
