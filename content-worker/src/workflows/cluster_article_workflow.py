@@ -88,16 +88,17 @@ class ClusterArticleWorkflow:
 
         # ===== PHASE 1: DETERMINE SLUG AND TITLE =====
         # Parent (story) uses base slug, children add suffix
+        # Titles are unique per mode for SEO differentiation
         if article_mode == "story":
             slug = base_slug
             article_title = title
         else:
             slug = f"{base_slug}-{article_mode}"
-            # Adjust title for mode
+            # Unique, SEO-friendly titles per mode (avoid repetitive prefixes)
             mode_titles = {
-                "guide": f"{title} - Practical Guide",
-                "yolo": f"{title} - YOLO Edition",
-                "voices": f"{title} - Expat Voices"
+                "guide": f"Moving to {country_name}: Step-by-Step Practical Guide",
+                "yolo": f"{country_name} Adventure Guide: Embrace the Journey",
+                "voices": f"Expat Stories: Real Life in {country_name}"
             }
             article_title = mode_titles.get(article_mode, title)
 
