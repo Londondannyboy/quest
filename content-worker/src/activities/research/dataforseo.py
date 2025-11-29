@@ -826,7 +826,8 @@ async def dataforseo_related_keywords(
                         result_list = data["tasks"][0]["result"]
                         # Safely get first result, handle None or empty list
                         result = result_list[0] if result_list and len(result_list) > 0 else {}
-                        items = result.get("items", []) if result else []
+                        # Handle case where items is null in API response
+                        items = (result.get("items") or []) if result else []
                         cost = data["tasks"][0].get("cost", 0)
 
                         for item in items:
