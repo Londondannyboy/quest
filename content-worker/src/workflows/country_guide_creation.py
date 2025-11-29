@@ -813,7 +813,7 @@ class CountryGuideCreationWorkflow:
 
             # Get top keywords from country's seo_keywords
             # Dynamic filtering based on config thresholds
-            from utils.config import Config
+            from src.utils.config import Config
             MIN_VOLUME = Config.TOPIC_CLUSTER_MIN_VOLUME
             MAX_DIFFICULTY = Config.TOPIC_CLUSTER_MAX_DIFFICULTY
             MAX_COUNT = Config.TOPIC_CLUSTER_MAX_COUNT
