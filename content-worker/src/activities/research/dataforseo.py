@@ -300,9 +300,10 @@ async def dataforseo_serp_search(
                             seen_urls.add(r["url"])
 
                     for r in ai_overview_urls:
-                        if r["url"] and r["url"] not in seen_urls:
+                        url = r.get("url")
+                        if url and url not in seen_urls:
                             all_urls.append(r)
-                            seen_urls.add(r["url"])
+                            seen_urls.add(url)
 
                     for r in feature_urls:
                         if r["url"] and r["url"] not in seen_urls:
