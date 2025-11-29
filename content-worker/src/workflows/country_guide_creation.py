@@ -812,11 +812,10 @@ class CountryGuideCreationWorkflow:
             topic_cluster_articles = []
 
             # Get top keywords from country's seo_keywords
-            # Dynamic filtering based on config thresholds
-            from src.utils.config import Config
-            MIN_VOLUME = Config.TOPIC_CLUSTER_MIN_VOLUME
-            MAX_DIFFICULTY = Config.TOPIC_CLUSTER_MAX_DIFFICULTY
-            MAX_COUNT = Config.TOPIC_CLUSTER_MAX_COUNT
+            # Topic cluster filtering thresholds (hardcoded to avoid sandbox import issues)
+            MIN_VOLUME = 30        # Minimum monthly search volume
+            MAX_DIFFICULTY = 60    # Maximum keyword difficulty (0-100)
+            MAX_COUNT = 15         # Maximum topic cluster articles to create
 
             top_keywords = []
 
