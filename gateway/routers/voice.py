@@ -28,7 +28,7 @@ HUME_API_KEY = os.getenv("HUME_API_KEY")
 HUME_SECRET_KEY = os.getenv("HUME_SECRET_KEY")
 ZEP_API_KEY = os.getenv("ZEP_API_KEY")
 ZEP_PROJECT_ID = os.getenv("ZEP_PROJECT_ID", "e265b35c-69d8-4880-b2b5-ec6acb237a3e")
-ZEP_GRAPH_ID = os.getenv("ZEP_GRAPH_ID", "Relocation")  # Relocation knowledge graph (case-sensitive!)
+ZEP_GRAPH_ID = os.getenv("ZEP_GRAPH_ID", "relocation")  # Relocation knowledge graph (lowercase!)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -399,30 +399,55 @@ class NeonKnowledgeStore:
         self.database_url = database_url
         logger.info("neon_store_initialized")
 
+    def _extract_keywords(self, query: str) -> list:
+        """Extract meaningful keywords from a query, filtering out common words."""
+        stop_words = {
+            'what', 'is', 'the', 'a', 'an', 'of', 'in', 'to', 'for', 'and', 'or',
+            'how', 'much', 'does', 'it', 'cost', 'can', 'i', 'do', 'about', 'tell',
+            'me', 'living', 'live', 'move', 'moving', 'relocate', 'relocating',
+            'visa', 'requirements', 'best', 'good', 'where', 'which', 'are', 'there'
+        }
+        words = query.lower().split()
+        keywords = [w for w in words if w not in stop_words and len(w) > 2]
+        return keywords if keywords else words[:3]  # Fallback to first 3 words
+
     async def search_countries(self, query: str) -> list:
         """Search countries by name, region, or keywords"""
         try:
             import psycopg
 
+            # Extract keywords from query
+            keywords = self._extract_keywords(query)
+            if not keywords:
+                return []
+
             async with await psycopg.AsyncConnection.connect(self.database_url) as conn:
                 async with conn.cursor() as cur:
-                    query_lower = f"%{query.lower()}%"
+                    # Build OR conditions for each keyword
+                    conditions = []
+                    params = []
+                    for keyword in keywords[:3]:  # Limit to 3 keywords
+                        pattern = f"%{keyword}%"
+                        conditions.append("""(
+                            LOWER(name) LIKE %s
+                            OR LOWER(region) LIKE %s
+                            OR LOWER(continent) LIKE %s
+                            OR LOWER(capital) LIKE %s
+                        )""")
+                        params.extend([pattern, pattern, pattern, pattern])
 
-                    await cur.execute("""
+                    where_clause = " OR ".join(conditions)
+
+                    await cur.execute(f"""
                         SELECT
                             name, code, slug, region, continent,
                             flag_emoji, capital, currency_code, language,
                             relocation_motivations, relocation_tags, facts
                         FROM countries
                         WHERE status = 'published'
-                        AND (
-                            LOWER(name) LIKE %s
-                            OR LOWER(region) LIKE %s
-                            OR LOWER(continent) LIKE %s
-                            OR LOWER(capital) LIKE %s
-                        )
+                        AND ({where_clause})
                         LIMIT 3
-                    """, (query_lower, query_lower, query_lower, query_lower))
+                    """, params)
 
                     rows = await cur.fetchall()
 
@@ -455,25 +480,38 @@ class NeonKnowledgeStore:
         try:
             import psycopg
 
+            # Extract keywords from query
+            keywords = self._extract_keywords(query)
+            if not keywords:
+                return []
+
             async with await psycopg.AsyncConnection.connect(self.database_url) as conn:
                 async with conn.cursor() as cur:
-                    query_lower = f"%{query.lower()}%"
+                    # Build OR conditions for each keyword
+                    conditions = []
+                    params = []
+                    for keyword in keywords[:3]:
+                        pattern = f"%{keyword}%"
+                        conditions.append("""(
+                            LOWER(title) LIKE %s
+                            OR LOWER(excerpt) LIKE %s
+                            OR LOWER(meta_description) LIKE %s
+                        )""")
+                        params.extend([pattern, pattern, pattern])
 
-                    await cur.execute("""
+                    where_clause = " OR ".join(conditions)
+
+                    await cur.execute(f"""
                         SELECT
                             id, slug, title, excerpt,
                             article_angle, country_code, meta_description
                         FROM articles
                         WHERE app = 'relocation'
                         AND status = 'published'
-                        AND (
-                            LOWER(title) LIKE %s
-                            OR LOWER(excerpt) LIKE %s
-                            OR LOWER(meta_description) LIKE %s
-                        )
+                        AND ({where_clause})
                         ORDER BY published_at DESC NULLS LAST
                         LIMIT 3
-                    """, (query_lower, query_lower, query_lower))
+                    """, params)
 
                     rows = await cur.fetchall()
 
@@ -501,21 +539,34 @@ class NeonKnowledgeStore:
         try:
             import psycopg
 
+            # Extract keywords from query
+            keywords = self._extract_keywords(query)
+            if not keywords:
+                return []
+
             async with await psycopg.AsyncConnection.connect(self.database_url) as conn:
                 async with conn.cursor() as cur:
-                    query_lower = f"%{query.lower()}%"
+                    # Build OR conditions for each keyword
+                    conditions = []
+                    params = []
+                    for keyword in keywords[:3]:
+                        pattern = f"%{keyword}%"
+                        conditions.append("""(
+                            LOWER(name) LIKE %s
+                            OR LOWER(description) LIKE %s
+                        )""")
+                        params.extend([pattern, pattern])
 
-                    await cur.execute("""
+                    where_clause = " OR ".join(conditions)
+
+                    await cur.execute(f"""
                         SELECT
                             id, slug, name, description, overview
                         FROM companies
                         WHERE app = 'relocation'
-                        AND (
-                            LOWER(name) LIKE %s
-                            OR LOWER(description) LIKE %s
-                        )
+                        AND ({where_clause})
                         LIMIT 3
-                    """, (query_lower, query_lower))
+                    """, params)
 
                     rows = await cur.fetchall()
 
