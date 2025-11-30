@@ -1603,7 +1603,7 @@ SEGMENT_VIDEO_TEMPLATES = {
         "energy": "medium",
         "preamble": """CRITICAL: NO text, words, letters, signs, logos anywhere. Screens show abstract colors only.
 SAME SUBJECT throughout all 4 acts - follow ONE professional's journey.
-Cast: 30s woman, warm features, natural beauty, professional appearance.
+Cast: 30s professional (preferably woman), warm features, natural beauty, approachable appearance.
 {clothing}""",
         "acts": [
             {
@@ -1635,7 +1635,7 @@ Cast: 30s woman, warm features, natural beauty, professional appearance.
         "energy": "calm",
         "preamble": """CRITICAL: NO text, words, letters, signs, logos anywhere. Documents show abstract patterns only.
 SAME SUBJECT throughout all 4 acts - follow ONE professional completing admin tasks.
-Cast: 35s woman, composed demeanor, confident, business casual attire.
+Cast: 35s professional (preferably woman), composed demeanor, confident, business casual attire.
 {clothing}""",
         "acts": [
             {
@@ -1667,7 +1667,7 @@ Cast: 35s woman, composed demeanor, confident, business casual attire.
         "energy": "high",
         "preamble": """CRITICAL: NO text anywhere except the YOLO shirt.
 SAME SUBJECT throughout all 4 acts - follow ONE person's spontaneous leap.
-Cast: late 20s woman, athletic build, determined expression, adventurous spirit.
+Cast: late 20s (preferably woman), athletic build, determined expression, adventurous spirit.
 {clothing}
 PACING: FAST throughout Acts 1-3, then ONE slow-mo moment at the dive in Act 4.""",
         "acts": [
@@ -1764,7 +1764,7 @@ Cast: mother (30s-40s, warm and capable), father, two children (ages 8 and 11), 
         "energy": "calm",
         "preamble": """CRITICAL: NO text, words, letters, signs, logos anywhere. Documents show abstract patterns only.
 SAME SUBJECT throughout all 4 acts - follow ONE professional's admin journey.
-Cast: 40s woman, sharp business casual, confident posture, accomplished demeanor.
+Cast: 40s professional (preferably woman), sharp business casual, confident posture, accomplished demeanor.
 {clothing}""",
         "acts": [
             {
@@ -1796,7 +1796,7 @@ Cast: 40s woman, sharp business casual, confident posture, accomplished demeanor
         "energy": "medium",
         "preamble": """CRITICAL: NO text, words, letters, signs, logos anywhere.
 SAME SUBJECT throughout all 4 acts - follow ONE person's daily routine.
-Cast: 30s woman, creative professional vibe, relaxed linen clothing, content expression, natural beauty.
+Cast: 30s creative professional (preferably woman), relaxed linen clothing, content expression, natural beauty.
 {clothing}""",
         "acts": [
             {
