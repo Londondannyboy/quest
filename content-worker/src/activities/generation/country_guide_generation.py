@@ -1089,6 +1089,266 @@ CRITICAL: NO text, words, letters, numbers, signs, or logos anywhere in the vide
 
 
 # ============================================================================
+# COUNTRY LANDMARKS DATABASE
+# ============================================================================
+# Iconic landmarks for video prompts - ensures geographically accurate visuals
+
+COUNTRY_LANDMARKS = {
+    # Central Europe
+    'slovakia': {
+        'landmarks': ['Bratislava Castle on the Danube', 'High Tatras mountains', 'Spiš Castle ruins', 'Devín Castle'],
+        'scenery': 'Carpathian mountain peaks, medieval castle ruins, Danube riverside',
+        'is_landlocked': True,
+    },
+    'slovenia': {
+        'landmarks': ['Lake Bled with island church', 'Ljubljana castle', 'Triglav mountain', 'Postojna Cave'],
+        'scenery': 'Alpine lakes, Julian Alps, emerald rivers, coastal Piran',
+        'is_landlocked': False,
+    },
+    'czech republic': {
+        'landmarks': ['Prague Castle and Charles Bridge', 'Old Town Square astronomical clock', 'Český Krumlov'],
+        'scenery': 'Gothic spires, red rooftops, Vltava River, Bohemian countryside',
+        'is_landlocked': True,
+    },
+    'czechia': {  # Alias
+        'landmarks': ['Prague Castle and Charles Bridge', 'Old Town Square astronomical clock', 'Český Krumlov'],
+        'scenery': 'Gothic spires, red rooftops, Vltava River, Bohemian countryside',
+        'is_landlocked': True,
+    },
+    'austria': {
+        'landmarks': ['Vienna Schönbrunn Palace', 'Salzburg fortress', 'Hallstatt village', 'Austrian Alps'],
+        'scenery': 'Alpine peaks, baroque palaces, crystal lakes, Sound of Music hills',
+        'is_landlocked': True,
+    },
+    'switzerland': {
+        'landmarks': ['Matterhorn peak', 'Lake Geneva', 'Zurich old town', 'Lucerne Chapel Bridge'],
+        'scenery': 'Snow-capped Alps, pristine lakes, chocolate-box villages, mountain railways',
+        'is_landlocked': True,
+    },
+    'hungary': {
+        'landmarks': ['Budapest Parliament on Danube', 'Buda Castle', 'Fisherman\'s Bastion', 'Chain Bridge'],
+        'scenery': 'Danube river views, thermal baths, Hungarian plains, baroque architecture',
+        'is_landlocked': True,
+    },
+    'poland': {
+        'landmarks': ['Kraków Wawel Castle', 'Warsaw Old Town', 'Gdańsk waterfront', 'Tatra Mountains'],
+        'scenery': 'Medieval squares, Gothic churches, Baltic coast, mountain resorts',
+        'is_landlocked': False,
+    },
+    'germany': {
+        'landmarks': ['Brandenburg Gate Berlin', 'Neuschwanstein Castle', 'Munich Marienplatz', 'Cologne Cathedral'],
+        'scenery': 'Historic city squares, fairy-tale castles, Rhine Valley, Bavarian Alps',
+        'is_landlocked': False,
+    },
+
+    # Western Europe
+    'france': {
+        'landmarks': ['Eiffel Tower Paris', 'Arc de Triomphe', 'Mont Saint-Michel', 'French Riviera'],
+        'scenery': 'Parisian boulevards, lavender fields Provence, Mediterranean coast, Loire châteaux',
+        'is_landlocked': False,
+    },
+    'uk': {
+        'landmarks': ['Big Ben and Houses of Parliament', 'Tower Bridge London', 'Edinburgh Castle', 'Stonehenge'],
+        'scenery': 'London skyline, rolling green hills, historic castles, coastal cliffs',
+        'is_landlocked': False,
+    },
+    'united kingdom': {
+        'landmarks': ['Big Ben and Houses of Parliament', 'Tower Bridge London', 'Edinburgh Castle', 'Stonehenge'],
+        'scenery': 'London skyline, rolling green hills, historic castles, coastal cliffs',
+        'is_landlocked': False,
+    },
+    'ireland': {
+        'landmarks': ['Cliffs of Moher', 'Dublin Temple Bar', 'Ring of Kerry', 'Giant\'s Causeway'],
+        'scenery': 'Emerald green hills, dramatic Atlantic cliffs, cozy pubs, ancient ruins',
+        'is_landlocked': False,
+    },
+    'netherlands': {
+        'landmarks': ['Amsterdam canals and bridges', 'Windmills at Kinderdijk', 'Rijksmuseum', 'tulip fields'],
+        'scenery': 'Canal houses, cycling paths, tulip fields, flat polders with windmills',
+        'is_landlocked': False,
+    },
+    'belgium': {
+        'landmarks': ['Brussels Grand Place', 'Bruges medieval center', 'Ghent canals', 'Atomium'],
+        'scenery': 'Cobblestone squares, Gothic belfries, chocolate shops, medieval architecture',
+        'is_landlocked': False,
+    },
+
+    # Southern Europe
+    'spain': {
+        'landmarks': ['Sagrada Familia Barcelona', 'Alhambra Granada', 'Plaza Mayor Madrid', 'Park Güell'],
+        'scenery': 'Mediterranean beaches, Moorish palaces, vibrant plazas, Andalusian white villages',
+        'is_landlocked': False,
+    },
+    'portugal': {
+        'landmarks': ['Belém Tower Lisbon', 'Sintra palaces', 'Porto Ribeira', 'Algarve cliffs'],
+        'scenery': 'Atlantic coastline, tiled façades, hilltop castles, golden beaches',
+        'is_landlocked': False,
+    },
+    'italy': {
+        'landmarks': ['Colosseum Rome', 'Venice canals', 'Florence Duomo', 'Amalfi Coast'],
+        'scenery': 'Renaissance piazzas, Mediterranean coast, Tuscan hills, ancient ruins',
+        'is_landlocked': False,
+    },
+    'greece': {
+        'landmarks': ['Acropolis Athens', 'Santorini white domes', 'Mykonos windmills', 'Meteora monasteries'],
+        'scenery': 'Aegean blue waters, whitewashed villages, ancient temples, island sunsets',
+        'is_landlocked': False,
+    },
+    'cyprus': {
+        'landmarks': ['Paphos archaeological park', 'Kyrenia harbor', 'Troodos mountains', 'Aphrodite\'s Rock'],
+        'scenery': 'Mediterranean beaches, mountain villages, ancient ruins, citrus groves',
+        'is_landlocked': False,
+    },
+    'malta': {
+        'landmarks': ['Valletta harbor', 'Mdina silent city', 'Blue Lagoon Comino', 'St John\'s Co-Cathedral'],
+        'scenery': 'Honey-colored limestone, azure Mediterranean, fortified harbors, baroque churches',
+        'is_landlocked': False,
+    },
+    'croatia': {
+        'landmarks': ['Dubrovnik Old Town walls', 'Plitvice Lakes', 'Split Diocletian\'s Palace', 'Hvar harbor'],
+        'scenery': 'Adriatic coastline, medieval walled cities, cascading waterfalls, island hopping',
+        'is_landlocked': False,
+    },
+
+    # Nordic
+    'sweden': {
+        'landmarks': ['Stockholm Gamla Stan', 'Icehotel Jukkasjärvi', 'Gothenburg archipelago', 'Northern Lights Lapland'],
+        'scenery': 'Archipelago islands, midnight sun, snowy forests, minimalist design',
+        'is_landlocked': False,
+    },
+    'norway': {
+        'landmarks': ['Bergen Bryggen wharf', 'Geirangerfjord', 'Oslo Opera House', 'Lofoten Islands'],
+        'scenery': 'Dramatic fjords, Northern Lights, fishing villages, midnight sun',
+        'is_landlocked': False,
+    },
+    'denmark': {
+        'landmarks': ['Copenhagen Nyhavn', 'Tivoli Gardens', 'Little Mermaid statue', 'Kronborg Castle'],
+        'scenery': 'Colorful harbors, hygge culture, cycling city, coastal dunes',
+        'is_landlocked': False,
+    },
+    'finland': {
+        'landmarks': ['Helsinki Cathedral', 'Santa Claus Village Rovaniemi', 'Suomenlinna fortress', 'Finnish Lakeland'],
+        'scenery': 'Thousand lakes, Northern Lights, saunas, snowy forests',
+        'is_landlocked': False,
+    },
+    'iceland': {
+        'landmarks': ['Blue Lagoon', 'Hallgrímskirkja Reykjavik', 'Gullfoss waterfall', 'Northern Lights'],
+        'scenery': 'Volcanic landscapes, geysers, glaciers, dramatic waterfalls',
+        'is_landlocked': False,
+    },
+
+    # Eastern Europe
+    'romania': {
+        'landmarks': ['Bran Castle (Dracula\'s Castle)', 'Bucharest Palace of Parliament', 'Peleș Castle', 'Transylvania villages'],
+        'scenery': 'Carpathian mountains, painted monasteries, medieval fortresses, Danube Delta',
+        'is_landlocked': False,
+    },
+    'bulgaria': {
+        'landmarks': ['Rila Monastery', 'Sofia Alexander Nevsky Cathedral', 'Plovdiv Old Town', 'Black Sea coast'],
+        'scenery': 'Mountain monasteries, Black Sea beaches, rose valleys, Thracian tombs',
+        'is_landlocked': False,
+    },
+
+    # Baltic
+    'estonia': {
+        'landmarks': ['Tallinn Old Town', 'Kadriorg Palace', 'Lahemaa National Park', 'Saaremaa island'],
+        'scenery': 'Medieval spires, digital society, Baltic coast, forest trails',
+        'is_landlocked': False,
+    },
+    'latvia': {
+        'landmarks': ['Riga Art Nouveau district', 'Jurmala beach', 'Rundāle Palace', 'Gauja National Park'],
+        'scenery': 'Art Nouveau architecture, Baltic beaches, pine forests, castles',
+        'is_landlocked': False,
+    },
+    'lithuania': {
+        'landmarks': ['Vilnius Old Town', 'Trakai Island Castle', 'Hill of Crosses', 'Curonian Spit dunes'],
+        'scenery': 'Baroque churches, lake castles, sand dunes, amber coast',
+        'is_landlocked': False,
+    },
+
+    # Americas
+    'usa': {
+        'landmarks': ['New York Statue of Liberty', 'San Francisco Golden Gate Bridge', 'Grand Canyon', 'Miami Beach'],
+        'scenery': 'Diverse landscapes from skyscrapers to national parks, coastal cities',
+        'is_landlocked': False,
+    },
+    'canada': {
+        'landmarks': ['Toronto CN Tower', 'Niagara Falls', 'Banff National Park', 'Vancouver harbor'],
+        'scenery': 'Rocky Mountains, autumn forests, urban skylines, vast wilderness',
+        'is_landlocked': False,
+    },
+    'mexico': {
+        'landmarks': ['Chichen Itza pyramid', 'Mexico City Zócalo', 'Cancun beaches', 'Guanajuato colorful streets'],
+        'scenery': 'Ancient ruins, colonial cities, Caribbean coast, desert landscapes',
+        'is_landlocked': False,
+    },
+
+    # Asia-Pacific
+    'japan': {
+        'landmarks': ['Mount Fuji', 'Tokyo Tower', 'Kyoto temples', 'Osaka Castle'],
+        'scenery': 'Cherry blossoms, ancient temples, neon cities, mountain landscapes',
+        'is_landlocked': False,
+    },
+    'thailand': {
+        'landmarks': ['Bangkok Grand Palace', 'Phi Phi Islands', 'Chiang Mai temples', 'Ayutthaya ruins'],
+        'scenery': 'Golden temples, tropical beaches, floating markets, jungle landscapes',
+        'is_landlocked': False,
+    },
+    'vietnam': {
+        'landmarks': ['Ha Long Bay', 'Hanoi Old Quarter', 'Hoi An lanterns', 'Mekong Delta'],
+        'scenery': 'Limestone karsts, rice terraces, colonial architecture, river life',
+        'is_landlocked': False,
+    },
+    'australia': {
+        'landmarks': ['Sydney Opera House', 'Great Barrier Reef', 'Uluru', 'Melbourne laneways'],
+        'scenery': 'Iconic harbors, coral reefs, red outback, coastal beaches',
+        'is_landlocked': False,
+    },
+    'new zealand': {
+        'landmarks': ['Milford Sound', 'Auckland Sky Tower', 'Hobbiton', 'Queenstown mountains'],
+        'scenery': 'Dramatic fjords, rolling green hills, volcanic landscapes, adventure sports',
+        'is_landlocked': False,
+    },
+
+    # Middle East
+    'uae': {
+        'landmarks': ['Burj Khalifa Dubai', 'Sheikh Zayed Mosque Abu Dhabi', 'Palm Jumeirah', 'Dubai Marina'],
+        'scenery': 'Futuristic skyline, desert dunes, luxury resorts, traditional souks',
+        'is_landlocked': False,
+    },
+    'dubai': {  # Common search term
+        'landmarks': ['Burj Khalifa', 'Palm Jumeirah', 'Dubai Marina', 'Burj Al Arab'],
+        'scenery': 'Futuristic skyline, desert dunes, luxury beaches, gold souks',
+        'is_landlocked': False,
+    },
+}
+
+
+def get_country_landmarks(country_name: str) -> dict:
+    """
+    Get iconic landmarks and scenery for a country.
+
+    Args:
+        country_name: Country name to look up
+
+    Returns:
+        Dict with landmarks, scenery, and is_landlocked flag
+        Falls back to generic if country not found
+    """
+    country_key = country_name.lower().strip()
+
+    if country_key in COUNTRY_LANDMARKS:
+        return COUNTRY_LANDMARKS[country_key]
+
+    # Fallback for unknown countries
+    return {
+        'landmarks': [f'iconic {country_name} landmark', f'{country_name} historic center', f'{country_name} natural scenery'],
+        'scenery': f'authentic {country_name} landscapes and architecture',
+        'is_landlocked': False,  # Assume coastal by default (safer for video)
+    }
+
+
+# ============================================================================
 # CLIMATE-AWARE CLOTHING BRANDING
 # ============================================================================
 # Cold countries get Quest jacket/sweatshirt, warm countries get Quest t-shirt
@@ -1097,7 +1357,7 @@ CRITICAL: NO text, words, letters, numbers, signs, or logos anywhere in the vide
 COLD_COUNTRIES = [
     'russia', 'canada', 'norway', 'sweden', 'finland', 'iceland', 'denmark',
     'uk', 'united kingdom', 'ireland', 'germany', 'poland', 'netherlands',
-    'belgium', 'austria', 'switzerland', 'czech republic', 'czechia'
+    'belgium', 'austria', 'switzerland', 'czech republic', 'czechia', 'slovakia'
 ]
 
 
@@ -1161,11 +1421,11 @@ Cast: 30s professional, Mediterranean features, dark hair.
             },
             {
                 "title": "The Journey",
-                "hint": "TRACKING SHOT, suitcase packing montage, hands folding clothes. Airport glimpse. Airplane window view of Mediterranean coastline. Camera TRACKS alongside luggage. Colors transition grey to brilliant blue-gold."
+                "hint": "TRACKING SHOT, suitcase packing montage, hands folding clothes. Airport glimpse. Airplane window view of {travel_scenery}. Camera TRACKS alongside luggage. Colors transition grey to brilliant blue-gold."
             },
             {
                 "title": "{country} Success",
-                "hint": "WIDE to MEDIUM, professional on sunny {country} terrace overlooking vista, laptop closed, fresh coffee. Camera ORBITS slowly. Golden hour Mediterranean light, warm amber tones, local trees swaying."
+                "hint": "WIDE to MEDIUM, professional on sunny {country} terrace overlooking {landmark}, laptop closed, fresh coffee. Camera ORBITS slowly. Golden hour light, {scenery} visible in background, warm amber tones."
             }
         ]
     },
@@ -1230,7 +1490,7 @@ PACING: FAST throughout Acts 1-3, then ONE slow-mo moment at the dive in Act 4."
             },
             {
                 "title": "The Leap",
-                "hint": "WIDE TRACKING: subject sprints through iconic {country} landscape (use country-appropriate scenery: mountains, historic streets, or coastline if coastal). Building speed. Then SLOW MOTION as subject leaps joyfully, body suspended mid-air. Sun flare, pure freedom moment."
+                "hint": "WIDE TRACKING: subject sprints through {scenery}. Building speed. Then SLOW MOTION as subject leaps joyfully near {landmark}, body suspended mid-air. Sun flare, pure freedom moment."
             }
         ]
     },
@@ -1258,7 +1518,7 @@ NO branded clothing - this is about authentic personal stories.""",
             },
             {
                 "title": "Reflection Moment",
-                "hint": "CLOSE-UP profile, third expat gazing at {country} sunset from balcony, peaceful expression. Camera SLOWLY ORBITS to reveal contemplative face. Golden hour, warm amber tones, contentment evident."
+                "hint": "CLOSE-UP profile, third expat gazing at sunset over {landmark} from balcony, peaceful expression. Camera SLOWLY ORBITS to reveal contemplative face. {scenery} in golden hour light, warm amber tones, contentment evident."
             },
             {
                 "title": "New Home",
@@ -1286,7 +1546,7 @@ Cast: parents (30s-40s), two children (ages 8 and 11), golden retriever.
             },
             {
                 "title": "Weekend Adventures",
-                "hint": "TRACKING SHOT, golden retriever bounds through {country} park/nature area (mountains, forest, meadow - match country's geography), children chasing. Camera follows dog, then PULLS BACK to reveal whole family. Bright afternoon light, joyful energy."
+                "hint": "TRACKING SHOT, golden retriever bounds through {scenery}, children chasing. Camera follows dog, then PULLS BACK to reveal whole family with {landmark} in distance. Bright afternoon light, joyful energy."
             },
             {
                 "title": "Healthcare Confidence",
@@ -1326,7 +1586,7 @@ Cast: 40s professional, sharp business casual, confident posture.
             },
             {
                 "title": "Keys to New Life",
-                "hint": "MEDIUM to WIDE, agent hands keys outside beautiful {country} property. Close-up keys dropping into palm. New owner opens door, light floods in. Camera PUSHES THROUGH doorway. Accomplishment achieved."
+                "hint": "MEDIUM to WIDE, agent hands keys outside beautiful {country} property with {landmark} visible in background. Close-up keys dropping into palm. New owner opens door, light floods in. Camera PUSHES THROUGH doorway. Accomplishment achieved."
             }
         ]
     },
@@ -1346,7 +1606,7 @@ Cast: 30s creative professional, relaxed linen clothing, content expression.
         "acts": [
             {
                 "title": "Scenic Drive",
-                "hint": "POV through windshield, driving scenic {country} road (mountain pass, vineyard valley, or coastline if coastal country). Driver's hand relaxed on wheel, window down. Camera captures iconic {country} scenery, then subject's contented profile. Golden hour, freedom."
+                "hint": "POV through windshield, driving scenic {country} road through {scenery}. Driver's hand relaxed on wheel, window down. Camera captures {landmark} in distance, then subject's contented profile. Golden hour, freedom."
             },
             {
                 "title": "Making Home",
@@ -1403,6 +1663,17 @@ async def generate_segment_video_prompt(
     # Get climate-aware clothing prompt
     clothing_prompt = get_clothing_prompt(country_name, mode)
 
+    # Get country-specific landmarks for geographically accurate videos
+    landmarks_info = get_country_landmarks(country_name)
+    primary_landmark = landmarks_info['landmarks'][0] if landmarks_info['landmarks'] else f"{country_name} landmark"
+    scenery = landmarks_info['scenery']
+    is_landlocked = landmarks_info.get('is_landlocked', False)
+
+    # For landlocked countries, use mountains/nature instead of coast
+    travel_scenery = "mountain peaks and alpine meadows" if is_landlocked else "Mediterranean coastline"
+
+    activity.logger.info(f"Country landmarks: {primary_landmark}, scenery: {scenery[:50]}..., landlocked: {is_landlocked}")
+
     # Get preamble and format with clothing
     preamble_template = template.get("preamble", "CRITICAL: NO text, words, letters, signs, logos anywhere.")
     preamble = preamble_template.format(clothing=clothing_prompt)
@@ -1418,9 +1689,14 @@ async def generate_segment_video_prompt(
         start_time = i * 3
         end_time = (i + 1) * 3
 
-        # Format title and hint with country name
+        # Format title and hint with country name AND landmark info
         act_title = act_template["title"].format(country=country_name)
-        hint = act_template["hint"].format(country=country_name)
+        hint = act_template["hint"].format(
+            country=country_name,
+            landmark=primary_landmark,
+            scenery=scenery,
+            travel_scenery=travel_scenery
+        )
 
         # Add hard scene cut marker before acts 2, 3, 4
         if i > 0:
