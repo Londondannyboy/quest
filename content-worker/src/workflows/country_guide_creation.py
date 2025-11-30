@@ -545,7 +545,8 @@ class CountryGuideCreationWorkflow:
                     [],  # exa_results (already included in crawled_content)
                     25   # max_sources - more for comprehensive guide
                 ],
-                start_to_close_timeout=timedelta(minutes=3)
+                start_to_close_timeout=timedelta(minutes=5),
+                retry_policy=RetryPolicy(maximum_attempts=2)
             )
 
             research_context["curated_summary"] = curation_result.get("summary", "")
