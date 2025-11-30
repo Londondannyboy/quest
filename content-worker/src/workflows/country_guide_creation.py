@@ -569,7 +569,7 @@ class CountryGuideCreationWorkflow:
         }
 
         for mode in ["story", "guide", "yolo", "voices"]:
-            workflow.logger.info(f"Generating {mode.upper()} mode content...")
+            workflow.logger.info(f"Generating {mode.upper()} mode content for {country_name}...")
 
             # Get sibling slugs (exclude current mode, never link to self)
             sibling_slugs = [slug for m, slug in all_slugs.items() if m != mode]
@@ -587,8 +587,9 @@ class CountryGuideCreationWorkflow:
                     primary_slug,   # Primary article slug for linking
                     sibling_slugs   # Sibling article slugs for cross-linking
                 ],
-                start_to_close_timeout=timedelta(minutes=7),  # Increased for comprehensive content
-                retry_policy=RetryPolicy(maximum_attempts=3)  # Extra retry for thin content rejection
+                start_to_close_timeout=timedelta(minutes=12),  # Increased for comprehensive content + LLM latency
+                retry_policy=RetryPolicy(maximum_attempts=3),  # Extra retry for thin content rejection
+                activity_id=f"content_{mode}_{country_code}"  # Better tracking in Temporal UI
             )
 
             content_modes[mode] = mode_result
