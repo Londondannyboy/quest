@@ -32,7 +32,10 @@ async def upload_video_to_mux(
     article_id: Optional[int] = None,
     country: Optional[str] = None,
     article_mode: Optional[str] = None,
-    tags: Optional[list] = None
+    tags: Optional[list] = None,
+    # Human-readable identifiers
+    title: Optional[str] = None,
+    app: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Upload a video to Mux from a URL with optional passthrough metadata.
@@ -45,6 +48,8 @@ async def upload_video_to_mux(
         country: Country name for the video
         article_mode: Content mode (story, guide, yolo, voices)
         tags: List of tags for categorization
+        title: Human-readable title for the video (shown in Mux dashboard)
+        app: Application name (e.g., 'relocation', 'quest')
 
     Returns:
         Dict with asset_id, playback_id, duration, and all generated URLs
@@ -57,24 +62,31 @@ async def upload_video_to_mux(
     # Create asset from URL
     playback_policy = [mux_python.PlaybackPolicy.PUBLIC] if public else [mux_python.PlaybackPolicy.SIGNED]
 
-    # Build passthrough metadata string (MUX stores as string, max 255 chars)
-    # Format: key1=value1;key2=value2
+    # Build human-readable passthrough string for Mux dashboard
+    # Format: "Title | Mode | Country | App | cluster:xxx"
     passthrough_parts = []
-    if cluster_id:
-        passthrough_parts.append(f"cluster={cluster_id[:36]}")
-    if article_id:
-        passthrough_parts.append(f"article={article_id}")
-    if country:
-        passthrough_parts.append(f"country={country[:20]}")
-    if article_mode:
-        passthrough_parts.append(f"mode={article_mode}")
-    if tags:
-        passthrough_parts.append(f"tags={','.join(tags[:5])}")
 
-    passthrough = ";".join(passthrough_parts)[:255] if passthrough_parts else None
+    # Start with title if available (most visible in Mux dashboard)
+    if title:
+        # Truncate title to leave room for other metadata
+        passthrough_parts.append(title[:80])
+
+    # Add mode and country for quick identification
+    if article_mode:
+        passthrough_parts.append(article_mode.upper())
+    if country:
+        passthrough_parts.append(country[:20])
+    if app:
+        passthrough_parts.append(f"app:{app}")
+    if cluster_id:
+        passthrough_parts.append(f"cluster:{cluster_id[:8]}")
+    if article_id:
+        passthrough_parts.append(f"id:{article_id}")
+
+    passthrough = " | ".join(passthrough_parts)[:255] if passthrough_parts else None
 
     if passthrough:
-        activity.logger.info(f"Passthrough metadata: {passthrough}")
+        activity.logger.info(f"Mux video label: {passthrough}")
 
     create_asset_request = mux_python.CreateAssetRequest(
         input=[mux_python.InputSettings(url=video_url)],
