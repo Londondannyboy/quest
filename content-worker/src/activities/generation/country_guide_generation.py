@@ -18,6 +18,7 @@ import google.generativeai as genai
 import anthropic
 
 from src.utils.config import config
+from src.utils.currency import get_currency_display_guidance, get_country_currency, get_currency_symbol
 
 
 # 8 motivations with display info
@@ -653,6 +654,8 @@ Cover ALL 8 motivations with equal depth and authority:
 8. FAMILY - Schools, family visas, healthcare for kids, child-friendly areas
 
 Write with authority. Be specific. Use real data. Cite sources.
+
+{get_currency_display_guidance(country_name)}
 
 ===== OUTPUT FORMAT =====
 
@@ -1552,6 +1555,28 @@ def get_clothing_prompt(country: str, mode: str) -> str:
 
 
 # ============================================================================
+# VARIED OPENING SCENARIOS
+# ============================================================================
+# Not always "rain on window" - vary the city fatigue scene for diversity
+import random
+
+OPENING_SCENARIOS = [
+    "staring at rain-streaked window, grey skies outside",
+    "watching city traffic through foggy glass, endless headlights",
+    "looking at crowded metro through apartment window, rush hour chaos",
+    "gazing at grey office buildings from cramped desk, sterile environment",
+    "watching sunset through smoggy city skyline, another day ending",
+    "staring at snow flurries outside, winter blues setting in",
+    "observing busy street below through dusty blinds, urban noise",
+]
+
+
+def get_varied_opening_scenario() -> str:
+    """Get a varied opening scenario for video Act 1 (city grind scene)."""
+    return random.choice(OPENING_SCENARIOS)
+
+
+# ============================================================================
 # SEGMENT VIDEO TEMPLATES - Mode-Specific Styles
 # ============================================================================
 # Each mode has distinct energy, pacing, camera style:
@@ -1564,6 +1589,8 @@ def get_clothing_prompt(country: str, mode: str) -> str:
 # | Voices | Warm   | Intimate   | Close-ups        | Casual (no branding)        |
 #
 # HARD SCENE CUTS: Use "shot cut —" between acts to prevent AI drift
+#
+# NOTE: Female subjects preferred - better AI generation results for relocation content
 
 SEGMENT_VIDEO_TEMPLATES = {
     # ========================================================================
@@ -1576,12 +1603,12 @@ SEGMENT_VIDEO_TEMPLATES = {
         "energy": "medium",
         "preamble": """CRITICAL: NO text, words, letters, signs, logos anywhere. Screens show abstract colors only.
 SAME SUBJECT throughout all 4 acts - follow ONE professional's journey.
-Cast: 30s professional, Mediterranean features, dark hair.
+Cast: 30s woman, warm features, natural beauty, professional appearance.
 {clothing}""",
         "acts": [
             {
                 "title": "The City Grind",
-                "hint": "MEDIUM SHOT, exhausted remote worker in cramped city flat, staring at rain-streaked window. Laptop glowing harsh blue. Camera PUSHES SLOWLY to close-up as subject rubs temples. Cool grey-blue tones, harsh fluorescent light. Could be any major city - generic urban fatigue."
+                "hint": "MEDIUM SHOT, exhausted remote worker in cramped city flat, {opening_scenario}. Laptop glowing harsh blue. Camera PUSHES SLOWLY to close-up as subject rubs temples. Cool grey-blue tones, harsh fluorescent light. Could be any major city - generic urban fatigue."
             },
             {
                 "title": "The {country} Dream",
@@ -1608,7 +1635,7 @@ Cast: 30s professional, Mediterranean features, dark hair.
         "energy": "calm",
         "preamble": """CRITICAL: NO text, words, letters, signs, logos anywhere. Documents show abstract patterns only.
 SAME SUBJECT throughout all 4 acts - follow ONE professional completing admin tasks.
-Cast: 35s professional, composed demeanor, business casual.
+Cast: 35s woman, composed demeanor, confident, business casual attire.
 {clothing}""",
         "acts": [
             {
@@ -1640,7 +1667,7 @@ Cast: 35s professional, composed demeanor, business casual.
         "energy": "high",
         "preamble": """CRITICAL: NO text anywhere except the YOLO shirt.
 SAME SUBJECT throughout all 4 acts - follow ONE person's spontaneous leap.
-Cast: late 20s, athletic build, determined expression.
+Cast: late 20s woman, athletic build, determined expression, adventurous spirit.
 {clothing}
 PACING: FAST throughout Acts 1-3, then ONE slow-mo moment at the dive in Act 4.""",
         "acts": [
@@ -1705,7 +1732,7 @@ NO branded clothing - this is about authentic personal stories.""",
         "energy": "medium",
         "preamble": """CRITICAL: NO text, words, letters, signs, logos anywhere.
 SAME FAMILY throughout all 4 acts - follow ONE family's journey.
-Cast: parents (30s-40s), two children (ages 8 and 11), golden retriever.
+Cast: mother (30s-40s, warm and capable), father, two children (ages 8 and 11), golden retriever.
 {clothing}""",
         "acts": [
             {
@@ -1737,7 +1764,7 @@ Cast: parents (30s-40s), two children (ages 8 and 11), golden retriever.
         "energy": "calm",
         "preamble": """CRITICAL: NO text, words, letters, signs, logos anywhere. Documents show abstract patterns only.
 SAME SUBJECT throughout all 4 acts - follow ONE professional's admin journey.
-Cast: 40s professional, sharp business casual, confident posture.
+Cast: 40s woman, sharp business casual, confident posture, accomplished demeanor.
 {clothing}""",
         "acts": [
             {
@@ -1769,7 +1796,7 @@ Cast: 40s professional, sharp business casual, confident posture.
         "energy": "medium",
         "preamble": """CRITICAL: NO text, words, letters, signs, logos anywhere.
 SAME SUBJECT throughout all 4 acts - follow ONE person's daily routine.
-Cast: 30s creative professional, relaxed linen clothing, content expression.
+Cast: 30s woman, creative professional vibe, relaxed linen clothing, content expression, natural beauty.
 {clothing}""",
         "acts": [
             {
@@ -1859,11 +1886,16 @@ async def generate_segment_video_prompt(
 
         # Format title and hint with country name AND landmark info
         act_title = act_template["title"].format(country=country_name)
+
+        # Get varied opening scenario for Act 1 (city grind scene)
+        opening_scenario = get_varied_opening_scenario()
+
         hint = act_template["hint"].format(
             country=country_name,
             landmark=primary_landmark,
             scenery=scenery,
-            travel_scenery=travel_scenery
+            travel_scenery=travel_scenery,
+            opening_scenario=opening_scenario
         )
 
         # Add hard scene cut marker before acts 2, 3, 4
