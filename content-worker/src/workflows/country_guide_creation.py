@@ -626,7 +626,7 @@ class CountryGuideCreationWorkflow:
                     primary_slug,   # Primary article slug for linking
                     sibling_slugs   # Sibling article slugs for cross-linking
                 ],
-                start_to_close_timeout=timedelta(minutes=12),  # Increased for comprehensive content + LLM latency
+                start_to_close_timeout=timedelta(minutes=18),  # 18 min for comprehensive content + LLM latency
                 retry_policy=RetryPolicy(maximum_attempts=3)   # Extra retry for thin content rejection
             )
 
