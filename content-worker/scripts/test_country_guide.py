@@ -28,7 +28,8 @@ def trigger_country_guide(country_name: str, country_code: str, video_quality: s
         "country_code": country_code,
         "app": "relocation",
         "video_quality": video_quality,
-        "target_word_count": 4000
+        "target_word_count": 4000,
+        "use_cluster_architecture": True  # ALWAYS use cluster mode for full workflow
     }
 
     print(f"🌍 Triggering Country Guide workflow for {country_name} ({country_code})")
