@@ -1754,7 +1754,7 @@ Cast: mother (30s-40s, warm and capable), father, two children (ages 8 and 11), 
             },
             {
                 "title": "Healthcare Confidence",
-                "hint": "MEDIUM SHOT, modern clinic interior, parent sits calmly with child. Friendly nurse approaches, child relaxes. Camera HOLDS STEADY. Soft lighting with warm undertones, reassuring atmosphere."
+                "hint": "MEDIUM SHOT, bright modern pediatric waiting room (NOT hospital), cheerful decor, toys visible. Parent and child sitting relaxed together, child playing happily. Friendly receptionist waves, routine check-up energy. Camera HOLDS STEADY. Natural daylight through large windows, positive atmosphere, zero medical emergency vibes."
             },
             {
                 "title": "Family Table",
