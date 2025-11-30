@@ -11,8 +11,8 @@ import asyncio
 from typing import Optional, Dict, Any
 from datetime import datetime
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Query, Request
+from fastapi.responses import JSONResponse, StreamingResponse
 import structlog
 
 logger = structlog.get_logger()
@@ -30,6 +30,11 @@ ZEP_API_KEY = os.getenv("ZEP_API_KEY")
 ZEP_PROJECT_ID = os.getenv("ZEP_PROJECT_ID", "e265b35c-69d8-4880-b2b5-ec6acb237a3e")
 ZEP_GRAPH_ID = os.getenv("ZEP_GRAPH_ID", "Relocation")  # Relocation knowledge graph (case-sensitive!)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Relocation-relevant ontology types for filtered searches
+RELOCATION_ENTITY_TYPES = ["Location", "Country", "Company", "Article"]
+RELOCATION_EDGE_TYPES = ["LOCATED_IN", "IN_COUNTRY", "HEADQUARTERED_IN", "MENTIONS"]
 
 
 # ============================================================================
@@ -54,53 +59,163 @@ class ZepKnowledgeGraph:
             logger.error("zep_init_error", error=str(e))
             self.client = None
 
-    async def search(self, query: str, user_id: str = "newsroom-system") -> dict:
-        """
-        Search the knowledge graph for relevant information
+    def _search_edges(self, query: str, limit: int = 10) -> list:
+        """Search edges (facts/relationships) in the Relocation graph using graph_id."""
+        try:
+            edge_results = self.client.graph.search(
+                graph_id=self.graph_id,  # Use graph_id, not user_id!
+                query=query,
+                scope="edges",
+                limit=limit
+            )
 
-        Note: Knowledge is stored under user_id='newsroom-system' which contains
-        placement agent, relocation, and other Quest knowledge.
+            formatted_edges = []
+            if hasattr(edge_results, 'edges') and edge_results.edges:
+                for edge in edge_results.edges:
+                    formatted_edges.append({
+                        "fact": getattr(edge, 'fact', str(edge)),
+                        "type": getattr(edge, 'name', 'unknown'),
+                        "score": getattr(edge, 'score', 0.0),
+                        "attributes": getattr(edge, 'attributes', {}),
+                        "valid_at": str(getattr(edge, 'valid_at', ''))
+                    })
+
+            return formatted_edges
+        except Exception as e:
+            logger.warning("edge_search_failed", error=str(e), query=query)
+            return []
+
+    def _search_nodes(self, query: str, limit: int = 10) -> list:
+        """Search nodes (entities) in the Relocation graph using graph_id."""
+        try:
+            node_results = self.client.graph.search(
+                graph_id=self.graph_id,  # Use graph_id, not user_id!
+                query=query,
+                scope="nodes",
+                limit=limit
+            )
+
+            formatted_nodes = []
+            if hasattr(node_results, 'nodes') and node_results.nodes:
+                for node in node_results.nodes:
+                    # Extract node type from labels
+                    labels = getattr(node, 'labels', [])
+                    node_type = 'Entity'
+                    for label in labels:
+                        if label in RELOCATION_ENTITY_TYPES:
+                            node_type = label
+                            break
+                    if labels and node_type == 'Entity':
+                        node_type = labels[0]
+
+                    formatted_nodes.append({
+                        "name": getattr(node, 'name', 'unknown'),
+                        "type": node_type,
+                        "summary": getattr(node, 'summary', ''),
+                        "score": getattr(node, 'score', 0.0),
+                        "attributes": getattr(node, 'attributes', {})
+                    })
+
+            return formatted_nodes
+        except Exception as e:
+            logger.warning("node_search_failed", error=str(e), query=query)
+            return []
+
+    def _format_for_llm(self, edges: list, nodes: list) -> str:
+        """Format search results into structured context for the LLM prompt."""
+        context_parts = []
+
+        # Format FACTS from edges
+        if edges:
+            facts = []
+            for edge in edges[:5]:  # Top 5 most relevant
+                fact = edge.get("fact", "")
+                if fact and len(fact) > 10:
+                    facts.append(f"- {fact}")
+
+            if facts:
+                context_parts.append("FACTS:\n" + "\n".join(facts))
+
+        # Format ENTITIES from nodes by type
+        if nodes:
+            by_type = {}
+            for node in nodes[:8]:  # Top 8 nodes
+                node_type = node.get("type", "Entity")
+                if node_type not in by_type:
+                    by_type[node_type] = []
+                by_type[node_type].append(node)
+
+            for node_type, type_nodes in by_type.items():
+                type_name = node_type.upper() + "S"
+                entries = []
+                for node in type_nodes[:3]:  # Max 3 per type
+                    name = node.get("name", "")
+                    summary = node.get("summary", "")
+                    if name:
+                        entry = f"- {name}"
+                        if summary:
+                            entry += f": {summary[:150]}"
+                        entries.append(entry)
+
+                if entries:
+                    context_parts.append(f"{type_name}:\n" + "\n".join(entries))
+
+        return "\n\n".join(context_parts) if context_parts else ""
+
+    async def search(self, query: str, include_nodes: bool = True) -> dict:
+        """
+        Search the Relocation knowledge graph for relevant information.
+
+        Uses graph_id (not user_id) to query the Relocation graph directly.
+        Searches both edges (facts/relationships) and nodes (entities) for
+        comprehensive context.
 
         Args:
-            query: Search query
-            user_id: User identifier for knowledge graph (defaults to newsroom-system)
+            query: Search query about relocation
+            include_nodes: Whether to also search nodes (default True)
 
         Returns:
-            Dictionary with search results
+            Dictionary with edges, nodes, formatted_context, and success status
         """
         if not self.client:
             return {
                 "error": "Zep client not initialized",
                 "results": [],
+                "edges": [],
+                "nodes": [],
+                "formatted_context": "",
                 "success": False
             }
 
         try:
-            # Search for edges (relationships) which contain rich context
-            # Using newsroom-system user_id where all Quest knowledge is stored
-            results = self.client.graph.search(
-                user_id=user_id,
-                query=query,
-                scope="edges",
-            )
+            # Search EDGES (facts/relationships)
+            edges = self._search_edges(query)
 
-            formatted_results = {
+            # Search NODES (entities) for richer context
+            nodes = []
+            if include_nodes:
+                nodes = self._search_nodes(query)
+
+            # Format results for LLM context
+            formatted_context = self._format_for_llm(edges, nodes)
+
+            # Backwards compatibility - simple results list
+            results = [{"fact": e.get("fact", ""), "relevance": e.get("score", 1.0)} for e in edges[:5]]
+
+            logger.info("zep_search_success",
+                       query=query,
+                       edges=len(edges),
+                       nodes=len(nodes),
+                       has_context=bool(formatted_context))
+
+            return {
                 "query": query,
-                "results": [],
+                "results": results,
+                "edges": edges,
+                "nodes": nodes,
+                "formatted_context": formatted_context,
                 "success": True
             }
-
-            if hasattr(results, 'edges') and results.edges:
-                for edge in results.edges[:5]:  # Top 5 most relevant
-                    formatted_results["results"].append({
-                        "fact": edge.fact if hasattr(edge, 'fact') else str(edge),
-                        "relevance": edge.score if hasattr(edge, 'score') else 1.0
-                    })
-                logger.info("zep_search_success", query=query, count=len(formatted_results["results"]))
-            else:
-                logger.info("zep_search_no_results", query=query)
-
-            return formatted_results
 
         except Exception as e:
             logger.error("zep_search_error", error=str(e), query=query)
@@ -108,6 +223,9 @@ class ZepKnowledgeGraph:
                 "error": str(e),
                 "query": query,
                 "results": [],
+                "edges": [],
+                "nodes": [],
+                "formatted_context": "",
                 "success": False
             }
 
@@ -117,11 +235,12 @@ class ZepKnowledgeGraph:
 # ============================================================================
 
 class GeminiAssistant:
-    """Gemini LLM for processing queries with Zep knowledge graph context"""
+    """Gemini LLM for processing queries with Zep knowledge graph context and Neon fallback"""
 
-    def __init__(self, api_key: str, zep_graph: ZepKnowledgeGraph):
+    def __init__(self, api_key: str, zep_graph: ZepKnowledgeGraph, neon_store: Optional['NeonKnowledgeStore'] = None):
         self.api_key = api_key
         self.zep_graph = zep_graph
+        self.neon_store = neon_store  # Neon database fallback
 
         try:
             import google.generativeai as genai
@@ -135,13 +254,12 @@ class GeminiAssistant:
             logger.error("gemini_init_error", error=str(e))
             self.model = None
 
-    async def process_query(self, query: str, user_id: str = "newsroom-system") -> str:
+    async def process_query(self, query: str) -> str:
         """
-        Process a query using Gemini + Zep knowledge graph
+        Process a query using Gemini + Zep knowledge graph + Neon fallback
 
         Args:
             query: User's question
-            user_id: User identifier for Zep graph (defaults to newsroom-system where knowledge is stored)
 
         Returns:
             Generated response text optimized for voice
@@ -150,16 +268,39 @@ class GeminiAssistant:
             return "I apologize, but the assistant is currently unavailable. Please try again later."
 
         try:
-            # Search knowledge graph for relevant context
-            kg_results = await self.zep_graph.search(query, user_id)
+            # Search knowledge graph for relevant context (using graph_id now)
+            kg_results = await self.zep_graph.search(query)
 
-            # Build context from knowledge graph
+            # Build context from knowledge graph using new formatted_context
             context = ""
-            if kg_results.get("success") and kg_results.get("results"):
-                context = "\n\nRelevant information from the knowledge base:\n"
-                for result in kg_results["results"]:
-                    context += f"- {result['fact']}\n"
-                logger.info("using_kg_context", facts_count=len(kg_results["results"]))
+            source = None
+
+            # Check if ZEP returned useful results (edges or nodes)
+            has_zep_content = (
+                kg_results.get("success") and
+                (kg_results.get("edges") or kg_results.get("nodes") or kg_results.get("formatted_context"))
+            )
+
+            if has_zep_content and kg_results.get("formatted_context"):
+                context = f"\n\nRelevant information from the knowledge base:\n{kg_results['formatted_context']}"
+                source = "zep"
+                logger.info("using_zep_context",
+                           edges=len(kg_results.get("edges", [])),
+                           nodes=len(kg_results.get("nodes", [])))
+
+            # If ZEP empty/failed, try Neon database fallback
+            elif self.neon_store:
+                neon_results = await self.neon_store.search(query)
+                if neon_results.get("success") and neon_results.get("results"):
+                    context = self._format_neon_context(neon_results)
+                    source = "neon"
+                    logger.info("using_neon_fallback",
+                               results_count=len(neon_results["results"]),
+                               types=neon_results.get("types", {}))
+
+            # Log if no context found from either source
+            if not context:
+                logger.info("no_knowledge_found", query=query, zep_tried=True, neon_tried=bool(self.neon_store))
 
             # System prompt optimized for voice interaction
             system_prompt = """You are a helpful relocation assistant for relocation.quest.
@@ -209,6 +350,229 @@ TONE:
         except Exception as e:
             logger.error("gemini_error", error=str(e), query=query)
             return "I apologize, I encountered an error. Please try asking your question again."
+
+    def _format_neon_context(self, neon_results: dict) -> str:
+        """Format Neon database results for Gemini context"""
+        context = "\n\nRelevant information from the knowledge base:\n"
+
+        for result in neon_results.get("results", []):
+            result_type = result.get("type")
+
+            if result_type == "country":
+                context += f"- {result['name']} ({result.get('region', 'Unknown region')}): "
+                if result.get('capital'):
+                    context += f"Capital is {result['capital']}. "
+                if result.get('currency_code'):
+                    context += f"Currency: {result['currency_code']}. "
+                if result.get('language'):
+                    context += f"Language: {result['language']}. "
+                facts = result.get('facts', {})
+                if facts:
+                    if facts.get('visa_info'):
+                        context += f"Visa: {facts['visa_info']}. "
+                    if facts.get('cost_of_living'):
+                        context += f"Cost of living: {facts['cost_of_living']}. "
+                    if facts.get('tax_info'):
+                        context += f"Tax: {facts['tax_info']}. "
+                if result.get('motivations'):
+                    context += f"Good for: {', '.join(result['motivations'])}. "
+                context += "\n"
+
+            elif result_type == "article":
+                context += f"- Article '{result['title']}': {result.get('excerpt') or result.get('description', '')}\n"
+
+            elif result_type == "company":
+                desc = result.get('description', '')[:200] or result.get('overview', '')[:200]
+                context += f"- Service provider '{result['name']}': {desc}\n"
+
+        return context
+
+
+# ============================================================================
+# NEON DATABASE FALLBACK
+# ============================================================================
+
+class NeonKnowledgeStore:
+    """Direct database fallback when ZEP returns empty results"""
+
+    def __init__(self, database_url: str):
+        self.database_url = database_url
+        logger.info("neon_store_initialized")
+
+    async def search_countries(self, query: str) -> list:
+        """Search countries by name, region, or keywords"""
+        try:
+            import psycopg
+
+            async with await psycopg.AsyncConnection.connect(self.database_url) as conn:
+                async with conn.cursor() as cur:
+                    query_lower = f"%{query.lower()}%"
+
+                    await cur.execute("""
+                        SELECT
+                            name, code, slug, region, continent,
+                            flag_emoji, capital, currency_code, language,
+                            relocation_motivations, relocation_tags, facts
+                        FROM countries
+                        WHERE status = 'published'
+                        AND (
+                            LOWER(name) LIKE %s
+                            OR LOWER(region) LIKE %s
+                            OR LOWER(continent) LIKE %s
+                            OR LOWER(capital) LIKE %s
+                        )
+                        LIMIT 3
+                    """, (query_lower, query_lower, query_lower, query_lower))
+
+                    rows = await cur.fetchall()
+
+                    results = []
+                    for row in rows:
+                        results.append({
+                            "type": "country",
+                            "name": row[0],
+                            "code": row[1],
+                            "slug": row[2],
+                            "region": row[3],
+                            "continent": row[4],
+                            "flag_emoji": row[5],
+                            "capital": row[6],
+                            "currency_code": row[7],
+                            "language": row[8],
+                            "motivations": row[9] or [],
+                            "tags": row[10] or [],
+                            "facts": row[11] or {}
+                        })
+
+                    return results
+
+        except Exception as e:
+            logger.error("neon_country_search_error", error=str(e))
+            return []
+
+    async def search_articles(self, query: str) -> list:
+        """Search articles by title and content"""
+        try:
+            import psycopg
+
+            async with await psycopg.AsyncConnection.connect(self.database_url) as conn:
+                async with conn.cursor() as cur:
+                    query_lower = f"%{query.lower()}%"
+
+                    await cur.execute("""
+                        SELECT
+                            id, slug, title, excerpt,
+                            article_angle, country_code, meta_description
+                        FROM articles
+                        WHERE app = 'relocation'
+                        AND status = 'published'
+                        AND (
+                            LOWER(title) LIKE %s
+                            OR LOWER(excerpt) LIKE %s
+                            OR LOWER(meta_description) LIKE %s
+                        )
+                        ORDER BY published_at DESC NULLS LAST
+                        LIMIT 3
+                    """, (query_lower, query_lower, query_lower))
+
+                    rows = await cur.fetchall()
+
+                    results = []
+                    for row in rows:
+                        results.append({
+                            "type": "article",
+                            "id": str(row[0]),
+                            "slug": row[1],
+                            "title": row[2],
+                            "excerpt": row[3] or "",
+                            "article_type": row[4],
+                            "country_code": row[5],
+                            "description": row[6] or ""
+                        })
+
+                    return results
+
+        except Exception as e:
+            logger.error("neon_article_search_error", error=str(e))
+            return []
+
+    async def search_companies(self, query: str) -> list:
+        """Search companies by name and description"""
+        try:
+            import psycopg
+
+            async with await psycopg.AsyncConnection.connect(self.database_url) as conn:
+                async with conn.cursor() as cur:
+                    query_lower = f"%{query.lower()}%"
+
+                    await cur.execute("""
+                        SELECT
+                            id, slug, name, description, overview
+                        FROM companies
+                        WHERE app = 'relocation'
+                        AND (
+                            LOWER(name) LIKE %s
+                            OR LOWER(description) LIKE %s
+                        )
+                        LIMIT 3
+                    """, (query_lower, query_lower))
+
+                    rows = await cur.fetchall()
+
+                    results = []
+                    for row in rows:
+                        results.append({
+                            "type": "company",
+                            "id": str(row[0]),
+                            "slug": row[1],
+                            "name": row[2],
+                            "description": row[3] or "",
+                            "overview": row[4] or ""
+                        })
+
+                    return results
+
+        except Exception as e:
+            logger.error("neon_company_search_error", error=str(e))
+            return []
+
+    async def search(self, query: str) -> dict:
+        """
+        Combined search across all tables.
+        Returns aggregated results with source types.
+        """
+        logger.info("neon_fallback_search", query=query)
+
+        # Run all searches in parallel
+        countries, articles, companies = await asyncio.gather(
+            self.search_countries(query),
+            self.search_articles(query),
+            self.search_companies(query),
+            return_exceptions=True
+        )
+
+        # Handle any exceptions from gather
+        countries = countries if isinstance(countries, list) else []
+        articles = articles if isinstance(articles, list) else []
+        companies = companies if isinstance(companies, list) else []
+
+        all_results = countries + articles + companies
+
+        logger.info("neon_fallback_results",
+                   countries=len(countries),
+                   articles=len(articles),
+                   companies=len(companies))
+
+        return {
+            "query": query,
+            "results": all_results,
+            "types": {
+                "countries": len(countries),
+                "articles": len(articles),
+                "companies": len(companies)
+            },
+            "success": len(all_results) > 0
+        }
 
 
 # ============================================================================
@@ -285,7 +649,7 @@ class HumeEVIConnection:
                     logger.info("processing_query", query=query_text, user_id=user_id)
 
                     # Process through our assistant (Gemini + Zep)
-                    response = await self.assistant.process_query(query_text, user_id)
+                    response = await self.assistant.process_query(query_text)
 
                     await websocket.send_json({
                         "type": "response",
@@ -319,6 +683,7 @@ class HumeEVIConnection:
 
 # Initialize services if API keys are available
 zep_graph = None
+neon_store = None
 gemini_assistant = None
 hume_handler = None
 
@@ -326,8 +691,13 @@ if ZEP_API_KEY and ZEP_PROJECT_ID:
     zep_graph = ZepKnowledgeGraph(ZEP_API_KEY, ZEP_PROJECT_ID, ZEP_GRAPH_ID)
     logger.info("zep_configured", graph_id=ZEP_GRAPH_ID)
 
+# Initialize Neon fallback
+if DATABASE_URL:
+    neon_store = NeonKnowledgeStore(DATABASE_URL)
+    logger.info("neon_fallback_configured")
+
 if GEMINI_API_KEY and zep_graph:
-    gemini_assistant = GeminiAssistant(GEMINI_API_KEY, zep_graph)
+    gemini_assistant = GeminiAssistant(GEMINI_API_KEY, zep_graph, neon_store)
 
 if HUME_API_KEY and gemini_assistant:
     hume_handler = HumeEVIConnection(HUME_API_KEY, gemini_assistant)
@@ -364,7 +734,7 @@ async def handle_text_chat(websocket: WebSocket, user_id: str, assistant: Gemini
                 logger.info("processing_text_query", query=query_text, user_id=user_id)
 
                 # Process through Gemini + Zep
-                response = await assistant.process_query(query_text, user_id)
+                response = await assistant.process_query(query_text)
 
                 await websocket.send_json({
                     "type": "response",
@@ -411,6 +781,10 @@ async def voice_health():
         "gemini": {
             "configured": GEMINI_API_KEY is not None,
             "client_ready": gemini_assistant is not None and gemini_assistant.model is not None
+        },
+        "neon": {
+            "configured": DATABASE_URL is not None,
+            "client_ready": neon_store is not None
         },
         "ready": all([
             hume_handler and hume_handler.client,
@@ -499,7 +873,7 @@ async def text_query(
 
     logger.info("text_query_received", query=query, user_id=user_id)
 
-    response = await gemini_assistant.process_query(query, user_id)
+    response = await gemini_assistant.process_query(query)
 
     return {
         "query": query,
@@ -546,7 +920,7 @@ async def _handle_llm_request(request: dict):
         logger.info("hume_llm_request", query=user_message, user_id=user_id)
 
         # Process through Gemini + Zep with newsroom-system knowledge
-        response = await gemini_assistant.process_query(user_message, user_id)
+        response = await gemini_assistant.process_query(user_message)
 
         return {
             "response": response
@@ -586,14 +960,138 @@ async def llm_endpoint(request: dict):
     return await _handle_llm_request(request)
 
 
-@router.post("/chat/completions")
-async def custom_llm_endpoint(request: dict):
+async def _generate_sse_response(messages: list):
     """
-    OpenAI-compatible endpoint alias (same as /llm-endpoint)
+    Generate SSE-formatted streaming response compatible with Hume EVI.
 
-    Allows using standard OpenAI API format if needed.
+    Streams response in OpenAI chat completions chunk format.
     """
-    return await _handle_llm_request(request)
+    if not gemini_assistant:
+        error_event = {
+            "id": "error-1",
+            "object": "chat.completion.chunk",
+            "created": int(datetime.utcnow().timestamp()),
+            "model": "gemini-2.0-flash",
+            "choices": [{
+                "index": 0,
+                "delta": {"content": "I apologize, but the assistant is currently unavailable."},
+                "finish_reason": "stop"
+            }]
+        }
+        yield f"data: {json.dumps(error_event)}\n\n"
+        yield "data: [DONE]\n\n"
+        return
+
+    # Extract latest user message
+    user_message = None
+    for msg in reversed(messages):
+        if msg.get("role") == "user":
+            content = msg.get("content", "")
+            # Handle content that could be string or list of content blocks
+            if isinstance(content, list):
+                # Extract text from content blocks
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        user_message = block.get("text", "")
+                        break
+            else:
+                user_message = content
+            break
+
+    if not user_message:
+        error_event = {
+            "id": "error-2",
+            "object": "chat.completion.chunk",
+            "created": int(datetime.utcnow().timestamp()),
+            "model": "gemini-2.0-flash",
+            "choices": [{
+                "index": 0,
+                "delta": {"content": "I didn't understand that. Could you rephrase?"},
+                "finish_reason": "stop"
+            }]
+        }
+        yield f"data: {json.dumps(error_event)}\n\n"
+        yield "data: [DONE]\n\n"
+        return
+
+    logger.info("sse_streaming_request", query=user_message[:100])
+
+    try:
+        # Get response from Gemini + Zep
+        response_text = await gemini_assistant.process_query(user_message)
+
+        # Stream response in chunks (simulating streaming for better UX)
+        chunk_id = f"chatcmpl-{int(datetime.utcnow().timestamp())}"
+        words = response_text.split()
+
+        for i, word in enumerate(words):
+            is_last = i == len(words) - 1
+            chunk = {
+                "id": chunk_id,
+                "object": "chat.completion.chunk",
+                "created": int(datetime.utcnow().timestamp()),
+                "model": "gemini-2.0-flash",
+                "choices": [{
+                    "index": 0,
+                    "delta": {"content": word + ("" if is_last else " ")},
+                    "finish_reason": "stop" if is_last else None
+                }]
+            }
+            yield f"data: {json.dumps(chunk)}\n\n"
+
+        yield "data: [DONE]\n\n"
+
+    except Exception as e:
+        logger.error("sse_streaming_error", error=str(e))
+        error_event = {
+            "id": "error-3",
+            "object": "chat.completion.chunk",
+            "created": int(datetime.utcnow().timestamp()),
+            "model": "gemini-2.0-flash",
+            "choices": [{
+                "index": 0,
+                "delta": {"content": "I apologize, I encountered an error. Please try again."},
+                "finish_reason": "stop"
+            }]
+        }
+        yield f"data: {json.dumps(error_event)}\n\n"
+        yield "data: [DONE]\n\n"
+
+
+@router.post("/chat/completions")
+async def custom_llm_endpoint_sse(request: Request):
+    """
+    SSE-compatible endpoint for Hume EVI Custom Language Model.
+
+    Returns Server-Sent Events in OpenAI chat completions streaming format.
+    This is the recommended endpoint for Hume EVI integration as it supports
+    real-time streaming responses.
+
+    Expected request format:
+    {
+        "messages": [
+            {"role": "user", "content": "user message"},
+            {"role": "assistant", "content": "previous response"}
+        ],
+        "stream": true  // Hume will typically set this
+    }
+    """
+    try:
+        request_json = await request.json()
+    except Exception:
+        request_json = {}
+
+    messages = request_json.get("messages", [])
+
+    return StreamingResponse(
+        _generate_sse_response(messages),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
 
 
 @router.get("/status")
@@ -639,6 +1137,8 @@ async def get_access_token(request: Optional[Dict[str, Any]] = None):
     This endpoint creates a short-lived access token that allows the frontend
     React component to connect directly to Hume's EVI service.
 
+    Uses OAuth2 client credentials flow as per Hume API documentation.
+
     Returns:
         JSON with accessToken and expiresIn fields
     """
@@ -649,35 +1149,38 @@ async def get_access_token(request: Optional[Dict[str, Any]] = None):
         )
 
     try:
-        from hume import HumeClient
-        from hume.empathic_voice import ChatConnectRequest
+        import base64
+        import httpx
 
-        # Create Hume client
-        client = HumeClient(api_key=HUME_API_KEY, secret_key=HUME_SECRET_KEY)
+        # Create Basic auth credentials (API key:Secret key base64 encoded)
+        credentials = f"{HUME_API_KEY}:{HUME_SECRET_KEY}"
+        encoded_credentials = base64.b64encode(credentials.encode()).decode()
 
-        # Get config_id from request if provided
-        config_id = None
-        if request and isinstance(request, dict):
-            config_id = request.get("configId")
+        # OAuth2 client credentials flow
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.hume.ai/oauth2-cc/token",
+                headers={
+                    "Authorization": f"Basic {encoded_credentials}",
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                data={"grant_type": "client_credentials"}
+            )
+            response.raise_for_status()
+            token_data = response.json()
 
-        # Generate access token (valid for 30 minutes)
-        # Note: Hume access tokens are short-lived for security
-        token_response = await client.empathic_voice.chat.get_access_token(
-            config_id=config_id
-        )
-
-        logger.info("access_token_generated", config_id=config_id)
+        logger.info("access_token_generated")
 
         return {
-            "accessToken": token_response.access_token,
-            "expiresIn": 1800  # 30 minutes
+            "accessToken": token_data["access_token"],
+            "expiresIn": token_data.get("expires_in", 1800)  # Default 30 minutes
         }
 
-    except ImportError:
-        logger.error("hume_package_not_installed")
+    except httpx.HTTPStatusError as e:
+        logger.error("access_token_http_error", status=e.response.status_code, error=str(e))
         raise HTTPException(
-            status_code=503,
-            detail="Hume package not installed"
+            status_code=500,
+            detail=f"Failed to generate access token: HTTP {e.response.status_code}"
         )
     except Exception as e:
         logger.error("access_token_error", error=str(e))
