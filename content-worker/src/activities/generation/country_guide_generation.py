@@ -198,7 +198,7 @@ Write this guide as a NARRATIVE JOURNEY - like a documentary or travel memoir.
 The reader is the protagonist considering a life change.
 
 **NARRATIVE STRUCTURE:**
-- Open with a scene: "The fluorescent lights flicker as another grey London morning bleeds into afternoon..."
+- Open with a scene: "The fluorescent lights flicker as another grey morning bleeds into afternoon..." (NO specific city - readers are global)
 - Use second-person ("you") to draw the reader in
 - Build emotional arc: Frustration → Discovery → Possibility → Transformation
 - Weave facts into story naturally ("You learn that the D7 visa costs just €90...")
@@ -307,7 +307,7 @@ Format as reality checks:
 
 **FORMAT REQUIREMENTS:**
 - Bold declarative headers ("Just Book the Flight")
-- Comparison callouts (London vs {country_name})
+- Comparison callouts (vs major cities relevant to the destination region)
 - Action buttons/CTAs throughout
 - "Stop overthinking" moments
 - Fun disclaimer at the end
@@ -459,7 +459,7 @@ These are ACTUAL search queries people use - your content MUST address these:
 {chr(10).join(['- ' + kw for kw in discovered_keywords[:15]]) if discovered_keywords else '- No keywords discovered'}
 
 **UNIQUE AUDIENCES TO ADDRESS:**
-{chr(10).join(['- ' + (a.get("keyword", "") if isinstance(a, dict) else str(a)) + f' (volume: {a.get("volume", "?")})' for a in unique_audiences[:10]]) if unique_audiences else '- Standard UK/US expat audience'}
+{chr(10).join(['- ' + (a.get("keyword", "") if isinstance(a, dict) else str(a)) + f' (volume: {a.get("volume", "?")})' for a in unique_audiences[:10]]) if unique_audiences else '- Global expat audience (US, UK, EU, India, SE Asia, Commonwealth)'}
 
 These audiences reveal GLOBAL interest - not just UK/US expats!
 For example, if "portugal visa for indians" appears, include a dedicated section or FAQ for Indian nationals.
@@ -535,16 +535,69 @@ Google's AI cites these sources - reference them:
     # Build system prompt for country guide
     system_prompt = f"""You are an expert relocation consultant writing a comprehensive guide for {country_name}.
 
-===== GLOBAL AUDIENCE (NOT JUST UK/US) =====
-This guide serves a GLOBAL English-speaking audience:
-- **UK citizens** - Address UK-specific concerns (NHS vs private healthcare, UK tax treaties, pension transfers)
-- **US citizens** - Address US-specific concerns (FATCA, US tax obligations abroad, social security totalization)
-- **Indian nationals** - If discovered in search data, address Indian visa requirements, tax treaties with India
-- **Other nationalities** - Australians, Canadians, Irish, South Africans, Singaporeans, etc.
+===== GLOBAL AUDIENCE - INTERNATIONAL POSITIONING (CRITICAL!) =====
+This guide serves a GLOBAL English-speaking audience. DO NOT write from a UK-centric perspective!
 
-The world is moving around - not just British and Americans!
-If keyword research reveals interest from specific nationalities (e.g., "portugal visa for indians"),
-dedicate FAQ sections or subsections to those audiences.
+**MANDATORY: Include dedicated sections for EACH major source region:**
+
+🇺🇸 **US CITIZENS SECTION** (largest English-speaking expat source)
+- FATCA compliance and US tax obligations abroad (you're taxed on worldwide income!)
+- Social Security Totalization Agreements - which countries have them
+- Medicare doesn't cover you abroad - insurance options
+- 401k/IRA considerations when moving abroad
+- State tax obligations (some states tax you even after leaving)
+- Renouncing citizenship tax implications (exit tax)
+
+🇬🇧 **UK/IRISH CITIZENS SECTION**
+- NHS entitlements abroad (S1 form, GHIC card for EU)
+- UK State Pension abroad - where it's frozen vs indexed
+- UK tax treaties with destination country
+- ISA and pension transfer options
+- Post-Brexit rights in EU countries
+
+🇪🇺 **EU/EEA CITIZENS SECTION** (they have FREE MOVEMENT rights within EU!)
+- Freedom of movement within EU - registration not visa required
+- Posted Workers rules for employment
+- EU healthcare card (EHIC/GHIC) coverage
+- Pension coordination between EU states
+- Schengen vs non-Schengen considerations
+
+🇮🇳 **SOUTH ASIAN CITIZENS SECTION** (India, Pakistan, Bangladesh, Sri Lanka, Nepal)
+- Visa requirements specific to Indian passport holders (often more restrictive)
+- OCI card holders - special considerations
+- Tax treaty between India and destination country
+- NRI status and FEMA compliance
+- Popular expat hubs for South Asians in that country
+- Community networks and cultural considerations
+
+🇵🇭 **SOUTHEAST ASIAN CITIZENS SECTION** (Philippines, Vietnam, Indonesia, Malaysia, Thailand)
+- Visa requirements for SE Asian passport holders
+- OFW (Overseas Filipino Worker) specific guidance where relevant
+- Remittance and money transfer options
+- Embassy and consulate locations
+- Existing SE Asian communities in destination
+
+🇦🇺 **COMMONWEALTH CITIZENS SECTION** (Australia, New Zealand, Canada, South Africa)
+- Working Holiday Visas where applicable
+- Commonwealth pension arrangements
+- Healthcare reciprocal agreements
+- Easier pathways (some countries favor Commonwealth citizens)
+
+🌍 **MIDDLE EAST EXPATS** (UAE, Saudi, Qatar residents looking to relocate)
+- Tax-free savings considerations
+- End of service gratuity planning
+- Property investment from GCC countries
+- Popular destinations for Gulf expats
+
+**IMPORTANT:** Every major section (Visa, Tax, Healthcare, etc.) should include
+nationality-specific callout boxes or subsections. Example format:
+"📍 **For US Citizens:** Note that FATCA requires..."
+"📍 **For Indian Nationals:** The visa process requires..."
+"📍 **For EU Citizens:** You have automatic right to..."
+
+The world is relocating - Americans to Portugal, Indians to UAE to Europe,
+Filipinos everywhere, Brits post-Brexit exploring options, EU citizens using
+their freedom of movement. Serve ALL of them!
 
 {discovered_guidance}
 
@@ -1349,6 +1402,121 @@ def get_country_landmarks(country_name: str) -> dict:
 
 
 # ============================================================================
+# DYNAMIC COMPARISON CITIES BY REGION
+# ============================================================================
+# Returns relevant comparison cities based on destination country's region
+# Ensures global representation without being UK-centric
+
+REGION_COMPARISON_CITIES = {
+    'europe': {
+        'primary': ['New York', 'London', 'Sydney', 'Toronto'],
+        'regional': ['Berlin', 'Amsterdam', 'Paris', 'Barcelona'],
+        'global_south': ['Mumbai', 'Singapore', 'Dubai', 'São Paulo'],
+    },
+    'asia': {
+        'primary': ['Singapore', 'Hong Kong', 'Tokyo', 'Sydney'],
+        'regional': ['Mumbai', 'Bangkok', 'Kuala Lumpur', 'Shanghai'],
+        'global_north': ['New York', 'London', 'San Francisco', 'Toronto'],
+    },
+    'middle_east': {
+        'primary': ['Dubai', 'London', 'Singapore', 'New York'],
+        'regional': ['Abu Dhabi', 'Doha', 'Riyadh', 'Mumbai'],
+        'global': ['Hong Kong', 'Sydney', 'San Francisco', 'Toronto'],
+    },
+    'americas': {
+        'primary': ['New York', 'Miami', 'Los Angeles', 'Toronto'],
+        'regional': ['Mexico City', 'São Paulo', 'Buenos Aires', 'Santiago'],
+        'global': ['London', 'Sydney', 'Singapore', 'Dubai'],
+    },
+    'oceania': {
+        'primary': ['Sydney', 'Melbourne', 'Auckland', 'Singapore'],
+        'regional': ['Brisbane', 'Perth', 'Wellington', 'Fiji'],
+        'global': ['London', 'New York', 'Hong Kong', 'Los Angeles'],
+    },
+    'africa': {
+        'primary': ['Cape Town', 'Johannesburg', 'Dubai', 'London'],
+        'regional': ['Nairobi', 'Lagos', 'Cairo', 'Casablanca'],
+        'global': ['New York', 'Mumbai', 'Singapore', 'Sydney'],
+    },
+}
+
+COUNTRY_REGIONS = {
+    # Europe
+    'portugal': 'europe', 'spain': 'europe', 'france': 'europe', 'germany': 'europe',
+    'italy': 'europe', 'greece': 'europe', 'croatia': 'europe', 'malta': 'europe',
+    'cyprus': 'europe', 'netherlands': 'europe', 'belgium': 'europe', 'uk': 'europe',
+    'united kingdom': 'europe', 'ireland': 'europe', 'poland': 'europe', 'czechia': 'europe',
+    'austria': 'europe', 'switzerland': 'europe', 'hungary': 'europe', 'romania': 'europe',
+    'bulgaria': 'europe', 'slovakia': 'europe', 'slovenia': 'europe', 'estonia': 'europe',
+    'latvia': 'europe', 'lithuania': 'europe', 'finland': 'europe', 'sweden': 'europe',
+    'norway': 'europe', 'denmark': 'europe', 'iceland': 'europe', 'montenegro': 'europe',
+    # Asia
+    'thailand': 'asia', 'vietnam': 'asia', 'indonesia': 'asia', 'bali': 'asia',
+    'malaysia': 'asia', 'singapore': 'asia', 'philippines': 'asia', 'japan': 'asia',
+    'south korea': 'asia', 'taiwan': 'asia', 'hong kong': 'asia', 'india': 'asia',
+    'sri lanka': 'asia', 'nepal': 'asia', 'cambodia': 'asia', 'laos': 'asia',
+    # Middle East
+    'uae': 'middle_east', 'dubai': 'middle_east', 'qatar': 'middle_east',
+    'saudi arabia': 'middle_east', 'bahrain': 'middle_east', 'oman': 'middle_east',
+    'turkey': 'middle_east', 'israel': 'middle_east', 'jordan': 'middle_east',
+    # Americas
+    'usa': 'americas', 'canada': 'americas', 'mexico': 'americas', 'brazil': 'americas',
+    'argentina': 'americas', 'colombia': 'americas', 'costa rica': 'americas',
+    'panama': 'americas', 'ecuador': 'americas', 'chile': 'americas', 'peru': 'americas',
+    # Oceania
+    'australia': 'oceania', 'new zealand': 'oceania', 'fiji': 'oceania',
+    # Africa
+    'south africa': 'africa', 'mauritius': 'africa', 'morocco': 'africa',
+    'kenya': 'africa', 'egypt': 'africa', 'nigeria': 'africa', 'ghana': 'africa',
+}
+
+
+def get_comparison_cities(country_name: str, exclude_self: bool = True) -> str:
+    """
+    Get dynamic comparison cities based on destination country's region.
+
+    Returns a varied list of comparison cities that's globally representative
+    and contextually relevant to the destination.
+
+    Args:
+        country_name: Destination country name
+        exclude_self: Whether to exclude the destination from comparisons
+
+    Returns:
+        String of comparison cities for use in prompts
+    """
+    country_key = country_name.lower().strip()
+    region = COUNTRY_REGIONS.get(country_key, 'europe')  # Default to europe
+    cities_config = REGION_COMPARISON_CITIES.get(region, REGION_COMPARISON_CITIES['europe'])
+
+    # Build varied comparison list
+    comparison_cities = []
+
+    # Add primary comparisons (always include major global hubs)
+    comparison_cities.extend(cities_config['primary'][:2])
+
+    # Add regional comparisons relevant to destination
+    if 'regional' in cities_config:
+        comparison_cities.extend(cities_config['regional'][:2])
+
+    # Add global south/north for balance
+    global_key = 'global_south' if region in ['europe', 'americas'] else 'global_north'
+    if global_key not in cities_config:
+        global_key = 'global'
+    if global_key in cities_config:
+        comparison_cities.extend(cities_config[global_key][:2])
+
+    # Remove destination country's capital if present
+    if exclude_self:
+        # Filter out the destination country's likely capital
+        comparison_cities = [c for c in comparison_cities if country_key not in c.lower()]
+
+    # Return unique cities, max 5
+    unique_cities = list(dict.fromkeys(comparison_cities))[:5]
+    return ', '.join(unique_cities)
+
+
+# ============================================================================
 # CLIMATE-AWARE CLOTHING BRANDING
 # ============================================================================
 # Cold countries get Quest jacket/sweatshirt, warm countries get Quest t-shirt
@@ -1412,8 +1580,8 @@ Cast: 30s professional, Mediterranean features, dark hair.
 {clothing}""",
         "acts": [
             {
-                "title": "The London Grind",
-                "hint": "MEDIUM SHOT, exhausted remote worker in cramped city flat, staring at rain-streaked window. Laptop glowing harsh blue. Camera PUSHES SLOWLY to close-up as subject rubs temples. Cool grey-blue tones, harsh fluorescent light."
+                "title": "The City Grind",
+                "hint": "MEDIUM SHOT, exhausted remote worker in cramped city flat, staring at rain-streaked window. Laptop glowing harsh blue. Camera PUSHES SLOWLY to close-up as subject rubs temples. Cool grey-blue tones, harsh fluorescent light. Could be any major city - generic urban fatigue."
             },
             {
                 "title": "The {country} Dream",
@@ -1795,19 +1963,36 @@ search results. This article should be THE answer Google wants to show.
 1. **Hook paragraph** - Address search intent immediately. What does someone searching "{target_keyword}" want to know?
 2. **Key data summary** - Table or bullet list with the MOST searched-for facts
 3. **Deep sections** - 3-5 H2 sections covering all aspects of this topic
-4. **Comparison data** - vs UK, vs US, vs other countries
-5. **FAQ section** - Answer "People Also Ask" questions for this keyword
-6. **Internal links (3-5 total):**
+4. **Comparison data** - vs relevant global cities (use region-appropriate comparisons)
+5. **NATIONALITY-SPECIFIC CALLOUTS** - Include callout boxes for different nationalities:
+   - 📍 **For US Citizens:** (FATCA, tax obligations, SS totalization)
+   - 📍 **For UK Citizens:** (NHS, Brexit implications, pension)
+   - 📍 **For EU Citizens:** (freedom of movement rights)
+   - 📍 **For Indian Nationals:** (specific visa requirements, tax treaties)
+   - 📍 **For SE Asian Citizens:** (visa requirements, communities)
+6. **FAQ section** - Answer "People Also Ask" questions for this keyword
+7. **Internal links (3-5 total):**
    - Link to parent guide: /{parent_slug} (2 mentions with descriptive anchor text)
    - Cross-link to 1-2 related topic pages if contextually relevant
    - Use natural anchor text: "our [comprehensive {country_name} guide](/{parent_slug})" NOT "click here"
+
+===== GLOBAL AUDIENCE (CRITICAL!) =====
+This content serves a GLOBAL English-speaking audience - NOT UK-centric!
+- **US Citizens** - Largest English-speaking expat population, address their specific concerns
+- **Indian Nationals** - Growing expat population, often face stricter visa requirements
+- **EU Citizens** - Have different rights (freedom of movement within EU)
+- **UK Citizens** - Post-Brexit considerations
+- **SE Asian Citizens** - Philippines, Vietnam, etc. - growing mobile workforce
+- **Commonwealth** - Australia, Canada, South Africa, New Zealand
+
+Every major section should consider: "How does this apply to someone from the US? From India? From the EU?"
 
 ===== WRITING STYLE =====
 - INLINE CSS ONLY (no Tailwind classes)
 - Data-driven: specific numbers, dates, costs
 - Practical: actionable advice
 - Authority: cite sources, be definitive
-- UK/US perspective: address both audiences
+- GLOBAL perspective: address ALL major nationalities, not just UK/US
 
 ===== OUTPUT FORMAT =====
 Start with metadata lines:
@@ -1869,7 +2054,7 @@ RESEARCH DATA (filtered for {planning_type}):
 REQUIREMENTS:
 - MINIMUM 1500 words
 - Mention "{target_keyword}" 8-12 times naturally
-- Include comparison table (vs UK, vs other EU countries)
+- Include comparison table vs relevant global cities for the destination region
 - Include 5-8 FAQ questions
 - Include 3-5 internal links total:
   - Link to /{parent_slug} at least 2 times with descriptive anchor text
