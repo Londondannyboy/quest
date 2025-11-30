@@ -2062,6 +2062,10 @@ End with JSON FAQ block:
 
     # Build research prompt with relevant context
     # Filter research_context to just the relevant planning_type data
+    # Handle None values for planning_type and target_keyword
+    planning_type_safe = planning_type or ""
+    target_keyword_safe = target_keyword or ""
+
     relevant_context = {
         "country": country_name,
         "target_keyword": target_keyword,
@@ -2069,11 +2073,11 @@ End with JSON FAQ block:
         "summaries": research_context.get("summaries", [])[:10],
         "crawled_sources": [
             s for s in research_context.get("crawled_sources", [])[:15]
-            if planning_type.lower() in str(s).lower() or target_keyword.lower() in str(s).lower()
+            if planning_type_safe.lower() in str(s).lower() or target_keyword_safe.lower() in str(s).lower()
         ],
         "paa_questions": [
             q for q in research_context.get("paa_questions", [])[:20]
-            if any(term in q.lower() for term in target_keyword.lower().split())
+            if any(term in q.lower() for term in target_keyword_safe.lower().split()) if target_keyword_safe
         ],
         "seo_keywords": research_context.get("seo_keywords", [])[:10],
     }
