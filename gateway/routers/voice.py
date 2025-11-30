@@ -254,26 +254,39 @@ class GeminiAssistant:
             logger.error("gemini_init_error", error=str(e))
             self.model = None
 
-    async def process_query(self, query: str) -> str:
+    async def process_query(self, query: str, thread_id: str = None) -> str:
         """
         Process a query using Gemini + Zep knowledge graph + Neon fallback
 
         Args:
             query: User's question
+            thread_id: Optional ZEP thread ID for conversation memory
 
         Returns:
-            Generated response text optimized for voice
+            Generated response text optimized for voice, with links section appended
         """
         if not self.model:
             return "I apologize, but the assistant is currently unavailable. Please try again later."
 
         try:
+            # Get ZEP conversation context if thread exists
+            zep_memory_context = ""
+            if thread_id and self.zep_graph.client:
+                try:
+                    memory = self.zep_graph.client.thread.get_user_context(thread_id=thread_id)
+                    if memory and hasattr(memory, 'context') and memory.context:
+                        zep_memory_context = f"\n\nConversation context:\n{memory.context}"
+                        logger.info("zep_memory_loaded", thread_id=thread_id)
+                except Exception as e:
+                    logger.warning("zep_memory_error", error=str(e), thread_id=thread_id)
+
             # Search knowledge graph for relevant context (using graph_id now)
             kg_results = await self.zep_graph.search(query)
 
             # Build context from knowledge graph using new formatted_context
             context = ""
             source = None
+            related_links = {"articles": [], "companies": [], "countries": []}
 
             # Check if ZEP returned useful results (edges or nodes)
             has_zep_content = (
@@ -294,6 +307,23 @@ class GeminiAssistant:
                 if neon_results.get("success") and neon_results.get("results"):
                     context = self._format_neon_context(neon_results)
                     source = "neon"
+                    # Extract links from Neon results for display
+                    for result in neon_results.get("results", []):
+                        if result.get("type") == "article":
+                            related_links["articles"].append({
+                                "title": result.get("title", ""),
+                                "url": f"https://relocation.quest/{result.get('slug', '')}"
+                            })
+                        elif result.get("type") == "company":
+                            related_links["companies"].append({
+                                "name": result.get("name", ""),
+                                "url": f"https://relocation.quest/companies/{result.get('slug', '')}"
+                            })
+                        elif result.get("type") == "country":
+                            related_links["countries"].append({
+                                "name": result.get("name", ""),
+                                "url": f"https://relocation.quest/countries/{result.get('slug', '')}"
+                            })
                     logger.info("using_neon_fallback",
                                results_count=len(neon_results["results"]),
                                types=neon_results.get("types", {}))
@@ -353,14 +383,42 @@ TONE:
 - Excited to help people achieve their relocation dreams
 """
 
-            # Generate response
-            full_prompt = f"{system_prompt}\n\nUser question: {query}{context}\n\nProvide a brief, conversational voice response:"
+            # Generate response with memory context included
+            full_prompt = f"{system_prompt}{zep_memory_context}\n\nUser question: {query}{context}\n\nProvide a brief, conversational voice response:"
 
             response = self.model.generate_content(full_prompt)
 
             if response and response.text:
-                logger.info("gemini_response_generated", query=query, length=len(response.text))
-                return response.text
+                response_text = response.text
+
+                # Store conversation in ZEP thread for memory (async fire-and-forget)
+                if thread_id and self.zep_graph.client:
+                    try:
+                        self.zep_graph.client.thread.add_messages(
+                            thread_id=thread_id,
+                            messages=[
+                                {"role": "user", "content": query},
+                                {"role": "assistant", "content": response_text}
+                            ]
+                        )
+                        logger.info("zep_memory_stored", thread_id=thread_id)
+                    except Exception as e:
+                        logger.warning("zep_memory_store_error", error=str(e))
+
+                # Append links section if we have any (JSON format for frontend parsing)
+                has_links = any([
+                    related_links.get("articles"),
+                    related_links.get("companies"),
+                    related_links.get("countries")
+                ])
+
+                if has_links:
+                    import json
+                    links_json = json.dumps(related_links)
+                    response_text = f"{response_text}\n\n---LINKS---\n{links_json}"
+
+                logger.info("gemini_response_generated", query=query, length=len(response_text), has_links=has_links)
+                return response_text
             else:
                 return "I'm having trouble generating a response. Could you rephrase your question?"
 
@@ -531,7 +589,7 @@ class NeonKnowledgeStore:
                         AND status = 'published'
                         AND ({where_clause})
                         ORDER BY published_at DESC NULLS LAST
-                        LIMIT 3
+                        LIMIT 10
                     """, params)
 
                     rows = await cur.fetchall()
@@ -1360,8 +1418,8 @@ async def get_related_content(request: Request):
                    countries=len(countries))
 
         return {
-            "articles": articles[:5],
-            "companies": companies[:3],
+            "articles": articles[:8],
+            "companies": companies[:5],
             "countries": countries[:3],
             "external": external
         }
