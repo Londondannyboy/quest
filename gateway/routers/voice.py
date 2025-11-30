@@ -1345,49 +1345,78 @@ async def get_related_content(request: Request):
 
         logger.info("related_content_request", query=query, session_id=session_id, message_count=len(messages))
 
-        # AI-powered topic extraction - figure out what the user is REALLY asking about
+        # AI-powered topic extraction with categorization
         ai_topics = []
-        ai_zep_queries = []
+        ai_country = None
+        categorized_facts = {
+            "visa": {"icon": "🛂", "color": "#3b82f6", "label": "Visa & Immigration", "facts": [], "links": []},
+            "tax": {"icon": "💰", "color": "#10b981", "label": "Tax & Finance", "facts": [], "links": []},
+            "cost_of_living": {"icon": "🏠", "color": "#f59e0b", "label": "Cost of Living", "facts": [], "links": []},
+            "companies": {"icon": "🏢", "color": "#8b5cf6", "label": "Service Providers", "facts": [], "links": []},
+            "education": {"icon": "🎓", "color": "#ec4899", "label": "Education", "facts": [], "links": []},
+            "healthcare": {"icon": "🏥", "color": "#ef4444", "label": "Healthcare", "facts": [], "links": []},
+            "lifestyle": {"icon": "🌴", "color": "#06b6d4", "label": "Lifestyle", "facts": [], "links": []},
+            "general": {"icon": "📋", "color": "#6b7280", "label": "General Info", "facts": [], "links": []}
+        }
+
         if gemini_assistant and gemini_assistant.model:
             try:
-                extraction_prompt = f"""Analyze this user query about relocation and extract the key topics they're asking about.
+                extraction_prompt = f"""Analyze this relocation query and categorize the topics.
 
 User query: "{query}"
 
-Return a JSON object with:
-1. "topics": array of specific topics (e.g., ["international schools", "corporation tax", "digital nomad visa"])
-2. "country": the country mentioned (or null)
-3. "zep_queries": array of 2-3 specific questions to search a knowledge base (e.g., ["best international schools in Cyprus", "Cyprus corporation tax rate"])
+Return JSON with:
+1. "country": country mentioned (or null)
+2. "categories": array of relevant categories from: visa, tax, cost_of_living, companies, education, healthcare, lifestyle, general
+3. "zep_queries": array of 2-3 specific search queries for a knowledge base
 
-Only return valid JSON, no other text. Example:
-{{"topics": ["schools", "education"], "country": "Cyprus", "zep_queries": ["international schools Cyprus", "best schools for expat kids Cyprus"]}}"""
+Only return valid JSON. Example:
+{{"country": "Cyprus", "categories": ["tax", "companies"], "zep_queries": ["Cyprus corporation tax rate", "relocation companies Cyprus"]}}"""
 
                 response = gemini_assistant.model.generate_content(extraction_prompt)
                 if response and response.text:
-                    # Parse JSON from response
                     import re
                     json_match = re.search(r'\{.*\}', response.text, re.DOTALL)
                     if json_match:
                         extracted = json.loads(json_match.group())
-                        ai_topics = extracted.get("topics", [])
+                        ai_topics = extracted.get("categories", [])
+                        ai_country = extracted.get("country")
                         ai_zep_queries = extracted.get("zep_queries", [])
-                        logger.info("ai_topic_extraction", topics=ai_topics, zep_queries=ai_zep_queries)
+                        logger.info("ai_topic_extraction", topics=ai_topics, country=ai_country, zep_queries=ai_zep_queries)
+
+                        # Query ZEP and categorize facts
+                        if ai_zep_queries and zep_graph and zep_graph.client:
+                            for zep_query in ai_zep_queries[:3]:
+                                try:
+                                    results = await zep_graph.search(zep_query)
+                                    if results.get("success") and results.get("edges"):
+                                        for edge in results["edges"][:3]:
+                                            fact = edge.get("fact", "")
+                                            if fact:
+                                                # Categorize fact based on content
+                                                fact_lower = fact.lower()
+                                                category = "general"
+                                                if any(w in fact_lower for w in ["visa", "permit", "immigration", "residency"]):
+                                                    category = "visa"
+                                                elif any(w in fact_lower for w in ["tax", "corporate", "income", "vat", "financial"]):
+                                                    category = "tax"
+                                                elif any(w in fact_lower for w in ["cost", "rent", "living", "expense", "price"]):
+                                                    category = "cost_of_living"
+                                                elif any(w in fact_lower for w in ["company", "service", "relocat", "specialist"]):
+                                                    category = "companies"
+                                                elif any(w in fact_lower for w in ["school", "education", "university"]):
+                                                    category = "education"
+                                                elif any(w in fact_lower for w in ["health", "hospital", "medical"]):
+                                                    category = "healthcare"
+                                                elif any(w in fact_lower for w in ["lifestyle", "culture", "weather", "beach"]):
+                                                    category = "lifestyle"
+
+                                                if fact not in categorized_facts[category]["facts"]:
+                                                    categorized_facts[category]["facts"].append(fact)
+                                except Exception as e:
+                                    logger.warning("zep_query_error", error=str(e), query=zep_query)
             except Exception as e:
                 logger.warning("ai_extraction_error", error=str(e))
-
-        # Query ZEP with AI-generated queries for targeted facts
-        zep_facts = []
-        if ai_zep_queries and zep_graph and zep_graph.client:
-            for zep_query in ai_zep_queries[:3]:
-                try:
-                    results = await zep_graph.search(zep_query)
-                    if results.get("success") and results.get("edges"):
-                        for edge in results["edges"][:3]:
-                            fact = edge.get("fact", "")
-                            if fact and fact not in zep_facts:
-                                zep_facts.append(fact)
-                except Exception as e:
-                    logger.warning("zep_query_error", error=str(e), query=zep_query)
 
         # Handle ZEP memory if session_id provided
         memory_context = None
@@ -1537,10 +1566,65 @@ Only return valid JSON, no other text. Example:
                 "type": "finance"
             })
 
+        # Add relevant links to each category from articles
+        for article in articles[:8]:
+            title_lower = article.get("title", "").lower()
+            slug = article.get("url", "")
+
+            link_data = {
+                "title": article.get("short_title") or article.get("title"),
+                "url": f"https://relocation.quest{slug}",
+                "type": "article"
+            }
+
+            if any(w in title_lower for w in ["visa", "permit", "immigration"]):
+                categorized_facts["visa"]["links"].append(link_data)
+            elif any(w in title_lower for w in ["tax", "corporate", "income"]):
+                categorized_facts["tax"]["links"].append(link_data)
+            elif any(w in title_lower for w in ["cost", "living", "rent"]):
+                categorized_facts["cost_of_living"]["links"].append(link_data)
+
+        # Add companies to the companies category
+        for company in companies[:5]:
+            categorized_facts["companies"]["links"].append({
+                "title": company.get("name"),
+                "url": f"https://relocation.quest{company.get('url', '')}",
+                "type": "company"
+            })
+
+        # Add country guide link
+        for country in countries[:1]:
+            categorized_facts["general"]["links"].append({
+                "title": f"{country.get('name')} Country Guide",
+                "url": f"https://relocation.quest{country.get('url', '')}",
+                "type": "country"
+            })
+
+        # Add external links to appropriate categories
+        for ext in external:
+            ext_type = ext.get("type", "")
+            if ext_type == "education":
+                categorized_facts["education"]["links"].append({"title": ext["title"], "url": ext.get("url"), "type": "external"})
+            elif ext_type == "healthcare":
+                categorized_facts["healthcare"]["links"].append({"title": ext["title"], "url": ext.get("url"), "type": "external"})
+            elif ext_type in ["finance", "reference"]:
+                categorized_facts["tax"]["links"].append({"title": ext["title"], "url": ext.get("url"), "type": "external"})
+            elif ext_type == "government":
+                categorized_facts["visa"]["links"].append({"title": ext["title"], "url": ext.get("url"), "type": "external"})
+            elif ext_type == "community":
+                categorized_facts["lifestyle"]["links"].append({"title": ext["title"], "url": ext.get("url"), "type": "external"})
+
+        # Filter to only categories with content
+        active_categories = {
+            k: v for k, v in categorized_facts.items()
+            if v["facts"] or v["links"]
+        }
+
         logger.info("related_content_found",
                    articles=len(articles),
                    companies=len(companies),
-                   countries=len(countries))
+                   countries=len(countries),
+                   active_categories=list(active_categories.keys()))
 
         return {
             "articles": articles[:8],
@@ -1548,10 +1632,11 @@ Only return valid JSON, no other text. Example:
             "countries": countries[:3],
             "external": external,
             "memory_context": memory_context,
-            "facts": zep_facts[:5],  # AI-extracted facts from ZEP
-            "topics": ai_topics  # Topics identified by AI
+            "categorized_facts": active_categories,  # New categorized structure
+            "topics": ai_topics,
+            "country": ai_country
         }
 
     except Exception as e:
         logger.error("related_content_error", error=str(e))
-        return {"articles": [], "companies": [], "countries": [], "external": [], "memory_context": None, "facts": [], "topics": []}
+        return {"articles": [], "companies": [], "countries": [], "external": [], "memory_context": None, "categorized_facts": {}, "topics": [], "country": None}
