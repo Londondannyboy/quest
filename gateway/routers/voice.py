@@ -1442,13 +1442,16 @@ async def _generate_sse_response(messages: list, user_id: str = "anonymous"):
 
 
 @router.post("/chat/completions")
-async def custom_llm_endpoint_sse(request: Request):
+async def custom_llm_endpoint_sse(request: Request, custom_session_id: Optional[str] = Query(None)):
     """
     SSE-compatible endpoint for Hume EVI Custom Language Model.
 
     Returns Server-Sent Events in OpenAI chat completions streaming format.
     This is the recommended endpoint for Hume EVI integration as it supports
     real-time streaming responses.
+
+    Hume EVI forwards custom_session_id as a query parameter when set via
+    session_settings on the WebSocket connection.
 
     Expected request format:
     {
@@ -1467,10 +1470,15 @@ async def custom_llm_endpoint_sse(request: Request):
 
     messages = request_json.get("messages", [])
 
-    # Extract user_id from request body or headers
-    user_id = request_json.get("user") or request.headers.get("x-stack-user-id") or "anonymous"
+    # Extract user_id: prioritize custom_session_id from Hume, then body, then headers
+    user_id = (
+        custom_session_id or  # Hume forwards this as query param
+        request_json.get("user") or
+        request.headers.get("x-stack-user-id") or
+        None  # Allow anonymous users
+    )
 
-    logger.info("chat_completions_request", user_id=user_id, has_messages=len(messages) > 0)
+    logger.info("chat_completions_request", user_id=user_id, custom_session_id=custom_session_id, has_messages=len(messages) > 0)
 
     return StreamingResponse(
         _generate_sse_response(messages, user_id=user_id),
