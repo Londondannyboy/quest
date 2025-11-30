@@ -588,8 +588,7 @@ class CountryGuideCreationWorkflow:
                     sibling_slugs   # Sibling article slugs for cross-linking
                 ],
                 start_to_close_timeout=timedelta(minutes=12),  # Increased for comprehensive content + LLM latency
-                retry_policy=RetryPolicy(maximum_attempts=3),  # Extra retry for thin content rejection
-                activity_id=f"content_{mode}_{country_code}"  # Better tracking in Temporal UI
+                retry_policy=RetryPolicy(maximum_attempts=3)   # Extra retry for thin content rejection
             )
 
             content_modes[mode] = mode_result
