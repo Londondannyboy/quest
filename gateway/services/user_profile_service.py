@@ -87,12 +87,12 @@ class UserProfileService:
                         logger.info("profile_found", stack_user_id=stack_user_id)
                         return row[0]
 
-                    # Create new profile
+                    # Create new profile (user_profiles table has user_id, created_at, updated_at)
                     await cur.execute("""
-                        INSERT INTO user_profiles (user_id, email, created_at, updated_at)
-                        VALUES (%s, %s, NOW(), NOW())
+                        INSERT INTO user_profiles (user_id, created_at, updated_at)
+                        VALUES (%s, NOW(), NOW())
                         RETURNING id
-                    """, (stack_user_id, email))
+                    """, (stack_user_id,))
 
                     row = await cur.fetchone()
                     await conn.commit()
