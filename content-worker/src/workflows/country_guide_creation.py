@@ -108,7 +108,8 @@ class CountryGuideCreationWorkflow:
         content_themes = {}
 
         try:
-            # Run keyword discovery for both US and UK regions in parallel
+            # Run keyword discovery for multiple seeds in parallel
+            # Relocation + Digital Nomad keywords for comprehensive topic coverage
             kw_us_task = workflow.execute_activity(
                 "dataforseo_related_keywords",
                 args=[f"{country_name} relocation", "US", 3, 50],
@@ -121,8 +122,23 @@ class CountryGuideCreationWorkflow:
                 start_to_close_timeout=timedelta(minutes=2),
                 retry_policy=RetryPolicy(maximum_attempts=2)
             )
+            # Digital nomad keywords - key segment for topic clusters
+            kw_dn_task = workflow.execute_activity(
+                "dataforseo_related_keywords",
+                args=[f"{country_name} digital nomad", "US", 3, 50],
+                start_to_close_timeout=timedelta(minutes=2),
+                retry_policy=RetryPolicy(maximum_attempts=2)
+            )
+            kw_remote_task = workflow.execute_activity(
+                "dataforseo_related_keywords",
+                args=[f"{country_name} remote work visa", "UK", 3, 50],
+                start_to_close_timeout=timedelta(minutes=2),
+                retry_policy=RetryPolicy(maximum_attempts=2)
+            )
 
-            kw_us, kw_uk = await asyncio.gather(kw_us_task, kw_uk_task, return_exceptions=True)
+            kw_us, kw_uk, kw_dn, kw_remote = await asyncio.gather(
+                kw_us_task, kw_uk_task, kw_dn_task, kw_remote_task, return_exceptions=True
+            )
 
             # Combine results
             if not isinstance(kw_us, Exception):
@@ -144,6 +160,27 @@ class CountryGuideCreationWorkflow:
                         content_themes[theme] = []
                     content_themes[theme].extend(kws)
                 workflow.logger.info(f"UK keywords: {kw_uk.get('total', 0)} found, {len(kw_uk.get('unique_audiences', []))} unique audiences")
+
+            # Digital nomad keywords - critical for nomad cluster article
+            if not isinstance(kw_dn, Exception):
+                keyword_discovery["digital_nomad"] = kw_dn
+                discovered_keywords.extend(kw_dn.get("top_for_serp", []))
+                unique_audiences.extend(kw_dn.get("unique_audiences", []))
+                for theme, kws in kw_dn.get("content_themes", {}).items():
+                    if theme not in content_themes:
+                        content_themes[theme] = []
+                    content_themes[theme].extend(kws)
+                workflow.logger.info(f"Digital nomad keywords: {kw_dn.get('total', 0)} found")
+
+            if not isinstance(kw_remote, Exception):
+                keyword_discovery["remote_work"] = kw_remote
+                discovered_keywords.extend(kw_remote.get("top_for_serp", []))
+                unique_audiences.extend(kw_remote.get("unique_audiences", []))
+                for theme, kws in kw_remote.get("content_themes", {}).items():
+                    if theme not in content_themes:
+                        content_themes[theme] = []
+                    content_themes[theme].extend(kws)
+                workflow.logger.info(f"Remote work keywords: {kw_remote.get('total', 0)} found")
 
             # Dedupe discovered keywords
             discovered_keywords = list(dict.fromkeys(discovered_keywords))[:15]
