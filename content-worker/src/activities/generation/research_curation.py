@@ -246,6 +246,14 @@ YOUR TASK: Deeply analyze ALL {len(all_sources)} sources and extract EVERYTHING 
 7. CHANGES - What's new in 2024-2025? What changed recently?
 8. GOTCHAS - Common mistakes, warnings, things people overlook
 9. VOICES - Extract 5-10 human perspectives (experts, testimonials, officials, media) with attribution
+10. INTERNATIONAL VARIATIONS - Extract nationality-specific information:
+    - US citizen requirements (FATCA, taxes, visa differences)
+    - UK citizen requirements (post-Brexit, NHS abroad)
+    - EU citizen rights (freedom of movement, Schengen)
+    - Indian/Pakistani/Bangladeshi requirements (often stricter visas)
+    - Filipino/SE Asian worker considerations
+    - Australian/Canadian/South African pathways
+    - Costs in multiple currencies (USD, GBP, EUR, local)
 
 Be EXHAUSTIVE. The writer needs EVERYTHING to create a comprehensive, insightful article.
 Missing a key fact or interesting angle = lower quality article.
@@ -334,6 +342,15 @@ OUTPUT ONLY VALID JSON (no markdown, no explanation):
     "Often overlooked: ...",
     "Watch out for: ..."
   ],
+  "international_variations": {{
+    "us_citizens": ["Specific requirements/considerations for Americans", "FATCA obligations", "Tax implications"],
+    "uk_citizens": ["Post-Brexit requirements", "NHS abroad considerations", "Pension transfers"],
+    "eu_citizens": ["Freedom of movement rights", "Schengen vs non-Schengen", "EU healthcare card"],
+    "indian_nationals": ["Visa requirements specific to Indian passport", "OCI considerations", "Tax treaties"],
+    "se_asian_citizens": ["Visa requirements for Philippines/Vietnam/Indonesia", "OFW considerations"],
+    "commonwealth": ["Australian/Canadian/South African pathways", "Working holiday options"],
+    "currency_data": ["USD equivalents", "GBP equivalents", "EUR equivalents", "Local currency costs"]
+  }},
   "article_outline": [
     {{
       "section": "Introduction",
