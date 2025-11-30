@@ -558,8 +558,21 @@ class CountryGuideCreationWorkflow:
         # Story mode is primary (used for metadata, motivations, faq, four_act_content)
         content_modes = {}
 
+        # Pre-compute slugs for internal linking (slugs are predictable)
+        base_slug = f"{country_name.lower().replace(' ', '-')}-relocation-guide"
+        primary_slug = base_slug  # Story mode is primary
+        all_slugs = {
+            "story": base_slug,
+            "guide": f"{base_slug}-guide",
+            "yolo": f"{base_slug}-yolo",
+            "voices": f"{base_slug}-voices"
+        }
+
         for mode in ["story", "guide", "yolo", "voices"]:
             workflow.logger.info(f"Generating {mode.upper()} mode content...")
+
+            # Get sibling slugs (exclude current mode, never link to self)
+            sibling_slugs = [slug for m, slug in all_slugs.items() if m != mode]
 
             mode_result = await workflow.execute_activity(
                 "generate_country_guide_content",
@@ -569,8 +582,10 @@ class CountryGuideCreationWorkflow:
                     research_context,
                     seo_keywords,
                     target_word_count,
-                    mode,    # NEW: content mode
-                    voices   # NEW: voices for enrichment
+                    mode,           # Content mode
+                    voices,         # Voices for enrichment
+                    primary_slug,   # Primary article slug for linking
+                    sibling_slugs   # Sibling article slugs for cross-linking
                 ],
                 start_to_close_timeout=timedelta(minutes=7),  # Increased for comprehensive content
                 retry_policy=RetryPolicy(maximum_attempts=3)  # Extra retry for thin content rejection

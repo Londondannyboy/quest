@@ -406,7 +406,9 @@ async def generate_country_guide_content(
     seo_keywords: Optional[Dict[str, Any]] = None,
     target_word_count: int = 4000,
     mode: str = "story",
-    voices: Optional[List[Dict[str, Any]]] = None
+    voices: Optional[List[Dict[str, Any]]] = None,
+    primary_slug: Optional[str] = None,
+    sibling_slugs: Optional[List[str]] = None
 ) -> Dict[str, Any]:
     """
     Generate comprehensive country guide content covering all 8 motivations.
@@ -664,7 +666,7 @@ If any section feels thin (under 300 words), EXPAND IT with more detail, example
 - Use blockquotes for key quotes or warnings
 - Lists for requirements and steps
 
-{get_mode_specific_prompt(mode, country_name, voices or [])}
+{get_mode_specific_prompt(mode, country_name, voices or [], primary_slug, sibling_slugs)}
 
 ===== REQUIRED SECTIONS =====
 After the 8 motivation sections, include:
