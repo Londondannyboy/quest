@@ -1339,11 +1339,15 @@ async def llm_endpoint(request: dict):
     return await _handle_llm_request(request)
 
 
-async def _generate_sse_response(messages: list):
+async def _generate_sse_response(messages: list, user_id: str = "anonymous"):
     """
     Generate SSE-formatted streaming response compatible with Hume EVI.
 
     Streams response in OpenAI chat completions chunk format.
+
+    Args:
+        messages: Chat messages from Hume
+        user_id: User identifier for profile/fact storage
     """
     if not gemini_assistant:
         error_event = {
@@ -1393,11 +1397,11 @@ async def _generate_sse_response(messages: list):
         yield "data: [DONE]\n\n"
         return
 
-    logger.info("sse_streaming_request", query=user_message[:100])
+    logger.info("sse_streaming_request", query=user_message[:100], user_id=user_id)
 
     try:
-        # Get response from Gemini + Zep
-        response_text = await gemini_assistant.process_query(user_message)
+        # Get response from Gemini + Zep (with user_id for profile/fact storage)
+        response_text = await gemini_assistant.process_query(user_message, user_id=user_id)
 
         # Stream response in chunks (simulating streaming for better UX)
         chunk_id = f"chatcmpl-{int(datetime.utcnow().timestamp())}"
@@ -1452,7 +1456,8 @@ async def custom_llm_endpoint_sse(request: Request):
             {"role": "user", "content": "user message"},
             {"role": "assistant", "content": "previous response"}
         ],
-        "stream": true  // Hume will typically set this
+        "stream": true,
+        "user": "user_id"  // Optional user identifier
     }
     """
     try:
@@ -1462,8 +1467,13 @@ async def custom_llm_endpoint_sse(request: Request):
 
     messages = request_json.get("messages", [])
 
+    # Extract user_id from request body or headers
+    user_id = request_json.get("user") or request.headers.get("x-stack-user-id") or "anonymous"
+
+    logger.info("chat_completions_request", user_id=user_id, has_messages=len(messages) > 0)
+
     return StreamingResponse(
-        _generate_sse_response(messages),
+        _generate_sse_response(messages, user_id=user_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
