@@ -629,7 +629,7 @@ class CountryGuideRequest(BaseModel):
     relocation_tags: Optional[List[str]] = Field(default=None, description="Tags like eu-member, schengen, english-speaking")
     video_quality: str = Field(default="medium", description="Video quality: low, medium, high")
     target_word_count: int = Field(default=4000, description="Target word count for guide")
-    use_cluster_architecture: bool = Field(default=False, description="Create 4 separate cluster articles (story/guide/yolo/voices) + topic clusters instead of single article")
+    use_cluster_architecture: bool = Field(default=True, description="Create 4 separate cluster articles (story/guide/yolo/voices) + topic clusters + hub page. Set False for legacy single-article mode.")
 
 
 class NewsMonitorRequest(BaseModel):

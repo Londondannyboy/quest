@@ -19,6 +19,40 @@ logger = structlog.get_logger()
 
 router = APIRouter(prefix="/voice", tags=["voice"])
 
+# Import SuperMemory service for user personalization
+try:
+    import sys
+    import os
+    # Add gateway directory to path for services import
+    gateway_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if gateway_dir not in sys.path:
+        sys.path.insert(0, gateway_dir)
+    from services.supermemory import user_memory_manager, supermemory_client
+    SUPERMEMORY_ENABLED = supermemory_client.enabled
+    logger.info("supermemory_imported", enabled=SUPERMEMORY_ENABLED)
+except ImportError as e:
+    user_memory_manager = None
+    SUPERMEMORY_ENABLED = False
+    logger.warning("supermemory_import_failed", error=str(e))
+except Exception as e:
+    user_memory_manager = None
+    SUPERMEMORY_ENABLED = False
+    logger.warning("supermemory_init_failed", error=str(e))
+
+# Import UserProfileService for Neon fact storage
+try:
+    from services.user_profile_service import user_profile_service
+    USER_PROFILE_ENABLED = user_profile_service.enabled
+    logger.info("user_profile_service_imported", enabled=USER_PROFILE_ENABLED)
+except ImportError as e:
+    user_profile_service = None
+    USER_PROFILE_ENABLED = False
+    logger.warning("user_profile_service_import_failed", error=str(e))
+except Exception as e:
+    user_profile_service = None
+    USER_PROFILE_ENABLED = False
+    logger.warning("user_profile_service_init_failed", error=str(e))
+
 
 # ============================================================================
 # CONFIGURATION
@@ -237,16 +271,23 @@ class ZepKnowledgeGraph:
 class GeminiAssistant:
     """Gemini LLM for processing queries with Zep knowledge graph context and Neon fallback"""
 
-    def __init__(self, api_key: str, zep_graph: ZepKnowledgeGraph, neon_store: Optional['NeonKnowledgeStore'] = None):
+    def __init__(
+        self,
+        api_key: str,
+        zep_graph: ZepKnowledgeGraph,
+        neon_store: Optional['NeonKnowledgeStore'] = None,
+        memory_manager: Optional[Any] = None
+    ):
         self.api_key = api_key
         self.zep_graph = zep_graph
         self.neon_store = neon_store  # Neon database fallback
+        self.memory_manager = memory_manager  # SuperMemory for user personalization
 
         try:
             import google.generativeai as genai
             genai.configure(api_key=api_key)
             self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
-            logger.info("gemini_client_initialized")
+            logger.info("gemini_client_initialized", supermemory=bool(memory_manager))
         except ImportError:
             logger.warning("google-generativeai package not installed")
             self.model = None
@@ -254,13 +295,14 @@ class GeminiAssistant:
             logger.error("gemini_init_error", error=str(e))
             self.model = None
 
-    async def process_query(self, query: str, thread_id: str = None) -> str:
+    async def process_query(self, query: str, thread_id: str = None, user_id: str = "anonymous") -> str:
         """
-        Process a query using Gemini + Zep knowledge graph + Neon fallback
+        Process a query using Gemini + Zep knowledge graph + Neon fallback + SuperMemory
 
         Args:
             query: User's question
             thread_id: Optional ZEP thread ID for conversation memory
+            user_id: User identifier for SuperMemory personalization
 
         Returns:
             Generated response text optimized for voice, with links section appended
@@ -269,6 +311,31 @@ class GeminiAssistant:
             return "I apologize, but the assistant is currently unavailable. Please try again later."
 
         try:
+            # Get SuperMemory personalized context (user preferences, past conversations)
+            supermemory_context = ""
+            if self.memory_manager and user_id != "anonymous":
+                try:
+                    supermemory_context = await self.memory_manager.get_personalized_context(
+                        user_id=user_id,
+                        current_query=query
+                    )
+                    if supermemory_context:
+                        supermemory_context = f"\n\nUser personalization (from memory):\n{supermemory_context}"
+                        logger.info("supermemory_context_loaded", user_id=user_id)
+                except Exception as e:
+                    logger.warning("supermemory_context_error", error=str(e), user_id=user_id)
+
+            # Get Neon profile context (structured facts from database)
+            neon_profile_context = ""
+            if user_profile_service and USER_PROFILE_ENABLED and user_id != "anonymous":
+                try:
+                    profile_context = await user_profile_service.get_profile_context_for_prompt(user_id)
+                    if profile_context:
+                        neon_profile_context = f"\n\n{profile_context}"
+                        logger.info("neon_profile_context_loaded", user_id=user_id)
+                except Exception as e:
+                    logger.warning("neon_profile_context_error", error=str(e), user_id=user_id)
+
             # Get ZEP conversation context if thread exists
             zep_memory_context = ""
             if thread_id and self.zep_graph.client:
@@ -404,7 +471,8 @@ TONE:
 """
 
             # Generate response with memory context included
-            full_prompt = f"{system_prompt}{zep_memory_context}\n\nUser question: {query}{context}\n\nProvide a brief, conversational voice response:"
+            # Neon profile (structured) + SuperMemory (user personalization) + ZEP (conversation) + Knowledge base
+            full_prompt = f"{system_prompt}{neon_profile_context}{supermemory_context}{zep_memory_context}\n\nUser question: {query}{context}\n\nProvide a brief, conversational voice response:"
 
             response = self.model.generate_content(full_prompt)
 
@@ -425,6 +493,52 @@ TONE:
                     except Exception as e:
                         logger.warning("zep_memory_store_error", error=str(e))
 
+                # Store conversation in SuperMemory for long-term personalization
+                extracted_info = {}
+                if self.memory_manager and user_id != "anonymous":
+                    try:
+                        # Extract user preferences from the conversation
+                        extracted_info = self._extract_user_info(query)
+                        await self.memory_manager.store_conversation_turn(
+                            user_id=user_id,
+                            user_message=query,
+                            assistant_response=response_text[:500],  # Truncate for storage
+                            extracted_info=extracted_info
+                        )
+                        logger.info("supermemory_stored", user_id=user_id, extracted=bool(extracted_info))
+                    except Exception as e:
+                        logger.warning("supermemory_store_error", error=str(e))
+
+                # Store extracted facts in Neon for structured querying and user edits
+                if user_profile_service and USER_PROFILE_ENABLED and user_id != "anonymous":
+                    try:
+                        # Extract facts if not already done
+                        if not extracted_info:
+                            extracted_info = self._extract_user_info(query)
+
+                        if extracted_info:
+                            # Get or create user profile
+                            profile_id = await user_profile_service.get_or_create_profile(user_id)
+
+                            if profile_id:
+                                # Store each extracted fact
+                                for fact_type, value in extracted_info.items():
+                                    await user_profile_service.store_fact(
+                                        user_profile_id=profile_id,
+                                        fact_type=fact_type,
+                                        fact_value={"value": value},
+                                        source="voice",
+                                        confidence=0.7,
+                                        session_id=thread_id,
+                                        extracted_from=query[:500]
+                                    )
+
+                                logger.info("neon_facts_stored",
+                                           user_id=user_id,
+                                           facts_count=len(extracted_info))
+                    except Exception as e:
+                        logger.warning("neon_facts_store_error", error=str(e))
+
                 # Append links section if we have any (JSON format for frontend parsing)
                 has_links = any([
                     related_links.get("articles"),
@@ -433,11 +547,26 @@ TONE:
                 ])
 
                 if has_links:
-                    import json
                     links_json = json.dumps(related_links)
                     response_text = f"{response_text}\n\n---LINKS---\n{links_json}"
 
-                logger.info("gemini_response_generated", query=query, length=len(response_text), has_links=has_links)
+                # Add memory metadata for debugging/UX
+                memory_meta = {
+                    "neon_profile_used": bool(neon_profile_context),
+                    "supermemory_used": bool(supermemory_context),
+                    "zep_thread_used": bool(zep_memory_context),
+                    "zep_knowledge_used": bool(context),
+                    "knowledge_source": source,
+                    "user_id": user_id if user_id != "anonymous" else None
+                }
+                memory_json = json.dumps(memory_meta)
+                response_text = f"{response_text}\n\n---MEMORY---\n{memory_json}"
+
+                logger.info("gemini_response_generated",
+                           query=query,
+                           length=len(response_text),
+                           has_links=has_links,
+                           memory_sources=memory_meta)
                 return response_text
             else:
                 return "I'm having trouble generating a response. Could you rephrase your question?"
@@ -445,6 +574,95 @@ TONE:
         except Exception as e:
             logger.error("gemini_error", error=str(e), query=query)
             return "I apologize, I encountered an error. Please try asking your question again."
+
+    def _extract_user_info(self, query: str) -> Dict[str, Any]:
+        """
+        Extract user preferences and context from their message.
+
+        Returns dict with: destination, origin, family, work_type, budget
+        """
+        extracted = {}
+        query_lower = query.lower()
+
+        # Destination patterns
+        destination_phrases = [
+            "move to", "relocate to", "moving to", "relocating to",
+            "interested in", "considering", "thinking about going to"
+        ]
+        # Origin patterns
+        origin_phrases = [
+            "i live in", "i'm from", "im from", "based in", "currently in",
+            "living in", "i am from", "originally from"
+        ]
+        # Family patterns
+        family_phrases = [
+            "my wife", "my husband", "my partner", "my kids", "my children",
+            "my family", "with family", "solo", "single", "married"
+        ]
+        # Work patterns
+        work_phrases = [
+            "remote work", "digital nomad", "freelance", "self-employed",
+            "corporate", "company relocating", "job transfer", "employed by"
+        ]
+
+        # Countries list
+        countries = [
+            "cyprus", "portugal", "spain", "malta", "greece", "italy", "france",
+            "germany", "netherlands", "dubai", "uae", "uk", "usa", "canada",
+            "australia", "thailand", "bali", "indonesia", "mexico", "costa rica"
+        ]
+
+        # Extract destination
+        for phrase in destination_phrases:
+            if phrase in query_lower:
+                for country in countries:
+                    if country in query_lower:
+                        extracted["destination"] = country.title()
+                        break
+                break
+
+        # Extract origin
+        for phrase in origin_phrases:
+            if phrase in query_lower:
+                for country in countries:
+                    if country in query_lower:
+                        extracted["origin"] = country.title()
+                        break
+                # Also check for cities
+                cities = ["london", "new york", "dc", "washington", "la", "san francisco", "chicago"]
+                for city in cities:
+                    if city in query_lower:
+                        extracted["origin"] = city.title()
+                        break
+                break
+
+        # Extract family status
+        for phrase in family_phrases:
+            if phrase in query_lower:
+                if "kids" in query_lower or "children" in query_lower:
+                    extracted["family"] = "with children"
+                elif "wife" in query_lower or "husband" in query_lower or "partner" in query_lower:
+                    extracted["family"] = "with partner"
+                elif "solo" in query_lower or "single" in query_lower:
+                    extracted["family"] = "solo"
+                else:
+                    extracted["family"] = "family"
+                break
+
+        # Extract work type
+        for phrase in work_phrases:
+            if phrase in query_lower:
+                if "digital nomad" in query_lower or "remote" in query_lower:
+                    extracted["work_type"] = "remote/digital nomad"
+                elif "corporate" in query_lower or "company" in query_lower:
+                    extracted["work_type"] = "corporate relocation"
+                elif "freelance" in query_lower:
+                    extracted["work_type"] = "freelance"
+                else:
+                    extracted["work_type"] = "employed"
+                break
+
+        return extracted
 
     def _format_neon_context(self, neon_results: dict) -> str:
         """Format Neon database results for Gemini context"""
@@ -847,7 +1065,12 @@ if DATABASE_URL:
     logger.info("neon_fallback_configured")
 
 if GEMINI_API_KEY and zep_graph:
-    gemini_assistant = GeminiAssistant(GEMINI_API_KEY, zep_graph, neon_store)
+    gemini_assistant = GeminiAssistant(
+        GEMINI_API_KEY,
+        zep_graph,
+        neon_store,
+        memory_manager=user_memory_manager if SUPERMEMORY_ENABLED else None
+    )
 
 if HUME_API_KEY and gemini_assistant:
     hume_handler = HumeEVIConnection(HUME_API_KEY, gemini_assistant)
@@ -926,7 +1149,13 @@ async def voice_health():
         },
         "zep": {
             "configured": ZEP_API_KEY is not None,
-            "client_ready": zep_graph is not None and zep_graph.client is not None
+            "client_ready": zep_graph is not None and zep_graph.client is not None,
+            "purpose": "knowledge_graph"
+        },
+        "supermemory": {
+            "configured": SUPERMEMORY_ENABLED,
+            "client_ready": SUPERMEMORY_ENABLED and user_memory_manager is not None,
+            "purpose": "user_personalization"
         },
         "gemini": {
             "configured": GEMINI_API_KEY is not None,
@@ -1343,6 +1572,153 @@ async def get_access_token(request: Optional[Dict[str, Any]] = None):
 # ============================================================================
 # RELATED CONTENT ENDPOINT (for facts panel)
 # ============================================================================
+
+@router.get("/memory/debug/{user_id}")
+async def debug_user_memory(user_id: str):
+    """
+    Debug endpoint to inspect both ZEP and SuperMemory for a user.
+
+    Shows what context each system would provide for this user.
+    Useful for testing and observing memory behavior.
+    """
+    result = {
+        "user_id": user_id,
+        "timestamp": datetime.utcnow().isoformat(),
+        "zep": {
+            "enabled": zep_graph is not None and zep_graph.client is not None,
+            "purpose": "near-term conversation + knowledge graph",
+            "data": None
+        },
+        "supermemory": {
+            "enabled": SUPERMEMORY_ENABLED,
+            "purpose": "long-term user personalization",
+            "data": None
+        }
+    }
+
+    # Query ZEP for recent context
+    if result["zep"]["enabled"]:
+        try:
+            # Search for any mentions of this user or general context
+            search_results = await zep_graph.search(f"user context preferences", include_nodes=True)
+            result["zep"]["data"] = {
+                "edges_count": len(search_results.get("edges", [])),
+                "nodes_count": len(search_results.get("nodes", [])),
+                "sample_facts": [e.get("fact", "")[:100] for e in search_results.get("edges", [])[:3]],
+                "formatted_context": search_results.get("formatted_context", "")[:500]
+            }
+        except Exception as e:
+            result["zep"]["error"] = str(e)
+
+    # Query SuperMemory for user profile
+    if result["supermemory"]["enabled"] and user_memory_manager:
+        try:
+            profile = await user_memory_manager.client.get_user_profile(user_id)
+            memories = await user_memory_manager.client.search_memories(
+                user_id=user_id,
+                query="preferences destination origin family work",
+                limit=5
+            )
+            result["supermemory"]["data"] = {
+                "has_history": profile.get("has_history", False),
+                "memory_count": len(memories),
+                "memories": [
+                    {
+                        "content": m.get("content", m.get("text", ""))[:150],
+                        "metadata": m.get("metadata", {})
+                    }
+                    for m in memories[:5]
+                ],
+                "profile_summary": profile.get("summary", "")[:300]
+            }
+        except Exception as e:
+            result["supermemory"]["error"] = str(e)
+
+    return result
+
+
+@router.post("/memory/test")
+async def test_memory_roundtrip(request: Request):
+    """
+    Test endpoint to simulate a conversation and observe memory behavior.
+
+    POST with:
+    {
+        "user_id": "test-user-123",
+        "message": "I'm moving from London to Cyprus with my family"
+    }
+
+    Returns what was extracted and stored in each memory system.
+    """
+    try:
+        body = await request.json()
+        user_id = body.get("user_id", f"test-{datetime.utcnow().timestamp()}")
+        message = body.get("message", "I want to move to Portugal")
+
+        result = {
+            "user_id": user_id,
+            "input_message": message,
+            "extracted_info": {},
+            "storage_results": {
+                "supermemory": None,
+                "zep": None
+            },
+            "retrieval_test": {
+                "supermemory": None,
+                "zep": None
+            }
+        }
+
+        # Extract info from message
+        if gemini_assistant:
+            extracted = gemini_assistant._extract_user_info(message)
+            result["extracted_info"] = extracted
+
+        # Store in SuperMemory
+        if SUPERMEMORY_ENABLED and user_memory_manager:
+            try:
+                store_result = await user_memory_manager.client.add_memory(
+                    user_id=user_id,
+                    content=f"Test message: {message}",
+                    memory_type="test",
+                    metadata={"extracted": result["extracted_info"]}
+                )
+                result["storage_results"]["supermemory"] = {
+                    "success": store_result is not None,
+                    "doc_id": store_result.get("id") if store_result else None
+                }
+
+                # Wait a moment then retrieve
+                import asyncio
+                await asyncio.sleep(1)
+
+                # Test retrieval
+                context = await user_memory_manager.get_personalized_context(user_id, message)
+                result["retrieval_test"]["supermemory"] = {
+                    "context_retrieved": bool(context),
+                    "context_preview": context[:200] if context else None
+                }
+            except Exception as e:
+                result["storage_results"]["supermemory"] = {"error": str(e)}
+
+        # Test ZEP search (read-only, don't store test data)
+        if zep_graph and zep_graph.client:
+            try:
+                search_results = await zep_graph.search(message)
+                result["retrieval_test"]["zep"] = {
+                    "edges_found": len(search_results.get("edges", [])),
+                    "nodes_found": len(search_results.get("nodes", [])),
+                    "has_context": bool(search_results.get("formatted_context"))
+                }
+            except Exception as e:
+                result["retrieval_test"]["zep"] = {"error": str(e)}
+
+        return result
+
+    except Exception as e:
+        logger.error("memory_test_error", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/related-content")
 async def get_related_content(request: Request):
