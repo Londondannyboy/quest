@@ -94,8 +94,8 @@ class UserProfileService:
                         RETURNING id
                     """, (stack_user_id, email))
 
-                    await conn.commit()
                     row = await cur.fetchone()
+                    await conn.commit()
 
                     if row:
                         logger.info("profile_created", stack_user_id=stack_user_id, profile_id=str(row[0]))
@@ -208,8 +208,8 @@ class UserProfileService:
                         source, confidence, session_id, extracted_from
                     ))
 
-                    await conn.commit()
                     row = await cur.fetchone()
+                    await conn.commit()
 
                     if row:
                         logger.info("fact_stored",
@@ -465,8 +465,8 @@ class UserProfileService:
                         RETURNING id
                     """, (session_id, str(profile_id) if profile_id else None, stack_user_id))
 
-                    await conn.commit()
                     row = await cur.fetchone()
+                    await conn.commit()
 
                     if row:
                         logger.info("session_created",
