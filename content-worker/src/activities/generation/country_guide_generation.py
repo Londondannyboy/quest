@@ -172,9 +172,10 @@ You MUST include 3-5 internal links naturally throughout the content:
 
     internal_links_section += f"""
 **Link Format:**
-- Use descriptive anchor text: "our [comprehensive {country_name} guide](/slug)" NOT "click here"
-- Distribute links naturally - don't cluster them
-- Each link should feel contextually relevant
+- SHORT anchor text (2-4 words): [practical guide](/slug) or [{country_name} visa guide](/slug)
+- NOT long anchors like "our comprehensive guide to relocating to {country_name}"
+- NOT generic: "click here" or "read more"
+- Distribute naturally - don't cluster links together
 
 **Example:** "For a detailed breakdown of visa costs, see our [complete {country_name} relocation guide](/{primary_slug or country_name.lower() + '-relocation-guide'})."
 """
@@ -666,6 +667,30 @@ If any section feels thin (under 300 words), EXPAND IT with more detail, example
 - Use blockquotes for key quotes or warnings
 - Lists for requirements and steps
 
+===== EXTERNAL LINKS (CRITICAL - Back Up Every Claim) =====
+
+**Every factual claim MUST have a source link.** When you state a tax rate, visa requirement, cost, or statistic, link to the source.
+
+**Link Format:**
+- Use SHORT anchor text (2-4 words max): [19% tax rate](url) NOT [Slovakia has a corporate tax rate of 19%](url)
+- Link the specific fact, not generic text: [€5,500 minimum](url) NOT [click here](url)
+- Inline links, naturally placed where the fact appears
+
+**Required Sources Per Section:**
+- Tax rates → Link to tax authority or reputable tax site
+- Visa requirements → Link to government immigration site
+- Cost of living → Link to Numbeo, Expatistan, or official stats
+- Healthcare → Link to official health ministry or WHO
+- Statistics → Link to source (Eurostat, World Bank, etc.)
+
+**Examples:**
+✅ "Slovakia offers a [19% flat tax](https://taxfoundation.org/slovakia-tax) for individuals."
+✅ "The minimum bank balance is [€5,500](https://mzv.sk/business-visa)."
+❌ "Slovakia has low taxes." (no source)
+❌ "[Click here for more information about tax rates](url)" (bad anchor text)
+
+**Minimum: 10-15 external source links throughout the article.**
+
 {get_mode_specific_prompt(mode, country_name, voices or [], primary_slug, sibling_slugs)}
 
 ===== REQUIRED SECTIONS =====
@@ -675,7 +700,9 @@ After the 8 motivation sections, include:
 Answer 10-15 common questions about relocating to {country_name}.
 
 <h2>Sources & References</h2>
-List all sources used with URLs.
+List ALL sources cited in the article. Format:
+- [Source Name](URL) - Brief description of what this source covers
+Include at least 8-12 authoritative sources (government sites, official statistics, reputable publications).
 
 ===== STRUCTURED DATA (REQUIRED) =====
 

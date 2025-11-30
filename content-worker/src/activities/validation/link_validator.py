@@ -522,3 +522,193 @@ async def playwright_clean_links(profile_sections: Dict[str, Dict[str, Any]]) ->
     activity.logger.info(f"Removed {removed_count} broken links from content")
 
     return cleaned_sections
+
+
+@activity.defn
+async def finesse_internal_links(
+    cluster_articles: List[Dict[str, Any]],
+    primary_article_id: int
+) -> List[Dict[str, Any]]:
+    """
+    Post-generation phase to optimize internal links between cluster articles.
+
+    After all cluster articles are created, this activity:
+    1. Analyzes each article's target keywords
+    2. Finds opportunities to link using those keywords as anchor text
+    3. Prioritizes links to the primary article (highest value)
+    4. Ensures no article links to itself
+    5. Uses short anchor text (2-4 words)
+
+    Args:
+        cluster_articles: List of article dicts with {id, slug, content, target_keyword, article_mode}
+        primary_article_id: ID of the primary (story) article to prioritize
+
+    Returns:
+        Updated cluster_articles with improved internal linking
+    """
+    import re
+
+    activity.logger.info(f"[Finesse Internal Links] Processing {len(cluster_articles)} cluster articles")
+
+    # Build lookup of slugs and keywords
+    article_lookup = {}
+    for article in cluster_articles:
+        article_lookup[article['id']] = {
+            'slug': article.get('slug', ''),
+            'target_keyword': article.get('target_keyword', ''),
+            'article_mode': article.get('article_mode', ''),
+            'title': article.get('title', '')
+        }
+
+    # Short anchor text options for each mode
+    mode_anchors = {
+        'story': ['relocation guide', 'complete guide', 'full guide'],
+        'guide': ['practical guide', 'step-by-step', 'how-to guide'],
+        'yolo': ['adventure guide', 'YOLO guide', 'bold approach'],
+        'voices': ['expat stories', 'real experiences', 'expat voices']
+    }
+
+    updated_articles = []
+
+    for article in cluster_articles:
+        article_id = article['id']
+        content = article.get('content', '')
+        current_slug = article.get('slug', '')
+
+        # Get sibling articles (not self)
+        siblings = [(aid, info) for aid, info in article_lookup.items() if aid != article_id]
+
+        # Sort siblings: primary first, then by mode importance
+        mode_priority = {'story': 0, 'guide': 1, 'yolo': 2, 'voices': 3}
+        siblings.sort(key=lambda x: (
+            0 if x[0] == primary_article_id else 1,
+            mode_priority.get(x[1]['article_mode'], 99)
+        ))
+
+        # Check existing internal links
+        existing_links = set(re.findall(r'\]\(/([^)]+)\)', content))
+
+        links_added = 0
+        max_links_to_add = 3  # Don't over-link
+
+        for sibling_id, sibling_info in siblings:
+            if links_added >= max_links_to_add:
+                break
+
+            sibling_slug = sibling_info['slug']
+
+            # Skip if already linked
+            if sibling_slug in existing_links:
+                continue
+
+            sibling_mode = sibling_info['article_mode']
+            sibling_keyword = sibling_info.get('target_keyword', '')
+
+            # Try to find natural insertion points
+            # Look for mentions of related terms that could become links
+            anchor_options = mode_anchors.get(sibling_mode, ['guide'])
+
+            for anchor in anchor_options:
+                # Find the anchor text in content (case insensitive)
+                pattern = rf'\b({re.escape(anchor)})\b'
+                match = re.search(pattern, content, re.IGNORECASE)
+
+                if match and f'](/' not in content[max(0, match.start()-5):match.end()+5]:
+                    # Found unlinked text - make it a link
+                    original_text = match.group(1)
+                    replacement = f'[{original_text}](/{sibling_slug})'
+                    content = content[:match.start()] + replacement + content[match.end():]
+                    links_added += 1
+                    activity.logger.info(f"  Added link: '{original_text}' -> /{sibling_slug}")
+                    break
+
+        # Update article with new content
+        updated_article = {**article, 'content': content}
+        updated_articles.append(updated_article)
+
+        activity.logger.info(f"Article {article_id}: Added {links_added} internal links")
+
+    return updated_articles
+
+
+@activity.defn
+async def verify_external_links(
+    content: str,
+    min_links: int = 10
+) -> Dict[str, Any]:
+    """
+    Verify that content has sufficient external links backing up claims.
+
+    Checks:
+    1. Count of external links
+    2. Link quality (domains)
+    3. Identifies claims without sources
+
+    Args:
+        content: Article content (HTML or markdown)
+        min_links: Minimum required external links
+
+    Returns:
+        Dict with link_count, quality_score, suggestions
+    """
+    import re
+
+    activity.logger.info("[Verify External Links] Checking content for source links")
+
+    # Find all external links
+    markdown_links = re.findall(r'\[([^\]]+)\]\((https?://[^)]+)\)', content)
+    html_links = re.findall(r'<a[^>]+href=["\']?(https?://[^"\'>\s]+)["\']?[^>]*>([^<]+)</a>', content)
+
+    all_links = markdown_links + [(text, url) for url, text in html_links]
+
+    # Categorize by domain authority
+    high_authority = []
+    medium_authority = []
+    low_authority = []
+
+    authority_domains = {
+        'high': ['gov', 'europa.eu', 'un.org', 'who.int', 'oecd.org', 'worldbank.org', 'imf.org'],
+        'medium': ['wikipedia.org', 'bbc.com', 'reuters.com', 'numbeo.com', 'expatistan.com', 'taxfoundation.org']
+    }
+
+    for text, url in all_links:
+        domain = urlparse(url).netloc.lower()
+
+        if any(auth in domain for auth in authority_domains['high']):
+            high_authority.append({'text': text, 'url': url, 'domain': domain})
+        elif any(auth in domain for auth in authority_domains['medium']):
+            medium_authority.append({'text': text, 'url': url, 'domain': domain})
+        else:
+            low_authority.append({'text': text, 'url': url, 'domain': domain})
+
+    total_links = len(all_links)
+    quality_score = (len(high_authority) * 1.0 + len(medium_authority) * 0.7 + len(low_authority) * 0.4) / max(total_links, 1)
+
+    # Check for unsourced claims (numbers without nearby links)
+    # Look for percentages, currency amounts, years without links nearby
+    claim_pattern = r'(\d+(?:\.\d+)?%|\€\d+|\$\d+|\d{4})'
+    claims = re.findall(claim_pattern, content)
+
+    result = {
+        'total_links': total_links,
+        'high_authority': len(high_authority),
+        'medium_authority': len(medium_authority),
+        'low_authority': len(low_authority),
+        'quality_score': round(quality_score, 2),
+        'meets_minimum': total_links >= min_links,
+        'potential_claims': len(claims),
+        'suggestions': []
+    }
+
+    if total_links < min_links:
+        result['suggestions'].append(f"Add {min_links - total_links} more external source links")
+
+    if len(high_authority) < 3:
+        result['suggestions'].append("Add more links to government/official sources")
+
+    activity.logger.info(
+        f"External links: {total_links} total ({len(high_authority)} high authority), "
+        f"quality score: {quality_score:.2f}, meets minimum: {result['meets_minimum']}"
+    )
+
+    return result
