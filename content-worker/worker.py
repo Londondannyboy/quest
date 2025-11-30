@@ -178,6 +178,9 @@ from src.activities.storage.neon_database import (
     # NEW: Video inheritance for topic clusters and hubs
     inherit_parent_video_to_children,
     get_cluster_videos,
+    # NEW: Video topic matching for intelligent section placement
+    get_cluster_videos_with_topics,
+    match_video_to_section,
 )
 
 from src.activities.storage.neon_countries import (
@@ -388,6 +391,9 @@ async def main():
             # Video inheritance for topic clusters and hubs
             inherit_parent_video_to_children,
             get_cluster_videos,
+            # Video topic matching for intelligent section placement
+            get_cluster_videos_with_topics,
+            match_video_to_section,
 
             # Country Guide Database
             save_or_create_country,

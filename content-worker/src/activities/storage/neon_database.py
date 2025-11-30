@@ -1237,3 +1237,162 @@ async def get_cluster_videos(
     except Exception as e:
         activity.logger.error(f"Failed to get cluster videos: {e}")
         return {"videos_by_mode": {}, "section_videos": {}, "primary_video": None}
+
+
+@activity.defn(name="get_cluster_videos_with_topics")
+async def get_cluster_videos_with_topics(
+    cluster_id: str
+) -> Dict[str, Any]:
+    """
+    Get all videos from a cluster with their topic metadata.
+
+    Returns video_playback_ids with topics and descriptions for
+    intelligent section-to-video matching in hub creation.
+
+    Args:
+        cluster_id: UUID of the cluster
+
+    Returns:
+        Dict with videos_by_mode (including topics) and topic_index for matching
+    """
+    activity.logger.info(f"Getting cluster videos with topics for {cluster_id}")
+
+    try:
+        async with await psycopg.AsyncConnection.connect(
+            config.DATABASE_URL
+        ) as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("""
+                    SELECT article_mode, video_playback_id, title, slug,
+                           video_topics, video_description
+                    FROM articles
+                    WHERE cluster_id = %s
+                      AND video_playback_id IS NOT NULL
+                      AND article_mode IN ('story', 'guide', 'yolo', 'voices')
+                    ORDER BY article_mode
+                """, (cluster_id,))
+
+                rows = await cur.fetchall()
+
+                videos_by_mode = {}
+                topic_index = {}  # topic -> video_playback_id mapping
+
+                for row in rows:
+                    mode = row[0]
+                    video_id = row[1]
+                    topics = row[4] if row[4] else []
+
+                    videos_by_mode[mode] = {
+                        "video_playback_id": video_id,
+                        "title": row[2],
+                        "slug": row[3],
+                        "topics": topics,
+                        "description": row[5]
+                    }
+
+                    # Build reverse index: topic -> video
+                    for topic in topics:
+                        if topic not in topic_index:
+                            topic_index[topic] = []
+                        topic_index[topic].append({
+                            "mode": mode,
+                            "video_playback_id": video_id
+                        })
+
+                # Smart section assignments based on topics
+                section_videos = {
+                    "hero": videos_by_mode.get("story", {}).get("video_playback_id"),
+                    "introduction": videos_by_mode.get("story", {}).get("video_playback_id"),
+                    "practical_guide": videos_by_mode.get("guide", {}).get("video_playback_id"),
+                    "visa_section": videos_by_mode.get("guide", {}).get("video_playback_id"),
+                    "lifestyle": videos_by_mode.get("yolo", {}).get("video_playback_id"),
+                    "adventure": videos_by_mode.get("yolo", {}).get("video_playback_id"),
+                    "community": videos_by_mode.get("voices", {}).get("video_playback_id"),
+                    "expat_stories": videos_by_mode.get("voices", {}).get("video_playback_id"),
+                    "cta": videos_by_mode.get("story", {}).get("video_playback_id"),
+                }
+
+                activity.logger.info(
+                    f"Found {len(videos_by_mode)} videos with {len(topic_index)} unique topics"
+                )
+
+                return {
+                    "videos_by_mode": videos_by_mode,
+                    "section_videos": section_videos,
+                    "topic_index": topic_index,
+                    "primary_video": videos_by_mode.get("story", {}).get("video_playback_id")
+                }
+
+    except Exception as e:
+        activity.logger.error(f"Failed to get cluster videos with topics: {e}")
+        return {"videos_by_mode": {}, "section_videos": {}, "topic_index": {}, "primary_video": None}
+
+
+@activity.defn(name="match_video_to_section")
+async def match_video_to_section(
+    section_keywords: list,
+    cluster_id: str
+) -> Optional[Dict[str, Any]]:
+    """
+    Find the best matching video for a content section based on keywords.
+
+    Args:
+        section_keywords: Keywords describing the section (e.g., ["visa", "permits", "legal"])
+        cluster_id: UUID of the cluster to search in
+
+    Returns:
+        Dict with best matching video or None
+    """
+    activity.logger.info(f"Matching video for keywords: {section_keywords}")
+
+    try:
+        async with await psycopg.AsyncConnection.connect(
+            config.DATABASE_URL
+        ) as conn:
+            async with conn.cursor() as cur:
+                # Find videos with overlapping topics
+                await cur.execute("""
+                    SELECT article_mode, video_playback_id, video_topics, video_description,
+                           (SELECT COUNT(*) FROM jsonb_array_elements_text(video_topics) t
+                            WHERE t = ANY(%s)) as match_count
+                    FROM articles
+                    WHERE cluster_id = %s
+                      AND video_playback_id IS NOT NULL
+                      AND article_mode IN ('story', 'guide', 'yolo', 'voices')
+                    ORDER BY match_count DESC
+                    LIMIT 1
+                """, (section_keywords, cluster_id))
+
+                row = await cur.fetchone()
+
+                if row and row[4] > 0:  # Has at least one matching topic
+                    return {
+                        "mode": row[0],
+                        "video_playback_id": row[1],
+                        "topics": row[2],
+                        "description": row[3],
+                        "match_count": row[4]
+                    }
+
+                # Fallback to story video if no match
+                await cur.execute("""
+                    SELECT video_playback_id FROM articles
+                    WHERE cluster_id = %s AND article_mode = 'story'
+                    LIMIT 1
+                """, (cluster_id,))
+                fallback = await cur.fetchone()
+
+                if fallback:
+                    return {
+                        "mode": "story",
+                        "video_playback_id": fallback[0],
+                        "topics": [],
+                        "description": "Fallback to story video",
+                        "match_count": 0
+                    }
+
+                return None
+
+    except Exception as e:
+        activity.logger.error(f"Failed to match video to section: {e}")
+        return None
