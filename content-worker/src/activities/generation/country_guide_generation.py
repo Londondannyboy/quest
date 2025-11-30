@@ -1536,6 +1536,9 @@ def get_clothing_prompt(country: str, mode: str) -> str:
     """
     Get climate-aware clothing instruction for video prompts.
 
+    CRITICAL: Quest/YOLO branding ONLY in ACT 1 to avoid text corruption in later acts.
+    Acts 2-4 use appropriate casual clothing without branding.
+
     Args:
         country: Country name
         mode: Content mode (story, guide, yolo, voices)
@@ -1543,15 +1546,21 @@ def get_clothing_prompt(country: str, mode: str) -> str:
     Returns:
         Clothing instruction string for video prompt
     """
-    if mode == "yolo":
-        return "CRITICAL BRANDING: Person wearing bright YOLO t-shirt with massive YELLOW capitalised letters visible on chest."
-
     is_cold = country.lower() in COLD_COUNTRIES
 
+    if mode == "yolo":
+        return """CLOTHING BY ACT (avoid text corruption):
+ACT 1: Bright YOLO t-shirt with YELLOW letters clearly visible on chest.
+ACTS 2-4: Athletic/adventure wear - running jacket, sports top, or casual tee. NO text, NO logos."""
+
     if is_cold:
-        return "CRITICAL BRANDING: Person wearing Quest jacket or sweatshirt with 'QUEST' in WHITE capitalised letters visible."
+        return """CLOTHING BY ACT (avoid text corruption):
+ACT 1: Quest jacket or sweatshirt with 'QUEST' in WHITE letters clearly visible.
+ACTS 2-4: Stylish casual layers - sweater, cardigan, or blouse. NO text, NO logos, NO branding."""
     else:
-        return "CRITICAL BRANDING: Person wearing Quest t-shirt with 'QUEST' in WHITE capitalised letters visible on chest."
+        return """CLOTHING BY ACT (avoid text corruption):
+ACT 1: Quest t-shirt with 'QUEST' in WHITE letters clearly visible on chest.
+ACTS 2-4: Casual summer clothing - light blouse, sundress, or linen top. NO text, NO logos, NO branding."""
 
 
 # ============================================================================
@@ -1612,7 +1621,7 @@ Cast: 30s professional (preferably woman), warm features, natural beauty, approa
             },
             {
                 "title": "The {country} Dream",
-                "hint": "CLOSE-UP, same professional bathed in warm lamplight, researching on laptop (abstract warm colors on screen). Face transforms from fatigue to hope, gentle smile. Golden hour light through window. Camera HOLDS on emotional shift."
+                "hint": "DIFFERENT LOCATION: MEDIUM SHOT, same professional in cozy coffee shop or outdoor park bench, researching on phone (abstract warm colors on screen). Completely different setting from Act 1. Face transforms from curiosity to excitement, genuine smile emerging. Warm afternoon light, bokeh background. Camera HOLDS on hopeful expression."
             },
             {
                 "title": "The Journey",
@@ -1620,7 +1629,7 @@ Cast: 30s professional (preferably woman), warm features, natural beauty, approa
             },
             {
                 "title": "{country} Success",
-                "hint": "WIDE to MEDIUM, professional on sunny {country} terrace overlooking {landmark}, laptop closed, fresh coffee. Camera ORBITS slowly. Golden hour light, {scenery} visible in background, warm amber tones."
+                "hint": "WIDE to MEDIUM, professional on sunny {country} terrace WITH FRIENDS - two or three people laughing together, animated conversation, clinking glasses. Subject BEAMING with genuine joy, head thrown back in laughter. Camera ORBITS slowly around the happy group. Golden hour light, {scenery} and {landmark} visible in background, warm amber tones. Pure happiness achieved."
             }
         ]
     },
