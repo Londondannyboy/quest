@@ -1408,10 +1408,19 @@ async def get_related_content(request: Request):
                     "highlights": c.get("motivations", [])[:3]
                 })
 
-            # Format articles
+            # Format articles with abbreviated names
             for a in article_results:
+                full_title = a.get("title", "")
+                # Create short name: remove common suffixes, truncate
+                short_title = full_title
+                for suffix in [": Complete Expat Guide", ": What Expats Need to Know", ": Step-by-Step Guide", " 2025", " 2024", " Guide"]:
+                    short_title = short_title.replace(suffix, "")
+                if len(short_title) > 35:
+                    short_title = short_title[:32] + "..."
+
                 articles.append({
-                    "title": a.get("title"),
+                    "title": full_title,
+                    "short_title": short_title,
                     "url": f"/{a.get('slug', '')}",
                     "excerpt": (a.get("excerpt") or a.get("description", ""))[:150],
                     "type": a.get("article_type", "guide")
@@ -1451,6 +1460,37 @@ async def get_related_content(request: Request):
                 "url": "https://www.internations.org/",
                 "description": "Connect with expats and get local insights",
                 "type": "community"
+            })
+
+        if any(word in query_lower for word in ["school", "education", "kids", "children", "university"]):
+            external.append({
+                "title": "International Schools Database",
+                "url": "https://www.international-schools-database.com/",
+                "description": "Find international schools worldwide",
+                "type": "education"
+            })
+
+        if any(word in query_lower for word in ["health", "hospital", "doctor", "medical", "healthcare"]):
+            external.append({
+                "title": "Healthcare Resources",
+                "description": "Research local healthcare systems and insurance options",
+                "type": "healthcare"
+            })
+
+        if any(word in query_lower for word in ["job", "work", "career", "employment", "remote"]):
+            external.append({
+                "title": "Remote Job Boards",
+                "url": "https://weworkremotely.com/",
+                "description": "Find remote-friendly employers",
+                "type": "employment"
+            })
+
+        if any(word in query_lower for word in ["bank", "banking", "finance", "money", "transfer"]):
+            external.append({
+                "title": "Wise (TransferWise)",
+                "url": "https://wise.com/",
+                "description": "International money transfers and multi-currency accounts",
+                "type": "finance"
             })
 
         logger.info("related_content_found",
