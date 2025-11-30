@@ -369,6 +369,19 @@ CRITICAL KNOWLEDGE BASE RULES:
    - Expat communities like InterNations
    Always mention these as supplementary resources.
 
+GATHERING USER CONTEXT (ask these naturally during conversation):
+When starting a conversation or when helpful, naturally ask:
+- "Where are you looking to relocate to?" (their destination - this is key!)
+- "Where are you currently based?" (their origin - for comparison content)
+- "Is this a personal move or are you relocating for work/business?"
+- "Will family be joining you, or is this a solo move?"
+- For corporate relocations: "Are you moving employees? Where are they currently located?"
+
+IMPORTANT: Distinguish between ORIGIN and DESTINATION:
+- If user says "I live in DC" or "I'm from London" - that's their ORIGIN. Acknowledge it but don't show content about US/UK.
+- If user says "I want to move to Cyprus" - that's their DESTINATION. Show Cyprus content.
+- Wait until they mention a destination before showing country-specific information.
+
 VOICE RESPONSE GUIDELINES:
 - Keep responses under 100 words (this is voice interaction)
 - Be conversational and natural - this is spoken, not written
@@ -1334,12 +1347,9 @@ async def get_access_token(request: Optional[Dict[str, Any]] = None):
 @router.post("/related-content")
 async def get_related_content(request: Request):
     """
-    Fetch related content (articles, companies, countries) for a given query.
-    This is used to display a "facts panel" below the voice widget.
-
-    Also handles ZEP memory - stores conversation messages for context continuity.
-
-    Returns structured data that can be displayed in the UI.
+    Simplified related content endpoint.
+    Returns articles with clickable links based on DESTINATION country mentions.
+    Ignores origin mentions like "I live in DC" or "I'm from London".
     """
     try:
         body = await request.json()
@@ -1348,304 +1358,120 @@ async def get_related_content(request: Request):
         messages = body.get("messages", [])
 
         if not query:
-            return {"articles": [], "companies": [], "countries": [], "external": [], "memory_context": None}
+            return {"articles": [], "destination_country": None, "topics": []}
 
-        logger.info("related_content_request", query=query, session_id=session_id, message_count=len(messages))
+        logger.info("related_content_request", query=query, session_id=session_id)
 
-        # FAST keyword-based topic extraction (no AI call - instant)
         query_lower = query.lower()
 
-        # Detect country from query (simple keyword matching)
-        countries_list = ["cyprus", "portugal", "spain", "malta", "greece", "italy", "france", "germany",
-                         "netherlands", "dubai", "uae", "uk", "usa", "canada", "australia", "thailand",
-                         "bali", "indonesia", "mexico", "costa rica", "panama", "colombia", "brazil"]
-        detected_country = None
-        for country in countries_list:
-            if country in query_lower:
-                detected_country = country.title()
+        # =====================================================================
+        # DESTINATION vs ORIGIN detection
+        # Only show content for DESTINATION countries (where they want to GO)
+        # Ignore ORIGIN mentions (where they're FROM)
+        # =====================================================================
+
+        # Origin phrases - if country follows these, it's where they're FROM (ignore)
+        origin_phrases = [
+            "i live in", "i'm from", "im from", "i am from", "based in",
+            "currently in", "living in", "i'm in", "im in", "i am in",
+            "from the", "originally from", "my home is"
+        ]
+
+        # Destination phrases - if country follows these, it's where they want to GO
+        destination_phrases = [
+            "move to", "relocate to", "moving to", "relocating to",
+            "want to go to", "thinking about", "considering",
+            "interested in", "looking at", "explore", "tell me about",
+            "what about", "how about", "info on", "information about"
+        ]
+
+        # Countries we support
+        countries_list = [
+            "cyprus", "portugal", "spain", "malta", "greece", "italy", "france", "germany",
+            "netherlands", "dubai", "uae", "uk", "usa", "canada", "australia", "thailand",
+            "bali", "indonesia", "mexico", "costa rica", "panama", "colombia", "brazil",
+            "ireland", "switzerland", "austria", "poland", "hungary", "croatia", "estonia",
+            "latvia", "lithuania", "czech republic", "singapore", "japan", "new zealand"
+        ]
+
+        # Detect if this is an ORIGIN or DESTINATION mention
+        detected_destination = None
+        is_origin_mention = False
+
+        # Check for origin phrases first
+        for phrase in origin_phrases:
+            if phrase in query_lower:
+                is_origin_mention = True
                 break
 
-        # Detect topics from keywords (instant)
+        # Find country in query
+        for country in countries_list:
+            if country in query_lower:
+                # Check if it's a destination mention
+                for dest_phrase in destination_phrases:
+                    if dest_phrase in query_lower:
+                        detected_destination = country.title()
+                        is_origin_mention = False
+                        break
+
+                # If not explicitly destination but also not origin, treat as destination
+                if not is_origin_mention and not detected_destination:
+                    detected_destination = country.title()
+                break
+
+        # If origin mention detected, don't show content for that country
+        if is_origin_mention:
+            detected_destination = None
+            logger.info("origin_mention_detected", query=query)
+
+        # =====================================================================
+        # Topic detection (only if destination mentioned)
+        # =====================================================================
         detected_topics = []
-        topic_keywords = {
-            "visa": ["visa", "permit", "immigration", "residency", "passport"],
-            "tax": ["tax", "corporate", "income", "vat", "financial", "company"],
-            "cost_of_living": ["cost", "living", "rent", "expense", "price", "afford"],
-            "companies": ["relocat", "service", "company", "move", "moving"],
-            "education": ["school", "education", "university", "kids", "children"],
-            "healthcare": ["health", "hospital", "medical", "doctor", "insurance"],
-            "lifestyle": ["lifestyle", "culture", "weather", "beach", "digital nomad"]
-        }
-        for topic, keywords in topic_keywords.items():
-            if any(kw in query_lower for kw in keywords):
-                detected_topics.append(topic)
-
-        # Initialize categorized facts structure
-        categorized_facts = {
-            "visa": {"icon": "🛂", "color": "#3b82f6", "label": "Visa & Immigration", "facts": [], "links": []},
-            "tax": {"icon": "💰", "color": "#10b981", "label": "Tax & Finance", "facts": [], "links": []},
-            "cost_of_living": {"icon": "🏠", "color": "#f59e0b", "label": "Cost of Living", "facts": [], "links": []},
-            "companies": {"icon": "🏢", "color": "#8b5cf6", "label": "Service Providers", "facts": [], "links": []},
-            "education": {"icon": "🎓", "color": "#ec4899", "label": "Education", "facts": [], "links": []},
-            "healthcare": {"icon": "🏥", "color": "#ef4444", "label": "Healthcare", "facts": [], "links": []},
-            "lifestyle": {"icon": "🌴", "color": "#06b6d4", "label": "Lifestyle", "facts": [], "links": []},
-            "general": {"icon": "📋", "color": "#6b7280", "label": "General Info", "facts": [], "links": []}
-        }
-
-        # Query ZEP with the original query (single fast call)
-        if zep_graph and zep_graph.client:
-            try:
-                results = await zep_graph.search(query)
-                if results.get("success") and results.get("edges"):
-                    for edge in results["edges"][:8]:
-                        fact = edge.get("fact", "")
-                        if fact:
-                            # Categorize fact based on content
-                            fact_lower = fact.lower()
-                            category = "general"
-                            if any(w in fact_lower for w in ["visa", "permit", "immigration", "residency"]):
-                                category = "visa"
-                            elif any(w in fact_lower for w in ["tax", "corporate", "income", "vat", "financial"]):
-                                category = "tax"
-                            elif any(w in fact_lower for w in ["cost", "rent", "living", "expense", "price"]):
-                                category = "cost_of_living"
-                            elif any(w in fact_lower for w in ["company", "service", "relocat", "specialist"]):
-                                category = "companies"
-                            elif any(w in fact_lower for w in ["school", "education", "university"]):
-                                category = "education"
-                            elif any(w in fact_lower for w in ["health", "hospital", "medical"]):
-                                category = "healthcare"
-                            elif any(w in fact_lower for w in ["lifestyle", "culture", "weather", "beach"]):
-                                category = "lifestyle"
-
-                            if fact not in categorized_facts[category]["facts"]:
-                                categorized_facts[category]["facts"].append(fact)
-            except Exception as e:
-                logger.warning("zep_query_error", error=str(e))
-
-        # Handle ZEP memory if session_id provided
-        memory_context = None
-        if session_id and zep_graph and zep_graph.client:
-            try:
-                thread_id = f"relocation_{session_id}"
-
-                # Try to get existing thread context
-                try:
-                    memory = zep_graph.client.thread.get_user_context(thread_id=thread_id)
-                    if memory and hasattr(memory, 'context') and memory.context:
-                        memory_context = memory.context
-                        logger.info("zep_memory_retrieved", thread_id=thread_id)
-                except Exception:
-                    # Thread doesn't exist yet, create it
-                    try:
-                        zep_graph.client.thread.create(thread_id=thread_id)
-                        logger.info("zep_thread_created", thread_id=thread_id)
-                    except Exception as e:
-                        logger.warning("zep_thread_create_error", error=str(e))
-
-                # Store new messages in ZEP
-                if messages and len(messages) >= 2:
-                    # Get last user and assistant message pair
-                    last_messages = messages[-2:] if len(messages) >= 2 else messages
-                    zep_messages = [
-                        {"role": m.get("role", "user"), "content": m.get("content", "")}
-                        for m in last_messages
-                    ]
-                    try:
-                        zep_graph.client.thread.add_messages(thread_id=thread_id, messages=zep_messages)
-                        logger.info("zep_messages_stored", thread_id=thread_id, count=len(zep_messages))
-                    except Exception as e:
-                        logger.warning("zep_message_store_error", error=str(e))
-
-            except Exception as e:
-                logger.warning("zep_memory_error", error=str(e), session_id=session_id)
-
-        # Initialize Neon store
-        neon_store = None
-        if DATABASE_URL:
-            neon_store = NeonKnowledgeStore(DATABASE_URL)
-
-        articles = []
-        companies = []
-        countries = []
-
-        if neon_store:
-            # Fetch from database
-            country_results = await neon_store.search_countries(query)
-            article_results = await neon_store.search_articles(query)
-            company_results = await neon_store.search_companies(query)
-
-            # Format countries
-            for c in country_results:
-                countries.append({
-                    "name": c.get("name"),
-                    "flag": c.get("flag_emoji", "🌍"),
-                    "url": f"/countries/{c.get('slug', c.get('name', '').lower().replace(' ', '-'))}",
-                    "region": c.get("region"),
-                    "capital": c.get("capital"),
-                    "highlights": c.get("motivations", [])[:3]
-                })
-
-            # Format articles with abbreviated names
-            for a in article_results:
-                full_title = a.get("title", "")
-                # Create short name: remove common suffixes, truncate
-                short_title = full_title
-                for suffix in [": Complete Expat Guide", ": What Expats Need to Know", ": Step-by-Step Guide", " 2025", " 2024", " Guide"]:
-                    short_title = short_title.replace(suffix, "")
-                if len(short_title) > 35:
-                    short_title = short_title[:32] + "..."
-
-                articles.append({
-                    "title": full_title,
-                    "short_title": short_title,
-                    "url": f"/{a.get('slug', '')}",
-                    "excerpt": (a.get("excerpt") or a.get("description", ""))[:150],
-                    "type": a.get("article_type", "guide")
-                })
-
-            # Format companies
-            for co in company_results:
-                companies.append({
-                    "name": co.get("name"),
-                    "url": f"/companies/{co.get('slug', '')}",
-                    "description": (co.get("description") or co.get("overview", ""))[:100],
-                    "services": co.get("services", [])[:3]
-                })
-
-        # Suggest external resources based on query keywords
-        external = []
-        query_lower = query.lower()
-
-        if any(word in query_lower for word in ["visa", "permit", "immigration"]):
-            external.append({
-                "title": "Visaindex.com",
-                "url": "https://visaindex.com/",
-                "description": "Comprehensive visa requirements database",
-                "type": "government"
-            })
-
-        if any(word in query_lower for word in ["cost", "living", "rent", "salary", "expensive"]):
-            external.append({
-                "title": "Numbeo Cost of Living",
-                "url": "https://www.numbeo.com/cost-of-living/",
-                "description": "Compare cost of living data worldwide",
-                "type": "reference"
-            })
-
-        if any(word in query_lower for word in ["expat", "community", "moving", "relocate"]):
-            external.append({
-                "title": "InterNations Expat Community",
-                "url": "https://www.internations.org/",
-                "description": "Connect with expats and get local insights",
-                "type": "community"
-            })
-
-        if any(word in query_lower for word in ["school", "education", "kids", "children", "university"]):
-            external.append({
-                "title": "International Schools Database",
-                "url": "https://www.international-schools-database.com/",
-                "description": "Find international schools worldwide",
-                "type": "education"
-            })
-
-        if any(word in query_lower for word in ["health", "hospital", "doctor", "medical", "healthcare"]):
-            external.append({
-                "title": "Expatica Health Guide",
-                "url": "https://www.expatica.com/healthcare/",
-                "description": "Healthcare guides for expats by country",
-                "type": "healthcare"
-            })
-
-        if any(word in query_lower for word in ["job", "work", "career", "employment", "remote"]):
-            external.append({
-                "title": "Remote Job Boards",
-                "url": "https://weworkremotely.com/",
-                "description": "Find remote-friendly employers",
-                "type": "employment"
-            })
-
-        if any(word in query_lower for word in ["bank", "banking", "finance", "money", "transfer"]):
-            external.append({
-                "title": "Wise (TransferWise)",
-                "url": "https://wise.com/",
-                "description": "International money transfers and multi-currency accounts",
-                "type": "finance"
-            })
-
-        # Add relevant links to each category from articles
-        for article in articles[:8]:
-            title_lower = article.get("title", "").lower()
-            slug = article.get("url", "")
-
-            link_data = {
-                "title": article.get("short_title") or article.get("title"),
-                "url": f"https://relocation.quest{slug}",
-                "type": "article"
+        if detected_destination or any(kw in query_lower for kw in ["visa", "tax", "cost", "school", "health"]):
+            topic_keywords = {
+                "visa": ["visa", "permit", "immigration", "residency", "passport"],
+                "tax": ["tax", "corporate", "income", "vat", "financial"],
+                "cost_of_living": ["cost", "living", "rent", "expense", "price", "afford"],
+                "education": ["school", "education", "university", "kids", "children"],
+                "healthcare": ["health", "hospital", "medical", "doctor", "insurance"],
             }
+            for topic, keywords in topic_keywords.items():
+                if any(kw in query_lower for kw in keywords):
+                    detected_topics.append(topic)
 
-            if any(w in title_lower for w in ["visa", "permit", "immigration"]):
-                categorized_facts["visa"]["links"].append(link_data)
-            elif any(w in title_lower for w in ["tax", "corporate", "income"]):
-                categorized_facts["tax"]["links"].append(link_data)
-            elif any(w in title_lower for w in ["cost", "living", "rent"]):
-                categorized_facts["cost_of_living"]["links"].append(link_data)
+        # =====================================================================
+        # Fetch articles from Neon (only if destination or topic detected)
+        # =====================================================================
+        articles = []
 
-        # Add companies to the companies category
-        for company in companies[:5]:
-            categorized_facts["companies"]["links"].append({
-                "title": company.get("name"),
-                "url": f"https://relocation.quest{company.get('url', '')}",
-                "type": "company"
-            })
+        if detected_destination or detected_topics:
+            neon_store = NeonKnowledgeStore(DATABASE_URL) if DATABASE_URL else None
 
-        # Add country guide link
-        for country in countries[:1]:
-            categorized_facts["general"]["links"].append({
-                "title": f"{country.get('name')} Country Guide",
-                "url": f"https://relocation.quest{country.get('url', '')}",
-                "type": "country"
-            })
+            if neon_store:
+                # Search for articles matching destination/topics
+                article_results = await neon_store.search_articles(query)
 
-        # Add external links to appropriate categories
-        for ext in external:
-            ext_type = ext.get("type", "")
-            if ext_type == "education":
-                categorized_facts["education"]["links"].append({"title": ext["title"], "url": ext.get("url"), "type": "external"})
-            elif ext_type == "healthcare":
-                categorized_facts["healthcare"]["links"].append({"title": ext["title"], "url": ext.get("url"), "type": "external"})
-            elif ext_type in ["finance", "reference"]:
-                categorized_facts["tax"]["links"].append({"title": ext["title"], "url": ext.get("url"), "type": "external"})
-            elif ext_type == "government":
-                categorized_facts["visa"]["links"].append({"title": ext["title"], "url": ext.get("url"), "type": "external"})
-            elif ext_type == "community":
-                categorized_facts["lifestyle"]["links"].append({"title": ext["title"], "url": ext.get("url"), "type": "external"})
-
-        # Filter to only categories with content
-        # Also filter out links without URLs
-        active_categories = {}
-        for k, v in categorized_facts.items():
-            valid_links = [link for link in v["links"] if link.get("url")]
-            if v["facts"] or valid_links:
-                active_categories[k] = {**v, "links": valid_links}
+                for a in article_results[:10]:
+                    slug = a.get("slug", "")
+                    articles.append({
+                        "title": a.get("title", ""),
+                        "url": f"https://relocation.quest/{slug}",
+                        "type": a.get("article_type", "guide")
+                    })
 
         logger.info("related_content_found",
+                   destination=detected_destination,
+                   topics=detected_topics,
                    articles=len(articles),
-                   companies=len(companies),
-                   countries=len(countries),
-                   active_categories=list(active_categories.keys()))
+                   is_origin=is_origin_mention)
 
         return {
-            "articles": articles[:8],
-            "companies": companies[:5],
-            "countries": countries[:3],
-            "external": external,
-            "memory_context": memory_context,
-            "categorized_facts": active_categories,
-            "topics": detected_topics,
-            "country": detected_country
+            "articles": articles,
+            "destination_country": detected_destination,
+            "topics": detected_topics
         }
 
     except Exception as e:
         logger.error("related_content_error", error=str(e))
-        return {"articles": [], "companies": [], "countries": [], "external": [], "memory_context": None, "categorized_facts": {}, "topics": [], "country": None}
+        return {"articles": [], "destination_country": None, "topics": []}
