@@ -1396,3 +1396,210 @@ async def match_video_to_section(
     except Exception as e:
         activity.logger.error(f"Failed to match video to section: {e}")
         return None
+
+
+@activity.defn(name="finesse_cluster_media")
+async def finesse_cluster_media(
+    cluster_id: str
+) -> Dict[str, Any]:
+    """
+    Comprehensive video/media finessing for a cluster.
+
+    This runs at the end of the workflow to ensure:
+    1. All core articles (story/guide/yolo/voices) have videos
+    2. Topic cluster articles inherit appropriate videos
+    3. Hub has video_playback_id set
+    4. Every article has a displayable thumbnail
+
+    Args:
+        cluster_id: UUID of the cluster to finesse
+
+    Returns:
+        Dict with finessing stats and what was updated
+    """
+    activity.logger.info(f"Finessing media for cluster {cluster_id}")
+
+    stats = {
+        "core_articles_checked": 0,
+        "topic_articles_updated": 0,
+        "hub_updated": False,
+        "videos_propagated": [],
+        "errors": []
+    }
+
+    try:
+        async with await psycopg.AsyncConnection.connect(
+            config.DATABASE_URL
+        ) as conn:
+            async with conn.cursor() as cur:
+                # 1. Get all core cluster articles with videos
+                await cur.execute("""
+                    SELECT id, article_mode, video_playback_id, title, is_primary
+                    FROM articles
+                    WHERE cluster_id = %s
+                      AND article_mode IN ('story', 'guide', 'yolo', 'voices')
+                      AND app = 'relocation'
+                    ORDER BY
+                      CASE article_mode
+                        WHEN 'story' THEN 1
+                        WHEN 'guide' THEN 2
+                        WHEN 'yolo' THEN 3
+                        WHEN 'voices' THEN 4
+                      END
+                """, (cluster_id,))
+
+                core_articles = await cur.fetchall()
+                stats["core_articles_checked"] = len(core_articles)
+
+                # Build video lookup by mode
+                videos_by_mode = {}
+                primary_article_id = None
+                for row in core_articles:
+                    article_id, mode, video_id, title, is_primary = row
+                    if video_id:
+                        videos_by_mode[mode] = {
+                            "id": article_id,
+                            "video_playback_id": video_id,
+                            "title": title
+                        }
+                    if is_primary:
+                        primary_article_id = article_id
+
+                # Determine primary video (story > guide > yolo > voices)
+                primary_video = (
+                    videos_by_mode.get("story", {}).get("video_playback_id") or
+                    videos_by_mode.get("guide", {}).get("video_playback_id") or
+                    videos_by_mode.get("yolo", {}).get("video_playback_id") or
+                    videos_by_mode.get("voices", {}).get("video_playback_id")
+                )
+
+                if not primary_video:
+                    activity.logger.warning(f"No videos found in cluster {cluster_id}")
+                    return stats
+
+                # 2. Update hub video if missing
+                await cur.execute("""
+                    UPDATE country_hubs
+                    SET video_playback_id = %s
+                    WHERE cluster_id = %s
+                      AND (video_playback_id IS NULL OR video_playback_id = '')
+                    RETURNING id
+                """, (primary_video, cluster_id))
+
+                hub_updated = await cur.fetchone()
+                if hub_updated:
+                    stats["hub_updated"] = True
+                    stats["videos_propagated"].append({
+                        "target": "hub",
+                        "video": primary_video[:20] + "..."
+                    })
+
+                # 3. Update topic cluster articles (children of primary)
+                if primary_article_id:
+                    await cur.execute("""
+                        UPDATE articles
+                        SET video_playback_id = %s
+                        WHERE parent_id = %s
+                          AND (video_playback_id IS NULL OR video_playback_id = '')
+                        RETURNING id, title
+                    """, (primary_video, primary_article_id))
+
+                    updated_topics = await cur.fetchall()
+                    stats["topic_articles_updated"] = len(updated_topics)
+
+                    for topic in updated_topics:
+                        stats["videos_propagated"].append({
+                            "target": f"topic:{topic[0]}",
+                            "title": topic[1][:30] + "..." if len(topic[1]) > 30 else topic[1]
+                        })
+
+                # 4. Cross-pollinate: articles without videos get closest match
+                await cur.execute("""
+                    UPDATE articles a
+                    SET video_playback_id = %s
+                    WHERE a.cluster_id = %s
+                      AND a.app = 'relocation'
+                      AND (a.video_playback_id IS NULL OR a.video_playback_id = '')
+                    RETURNING id
+                """, (primary_video, cluster_id))
+
+                additional = await cur.fetchall()
+                if additional:
+                    stats["videos_propagated"].append({
+                        "target": "additional_articles",
+                        "count": len(additional)
+                    })
+
+                await conn.commit()
+
+                activity.logger.info(
+                    f"Finessed cluster {cluster_id}: "
+                    f"{stats['core_articles_checked']} core, "
+                    f"{stats['topic_articles_updated']} topics updated, "
+                    f"hub={'yes' if stats['hub_updated'] else 'no'}"
+                )
+
+                return stats
+
+    except Exception as e:
+        activity.logger.error(f"Failed to finesse cluster media: {e}")
+        stats["errors"].append(str(e))
+        return stats
+
+
+@activity.defn(name="finesse_all_cluster_media")
+async def finesse_all_cluster_media() -> Dict[str, Any]:
+    """
+    Run media finessing across all clusters that have videos.
+
+    Use this for a one-time cleanup or scheduled maintenance job.
+
+    Returns:
+        Dict with total stats across all clusters
+    """
+    activity.logger.info("Running media finessing across all clusters")
+
+    total_stats = {
+        "clusters_processed": 0,
+        "total_topics_updated": 0,
+        "hubs_updated": 0,
+        "clusters_with_errors": []
+    }
+
+    try:
+        async with await psycopg.AsyncConnection.connect(
+            config.DATABASE_URL
+        ) as conn:
+            async with conn.cursor() as cur:
+                # Get all clusters that have at least one video
+                await cur.execute("""
+                    SELECT DISTINCT cluster_id
+                    FROM articles
+                    WHERE cluster_id IS NOT NULL
+                      AND video_playback_id IS NOT NULL
+                      AND app = 'relocation'
+                """)
+
+                clusters = await cur.fetchall()
+
+        # Process each cluster
+        for (cluster_id,) in clusters:
+            result = await finesse_cluster_media(cluster_id)
+            total_stats["clusters_processed"] += 1
+            total_stats["total_topics_updated"] += result.get("topic_articles_updated", 0)
+            if result.get("hub_updated"):
+                total_stats["hubs_updated"] += 1
+            if result.get("errors"):
+                total_stats["clusters_with_errors"].append(cluster_id)
+
+        activity.logger.info(
+            f"Finessed {total_stats['clusters_processed']} clusters, "
+            f"updated {total_stats['total_topics_updated']} topic articles, "
+            f"{total_stats['hubs_updated']} hubs"
+        )
+
+        return total_stats
+
+    except Exception as e:
+        activity.logger.error(f"Failed to finesse all clusters: {e}")
+        return {"error": str(e)}

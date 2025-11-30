@@ -1088,6 +1088,30 @@ class CountryGuideCreationWorkflow:
                 workflow.logger.warning(f"⚠️ Hub creation failed (non-blocking): {e}")
                 hub_result = {"error": str(e)}
 
+            # ===== PHASE E: FINESSE CLUSTER MEDIA =====
+            # Final pass to ensure all articles have videos/thumbnails
+            # - Topic cluster articles inherit from parent
+            # - Hub gets primary video if missing
+            # - All articles get displayable media
+            workflow.logger.info("Phase E: Finessing cluster media (video inheritance)")
+
+            try:
+                finesse_result = await workflow.execute_activity(
+                    "finesse_cluster_media",
+                    args=[cluster_id],
+                    start_to_close_timeout=timedelta(seconds=60),
+                    retry_policy=RetryPolicy(maximum_attempts=2)
+                )
+
+                workflow.logger.info(
+                    f"  Finessed: {finesse_result.get('topic_articles_updated', 0)} topics updated, "
+                    f"hub={'yes' if finesse_result.get('hub_updated') else 'no'}"
+                )
+                metrics["topics_finessed"] = finesse_result.get("topic_articles_updated", 0)
+
+            except Exception as e:
+                workflow.logger.warning(f"  ⚠️ Media finessing failed (non-blocking): {e}")
+
             metrics["cluster_id"] = cluster_id
             metrics["cluster_articles"] = len(cluster_articles)
             metrics["topic_cluster_articles"] = len(topic_cluster_articles)

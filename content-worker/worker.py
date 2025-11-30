@@ -181,6 +181,9 @@ from src.activities.storage.neon_database import (
     # NEW: Video topic matching for intelligent section placement
     get_cluster_videos_with_topics,
     match_video_to_section,
+    # NEW: Video finessing activities for end-of-workflow cleanup
+    finesse_cluster_media,
+    finesse_all_cluster_media,
 )
 
 from src.activities.storage.neon_countries import (
@@ -394,6 +397,10 @@ async def main():
             # Video topic matching for intelligent section placement
             get_cluster_videos_with_topics,
             match_video_to_section,
+
+            # Video finessing for end-of-workflow cleanup
+            finesse_cluster_media,
+            finesse_all_cluster_media,
 
             # Country Guide Database
             save_or_create_country,
