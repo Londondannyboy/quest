@@ -190,6 +190,16 @@ from src.activities.storage.neon_articles import (
     get_recent_articles_from_neon,
 )
 
+from src.activities.storage.neon_country_hubs import (
+    generate_hub_seo_slug,
+    aggregate_cluster_to_hub_payload,
+    save_or_update_country_hub,
+    get_country_hub,
+    get_hub_by_slug,
+    publish_country_hub,
+    generate_hub_content,
+)
+
 from src.activities.storage.zep_integration import (
     query_zep_for_context,
     sync_company_to_zep,
@@ -387,6 +397,15 @@ async def main():
             generate_country_video_prompt,
             generate_segment_video_prompt,  # Multi-video: hero/family/finance/daily/yolo
             generate_topic_cluster_content,  # SEO-targeted topic cluster articles
+
+            # Country Hub (SEO pillar pages)
+            generate_hub_seo_slug,
+            aggregate_cluster_to_hub_payload,
+            save_or_update_country_hub,
+            get_country_hub,
+            get_hub_by_slug,
+            publish_country_hub,
+            generate_hub_content,
 
             # Zep Integration
             query_zep_for_context,

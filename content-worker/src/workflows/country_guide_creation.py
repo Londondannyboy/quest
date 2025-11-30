@@ -933,12 +933,135 @@ class CountryGuideCreationWorkflow:
             else:
                 workflow.logger.info("Phase C: No high-volume keywords found, skipping topic clusters")
 
+            # ===== PHASE D: CREATE/UPDATE COUNTRY HUB (SEO Pillar Page) =====
+            # Creates a comprehensive hub page that aggregates all cluster content
+            # with an SEO-optimized slug (up to 10 keywords)
+            #
+            # This is a CRUD operation: if hub exists, it updates; if not, creates.
+            # Updated timestamps track when content was last refreshed.
+
+            workflow.logger.info("Phase D: Creating/Updating Country Hub (SEO Pillar Page)")
+
+            hub_result = {}
+            try:
+                # D.1: Generate SEO-optimized slug from DataForSEO keywords
+                workflow.logger.info("  D.1: Generating SEO slug from keywords...")
+                seo_slug_result = await workflow.execute_activity(
+                    "generate_hub_seo_slug",
+                    args=[country_name, seo_keywords, "country"],
+                    start_to_close_timeout=timedelta(seconds=30)
+                )
+
+                hub_slug = seo_slug_result.get("slug", f"relocating-to-{country_name.lower()}-guide")
+                hub_title = seo_slug_result.get("title", f"Relocating to {country_name}: Complete Guide")
+                hub_meta = seo_slug_result.get("meta_description", "")
+                hub_seo_data = seo_slug_result.get("seo_metadata", {})
+
+                workflow.logger.info(f"    SEO slug: {hub_slug}")
+                workflow.logger.info(f"    Title: {hub_title}")
+
+                # D.2: Aggregate all cluster articles into hub payload
+                workflow.logger.info("  D.2: Aggregating cluster content...")
+
+                # Get country facts for quick stats
+                country_data = await workflow.execute_activity(
+                    "get_country_by_code",
+                    args=[country_code],
+                    start_to_close_timeout=timedelta(seconds=30)
+                )
+                country_facts = country_data.get("facts", {}) if country_data else {}
+
+                # Build cluster articles list for aggregation
+                all_cluster_data = []
+                for ca in cluster_articles:
+                    all_cluster_data.append({
+                        "article_id": ca.get("article_id"),
+                        "slug": ca.get("slug"),
+                        "article_mode": ca.get("article_mode"),
+                        "title": ca.get("title", article.get("title")),
+                        "excerpt": ca.get("excerpt", ""),
+                        "video_playback_id": ca.get("video_playback_id"),
+                        "content": content_modes.get(ca.get("article_mode", "story"), {}).get("content", ""),
+                        "payload": article,
+                    })
+
+                hub_payload = await workflow.execute_activity(
+                    "aggregate_cluster_to_hub_payload",
+                    args=[country_name, country_code, all_cluster_data, country_facts],
+                    start_to_close_timeout=timedelta(minutes=1)
+                )
+
+                workflow.logger.info(f"    Aggregated {len(hub_payload.get('cluster_articles', []))} articles into hub")
+
+                # D.3: Generate full hub content
+                workflow.logger.info("  D.3: Generating hub content...")
+                hub_content = await workflow.execute_activity(
+                    "generate_hub_content",
+                    args=[country_name, hub_payload, "conde_nast"],
+                    start_to_close_timeout=timedelta(minutes=1)
+                )
+
+                # D.4: Save/Update hub (UPSERT)
+                workflow.logger.info("  D.4: Saving hub to database (UPSERT)...")
+
+                # Get primary keyword from seo data
+                primary_kw = hub_seo_data.get("primary_keyword", "")
+                total_vol = hub_seo_data.get("total_volume", 0)
+
+                # Get video from primary article
+                primary_video = story_result.get("video_playback_id") if story_result else None
+
+                hub_save_result = await workflow.execute_activity(
+                    "save_or_update_country_hub",
+                    args=[
+                        country_code,
+                        country_name,
+                        cluster_id,
+                        hub_slug,
+                        hub_title,
+                        hub_meta,
+                        hub_content,
+                        hub_payload,
+                        hub_seo_data,
+                        primary_kw,
+                        total_vol,
+                        None,  # keyword_difficulty
+                        primary_video,
+                        "country"
+                    ],
+                    start_to_close_timeout=timedelta(seconds=60)
+                )
+
+                hub_result = hub_save_result
+                workflow.logger.info(
+                    f"    Hub {'created' if hub_save_result.get('created') else 'updated'}: "
+                    f"ID {hub_save_result.get('hub_id')}, slug: {hub_slug}"
+                )
+
+                # D.5: Publish hub
+                workflow.logger.info("  D.5: Publishing hub...")
+                await workflow.execute_activity(
+                    "publish_country_hub",
+                    args=[country_code],
+                    start_to_close_timeout=timedelta(seconds=30)
+                )
+
+                workflow.logger.info(f"✅ Hub published: /{hub_slug}")
+
+            except Exception as e:
+                workflow.logger.warning(f"⚠️ Hub creation failed (non-blocking): {e}")
+                hub_result = {"error": str(e)}
+
             metrics["cluster_id"] = cluster_id
             metrics["cluster_articles"] = len(cluster_articles)
             metrics["topic_cluster_articles"] = len(topic_cluster_articles)
+            metrics["hub_created"] = hub_result.get("created", False)
+            metrics["hub_slug"] = hub_result.get("slug", "")
 
             workflow.logger.info(f"===== CLUSTER CREATION COMPLETE =====")
             workflow.logger.info(f"Created {len(cluster_articles)} cluster articles for {country_name}")
+            if hub_result.get("slug"):
+                workflow.logger.info(f"Hub page: /{hub_result.get('slug')}")
 
             return {
                 "article_id": article_id,
@@ -967,6 +1090,12 @@ class CountryGuideCreationWorkflow:
                     }
                     for a in topic_cluster_articles
                 ],
+                "hub": {
+                    "hub_id": hub_result.get("hub_id"),
+                    "slug": hub_result.get("slug"),
+                    "created": hub_result.get("created", False),
+                    "updated_at": hub_result.get("updated_at"),
+                } if hub_result.get("hub_id") else None,
                 "metrics": metrics
             }
 
