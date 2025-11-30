@@ -1330,16 +1330,57 @@ async def get_related_content(request: Request):
     Fetch related content (articles, companies, countries) for a given query.
     This is used to display a "facts panel" below the voice widget.
 
+    Also handles ZEP memory - stores conversation messages for context continuity.
+
     Returns structured data that can be displayed in the UI.
     """
     try:
         body = await request.json()
         query = body.get("query", "")
+        session_id = body.get("session_id")
+        messages = body.get("messages", [])
 
         if not query:
-            return {"articles": [], "companies": [], "countries": [], "external": []}
+            return {"articles": [], "companies": [], "countries": [], "external": [], "memory_context": None}
 
-        logger.info("related_content_request", query=query)
+        logger.info("related_content_request", query=query, session_id=session_id, message_count=len(messages))
+
+        # Handle ZEP memory if session_id provided
+        memory_context = None
+        if session_id and zep_graph and zep_graph.client:
+            try:
+                thread_id = f"relocation_{session_id}"
+
+                # Try to get existing thread context
+                try:
+                    memory = zep_graph.client.thread.get_user_context(thread_id=thread_id)
+                    if memory and hasattr(memory, 'context') and memory.context:
+                        memory_context = memory.context
+                        logger.info("zep_memory_retrieved", thread_id=thread_id)
+                except Exception:
+                    # Thread doesn't exist yet, create it
+                    try:
+                        zep_graph.client.thread.create(thread_id=thread_id)
+                        logger.info("zep_thread_created", thread_id=thread_id)
+                    except Exception as e:
+                        logger.warning("zep_thread_create_error", error=str(e))
+
+                # Store new messages in ZEP
+                if messages and len(messages) >= 2:
+                    # Get last user and assistant message pair
+                    last_messages = messages[-2:] if len(messages) >= 2 else messages
+                    zep_messages = [
+                        {"role": m.get("role", "user"), "content": m.get("content", "")}
+                        for m in last_messages
+                    ]
+                    try:
+                        zep_graph.client.thread.add_messages(thread_id=thread_id, messages=zep_messages)
+                        logger.info("zep_messages_stored", thread_id=thread_id, count=len(zep_messages))
+                    except Exception as e:
+                        logger.warning("zep_message_store_error", error=str(e))
+
+            except Exception as e:
+                logger.warning("zep_memory_error", error=str(e), session_id=session_id)
 
         # Initialize Neon store
         neon_store = None
@@ -1421,9 +1462,10 @@ async def get_related_content(request: Request):
             "articles": articles[:8],
             "companies": companies[:5],
             "countries": countries[:3],
-            "external": external
+            "external": external,
+            "memory_context": memory_context
         }
 
     except Exception as e:
         logger.error("related_content_error", error=str(e))
-        return {"articles": [], "companies": [], "countries": [], "external": []}
+        return {"articles": [], "companies": [], "countries": [], "external": [], "memory_context": None}
