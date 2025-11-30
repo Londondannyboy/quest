@@ -1345,6 +1345,50 @@ async def get_related_content(request: Request):
 
         logger.info("related_content_request", query=query, session_id=session_id, message_count=len(messages))
 
+        # AI-powered topic extraction - figure out what the user is REALLY asking about
+        ai_topics = []
+        ai_zep_queries = []
+        if gemini_assistant and gemini_assistant.model:
+            try:
+                extraction_prompt = f"""Analyze this user query about relocation and extract the key topics they're asking about.
+
+User query: "{query}"
+
+Return a JSON object with:
+1. "topics": array of specific topics (e.g., ["international schools", "corporation tax", "digital nomad visa"])
+2. "country": the country mentioned (or null)
+3. "zep_queries": array of 2-3 specific questions to search a knowledge base (e.g., ["best international schools in Cyprus", "Cyprus corporation tax rate"])
+
+Only return valid JSON, no other text. Example:
+{{"topics": ["schools", "education"], "country": "Cyprus", "zep_queries": ["international schools Cyprus", "best schools for expat kids Cyprus"]}}"""
+
+                response = gemini_assistant.model.generate_content(extraction_prompt)
+                if response and response.text:
+                    # Parse JSON from response
+                    import re
+                    json_match = re.search(r'\{.*\}', response.text, re.DOTALL)
+                    if json_match:
+                        extracted = json.loads(json_match.group())
+                        ai_topics = extracted.get("topics", [])
+                        ai_zep_queries = extracted.get("zep_queries", [])
+                        logger.info("ai_topic_extraction", topics=ai_topics, zep_queries=ai_zep_queries)
+            except Exception as e:
+                logger.warning("ai_extraction_error", error=str(e))
+
+        # Query ZEP with AI-generated queries for targeted facts
+        zep_facts = []
+        if ai_zep_queries and zep_graph and zep_graph.client:
+            for zep_query in ai_zep_queries[:3]:
+                try:
+                    results = await zep_graph.search(zep_query)
+                    if results.get("success") and results.get("edges"):
+                        for edge in results["edges"][:3]:
+                            fact = edge.get("fact", "")
+                            if fact and fact not in zep_facts:
+                                zep_facts.append(fact)
+                except Exception as e:
+                    logger.warning("zep_query_error", error=str(e), query=zep_query)
+
         # Handle ZEP memory if session_id provided
         memory_context = None
         if session_id and zep_graph and zep_graph.client:
@@ -1503,9 +1547,11 @@ async def get_related_content(request: Request):
             "companies": companies[:5],
             "countries": countries[:3],
             "external": external,
-            "memory_context": memory_context
+            "memory_context": memory_context,
+            "facts": zep_facts[:5],  # AI-extracted facts from ZEP
+            "topics": ai_topics  # Topics identified by AI
         }
 
     except Exception as e:
         logger.error("related_content_error", error=str(e))
-        return {"articles": [], "companies": [], "countries": [], "external": [], "memory_context": None}
+        return {"articles": [], "companies": [], "countries": [], "external": [], "memory_context": None, "facts": [], "topics": []}
