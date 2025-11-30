@@ -565,10 +565,11 @@ class CountryGuideCreationWorkflow:
             "story": base_slug,
             "guide": f"{base_slug}-guide",
             "yolo": f"{base_slug}-yolo",
-            "voices": f"{base_slug}-voices"
+            "voices": f"{base_slug}-voices",
+            "nomad": f"{base_slug}-digital-nomad"
         }
 
-        for mode in ["story", "guide", "yolo", "voices"]:
+        for mode in ["story", "guide", "yolo", "voices", "nomad"]:
             workflow.logger.info(f"Generating {mode.upper()} mode content for {country_name}...")
 
             # Get sibling slugs (exclude current mode, never link to self)
@@ -602,6 +603,7 @@ class CountryGuideCreationWorkflow:
         article["content_guide"] = content_modes["guide"].get("content", "")
         article["content_yolo"] = content_modes["yolo"].get("content", "")
         article["content_voices_html"] = content_modes["voices"].get("content", "")  # HTML version
+        article["content_nomad"] = content_modes["nomad"].get("content", "")  # Digital nomad content
 
         # Add voices at top level for dedicated column (content_voices)
         article["content_voices"] = research_context.get("voices", [])
@@ -699,7 +701,7 @@ class CountryGuideCreationWorkflow:
 
             # ===== PHASE B: CREATE REMAINING CLUSTER ARTICLES (Gravy) =====
             # These are bonus - primary is already safe in Neon
-            workflow.logger.info("Phase B: Creating remaining cluster articles (Guide/YOLO/Voices)")
+            workflow.logger.info("Phase B: Creating remaining cluster articles (Guide/YOLO/Voices/Nomad)")
 
             remaining_modes = [
                 {
@@ -719,6 +721,12 @@ class CountryGuideCreationWorkflow:
                     "content": content_modes["voices"].get("content", ""),  # Generated HTML content featuring testimonials
                     "meta_description": f"Real expat voices and experiences from {country_name}. Authentic stories from people who made the move.",
                     "excerpt": f"Hear from real expats in {country_name}.",
+                },
+                {
+                    "mode": "nomad",
+                    "content": content_modes["nomad"].get("content", ""),
+                    "meta_description": f"Digital nomad guide to {country_name}. Remote work visas, coworking spaces, wifi speed, and laptop lifestyle tips.",
+                    "excerpt": f"Digital nomad life in {country_name}: visa, wifi, and work-from-anywhere.",
                 },
             ]
 
@@ -1393,7 +1401,7 @@ class CountryGuideCreationWorkflow:
 
         # Add segment videos to metrics
         metrics["segment_videos"] = len(segment_videos)
-        metrics["content_modes"] = 4  # story, guide, yolo, voices
+        metrics["content_modes"] = 5  # story, guide, yolo, voices, nomad
 
         return {
             "article_id": article_id,

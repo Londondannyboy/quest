@@ -1541,7 +1541,7 @@ def get_clothing_prompt(country: str, mode: str) -> str:
 
     Args:
         country: Country name
-        mode: Content mode (story, guide, yolo, voices)
+        mode: Content mode (story, guide, yolo, voices, nomad)
 
     Returns:
         Clothing instruction string for video prompt
@@ -1552,6 +1552,12 @@ def get_clothing_prompt(country: str, mode: str) -> str:
         return """CLOTHING BY ACT (avoid text corruption):
 ACT 1: Bright YOLO t-shirt with YELLOW letters clearly visible on chest.
 ACTS 2-4: Athletic/adventure wear - running jacket, sports top, or casual tee. NO text, NO logos."""
+
+    if mode == "nomad":
+        # Digital nomad - younger, tech-casual, modern aesthetic
+        return """CLOTHING BY ACT (avoid text corruption):
+ACT 1: Quest t-shirt with 'QUEST' in WHITE letters, wireless earbuds visible.
+ACTS 2-4: Tech-casual style - fitted hoodie, clean minimalist tee, smart-casual layers. NO text, NO logos. Modern digital nomad aesthetic."""
 
     if is_cold:
         return """CLOTHING BY ACT (avoid text corruption):
@@ -1823,6 +1829,38 @@ Cast: 30s creative professional (preferably woman), relaxed linen clothing, cont
             {
                 "title": "Neighborhood Regular",
                 "hint": "ORBITING SHOT, subject at favorite cafe, coffee arriving without ordering. Barista nods knowingly, subject waves to neighbor. Warm afternoon light, dappled shade, community embraced."
+            }
+        ]
+    },
+
+    # ========================================================================
+    # NOMAD MODE - Digital nomad lifestyle, young tech professional
+    # ========================================================================
+    "nomad": {
+        "title": "Digital Nomad Life in {country}",
+        "mode": "nomad",
+        "style": "Contemporary, tech-forward, lifestyle vlog aesthetic, natural handheld, Instagram-ready",
+        "energy": "upbeat",
+        "preamble": """CRITICAL: NO text, words, letters, signs, logos anywhere. Laptop screens show abstract colors only.
+SAME SUBJECT throughout all 4 acts - follow ONE digital nomad's day.
+Cast: Late 20s creative (preferably woman), casual smart style, modern haircut, always has laptop or phone.
+{clothing}""",
+        "acts": [
+            {
+                "title": "Morning Workflow",
+                "hint": "TRACKING SHOT following subject through stylish {country} coworking space. Finds perfect spot by window with {landmark} view. Opens laptop (abstract colors on screen), puts on wireless earbuds. Modern industrial decor, great wifi vibes. Natural morning light, productive energy."
+            },
+            {
+                "title": "Cafe Office",
+                "hint": "DIFFERENT LOCATION: MEDIUM SHOT, subject settled in hip {country} cafe, laptop open, artisan coffee beside. Typing focused, then looks up with satisfied smile at surroundings. Exposed brick, plants, other remote workers in background. Afternoon light, community of nomads."
+            },
+            {
+                "title": "Golden Hour Break",
+                "hint": "TRACKING SHOT, subject walks through scenic {country} streets with phone, taking photos of {scenery}. Stops at viewpoint overlooking {landmark}. Posts something (abstract screen), gets instant reactions. Sunset colors, content creation vibes."
+            },
+            {
+                "title": "Sunset Social",
+                "hint": "WIDE to MEDIUM, rooftop bar or terrace WITH OTHER YOUNG NOMADS, laptops closed, drinks clinking. Subject LAUGHING with new friends, animated conversation. {landmark} glowing in background sunset. Genuine connections, living the dream, community found."
             }
         ]
     }
