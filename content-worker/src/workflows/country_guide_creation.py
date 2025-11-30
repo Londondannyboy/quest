@@ -930,6 +930,21 @@ class CountryGuideCreationWorkflow:
                         continue
 
                 workflow.logger.info(f"Created {len(topic_cluster_articles)} topic cluster articles")
+
+                # C.2: Inherit parent video to all topic cluster children
+                if parent_id and parent_playback_id:
+                    workflow.logger.info("  C.2: Inheriting parent video to topic cluster articles...")
+                    try:
+                        inherit_result = await workflow.execute_activity(
+                            "inherit_parent_video_to_children",
+                            args=[parent_id],
+                            start_to_close_timeout=timedelta(seconds=30)
+                        )
+                        workflow.logger.info(
+                            f"    Inherited video to {inherit_result.get('updated_count', 0)} children"
+                        )
+                    except Exception as e:
+                        workflow.logger.warning(f"    Video inheritance failed: {e}")
             else:
                 workflow.logger.info("Phase C: No high-volume keywords found, skipping topic clusters")
 
@@ -993,6 +1008,23 @@ class CountryGuideCreationWorkflow:
 
                 workflow.logger.info(f"    Aggregated {len(hub_payload.get('cluster_articles', []))} articles into hub")
 
+                # D.2.5: Get all cluster videos for section assignments
+                workflow.logger.info("  D.2.5: Getting cluster videos for section assignments...")
+                cluster_videos = await workflow.execute_activity(
+                    "get_cluster_videos",
+                    args=[cluster_id],
+                    start_to_close_timeout=timedelta(seconds=30)
+                )
+
+                # Add video assignments to hub payload
+                hub_payload["cluster_videos"] = cluster_videos.get("videos_by_mode", {})
+                hub_payload["section_video_assignments"] = cluster_videos.get("section_videos", {})
+
+                workflow.logger.info(
+                    f"    Found {len(cluster_videos.get('videos_by_mode', {}))} cluster videos: "
+                    f"{list(cluster_videos.get('videos_by_mode', {}).keys())}"
+                )
+
                 # D.3: Generate full hub content
                 workflow.logger.info("  D.3: Generating hub content...")
                 hub_content = await workflow.execute_activity(
@@ -1008,8 +1040,12 @@ class CountryGuideCreationWorkflow:
                 primary_kw = hub_seo_data.get("primary_keyword", "")
                 total_vol = hub_seo_data.get("total_volume", 0)
 
-                # Get video from primary article
-                primary_video = story_result.get("video_playback_id") if story_result else None
+                # Get video from cluster_videos (preferred) or story_result
+                primary_video = (
+                    cluster_videos.get("primary_video") or
+                    story_result.get("video_playback_id") if story_result else None
+                )
+                workflow.logger.info(f"    Hub primary video: {primary_video[:25] if primary_video else 'None'}...")
 
                 hub_save_result = await workflow.execute_activity(
                     "save_or_update_country_hub",

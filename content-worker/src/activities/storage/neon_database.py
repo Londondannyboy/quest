@@ -1112,3 +1112,128 @@ async def get_videos_by_country(country: str) -> List[Dict[str, Any]]:
     except Exception as e:
         activity.logger.error(f"Failed to fetch videos by country: {e}")
         return []
+
+
+@activity.defn(name="inherit_parent_video_to_children")
+async def inherit_parent_video_to_children(
+    parent_id: int
+) -> Dict[str, Any]:
+    """
+    Copy parent article's video_playback_id to all child topic cluster articles.
+
+    Topic cluster articles don't generate their own videos - they inherit
+    from the parent (Story) article for thumbnail display.
+
+    Args:
+        parent_id: ID of the parent article (Story mode)
+
+    Returns:
+        Dict with updated_count and video_playback_id used
+    """
+    activity.logger.info(f"Inheriting video from parent {parent_id} to children")
+
+    try:
+        async with await psycopg.AsyncConnection.connect(
+            config.DATABASE_URL
+        ) as conn:
+            async with conn.cursor() as cur:
+                # Get parent's video
+                await cur.execute("""
+                    SELECT video_playback_id FROM articles WHERE id = %s
+                """, (parent_id,))
+
+                parent = await cur.fetchone()
+                if not parent or not parent[0]:
+                    activity.logger.warning(f"Parent {parent_id} has no video_playback_id")
+                    return {"updated_count": 0, "video_playback_id": None}
+
+                parent_video = parent[0]
+
+                # Update all children that don't have their own video
+                await cur.execute("""
+                    UPDATE articles
+                    SET video_playback_id = %s
+                    WHERE parent_id = %s
+                      AND (video_playback_id IS NULL OR video_playback_id = '')
+                    RETURNING id
+                """, (parent_video, parent_id))
+
+                updated = await cur.fetchall()
+                updated_count = len(updated)
+
+                await conn.commit()
+
+                activity.logger.info(f"Updated {updated_count} children with video {parent_video[:20]}...")
+                return {
+                    "updated_count": updated_count,
+                    "video_playback_id": parent_video
+                }
+
+    except Exception as e:
+        activity.logger.error(f"Failed to inherit video to children: {e}")
+        return {"updated_count": 0, "error": str(e)}
+
+
+@activity.defn(name="get_cluster_videos")
+async def get_cluster_videos(
+    cluster_id: str
+) -> Dict[str, Any]:
+    """
+    Get all videos from a cluster for hub section assignment.
+
+    Returns video_playback_ids organized by article_mode, ready for
+    hub template to assign to different sections.
+
+    Args:
+        cluster_id: UUID of the cluster
+
+    Returns:
+        Dict with videos by mode and recommended section assignments
+    """
+    activity.logger.info(f"Getting cluster videos for {cluster_id}")
+
+    try:
+        async with await psycopg.AsyncConnection.connect(
+            config.DATABASE_URL
+        ) as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("""
+                    SELECT article_mode, video_playback_id, title, slug
+                    FROM articles
+                    WHERE cluster_id = %s
+                      AND video_playback_id IS NOT NULL
+                      AND article_mode IN ('story', 'guide', 'yolo', 'voices')
+                    ORDER BY article_mode
+                """, (cluster_id,))
+
+                rows = await cur.fetchall()
+
+                videos_by_mode = {}
+                for row in rows:
+                    mode = row[0]
+                    videos_by_mode[mode] = {
+                        "video_playback_id": row[1],
+                        "title": row[2],
+                        "slug": row[3]
+                    }
+
+                # Recommended section assignments for hub template
+                section_videos = {
+                    "hero": videos_by_mode.get("story", {}).get("video_playback_id"),
+                    "intro_background": videos_by_mode.get("yolo", {}).get("video_playback_id"),
+                    "practical_section": videos_by_mode.get("guide", {}).get("video_playback_id"),
+                    "lifestyle_section": videos_by_mode.get("yolo", {}).get("video_playback_id"),
+                    "voices_section": videos_by_mode.get("voices", {}).get("video_playback_id"),
+                    "cta_background": videos_by_mode.get("story", {}).get("video_playback_id"),
+                }
+
+                activity.logger.info(f"Found {len(videos_by_mode)} cluster videos")
+                return {
+                    "videos_by_mode": videos_by_mode,
+                    "section_videos": section_videos,
+                    "primary_video": videos_by_mode.get("story", {}).get("video_playback_id")
+                }
+
+    except Exception as e:
+        activity.logger.error(f"Failed to get cluster videos: {e}")
+        return {"videos_by_mode": {}, "section_videos": {}, "primary_video": None}

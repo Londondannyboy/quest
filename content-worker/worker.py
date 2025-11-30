@@ -175,6 +175,9 @@ from src.activities.storage.neon_database import (
     save_video_tags,
     get_videos_by_cluster,
     get_videos_by_country,
+    # NEW: Video inheritance for topic clusters and hubs
+    inherit_parent_video_to_children,
+    get_cluster_videos,
 )
 
 from src.activities.storage.neon_countries import (
@@ -382,6 +385,9 @@ async def main():
             save_video_tags,
             get_videos_by_cluster,
             get_videos_by_country,
+            # Video inheritance for topic clusters and hubs
+            inherit_parent_video_to_children,
+            get_cluster_videos,
 
             # Country Guide Database
             save_or_create_country,
