@@ -317,22 +317,27 @@ accurate, up-to-date information gathered from official sources and real experie
 
 CRITICAL KNOWLEDGE BASE RULES:
 1. If there is a "Relevant information from the knowledge base" section below AND it contains
-   information that answers the user's question:
-   - You MUST use the knowledge base information as your primary source
-   - If articles are mentioned with URLs, recommend them by saying "You can read more in our guide at relocation.quest/[slug]"
-   - This signals to the user that you're using our proprietary relocation data
+   SPECIFIC information about the country/topic the user asked about:
+   - Start with something like "Great news! We have info on that." or "Yes, we cover [country/topic]!"
+   - Use the knowledge base information as your primary source
+   - If articles are mentioned with URLs, recommend them: "Check out our guide at relocation.quest/[slug]"
 
-2. If there is NO "Relevant information from the knowledge base" section, OR the knowledge base
-   information doesn't confidently answer the user's question:
-   - You can provide general helpful information, but clarify it's general knowledge
-   - Suggest they check relocation.quest for country-specific guides
-   - For visa/legal questions without KB data, recommend consulting official government websites
+2. If the knowledge base contains only TANGENTIAL mentions (e.g., the country appears in a
+   "best countries" list but we don't have a dedicated guide):
+   - Say something like "We mention [country] in some of our comparison articles, but we don't
+     have a dedicated guide yet."
+   - Don't pretend to have comprehensive coverage if we don't
 
-3. For authoritative external sources, you may reference:
-   - Official government immigration websites (e.g., "Check the Cyprus immigration portal")
+3. If there is NO relevant information in the knowledge base:
+   - Be honest: "We don't have detailed coverage of [country/topic] yet, but I can share some general info."
+   - Provide brief general knowledge if helpful
+   - Suggest they check back as we're always adding new country guides
+
+4. For authoritative external sources, you may reference:
+   - Official government immigration websites (e.g., "You'll want to check the [country] immigration portal")
    - Numbeo for cost of living comparisons
-   - Expat forums like InterNations or ExpatFocus
-   But always encourage them to verify on relocation.quest first.
+   - Expat communities like InterNations
+   Always mention these as supplementary resources.
 
 VOICE RESPONSE GUIDELINES:
 - Keep responses under 100 words (this is voice interaction)
@@ -1255,3 +1260,112 @@ async def get_access_token(request: Optional[Dict[str, Any]] = None):
             status_code=500,
             detail=f"Failed to generate access token: {str(e)}"
         )
+
+
+# ============================================================================
+# RELATED CONTENT ENDPOINT (for facts panel)
+# ============================================================================
+
+@router.post("/related-content")
+async def get_related_content(request: Request):
+    """
+    Fetch related content (articles, companies, countries) for a given query.
+    This is used to display a "facts panel" below the voice widget.
+
+    Returns structured data that can be displayed in the UI.
+    """
+    try:
+        body = await request.json()
+        query = body.get("query", "")
+
+        if not query:
+            return {"articles": [], "companies": [], "countries": [], "external": []}
+
+        logger.info("related_content_request", query=query)
+
+        # Initialize Neon store
+        neon_store = None
+        if DATABASE_URL:
+            neon_store = NeonKnowledgeStore(DATABASE_URL)
+
+        articles = []
+        companies = []
+        countries = []
+
+        if neon_store:
+            # Fetch from database
+            country_results = await neon_store.search_countries(query)
+            article_results = await neon_store.search_articles(query)
+            company_results = await neon_store.search_companies(query)
+
+            # Format countries
+            for c in country_results:
+                countries.append({
+                    "name": c.get("name"),
+                    "flag": c.get("flag_emoji", "🌍"),
+                    "url": f"/countries/{c.get('slug', c.get('name', '').lower().replace(' ', '-'))}",
+                    "region": c.get("region"),
+                    "capital": c.get("capital"),
+                    "highlights": c.get("motivations", [])[:3]
+                })
+
+            # Format articles
+            for a in article_results:
+                articles.append({
+                    "title": a.get("title"),
+                    "url": f"/{a.get('slug', '')}",
+                    "excerpt": (a.get("excerpt") or a.get("description", ""))[:150],
+                    "type": a.get("article_type", "guide")
+                })
+
+            # Format companies
+            for co in company_results:
+                companies.append({
+                    "name": co.get("name"),
+                    "url": f"/companies/{co.get('slug', '')}",
+                    "description": (co.get("description") or co.get("overview", ""))[:100],
+                    "services": co.get("services", [])[:3]
+                })
+
+        # Suggest external resources based on query keywords
+        external = []
+        query_lower = query.lower()
+
+        if any(word in query_lower for word in ["visa", "permit", "immigration"]):
+            external.append({
+                "title": "Official Immigration Portals",
+                "description": "Always verify visa requirements with official government sources",
+                "type": "government"
+            })
+
+        if any(word in query_lower for word in ["cost", "living", "rent", "salary", "expensive"]):
+            external.append({
+                "title": "Numbeo Cost of Living",
+                "url": "https://www.numbeo.com/cost-of-living/",
+                "description": "Compare cost of living data worldwide",
+                "type": "reference"
+            })
+
+        if any(word in query_lower for word in ["expat", "community", "moving", "relocate"]):
+            external.append({
+                "title": "InterNations Expat Community",
+                "url": "https://www.internations.org/",
+                "description": "Connect with expats and get local insights",
+                "type": "community"
+            })
+
+        logger.info("related_content_found",
+                   articles=len(articles),
+                   companies=len(companies),
+                   countries=len(countries))
+
+        return {
+            "articles": articles[:5],
+            "companies": companies[:3],
+            "countries": countries[:3],
+            "external": external
+        }
+
+    except Exception as e:
+        logger.error("related_content_error", error=str(e))
+        return {"articles": [], "companies": [], "countries": [], "external": []}
