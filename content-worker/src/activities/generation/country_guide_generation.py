@@ -708,20 +708,24 @@ This is NON-NEGOTIABLE. Content under this threshold is UNUSABLE.
    - Address common questions within each section
    - Include practical tips and insider knowledge
 
-4. **RICH SOURCE LINKS** - Every paragraph needs source citations
+4. **RICH SOURCE LINKS** - EVERY fact, statistic, or claim needs a source citation
+   - Minimum 20-30 external links throughout the article
+   - Every paragraph with factual content MUST have at least 1-2 source links
 5. **SPECIFIC DATA** - Real numbers: tax rates, visa costs, income requirements, processing times
 6. **AVOID AI PHRASES** - No "dive into", "leverage", "unlock", etc.
 
 **QUALITY CHECK:** Before finishing, mentally verify each motivation section has substantial content.
 If any section feels thin (under 300 words), EXPAND IT with more detail, examples, and data.
 
-===== WRITING STYLE =====
+===== WRITING STYLE & FORMATTING =====
 - Professional but accessible
 - Use contractions (it's, don't, won't)
-- Short paragraphs (2-3 sentences max)
+- **CRITICAL: Short paragraphs (2-3 sentences max)**
+- **LINE BREAKS: Add `<br>` or new `<p>` after every 2 sentences** - especially in first 2 paragraphs
 - Bold key statistics: <strong>12.5% corporate tax</strong>
 - Use blockquotes for key quotes or warnings
 - Lists for requirements and steps
+- **Visual components**: Use callout boxes, stat highlights, comparison tables frequently
 
 ===== EXTERNAL LINKS (CRITICAL - Back Up Every Claim) =====
 
@@ -745,7 +749,7 @@ If any section feels thin (under 300 words), EXPAND IT with more detail, example
 ❌ "Slovakia has low taxes." (no source)
 ❌ "[Click here for more information about tax rates](url)" (bad anchor text)
 
-**Minimum: 10-15 external source links throughout the article.**
+**Minimum: 20-30 external source links throughout the article.** More is better - link every fact!
 
 {get_mode_specific_prompt(mode, country_name, voices or [], primary_slug, sibling_slugs)}
 
