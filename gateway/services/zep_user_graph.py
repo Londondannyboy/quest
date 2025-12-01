@@ -2,7 +2,7 @@
 ZEP User Graph Service
 
 Manages user profile facts in ZEP knowledge graph for semantic querying.
-Each user gets their own subgraph within the "users" graph.
+Uses the user ontology (User, Destination, CareerProfile, etc.) for structured extraction.
 """
 
 import os
@@ -14,6 +14,27 @@ logger = structlog.get_logger()
 
 ZEP_API_KEY = os.getenv("ZEP_API_KEY")
 ZEP_USERS_GRAPH_ID = os.getenv("ZEP_GRAPH_ID_USERS", "users")
+
+# Import ontology helpers
+try:
+    import sys
+    gateway_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if gateway_dir not in sys.path:
+        sys.path.insert(0, gateway_dir)
+    from models.user_ontology import (
+        extract_user_entity,
+        extract_destination_entity,
+        extract_career_entity,
+        extract_organization_entity,
+        extract_motivation_entity,
+        extract_family_entity,
+        extract_financial_entity,
+        extract_preference_entity,
+    )
+    ONTOLOGY_HELPERS_AVAILABLE = True
+except ImportError as e:
+    ONTOLOGY_HELPERS_AVAILABLE = False
+    logger.warning("user_ontology_helpers_not_available", error=str(e))
 
 
 class ZepUserGraphService:
@@ -170,109 +191,278 @@ class ZepUserGraphService:
         app_id: str
     ) -> Dict[str, Any]:
         """
-        Build structured data for ZEP ingestion.
+        Build structured data for ZEP ingestion using ontology entity types.
 
-        ZEP will extract entities and relationships from this.
+        Creates structured entities that ZEP can extract as:
+        - User entity (central node)
+        - Destination entities (INTERESTED_IN edge)
+        - Origin entity (LOCATED_IN edge)
+        - CareerProfile entity (HAS_CAREER edge)
+        - Organization entity (EMPLOYED_BY edge)
+        - Motivation entities (MOTIVATED_BY edge)
+        - FamilyUnit entity (HAS_FAMILY edge)
+        - FinancialProfile entity (HAS_FINANCES edge)
         """
-        # Core user entity
+        profile = profile or {}
+
+        # Build entities list for structured extraction
+        entities = []
+        relationships = []
+
+        # 1. USER ENTITY (central node)
         user_entity = {
-            "type": "User",
-            "id": user_id,
-            "app_id": app_id
+            "entity_type": "User",
+            "name": f"User {user_id}",
+            "user_type": profile.get("user_type", "individual"),
+            "source_app": app_id,
+            "stack_user_id": user_id,
+            "nationality": profile.get("nationality"),
         }
+        entities.append(user_entity)
 
-        # Build natural language summary for better entity extraction
-        summary_parts = [f"User {user_id} from {app_id} application."]
+        # 2. ORIGIN (current location) - LOCATED_IN edge
+        if profile.get("current_city") or profile.get("current_country"):
+            location = ", ".join(filter(None, [
+                profile.get("current_city"),
+                profile.get("current_country")
+            ]))
+            origin_entity = {
+                "entity_type": "Origin",
+                "name": location,
+                "location_type": "current",
+            }
+            entities.append(origin_entity)
+            relationships.append({
+                "edge_type": "LOCATED_IN",
+                "source": f"User {user_id}",
+                "target": location,
+                "location_type": "current"
+            })
 
-        # Profile-based facts
-        if profile:
-            if profile.get("current_city") or profile.get("current_country"):
-                location = ", ".join(filter(None, [
-                    profile.get("current_city"),
-                    profile.get("current_country")
-                ]))
-                summary_parts.append(f"Currently located in {location}.")
-                user_entity["current_location"] = location
+        # 3. DESTINATIONS - INTERESTED_IN edges
+        if profile.get("destination_countries"):
+            destinations = profile["destination_countries"]
+            if isinstance(destinations, list):
+                for i, country in enumerate(destinations):
+                    # First destination is primary, rest are exploring
+                    interest_level = "primary" if i == 0 else "exploring"
+                    dest_entity = {
+                        "entity_type": "Destination",
+                        "name": country,
+                        "interest_level": interest_level,
+                        "context": "personal",  # Default, can be overridden by facts
+                    }
+                    entities.append(dest_entity)
+                    relationships.append({
+                        "edge_type": "INTERESTED_IN",
+                        "source": f"User {user_id}",
+                        "target": country,
+                        "interest_level": interest_level,
+                        "context": "personal"
+                    })
 
-            if profile.get("destination_countries"):
-                destinations = profile["destination_countries"]
-                if isinstance(destinations, list) and destinations:
-                    dest_str = ", ".join(destinations)
-                    summary_parts.append(f"Interested in relocating to: {dest_str}.")
-                    user_entity["destinations"] = destinations
+        # 4. CAREER PROFILE - HAS_CAREER edge
+        if profile.get("job_title") or profile.get("industry"):
+            work_style = "remote" if profile.get("remote_work") else "office"
+            career_entity = {
+                "entity_type": "CareerProfile",
+                "name": profile.get("job_title") or f"Career in {profile.get('industry')}",
+                "job_title": profile.get("job_title"),
+                "industry": profile.get("industry"),
+                "work_style": work_style,
+            }
+            entities.append(career_entity)
+            relationships.append({
+                "edge_type": "HAS_CAREER",
+                "source": f"User {user_id}",
+                "target": career_entity["name"],
+                "status": "current"
+            })
 
-            if profile.get("job_title"):
-                summary_parts.append(f"Works as {profile['job_title']}.")
-                user_entity["profession"] = profile["job_title"]
+        # 5. ORGANIZATION (employer) - EMPLOYED_BY edge
+        if profile.get("employer") or profile.get("company_name"):
+            org_entity = {
+                "entity_type": "Organization",
+                "name": profile.get("employer") or profile.get("company_name"),
+                "company_type": "employer",
+                "industry": profile.get("company_industry"),
+            }
+            entities.append(org_entity)
+            relationships.append({
+                "edge_type": "EMPLOYED_BY",
+                "source": f"User {user_id}",
+                "target": org_entity["name"],
+                "role": "employee"
+            })
 
-            if profile.get("industry"):
-                summary_parts.append(f"Industry: {profile['industry']}.")
-                user_entity["industry"] = profile["industry"]
+        # 6. FINANCIAL PROFILE - HAS_FINANCES edge
+        if profile.get("budget_monthly") or profile.get("income_range"):
+            finance_entity = {
+                "entity_type": "FinancialProfile",
+                "name": "Finances",
+                "monthly_budget": str(profile.get("budget_monthly")) if profile.get("budget_monthly") else None,
+                "income_range": profile.get("income_range"),
+            }
+            entities.append(finance_entity)
+            relationships.append({
+                "edge_type": "HAS_FINANCES",
+                "source": f"User {user_id}",
+                "target": "Finances"
+            })
 
-            if profile.get("remote_work"):
-                summary_parts.append("Has remote work capability.")
-                user_entity["remote_work"] = True
+        # 7. MOTIVATIONS - MOTIVATED_BY edges
+        if profile.get("relocation_motivation"):
+            motives = profile["relocation_motivation"]
+            if isinstance(motives, list):
+                for motive in motives:
+                    motive_entity = {
+                        "entity_type": "Motivation",
+                        "name": motive,
+                        "motivation_type": "both",  # personal + professional
+                        "category": self._categorize_motivation(motive),
+                        "strength": "important"
+                    }
+                    entities.append(motive_entity)
+                    relationships.append({
+                        "edge_type": "MOTIVATED_BY",
+                        "source": f"User {user_id}",
+                        "target": motive,
+                        "strength": "important"
+                    })
 
-            if profile.get("budget_monthly"):
-                summary_parts.append(f"Monthly budget: ${profile['budget_monthly']}.")
-                user_entity["budget"] = profile["budget_monthly"]
+        # 8. FAMILY - HAS_FAMILY edge
+        if profile.get("has_children") or profile.get("family_status"):
+            family_entity = {
+                "entity_type": "FamilyUnit",
+                "name": "Family",
+                "status": profile.get("family_status", "unknown"),
+                "children_count": str(profile.get("number_of_children")) if profile.get("number_of_children") else None,
+            }
+            entities.append(family_entity)
+            relationships.append({
+                "edge_type": "HAS_FAMILY",
+                "source": f"User {user_id}",
+                "target": "Family"
+            })
 
-            if profile.get("timeline"):
-                timeline_labels = {
-                    'asap': 'as soon as possible',
-                    '3-6months': '3-6 months',
-                    '6-12months': '6-12 months',
-                    '1-2years': '1-2 years',
-                    'exploring': 'still exploring options'
-                }
-                tl = timeline_labels.get(profile["timeline"], profile["timeline"])
-                summary_parts.append(f"Timeline: {tl}.")
-                user_entity["timeline"] = profile["timeline"]
-
-            if profile.get("relocation_motivation"):
-                motives = profile["relocation_motivation"]
-                if isinstance(motives, list) and motives:
-                    summary_parts.append(f"Motivations: {', '.join(motives)}.")
-                    user_entity["motivations"] = motives
-
-        # Add facts from user_profile_facts table
-        facts_summary = []
+        # Process additional facts from user_profile_facts table
         for fact in facts:
             fact_type = fact.get("fact_type")
             fact_value = fact.get("fact_value", {})
-            confidence = fact.get("confidence", 0.5)
-
-            # Extract value
-            value = fact_value.get("value") or fact_value.get("country") or json.dumps(fact_value)
 
             if fact_type == "destination":
-                interest_level = fact_value.get("interest_level", "exploring")
-                facts_summary.append(f"Destination interest: {value} ({interest_level}, {confidence:.0%} confidence)")
-            elif fact_type == "origin":
-                facts_summary.append(f"Origin: {value}")
-            elif fact_type == "family":
-                facts_summary.append(f"Family status: {value}")
-            elif fact_type == "profession":
-                facts_summary.append(f"Profession: {value}")
-            elif fact_type == "budget":
-                facts_summary.append(f"Budget: {value}")
-            elif fact_type == "timeline":
-                facts_summary.append(f"Timeline: {value}")
-            else:
-                facts_summary.append(f"{fact_type}: {value}")
+                country = fact_value.get("country") or fact_value.get("value")
+                if country:
+                    interest_level = fact_value.get("interest_level", "exploring")
+                    dest_entity = {
+                        "entity_type": "Destination",
+                        "name": country,
+                        "interest_level": interest_level,
+                        "context": fact_value.get("context", "personal"),
+                    }
+                    entities.append(dest_entity)
+                    relationships.append({
+                        "edge_type": "INTERESTED_IN",
+                        "source": f"User {user_id}",
+                        "target": country,
+                        "interest_level": interest_level
+                    })
 
-        if facts_summary:
-            summary_parts.append("Extracted facts: " + "; ".join(facts_summary))
+            elif fact_type == "goal":
+                goal_entity = {
+                    "entity_type": "Goal",
+                    "name": fact_value.get("description") or fact_value.get("value"),
+                    "goal_type": fact_value.get("type", "personal"),
+                    "priority": fact_value.get("priority", "medium"),
+                }
+                entities.append(goal_entity)
+                relationships.append({
+                    "edge_type": "HAS_GOAL",
+                    "source": f"User {user_id}",
+                    "target": goal_entity["name"]
+                })
+
+        # Build narrative summary for better semantic search
+        summary = self._build_narrative_summary(user_id, app_id, entities, relationships)
 
         return {
             "user_id": user_id,
             "app_id": app_id,
-            "entity": user_entity,
-            "summary": " ".join(summary_parts),
-            "facts": facts,
-            "profile": profile,
-            "entity_type": "user_profile"
+            "entities": entities,
+            "relationships": relationships,
+            "summary": summary,
+            "entity_type": "user_profile_structured"
         }
+
+    def _categorize_motivation(self, motive: str) -> str:
+        """Map motivation text to ontology category."""
+        motive_lower = motive.lower()
+        category_map = {
+            "tax": "tax", "taxes": "tax", "lower taxes": "tax",
+            "lifestyle": "lifestyle", "quality of life": "lifestyle",
+            "adventure": "adventure", "travel": "adventure",
+            "family": "family", "children": "family", "schools": "family",
+            "career": "career", "job": "career", "work": "career",
+            "cost": "cost_of_living", "cheaper": "cost_of_living", "affordable": "cost_of_living",
+            "weather": "weather", "climate": "weather", "sun": "weather", "warm": "weather",
+            "business": "business_setup", "startup": "business_setup", "company": "business_setup",
+        }
+        for keyword, cat in category_map.items():
+            if keyword in motive_lower:
+                return cat
+        return "lifestyle"  # default
+
+    def _build_narrative_summary(
+        self,
+        user_id: str,
+        app_id: str,
+        entities: List[Dict],
+        relationships: List[Dict]
+    ) -> str:
+        """Build natural language summary for semantic search."""
+        parts = [f"User {user_id} from {app_id} application."]
+
+        for entity in entities:
+            etype = entity.get("entity_type")
+            name = entity.get("name", "")
+
+            if etype == "Origin":
+                parts.append(f"Currently located in {name}.")
+            elif etype == "Destination":
+                level = entity.get("interest_level", "exploring")
+                context = entity.get("context", "personal")
+                parts.append(f"Interested in relocating to {name} ({level} interest, {context} reasons).")
+            elif etype == "CareerProfile":
+                title = entity.get("job_title")
+                industry = entity.get("industry")
+                style = entity.get("work_style")
+                if title:
+                    parts.append(f"Works as {title}.")
+                if industry:
+                    parts.append(f"Industry: {industry}.")
+                if style == "remote":
+                    parts.append("Has remote work capability.")
+            elif etype == "Organization":
+                parts.append(f"Employed by {name}.")
+            elif etype == "FinancialProfile":
+                budget = entity.get("monthly_budget")
+                if budget:
+                    parts.append(f"Monthly budget: ${budget}.")
+            elif etype == "Motivation":
+                category = entity.get("category", "lifestyle")
+                parts.append(f"Motivated by {name} ({category}).")
+            elif etype == "FamilyUnit":
+                status = entity.get("status")
+                children = entity.get("children_count")
+                if status:
+                    parts.append(f"Family status: {status}.")
+                if children:
+                    parts.append(f"Has {children} children.")
+            elif etype == "Goal":
+                goal_type = entity.get("goal_type", "personal")
+                parts.append(f"{goal_type.capitalize()} goal: {name}.")
+
+        return " ".join(parts)
 
     # ========================================================================
     # QUERYING

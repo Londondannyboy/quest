@@ -510,7 +510,8 @@ TONE:
                         logger.warning("supermemory_store_error", error=str(e))
 
                 # Store extracted facts in Neon for structured querying and user edits
-                if user_profile_service and USER_PROFILE_ENABLED and user_id != "anonymous":
+                # Only store if we have a valid user_id (not None, not empty, not "anonymous")
+                if user_profile_service and USER_PROFILE_ENABLED and user_id and user_id != "anonymous":
                     try:
                         # Extract facts if not already done
                         if not extracted_info:
@@ -518,6 +519,7 @@ TONE:
 
                         if extracted_info:
                             # Get or create user profile
+                            logger.info("storing_facts_for_user", user_id=user_id, facts=list(extracted_info.keys()))
                             profile_id = await user_profile_service.get_or_create_profile(user_id)
 
                             if profile_id:
