@@ -556,13 +556,25 @@ class CountryGuideCreationWorkflow:
             # Combine curation voices with Reddit voices
             curation_voices = curation_result.get("voices", [])
             reddit_voices_list = research_context.get("reddit_voices", [])
-            all_voices = curation_voices + reddit_voices_list
-            research_context["voices"] = all_voices  # Combined human perspectives
+
+            # Filter to testimonials only for voices mode (real expat experiences)
+            # Other voice types (expert, official, media) are stored separately for other modes
+            testimonial_voices = [
+                v for v in curation_voices
+                if v.get("type") == "testimonial"
+            ]
+            all_voices = testimonial_voices + reddit_voices_list
+            research_context["voices"] = all_voices  # Testimonial voices only
+
+            # Store other voice types separately for other content modes
+            research_context["expert_voices"] = [v for v in curation_voices if v.get("type") == "expert"]
+            research_context["official_voices"] = [v for v in curation_voices if v.get("type") == "official"]
+            research_context["media_voices"] = [v for v in curation_voices if v.get("type") == "media"]
 
             workflow.logger.info(
                 f"Curation complete: {len(research_context.get('curated_sources', []))} sources, "
                 f"{len(research_context.get('key_facts', []))} facts, "
-                f"{len(curation_voices)} curation voices + {len(reddit_voices_list)} Reddit voices = {len(all_voices)} total"
+                f"{len(testimonial_voices)} testimonial voices + {len(reddit_voices_list)} Reddit voices = {len(all_voices)} total"
             )
 
         except Exception as e:

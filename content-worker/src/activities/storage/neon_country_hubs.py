@@ -666,6 +666,20 @@ async def generate_hub_content(
     # Combine all sections
     full_content = "\n\n---\n\n".join(sections)
 
+    # Inject section images into hub content if video exists
+    hub_video_playback_id = payload.get("video_playback_id")
+    if hub_video_playback_id and full_content:
+        activity.logger.info("Injecting section images into hub content...")
+        from src.utils.inject_section_images import inject_section_images
+
+        full_content = inject_section_images(
+            full_content,
+            hub_video_playback_id,
+            image_width=1200,
+            max_sections=4
+        )
+        activity.logger.info("Section images injected to hub")
+
     activity.logger.info(f"Generated hub content: {len(full_content)} chars, {len(sections)} sections")
 
     return full_content

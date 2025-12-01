@@ -74,6 +74,28 @@ MOTIVATIONS = {
 }
 
 
+def detect_target_market(title: str, topic: str = "") -> str:
+    """
+    Detect target market from title/topic keywords for video prompt customization.
+
+    Returns: 'indian', 'chinese', 'european', 'global'
+    """
+    text = f"{title} {topic}".lower()
+
+    # Indian market indicators
+    indian_keywords = ['indian', 'india', 'indians', 'delhi', 'mumbai', 'bangalore', 'indian expat', 'from india']
+    if any(keyword in text for keyword in indian_keywords):
+        return 'indian'
+
+    # Chinese market indicators
+    chinese_keywords = ['chinese', 'china', 'beijing', 'shanghai', 'chinese national', 'from china']
+    if any(keyword in text for keyword in chinese_keywords):
+        return 'chinese'
+
+    # Default to European/global
+    return 'european'
+
+
 def extract_country_guide_data(response_text: str) -> Dict[str, Any]:
     """
     Extract structured JSON data from country guide response.
@@ -347,6 +369,17 @@ A fun disclaimer: "YOLO Mode is for inspiration. Please do actual research befor
         return f"""
 ===== VOICES MODE: TESTIMONIAL & COMMUNITY STYLE =====
 
+**MANDATORY DISCLAIMER:** Start the article with this exact disclaimer block (copy verbatim):
+
+<div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-8">
+  <p class="text-sm text-gray-700">
+    <strong>Note:</strong> The video above is AI-generated for visual storytelling.
+    All experiences, quotes, and testimonials below are from real people who have
+    relocated to {country_name} or are considering it. Sources include Reddit
+    communities, expat forums, and verified media interviews.
+  </p>
+</div>
+
 **PRIMARY FOCUS:** This is about REAL PEOPLE and their REAL EXPERIENCES. The expat voices ARE the content.
 
 **STRUCTURE:**
@@ -381,18 +414,38 @@ Each H2 section should:
 - What they wish they knew before
 - Would they do it again?
 
+**CONTENT REQUIREMENTS:**
+**INCLUDE:**
+- Direct quotes from Reddit posts and expat forums (attribute as "Reddit user", "Expat forum member")
+- Before/after transformation stories
+- Specific challenges people faced and how they overcame them
+- Cultural adjustment experiences
+- Practical day-to-day life observations
+- Honest pros and cons from real people
+
+**EXCLUDE (These belong in Guide mode, NOT Voices):**
+- Expert legal/tax advice
+- Official government statements
+- Dry factual information about visa requirements
+- Statistical data without personal context
+- Corporate immigration lawyer opinions
+- Government policy explanations
+
 **TONE:**
 - Warm and personal
 - Documentary authenticity
 - Community-focused ("you're not alone")
 - Encouraging but honest
 - Let struggles be voiced alongside wins
+- Authentic, empathetic, balanced (both positive and negative experiences)
 
 **AVOID:**
 - Generic advice without personal stories
 - Your opinions overshadowing expat voices
 - Sanitizing the difficult parts
 - Making it feel corporate or promotional
+- Expert opinions or professional advice
+- Factual visa/tax information (save for Guide mode)
 """ + internal_links_section
 
     else:

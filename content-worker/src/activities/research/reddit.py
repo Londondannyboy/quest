@@ -222,16 +222,23 @@ async def reddit_search_expat_content(
     voices = []
     for post in final_posts:
         if post.get("selftext") and len(post["selftext"]) > 50:
+            # Increase from 500 to 2000 chars for richer context and transformation stories
+            full_text = post["selftext"][:2000]
             voices.append({
                 "type": "reddit",
                 "source": f"u/{post['author']} on r/{post['subreddit']}",
+                "author": f"Reddit user ({post.get('subreddit', 'expat community')})",
                 "credibility": f"Score: {post['score']}, {post['num_comments']} comments",
                 "stance": "mixed",  # Will be analyzed during curation
-                "quote": post["selftext"][:500],
+                "quote": full_text,
+                "text": full_text,  # Duplicate for compatibility
+                "title": post["title"],  # Include post title for context
                 "context": post["title"],
                 "key_insight": "",  # To be extracted during curation
                 "url": post["url"],
+                "upvotes": post["score"],  # Social proof
                 "score": post["score"],
+                "date": post.get("created_utc", ""),
             })
 
     activity.logger.info(

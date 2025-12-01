@@ -138,6 +138,19 @@ class TopicClusterWorkflow:
 
         workflow.logger.info(f"Generated {word_count} words for '{target_keyword}'")
 
+        # Inject section images if parent video exists
+        if parent_playback_id and content:
+            workflow.logger.info("Injecting section images into topic cluster content...")
+            from src.utils.inject_section_images import inject_section_images
+
+            content = inject_section_images(
+                content,
+                parent_playback_id,  # Reuse parent video for thumbnails
+                image_width=1200,
+                max_sections=4
+            )
+            workflow.logger.info("Section images injected successfully")
+
         # Build payload
         payload = {
             "title": title,
