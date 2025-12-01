@@ -276,12 +276,13 @@ class ClusterArticleWorkflow:
 
         # Inject section images into content if video was generated
         if video_playback_id and content:
-            workflow.logger.info("Injecting section images into content...")
+            workflow.logger.info("Injecting section images with AI matching...")
             content = inject_section_images(
                 content,
                 video_playback_id,
                 image_width=1200,
-                max_sections=None  # Unlimited - inject for ALL H2 sections
+                max_sections=None,  # Unlimited - inject for ALL H2 sections
+                four_act_content=payload.get("four_act_content")  # For semantic matching
             )
             workflow.logger.info("Section images injected successfully")
 
