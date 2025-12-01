@@ -14,7 +14,30 @@ import re
 from typing import Optional, List, Tuple
 
 
-# Act timestamps for 12-second video (3 seconds per act)
+# Generate diverse time points across 12-second video for unlimited sections
+# Instead of being limited to 4 acts, we can use any time point
+def get_video_time_points(num_sections: int, video_duration: float = 12.0) -> list:
+    """
+    Generate evenly distributed time points across the video duration.
+
+    For unlimited sections, we interpolate time points across the full video.
+    Examples:
+    - 4 sections: 1.5s, 4.5s, 7.5s, 10.5s (original 4-act midpoints)
+    - 8 sections: 1.0s, 2.5s, 4.0s, 5.5s, 7.0s, 8.5s, 10.0s, 11.5s
+    - 12 sections: 0.75s, 1.75s, 2.75s, ... 11.25s
+    """
+    if num_sections <= 0:
+        return []
+
+    # Distribute evenly across video with small margin at start/end
+    margin = 0.5  # Don't use very first/last frames
+    usable_duration = video_duration - (2 * margin)
+    step = usable_duration / num_sections
+
+    return [margin + (step * i) + (step / 2) for i in range(num_sections)]
+
+
+# Legacy constant for backward compatibility
 ACT_TIMESTAMPS = [
     {"start": 0, "end": 3, "mid": 1.5},   # Act 1
     {"start": 3, "end": 6, "mid": 4.5},   # Act 2
@@ -68,17 +91,20 @@ def inject_section_images(
     video_playback_id: Optional[str],
     image_width: int = 800,
     add_caption: bool = False,
-    max_sections: int = 4
+    max_sections: int = None  # None = unlimited (inject for ALL H2 sections)
 ) -> str:
     """
     Inject Mux thumbnail images after each H2 section header.
+
+    Uses video thumbnails from evenly distributed time points across the 12-second video.
+    Supports unlimited sections by interpolating time points.
 
     Args:
         content: HTML content to process
         video_playback_id: Mux video playback ID for thumbnails
         image_width: Width of thumbnail images
         add_caption: Whether to add a caption under images
-        max_sections: Maximum number of sections to add images to
+        max_sections: Maximum number of sections to add images to (None = unlimited)
 
     Returns:
         HTML content with injected images
@@ -90,6 +116,18 @@ def inject_section_images(
 
     if not sections:
         return content
+
+    # Count H2 sections (exclude preamble)
+    h2_count = sum(1 for h2_tag, _ in sections if h2_tag is not None)
+
+    if h2_count == 0:
+        return content
+
+    # Determine how many images to inject
+    num_images = h2_count if max_sections is None else min(h2_count, max_sections)
+
+    # Generate time points for all sections
+    time_points = get_video_time_points(num_images, video_duration=12.0)
 
     result_parts = []
     section_index = 0
@@ -103,10 +141,10 @@ def inject_section_images(
         # Add H2 tag
         result_parts.append(h2_tag)
 
-        # Add image after H2 (for first N sections)
-        if section_index < max_sections and section_index < len(ACT_TIMESTAMPS):
-            act = ACT_TIMESTAMPS[section_index]
-            img_url = get_mux_thumbnail_url(video_playback_id, act["mid"], image_width)
+        # Add image after H2 if we have a time point for this section
+        if section_index < len(time_points):
+            time = time_points[section_index]
+            img_url = get_mux_thumbnail_url(video_playback_id, time, image_width)
 
             # Image with styling - rounded corners, full width, subtle shadow
             img_html = f'''

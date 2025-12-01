@@ -281,7 +281,7 @@ class ClusterArticleWorkflow:
                 content,
                 video_playback_id,
                 image_width=1200,
-                max_sections=4
+                max_sections=None  # Unlimited - inject for ALL H2 sections
             )
             workflow.logger.info("Section images injected successfully")
 
