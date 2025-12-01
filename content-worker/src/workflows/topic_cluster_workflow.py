@@ -140,14 +140,15 @@ class TopicClusterWorkflow:
 
         # Inject section images if parent video exists
         if parent_playback_id and content:
-            workflow.logger.info("Injecting section images into topic cluster content...")
+            workflow.logger.info("Injecting section images with AI matching into topic cluster...")
             from src.utils.inject_section_images import inject_section_images
 
             content = inject_section_images(
                 content,
                 parent_playback_id,  # Reuse parent video for thumbnails
                 image_width=1200,
-                max_sections=None  # Unlimited - inject for ALL H2 sections
+                max_sections=None,  # Unlimited - inject for ALL H2 sections
+                four_act_content=parent_four_act_content  # For semantic matching
             )
             workflow.logger.info("Section images injected successfully")
 
