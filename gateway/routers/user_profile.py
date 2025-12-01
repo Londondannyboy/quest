@@ -29,6 +29,16 @@ except ImportError as e:
     SERVICE_ENABLED = False
     logger.warning("user_profile_service_import_failed", error=str(e))
 
+# Import ZEP user graph service
+try:
+    from services.zep_user_graph import zep_user_graph_service
+    ZEP_USER_GRAPH_ENABLED = zep_user_graph_service.enabled
+    logger.info("zep_user_graph_service_imported", enabled=ZEP_USER_GRAPH_ENABLED)
+except ImportError as e:
+    zep_user_graph_service = None
+    ZEP_USER_GRAPH_ENABLED = False
+    logger.warning("zep_user_graph_service_import_failed", error=str(e))
+
 
 # ============================================================================
 # REQUEST/RESPONSE MODELS
@@ -401,6 +411,192 @@ async def get_session(
 
 
 # ============================================================================
+# ZEP USER GRAPH ENDPOINTS
+# ============================================================================
+
+class ZepSyncRequest(BaseModel):
+    """Request to sync profile to ZEP."""
+    app_id: str = "relocation"
+
+
+class ZepSyncResponse(BaseModel):
+    """Response from ZEP sync."""
+    success: bool
+    user_id: str
+    graph_id: Optional[str] = None
+    episode_id: Optional[str] = None
+    facts_synced: int = 0
+    error: Optional[str] = None
+
+
+@router.post("/profile/sync-to-zep")
+async def sync_profile_to_zep(
+    request: ZepSyncRequest,
+    user_id: str = Depends(get_current_user)
+) -> ZepSyncResponse:
+    """
+    Sync user profile and facts to ZEP knowledge graph.
+
+    Call this after profile extraction to enable semantic search.
+    """
+    if not SERVICE_ENABLED:
+        return ZepSyncResponse(
+            success=False,
+            user_id=user_id,
+            error="Profile service not enabled"
+        )
+
+    if not ZEP_USER_GRAPH_ENABLED:
+        return ZepSyncResponse(
+            success=False,
+            user_id=user_id,
+            error="ZEP user graph service not enabled"
+        )
+
+    try:
+        # Get profile from Neon
+        profile = await user_profile_service.get_profile_by_stack_id(user_id)
+
+        # Get facts from Neon
+        facts = await user_profile_service.get_facts_by_stack_id(user_id, active_only=True)
+
+        # Sync to ZEP
+        result = await zep_user_graph_service.sync_user_profile(
+            user_id=user_id,
+            profile=profile or {},
+            facts=facts,
+            app_id=request.app_id
+        )
+
+        return ZepSyncResponse(
+            success=result.get("success", False),
+            user_id=user_id,
+            graph_id=result.get("graph_id"),
+            episode_id=result.get("episode_id"),
+            facts_synced=result.get("facts_synced", 0),
+            error=result.get("error")
+        )
+
+    except Exception as e:
+        logger.error("sync_profile_to_zep_error", user_id=user_id, error=str(e))
+        return ZepSyncResponse(
+            success=False,
+            user_id=user_id,
+            error=str(e)
+        )
+
+
+@router.get("/profile/zep-search")
+async def search_user_facts_in_zep(
+    user_id: str = Depends(get_current_user),
+    query: str = Query(..., description="Natural language search query"),
+    limit: int = Query(10, ge=1, le=50)
+) -> Dict[str, Any]:
+    """
+    Search user's facts in ZEP semantically.
+
+    Enables natural language queries like "What countries is this user interested in?"
+    """
+    if not ZEP_USER_GRAPH_ENABLED:
+        return {
+            "success": False,
+            "user_id": user_id,
+            "query": query,
+            "facts": [],
+            "error": "ZEP user graph service not enabled"
+        }
+
+    try:
+        result = await zep_user_graph_service.search_user_facts(
+            user_id=user_id,
+            query=query,
+            limit=limit
+        )
+        return result
+
+    except Exception as e:
+        logger.error("search_user_facts_error", user_id=user_id, error=str(e))
+        return {
+            "success": False,
+            "user_id": user_id,
+            "query": query,
+            "facts": [],
+            "error": str(e)
+        }
+
+
+@router.get("/profile/zep-graph")
+async def get_user_zep_graph(
+    user_id: str = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Get user's nodes and edges from ZEP for visualization.
+
+    Returns data suitable for force-graph visualization.
+    """
+    if not ZEP_USER_GRAPH_ENABLED:
+        return {
+            "success": False,
+            "nodes": [],
+            "edges": [],
+            "error": "ZEP user graph service not enabled"
+        }
+
+    try:
+        result = await zep_user_graph_service.get_all_user_nodes(user_id)
+        return result
+
+    except Exception as e:
+        logger.error("get_user_zep_graph_error", user_id=user_id, error=str(e))
+        return {
+            "success": False,
+            "nodes": [],
+            "edges": [],
+            "error": str(e)
+        }
+
+
+@router.get("/profile/zep-context")
+async def get_user_zep_context(
+    user_id: str = Depends(get_current_user),
+    topic: Optional[str] = Query(None, description="Optional topic to focus context on")
+) -> Dict[str, Any]:
+    """
+    Get user context from ZEP for LLM prompts.
+
+    Combines Neon profile context with ZEP semantic context.
+    """
+    neon_context = ""
+    zep_context = ""
+
+    if SERVICE_ENABLED:
+        try:
+            neon_context = await user_profile_service.get_profile_context_for_prompt(user_id)
+        except Exception as e:
+            logger.error("get_neon_context_error", user_id=user_id, error=str(e))
+
+    if ZEP_USER_GRAPH_ENABLED:
+        try:
+            zep_context = await zep_user_graph_service.get_user_context_for_prompt(user_id, topic)
+        except Exception as e:
+            logger.error("get_zep_context_error", user_id=user_id, error=str(e))
+
+    # Combine contexts
+    combined = neon_context
+    if zep_context and zep_context not in combined:
+        combined += "\n" + zep_context
+
+    return {
+        "user_id": user_id,
+        "context": combined,
+        "sources": {
+            "neon": bool(neon_context),
+            "zep": bool(zep_context)
+        }
+    }
+
+
+# ============================================================================
 # DEBUG / HEALTH ENDPOINTS
 # ============================================================================
 
@@ -410,5 +606,6 @@ async def health_check() -> Dict[str, Any]:
     return {
         "service": "user-profile",
         "enabled": SERVICE_ENABLED,
+        "zep_enabled": ZEP_USER_GRAPH_ENABLED,
         "database_configured": bool(os.getenv("DATABASE_URL"))
     }
