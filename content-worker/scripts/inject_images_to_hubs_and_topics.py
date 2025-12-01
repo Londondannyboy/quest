@@ -37,13 +37,16 @@ async def inject_images_to_topic_clusters(country_slug: str, dry_run: bool = Tru
     async with await psycopg.AsyncConnection.connect(DATABASE_URL) as conn:
         async with conn.cursor() as cur:
             # Find topic cluster articles for this country
+            # Topic clusters have parent_id set (they're children of main cluster articles)
+            # and article_mode = 'topic' (distinct from story/guide/yolo/voices)
             await cur.execute("""
                 SELECT a.id, a.slug, a.content, a.video_playback_id,
                        parent.video_playback_id as parent_video
                 FROM articles a
                 LEFT JOIN articles parent ON a.parent_id = parent.id
                 WHERE a.slug LIKE %s
-                  AND a.article_type = 'topic_cluster'
+                  AND a.parent_id IS NOT NULL
+                  AND a.article_mode = 'topic'
                   AND (a.video_playback_id IS NOT NULL OR parent.video_playback_id IS NOT NULL)
                 ORDER BY a.id
             """, (f"{country_slug}%",))
@@ -123,7 +126,7 @@ async def inject_images_to_hubs(country_slug: str, dry_run: bool = True):
         async with conn.cursor() as cur:
             # Find content hubs for this country
             await cur.execute("""
-                SELECT id, hub, slug, hub_content, video_playback_id
+                SELECT id, location_name, slug, hub_content, video_playback_id
                 FROM country_hubs
                 WHERE slug LIKE %s
                   AND video_playback_id IS NOT NULL
