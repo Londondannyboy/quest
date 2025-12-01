@@ -10,10 +10,10 @@ from temporalio import activity
 from typing import Dict, Any, Optional
 
 
-# App branding
+# App branding - Simple "Q" logo that can't be misread
 APP_BRANDS = {
-    "placement": "Placement Quest",
-    "relocation": "Relocation Quest",
+    "placement": "Q",
+    "relocation": "Q",
     "rainmaker": "Rainmaker",
     "chief-of-staff": "Chief of Staff",
 }
@@ -46,7 +46,7 @@ async def add_video_text_overlay(
 
     # Get brand text
     if brand is None:
-        brand = APP_BRANDS.get(app, "Quest")
+        brand = APP_BRANDS.get(app, "Q")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # Download video
@@ -207,7 +207,7 @@ def get_video_with_overlay_url(
     """
     import tempfile
 
-    brand = APP_BRANDS.get(app, "Quest")
+    brand = APP_BRANDS.get(app, "Q")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # Download

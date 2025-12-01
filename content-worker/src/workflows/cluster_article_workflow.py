@@ -23,6 +23,9 @@ from datetime import timedelta
 from typing import Dict, Any, Optional, List
 import uuid
 
+# Import image injection utility (deterministic string manipulation - safe in workflow)
+from src.utils.inject_section_images import inject_section_images
+
 
 @workflow.defn
 class ClusterArticleWorkflow:
@@ -270,6 +273,17 @@ class ClusterArticleWorkflow:
                     "hero": f"https://image.mux.com/{video_playback_id}/thumbnail.jpg?time=10.5&width=1200",
                 }
             }
+
+        # Inject section images into content if video was generated
+        if video_playback_id and content:
+            workflow.logger.info("Injecting section images into content...")
+            content = inject_section_images(
+                content,
+                video_playback_id,
+                image_width=1200,
+                max_sections=4
+            )
+            workflow.logger.info("Section images injected successfully")
 
         # Determine which content_* column to populate based on article_mode
         # This ensures the frontend can detect the mode even without cluster siblings

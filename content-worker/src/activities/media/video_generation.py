@@ -309,8 +309,8 @@ def transform_prompt_for_wan(prompt: str) -> tuple[str, str]:
         # Add subtle depth instruction
         prompt = f"{prompt.strip()} Subtle depth with foreground elements soft-focused."
 
-    # Add single-word text allowance for Quest branding if desired
-    wan_prompt = f"{prompt.strip()} Only single-word text like 'Quest' is allowed."
+    # Add single-word text allowance for Q branding if desired
+    wan_prompt = f"{prompt.strip()} Only single-word text like 'Q' is allowed."
 
     return wan_prompt, negative_prompt
 
@@ -390,12 +390,12 @@ def generate_video_prompt(title: str, content: str, app: str) -> str:
     # Extract key concepts from title for context
     title_clean = title.lower()
 
-    # Generate contextual prompt with Quest branding
+    # Generate contextual prompt with Q branding
     prompt = f"""Cinematic {theme['style']} scene, {theme_mood} atmosphere.
 {theme['elements']}, natural lighting, shallow depth of field,
 smooth camera movement, high production value, 4K quality.
-Background: kinetic white illuminated "Quest" text in large capital letters,
-subtly glowing and moving dynamically behind the main action. Quest branding
+Background: kinetic white illuminated "Q" letter in large capital format,
+subtly glowing and moving dynamically behind the main action. Q branding
 serves as professional backdrop without overwhelming the scene."""
 
     # Add title-specific context
