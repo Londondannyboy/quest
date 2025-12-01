@@ -78,19 +78,125 @@ def detect_target_market(title: str, topic: str = "") -> str:
     """
     Detect target market from title/topic keywords for video prompt customization.
 
-    Returns: 'indian', 'chinese', 'european', 'global'
+    Returns: Nationality/region identifier (e.g., 'indian', 'pakistani', 'british', 'american',
+             'chinese', 'middle_eastern', 'african', 'latin_american', 'southeast_asian',
+             'european', 'global')
     """
     text = f"{title} {topic}".lower()
 
-    # Indian market indicators
-    indian_keywords = ['indian', 'india', 'indians', 'delhi', 'mumbai', 'bangalore', 'indian expat', 'from india']
-    if any(keyword in text for keyword in indian_keywords):
+    # South Asian markets
+    if any(kw in text for kw in ['indian', 'india', 'indians', 'delhi', 'mumbai', 'bangalore', 'from india']):
         return 'indian'
+    if any(kw in text for kw in ['pakistani', 'pakistan', 'karachi', 'lahore', 'from pakistan']):
+        return 'pakistani'
+    if any(kw in text for kw in ['bangladeshi', 'bangladesh', 'dhaka', 'from bangladesh']):
+        return 'bangladeshi'
+    if any(kw in text for kw in ['sri lankan', 'sri lanka', 'colombo', 'from sri lanka']):
+        return 'sri_lankan'
 
-    # Chinese market indicators
-    chinese_keywords = ['chinese', 'china', 'beijing', 'shanghai', 'chinese national', 'from china']
-    if any(keyword in text for keyword in chinese_keywords):
+    # East Asian markets
+    if any(kw in text for kw in ['chinese', 'china', 'beijing', 'shanghai', 'from china']):
         return 'chinese'
+    if any(kw in text for kw in ['japanese', 'japan', 'tokyo', 'from japan']):
+        return 'japanese'
+    if any(kw in text for kw in ['korean', 'south korea', 'seoul', 'from korea']):
+        return 'korean'
+
+    # Southeast Asian markets
+    if any(kw in text for kw in ['filipino', 'philippines', 'manila', 'from philippines']):
+        return 'filipino'
+    if any(kw in text for kw in ['vietnamese', 'vietnam', 'hanoi', 'from vietnam']):
+        return 'vietnamese'
+    if any(kw in text for kw in ['thai', 'thailand', 'bangkok', 'from thailand']):
+        return 'thai'
+    if any(kw in text for kw in ['indonesian', 'indonesia', 'jakarta', 'from indonesia']):
+        return 'indonesian'
+    if any(kw in text for kw in ['malaysian', 'malaysia', 'kuala lumpur', 'from malaysia']):
+        return 'malaysian'
+
+    # Middle Eastern markets
+    if any(kw in text for kw in ['arab', 'arabic', 'middle east', 'gulf', 'gcc']):
+        return 'middle_eastern'
+    if any(kw in text for kw in ['emirati', 'uae', 'dubai', 'abu dhabi']):
+        return 'emirati'
+    if any(kw in text for kw in ['saudi', 'saudi arabia', 'riyadh', 'from saudi']):
+        return 'saudi'
+    if any(kw in text for kw in ['egyptian', 'egypt', 'cairo', 'from egypt']):
+        return 'egyptian'
+    if any(kw in text for kw in ['turkish', 'turkey', 'istanbul', 'from turkey']):
+        return 'turkish'
+    if any(kw in text for kw in ['iranian', 'iran', 'tehran', 'persian']):
+        return 'iranian'
+
+    # African markets
+    if any(kw in text for kw in ['nigerian', 'nigeria', 'lagos', 'from nigeria']):
+        return 'nigerian'
+    if any(kw in text for kw in ['south african', 'south africa', 'johannesburg', 'cape town']):
+        return 'south_african'
+    if any(kw in text for kw in ['kenyan', 'kenya', 'nairobi', 'from kenya']):
+        return 'kenyan'
+    if any(kw in text for kw in ['ethiopian', 'ethiopia', 'addis ababa']):
+        return 'ethiopian'
+
+    # Latin American markets
+    if any(kw in text for kw in ['mexican', 'mexico', 'mexico city', 'from mexico']):
+        return 'mexican'
+    if any(kw in text for kw in ['brazilian', 'brazil', 'são paulo', 'rio de janeiro']):
+        return 'brazilian'
+    if any(kw in text for kw in ['argentinian', 'argentina', 'buenos aires', 'from argentina']):
+        return 'argentinian'
+    if any(kw in text for kw in ['colombian', 'colombia', 'bogotá', 'from colombia']):
+        return 'colombian'
+
+    # Eastern European & Balkan markets
+    if any(kw in text for kw in ['albanian', 'albania', 'tirana', 'from albania']):
+        return 'albanian'
+    if any(kw in text for kw in ['romanian', 'romania', 'bucharest', 'from romania']):
+        return 'romanian'
+    if any(kw in text for kw in ['polish', 'poland', 'warsaw', 'from poland']):
+        return 'polish'
+    if any(kw in text for kw in ['ukrainian', 'ukraine', 'kyiv', 'from ukraine']):
+        return 'ukrainian'
+    if any(kw in text for kw in ['russian', 'russia', 'moscow', 'from russia']):
+        return 'russian'
+    if any(kw in text for kw in ['serbian', 'serbia', 'belgrade', 'from serbia']):
+        return 'serbian'
+
+    # English-speaking Western markets
+    if any(kw in text for kw in ['british', 'uk', 'britain', 'england', 'london', 'from uk']):
+        return 'british'
+    if any(kw in text for kw in ['american', 'usa', 'united states', 'from america', 'from us']):
+        return 'american'
+    if any(kw in text for kw in ['canadian', 'canada', 'toronto', 'vancouver', 'from canada']):
+        return 'canadian'
+    if any(kw in text for kw in ['australian', 'australia', 'sydney', 'melbourne', 'from australia']):
+        return 'australian'
+    if any(kw in text for kw in ['new zealander', 'new zealand', 'auckland', 'from new zealand']):
+        return 'new_zealander'
+    if any(kw in text for kw in ['irish', 'ireland', 'dublin', 'from ireland']):
+        return 'irish'
+
+    # Western European markets
+    if any(kw in text for kw in ['french', 'france', 'paris', 'from france']):
+        return 'french'
+    if any(kw in text for kw in ['german', 'germany', 'berlin', 'from germany']):
+        return 'german'
+    if any(kw in text for kw in ['italian', 'italy', 'rome', 'milan', 'from italy']):
+        return 'italian'
+    if any(kw in text for kw in ['spanish', 'spain', 'madrid', 'barcelona', 'from spain']):
+        return 'spanish'
+    if any(kw in text for kw in ['dutch', 'netherlands', 'amsterdam', 'from netherlands']):
+        return 'dutch'
+    if any(kw in text for kw in ['belgian', 'belgium', 'brussels', 'from belgium']):
+        return 'belgian'
+    if any(kw in text for kw in ['swiss', 'switzerland', 'zurich', 'geneva']):
+        return 'swiss'
+    if any(kw in text for kw in ['swedish', 'sweden', 'stockholm', 'from sweden']):
+        return 'swedish'
+    if any(kw in text for kw in ['norwegian', 'norway', 'oslo', 'from norway']):
+        return 'norwegian'
+    if any(kw in text for kw in ['danish', 'denmark', 'copenhagen', 'from denmark']):
+        return 'danish'
 
     # Default to European/global
     return 'european'
