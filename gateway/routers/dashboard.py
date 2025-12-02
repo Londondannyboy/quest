@@ -186,6 +186,27 @@ async def get_content_recommendations(
         return {"articles": [], "error": str(e)}
 
 
+@router.get("/content/recent")
+async def get_recent_articles(
+    limit: int = Query(10, ge=1, le=50)
+) -> Dict[str, Any]:
+    """
+    Get recent published articles from relocation.quest.
+
+    No auth required - public content.
+    """
+    if not CONTENT_SERVICE_ENABLED:
+        return {"articles": [], "error": "Content service not available"}
+
+    try:
+        articles = await content_service.get_recent_articles(limit=limit)
+        return {"articles": articles, "count": len(articles)}
+
+    except Exception as e:
+        logger.error("get_recent_articles_error", error=str(e))
+        return {"articles": [], "error": str(e)}
+
+
 @router.post("/content/search")
 async def search_content(
     query: str = Query(..., description="Search query"),
@@ -223,7 +244,9 @@ async def search_content(
                 country=result.get("country"),
                 country_flag=result.get("country_flag"),
                 match_reason=f"Matches '{query}'",
-                search_context=query
+                search_context=query,
+                featured_image=result.get("featured_image"),
+                hero_image=result.get("hero_image"),
             )
 
         return {"results": results, "query": query, "count": len(results)}

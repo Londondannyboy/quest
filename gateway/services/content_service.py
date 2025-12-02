@@ -117,13 +117,15 @@ class ContentService:
         try:
             async with pool.acquire() as conn:
                 rows = await conn.fetch("""
-                    SELECT id, title, slug, excerpt, country_name
+                    SELECT id, title, slug, excerpt, country,
+                           featured_asset_url, hero_asset_url
                     FROM articles
                     WHERE status = 'published'
                     AND (
                         title ILIKE $1
                         OR excerpt ILIKE $1
                         OR content ILIKE $1
+                        OR country ILIKE $1
                     )
                     ORDER BY published_at DESC
                     LIMIT $2
@@ -135,7 +137,9 @@ class ContentService:
                     "title": row["title"],
                     "slug": row["slug"],
                     "excerpt": row["excerpt"],
-                    "country": row["country_name"]
+                    "country": row["country"],
+                    "featured_image": row["featured_asset_url"],
+                    "hero_image": row["hero_asset_url"],
                 } for row in rows]
 
         except Exception as e:
@@ -260,6 +264,40 @@ class ContentService:
         except Exception as e:
             logger.error("get_country_error", slug=slug, error=str(e))
             return None
+
+
+    async def get_recent_articles(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get recent published articles."""
+        pool = await self._get_pool()
+        if not pool:
+            return []
+
+        try:
+            async with pool.acquire() as conn:
+                rows = await conn.fetch("""
+                    SELECT id, title, slug, excerpt, country,
+                           featured_asset_url, hero_asset_url
+                    FROM articles
+                    WHERE status = 'published'
+                    AND published_at IS NOT NULL
+                    ORDER BY published_at DESC
+                    LIMIT $1
+                """, limit)
+
+                return [{
+                    "id": row["id"],
+                    "type": "article",
+                    "title": row["title"],
+                    "slug": row["slug"],
+                    "excerpt": row["excerpt"],
+                    "country": row["country"],
+                    "featured_image": row["featured_asset_url"],
+                    "hero_image": row["hero_asset_url"],
+                } for row in rows]
+
+        except Exception as e:
+            logger.error("get_recent_articles_error", error=str(e))
+            return []
 
 
 # Singleton instance

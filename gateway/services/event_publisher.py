@@ -134,7 +134,9 @@ async def emit_content_suggestion(
     country: Optional[str] = None,
     country_flag: Optional[str] = None,
     match_reason: Optional[str] = None,
-    search_context: Optional[str] = None
+    search_context: Optional[str] = None,
+    featured_image: Optional[str] = None,
+    hero_image: Optional[str] = None
 ):
     """Emit when relevant content is found from Neon."""
     await publish(user_id, "content_suggestion", {
@@ -147,6 +149,8 @@ async def emit_content_suggestion(
         "country_flag": country_flag,
         "match_reason": match_reason,
         "search_context": search_context,
+        "featured_image": featured_image,
+        "hero_image": hero_image,
         "timestamp": datetime.utcnow().isoformat(),
     })
 
