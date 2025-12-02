@@ -207,6 +207,28 @@ async def get_recent_articles(
         return {"articles": [], "error": str(e)}
 
 
+@router.get("/content/articles")
+async def get_all_articles(
+    limit: int = Query(100, ge=1, le=200)
+) -> Dict[str, Any]:
+    """
+    Get all published relocation articles with metadata.
+
+    No auth required - public content.
+    Returns articles grouped by article_mode for display.
+    """
+    if not CONTENT_SERVICE_ENABLED:
+        return {"articles": [], "error": "Content service not available"}
+
+    try:
+        articles = await content_service.get_all_articles(limit=limit)
+        return {"articles": articles, "count": len(articles)}
+
+    except Exception as e:
+        logger.error("get_all_articles_error", error=str(e))
+        return {"articles": [], "error": str(e)}
+
+
 @router.post("/content/search")
 async def search_content(
     query: str = Query(..., description="Search query"),

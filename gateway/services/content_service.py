@@ -301,6 +301,45 @@ class ContentService:
             logger.error("get_recent_articles_error", error=str(e))
             return []
 
+    async def get_all_articles(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get all published relocation articles with full metadata."""
+        pool = await self._get_pool()
+        if not pool:
+            return []
+
+        try:
+            async with pool.acquire() as conn:
+                rows = await conn.fetch("""
+                    SELECT id, title, slug, excerpt, country, article_mode,
+                           featured_asset_url, hero_asset_url, published_at,
+                           word_count, is_featured
+                    FROM articles
+                    WHERE status = 'published'
+                    AND app = 'relocation'
+                    ORDER BY
+                        is_featured DESC NULLS LAST,
+                        published_at DESC NULLS LAST
+                    LIMIT $1
+                """, limit)
+
+                return [{
+                    "id": row["id"],
+                    "slug": row["slug"],
+                    "title": row["title"],
+                    "excerpt": row["excerpt"],
+                    "country": row["country"],
+                    "article_mode": row["article_mode"] or "topic",
+                    "featured_asset_url": row["featured_asset_url"],
+                    "hero_asset_url": row["hero_asset_url"],
+                    "published_at": row["published_at"].isoformat() if row["published_at"] else None,
+                    "word_count": row["word_count"],
+                    "is_featured": row["is_featured"],
+                } for row in rows]
+
+        except Exception as e:
+            logger.error("get_all_articles_error", error=str(e))
+            return []
+
 
 # Singleton instance
 content_service = ContentService()
