@@ -186,6 +186,7 @@ from src.activities.storage.neon_database import (
     # NEW: Video inheritance for topic clusters and hubs
     inherit_parent_video_to_children,
     get_cluster_videos,
+    get_cluster_story_video,  # NEW: Get story video for video reuse optimization
     # NEW: Video topic matching for intelligent section placement
     get_cluster_videos_with_topics,
     match_video_to_section,
