@@ -551,8 +551,41 @@ TONE:
                             profile_id = await user_profile_service.get_or_create_profile(user_id)
 
                             if profile_id:
+                                # Get existing facts to check for changes (human-in-the-loop)
+                                existing_facts = await user_profile_service.get_facts_by_stack_id(user_id, active_only=True)
+                                existing_by_type = {f["fact_type"]: f for f in existing_facts}
+
                                 # Store each extracted fact and emit events
                                 for fact_type, value in extracted_info.items():
+                                    existing = existing_by_type.get(fact_type)
+
+                                    # Check if this is an UPDATE to an existing fact
+                                    if existing:
+                                        existing_value = existing.get("fact_value", {})
+                                        if isinstance(existing_value, dict):
+                                            existing_value = existing_value.get("value", "")
+
+                                        # If value is different, emit suggestion for human-in-the-loop
+                                        if str(existing_value).lower() != str(value).lower():
+                                            try:
+                                                from services.event_publisher import emit_profile_suggestion
+                                                await emit_profile_suggestion(
+                                                    user_id=user_id,
+                                                    suggestion_id=f"{fact_type}-{int(datetime.utcnow().timestamp())}",
+                                                    fact_type=fact_type,
+                                                    suggested_value=value,
+                                                    reasoning=f"You mentioned '{value}' - would you like to update your {fact_type.replace('_', ' ')}?",
+                                                    current_value=str(existing_value)
+                                                )
+                                                logger.info("profile_suggestion_emitted",
+                                                           fact_type=fact_type,
+                                                           old_value=existing_value,
+                                                           new_value=value)
+                                            except Exception as evt_err:
+                                                logger.debug("profile_suggestion_error", error=str(evt_err))
+                                            continue  # Don't auto-update, wait for confirmation
+
+                                    # New fact - store directly
                                     fact_id = await user_profile_service.store_fact(
                                         user_profile_id=profile_id,
                                         fact_type=fact_type,
@@ -579,6 +612,24 @@ TONE:
                                 logger.info("neon_facts_stored",
                                            user_id=user_id,
                                            facts_count=len(extracted_info))
+
+                                # Auto-sync to ZEP User Graph after fact storage
+                                try:
+                                    if ZEP_USER_GRAPH_ENABLED and zep_user_graph_service:
+                                        profile = await user_profile_service.get_profile_by_stack_id(user_id)
+                                        all_facts = await user_profile_service.get_facts_by_stack_id(user_id, active_only=True)
+                                        sync_result = await zep_user_graph_service.sync_user_profile(
+                                            user_id=user_id,
+                                            profile=profile or {},
+                                            facts=all_facts,
+                                            app_id="relocation"
+                                        )
+                                        logger.info("zep_graph_synced",
+                                                   user_id=user_id,
+                                                   facts_synced=sync_result.get("facts_synced", 0))
+                                except Exception as zep_err:
+                                    logger.warning("zep_sync_error", error=str(zep_err))
+
                     except Exception as e:
                         logger.warning("neon_facts_store_error", error=str(e))
 
