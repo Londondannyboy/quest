@@ -615,12 +615,12 @@ class ZepUserGraphService:
                 limit=50
             )
 
-            # Search for user's edges
+            # Search for user's edges (ZEP max limit is 50)
             edge_results = await client.graph.search(
                 graph_id=self.graph_id,
                 query=f"user {user_id}",
                 scope="edges",
-                limit=100
+                limit=50
             )
 
             nodes = []

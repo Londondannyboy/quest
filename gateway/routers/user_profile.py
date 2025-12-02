@@ -377,11 +377,21 @@ async def update_fact_simple(
         raise HTTPException(status_code=503, detail="Profile service unavailable")
 
     try:
+        logger.info("update_fact_simple_called",
+                   user_id=user_id,
+                   fact_id=request.fact_id,
+                   fact_type=request.fact_type,
+                   value=request.value[:50] if request.value else None)
+
         # Parse fact_id (could be string or int)
-        fact_id = int(request.fact_id) if request.fact_id.isdigit() else None
+        fact_id = None
+        try:
+            fact_id = int(request.fact_id)
+        except (ValueError, TypeError):
+            logger.debug("fact_id_not_integer", fact_id=request.fact_id)
 
         if fact_id:
-            # Update existing fact
+            # Update existing fact by ID
             success = await user_profile_service.update_fact(
                 fact_id=fact_id,
                 fact_value={"value": request.value},
@@ -389,6 +399,7 @@ async def update_fact_simple(
             )
 
             if not success:
+                logger.warning("update_fact_failed", fact_id=fact_id)
                 raise HTTPException(status_code=500, detail="Failed to update fact")
 
             # Emit SSE event for real-time update
@@ -404,9 +415,28 @@ async def update_fact_simple(
             except Exception as evt_err:
                 logger.debug("emit_fact_updated_error", error=str(evt_err))
 
+            logger.info("fact_updated_success", fact_id=fact_id)
             return {"success": True, "id": fact_id, "updated": True}
         else:
-            # Create new fact if fact_id is not a valid int
+            # No valid fact_id - try to find existing fact by type and update it
+            existing_facts = await user_profile_service.get_facts_by_stack_id(
+                user_id, fact_type=request.fact_type, active_only=True
+            )
+
+            if existing_facts:
+                # Update the most recent fact of this type
+                existing_fact_id = existing_facts[0].get("id")
+                if existing_fact_id:
+                    success = await user_profile_service.update_fact(
+                        fact_id=existing_fact_id,
+                        fact_value={"value": request.value},
+                        is_user_verified=True
+                    )
+                    if success:
+                        logger.info("fact_updated_by_type", fact_type=request.fact_type)
+                        return {"success": True, "id": existing_fact_id, "updated": True}
+
+            # Create new fact if no existing fact found
             profile_id = await user_profile_service.get_or_create_profile(user_id)
             if not profile_id:
                 raise HTTPException(status_code=500, detail="Failed to get profile")
@@ -420,6 +450,7 @@ async def update_fact_simple(
                 is_verified=True
             )
 
+            logger.info("fact_created", fact_id=new_fact_id, fact_type=request.fact_type)
             return {"success": True, "id": new_fact_id, "created": True}
 
     except HTTPException:
