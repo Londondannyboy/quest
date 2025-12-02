@@ -1392,8 +1392,8 @@ async def _handle_llm_request(request: dict):
 
         logger.info("hume_llm_request", query=user_message, user_id=user_id)
 
-        # Process through Gemini + Zep with newsroom-system knowledge
-        response = await gemini_assistant.process_query(user_message)
+        # Process through Gemini + Zep with user profile storage
+        response = await gemini_assistant.process_query(user_message, user_id=user_id)
 
         return {
             "response": response
