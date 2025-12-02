@@ -310,15 +310,17 @@ class ContentService:
         try:
             async with pool.acquire() as conn:
                 rows = await conn.fetch("""
-                    SELECT id, title, slug, excerpt, country, article_mode,
-                           featured_asset_url, hero_asset_url, published_at,
-                           word_count, is_featured
-                    FROM articles
-                    WHERE status = 'published'
-                    AND app = 'relocation'
+                    SELECT a.id, a.title, a.slug, a.excerpt, a.country, a.article_mode,
+                           a.featured_asset_url, a.hero_asset_url, a.published_at,
+                           a.word_count, a.is_featured, a.video_playback_id,
+                           c.name as country_name, c.flag_emoji
+                    FROM articles a
+                    LEFT JOIN countries c ON c.code = a.country_code
+                    WHERE a.status = 'published'
+                    AND a.app = 'relocation'
                     ORDER BY
-                        is_featured DESC NULLS LAST,
-                        published_at DESC NULLS LAST
+                        a.is_featured DESC NULLS LAST,
+                        a.published_at DESC NULLS LAST
                     LIMIT $1
                 """, limit)
 
@@ -328,9 +330,12 @@ class ContentService:
                     "title": row["title"],
                     "excerpt": row["excerpt"],
                     "country": row["country"],
+                    "country_name": row["country_name"],
+                    "flag_emoji": row["flag_emoji"],
                     "article_mode": row["article_mode"] or "topic",
                     "featured_asset_url": row["featured_asset_url"],
                     "hero_asset_url": row["hero_asset_url"],
+                    "video_playback_id": row["video_playback_id"],
                     "published_at": row["published_at"].isoformat() if row["published_at"] else None,
                     "word_count": row["word_count"],
                     "is_featured": row["is_featured"],
