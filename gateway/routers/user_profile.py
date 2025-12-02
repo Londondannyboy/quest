@@ -58,6 +58,13 @@ class FactUpdateRequest(BaseModel):
     is_user_verified: Optional[bool] = None
 
 
+class SimpleFactUpdateRequest(BaseModel):
+    """Simple request to update a fact value (from dashboard edit)."""
+    fact_id: str
+    fact_type: str
+    value: str
+
+
 class ProfileResponse(BaseModel):
     """User profile response."""
     user_id: str
@@ -354,6 +361,72 @@ async def delete_fact(
     except Exception as e:
         logger.error("delete_fact_error", fact_id=fact_id, error=str(e))
         raise HTTPException(status_code=500, detail="Failed to delete fact")
+
+
+@router.post("/profile/update")
+async def update_fact_simple(
+    request: SimpleFactUpdateRequest,
+    user_id: str = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Simple endpoint to update a fact value from the dashboard.
+
+    Used by the RepoSection edit feature.
+    """
+    if not SERVICE_ENABLED:
+        raise HTTPException(status_code=503, detail="Profile service unavailable")
+
+    try:
+        # Parse fact_id (could be string or int)
+        fact_id = int(request.fact_id) if request.fact_id.isdigit() else None
+
+        if fact_id:
+            # Update existing fact
+            success = await user_profile_service.update_fact(
+                fact_id=fact_id,
+                fact_value={"value": request.value},
+                is_user_verified=True  # User explicitly edited, so verified
+            )
+
+            if not success:
+                raise HTTPException(status_code=500, detail="Failed to update fact")
+
+            # Emit SSE event for real-time update
+            try:
+                from services.event_publisher import emit_fact_updated
+                await emit_fact_updated(
+                    user_id,
+                    fact_id,
+                    old_value=None,  # We don't have old value here
+                    new_value=request.value,
+                    fact_type=request.fact_type
+                )
+            except Exception as evt_err:
+                logger.debug("emit_fact_updated_error", error=str(evt_err))
+
+            return {"success": True, "id": fact_id, "updated": True}
+        else:
+            # Create new fact if fact_id is not a valid int
+            profile_id = await user_profile_service.get_or_create_profile(user_id)
+            if not profile_id:
+                raise HTTPException(status_code=500, detail="Failed to get profile")
+
+            new_fact_id = await user_profile_service.store_fact(
+                user_profile_id=profile_id,
+                fact_type=request.fact_type,
+                fact_value={"value": request.value},
+                source="user_edit",
+                confidence=1.0,
+                is_verified=True
+            )
+
+            return {"success": True, "id": new_fact_id, "created": True}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("update_fact_simple_error", error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to update fact")
 
 
 # ============================================================================
