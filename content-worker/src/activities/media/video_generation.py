@@ -457,7 +457,7 @@ async def generate_with_seedance(
     # Create prediction (non-blocking)
     client = replicate.Client(api_token=replicate_token)
     prediction = client.predictions.create(
-        model="bytedance/seedance-1-pro-fast",
+        version="bytedance/seedance-1-pro-fast",
         input=input_params
     )
 
@@ -670,7 +670,7 @@ async def generate_sequential_content_videos(
         try:
             # Use image-to-video mode with context
             prediction = client.predictions.create(
-                model="bytedance/seedance-1-pro-fast",
+                version="bytedance/seedance-1-pro-fast",
                 input={
                     "prompt": seedance_prompt,
                     "duration": duration,

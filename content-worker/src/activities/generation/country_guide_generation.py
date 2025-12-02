@@ -1720,16 +1720,16 @@ ACTS 2-4: Athletic/adventure wear - running jacket, sports top, or casual tee. N
     if mode == "nomad":
         # Digital nomad - younger, tech-casual, modern aesthetic
         return """CLOTHING BY ACT (avoid text corruption):
-ACT 1: Quest t-shirt with 'QUEST' in WHITE letters, wireless earbuds visible.
+ACT 1: Quest t-shirt with single letter 'Q' in WHITE on chest, wireless earbuds visible.
 ACTS 2-4: Tech-casual style - fitted hoodie, clean minimalist tee, smart-casual layers. NO text, NO logos. Modern digital nomad aesthetic."""
 
     if is_cold:
         return """CLOTHING BY ACT (avoid text corruption):
-ACT 1: Quest jacket or sweatshirt with 'QUEST' in WHITE letters clearly visible.
+ACT 1: Quest jacket or sweatshirt with single letter 'Q' in WHITE clearly visible.
 ACTS 2-4: Stylish casual layers - sweater, cardigan, or blouse. NO text, NO logos, NO branding."""
     else:
         return """CLOTHING BY ACT (avoid text corruption):
-ACT 1: Quest t-shirt with 'QUEST' in WHITE letters clearly visible on chest.
+ACT 1: Quest t-shirt with single letter 'Q' in WHITE clearly visible on chest.
 ACTS 2-4: Casual summer clothing - light blouse, sundress, or linen top. NO text, NO logos, NO branding."""
 
 
@@ -1780,10 +1780,10 @@ SEGMENT_VIDEO_TEMPLATES = {
         "mode": "story",
         "style": "Cinematic, warm color grade, smooth dolly movements, shallow depth of field, flowing narrative",
         "energy": "medium",
-        "preamble": """CRITICAL: NO text, words, letters, signs, logos anywhere. Screens show abstract colors only.
+        "preamble": """{clothing}
+CRITICAL: NO text, words, letters, signs, logos anywhere. Screens show abstract colors only.
 SAME SUBJECT throughout all 4 acts - follow ONE professional's journey.
-Cast: 30s professional (preferably woman), warm features, natural beauty, approachable appearance.
-{clothing}""",
+Cast: 30s professional (preferably woman), warm features, natural beauty, approachable appearance.""",
         "acts": [
             {
                 "title": "The City Grind",
@@ -1812,10 +1812,10 @@ Cast: 30s professional (preferably woman), warm features, natural beauty, approa
         "mode": "guide",
         "style": "Clean, professional, static shots with slow pushes, methodical pacing, instructional feel",
         "energy": "calm",
-        "preamble": """CRITICAL: NO text, words, letters, signs, logos anywhere. Documents show abstract patterns only.
+        "preamble": """{clothing}
+CRITICAL: NO text, words, letters, signs, logos anywhere. Documents show abstract patterns only.
 SAME SUBJECT throughout all 4 acts - follow ONE professional completing admin tasks.
-Cast: 35s professional (preferably woman), composed demeanor, confident, business casual attire.
-{clothing}""",
+Cast: 35s professional (preferably woman), composed demeanor, confident, business casual attire.""",
         "acts": [
             {
                 "title": "Research Phase",

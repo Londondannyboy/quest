@@ -88,10 +88,22 @@ async def upload_video_to_mux(
     if passthrough:
         activity.logger.info(f"Mux video label: {passthrough}")
 
+    # Build meta object for dashboard title and structured metadata
+    meta_obj = {}
+    if title:
+        meta_obj["title"] = title[:100]  # Mux dashboard title
+    if country:
+        meta_obj["country"] = country
+    if article_mode:
+        meta_obj["mode"] = article_mode
+    if app:
+        meta_obj["app"] = app
+
     create_asset_request = mux_python.CreateAssetRequest(
         input=[mux_python.InputSettings(url=video_url)],
         playback_policy=playback_policy,
         passthrough=passthrough,
+        meta=meta_obj if meta_obj else None  # Dashboard title + structured metadata
     )
 
     asset = assets_api.create_asset(create_asset_request)

@@ -191,70 +191,100 @@ class ClusterArticleWorkflow:
         new_character_reference_url = None
 
         if video_quality:
-            workflow.logger.info(f"Phase 5: Generate {article_mode} video")
+            # VIDEO OPTIMIZATION: Only story and yolo modes get unique videos
+            # Guide, voices, nomad reuse the story video (60% cost savings)
+            MODES_WITH_UNIQUE_VIDEOS = ["story", "yolo"]
+            needs_unique_video = article_mode in MODES_WITH_UNIQUE_VIDEOS
 
-            # Map article_mode to video segment for prompt generation
-            # story -> hero, guide -> guide, yolo -> yolo, voices -> voices
-            segment_map = {
-                "story": "hero",
-                "guide": "guide",
-                "yolo": "yolo",
-                "voices": "voices"
-            }
-            video_segment = segment_map.get(article_mode, "hero")
+            if needs_unique_video:
+                workflow.logger.info(f"Phase 5: Generate {article_mode} video (unique)")
 
-            try:
-                # Execute segment video child workflow
-                child_result = await workflow.execute_child_workflow(
-                    "SegmentVideoWorkflow",
-                    {
-                        "country_name": country_name,
-                        "country_code": country_code,
-                        "cluster_id": cluster_id,  # Add cluster_id for Mux metadata
-                        "segment": video_segment,
-                        "article_mode": article_mode,  # Add article_mode for Mux title
-                        "video_quality": video_quality,
-                        "article_id": article_id,
-                        "four_act_content": payload.get("four_act_content") if article_mode == "story" else None,
-                        "character_reference_url": character_reference_url
-                    },
-                    id=f"cluster-video-{country_code.lower()}-{article_mode}-{workflow.uuid4().hex[:8]}",
-                    task_queue="quest-content-queue",
-                    execution_timeout=timedelta(minutes=15)
-                )
+                # Map article_mode to video segment for prompt generation
+                # story -> hero, guide -> guide, yolo -> yolo, voices -> voices
+                segment_map = {
+                    "story": "hero",
+                    "guide": "guide",
+                    "yolo": "yolo",
+                    "voices": "voices"
+                }
+                video_segment = segment_map.get(article_mode, "hero")
 
-                if child_result.get("success"):
-                    video_url = child_result.get("video_url")
-                    video_playback_id = child_result.get("playback_id")
-                    video_asset_id = child_result.get("asset_id")
-                    workflow.logger.info(f"Video generated: {video_playback_id}")
+                try:
+                    # Execute segment video child workflow
+                    child_result = await workflow.execute_child_workflow(
+                        "SegmentVideoWorkflow",
+                        {
+                            "country_name": country_name,
+                            "country_code": country_code,
+                            "cluster_id": cluster_id,  # Add cluster_id for Mux metadata
+                            "segment": video_segment,
+                            "article_mode": article_mode,  # Add article_mode for Mux title
+                            "video_quality": video_quality,
+                            "article_id": article_id,
+                            "four_act_content": payload.get("four_act_content") if article_mode == "story" else None,
+                            "character_reference_url": character_reference_url
+                        },
+                        id=f"cluster-video-{country_code.lower()}-{article_mode}-{workflow.uuid4().hex[:8]}",
+                        task_queue="quest-content-queue",
+                        execution_timeout=timedelta(minutes=15)
+                    )
 
-                    # Save video tags to Neon for queryability
-                    await workflow.execute_activity(
-                        "save_video_tags",
-                        args=[
-                            str(video_playback_id) if video_playback_id else "",
-                            str(video_asset_id) if video_asset_id else "",
-                            cluster_id,
-                            int(article_id),
-                            country_name,
-                            article_mode,
-                            ["relocation", country_name.lower(), article_mode, "quest"]
-                        ],
+                    if child_result.get("success"):
+                        video_url = child_result.get("video_url")
+                        video_playback_id = child_result.get("playback_id")
+                        video_asset_id = child_result.get("asset_id")
+                        workflow.logger.info(f"Video generated: {video_playback_id}")
+
+                        # Save video tags to Neon for queryability
+                        await workflow.execute_activity(
+                            "save_video_tags",
+                            args=[
+                                str(video_playback_id) if video_playback_id else "",
+                                str(video_asset_id) if video_asset_id else "",
+                                cluster_id,
+                                int(article_id),
+                                country_name,
+                                article_mode,
+                                ["relocation", country_name.lower(), article_mode, "quest"]
+                            ],
+                            start_to_close_timeout=timedelta(seconds=30)
+                        )
+                        workflow.logger.info(f"Video tags saved for {article_mode}")
+
+                        # For story mode, extract character reference for YOLO mode
+                        if article_mode == "story" and video_playback_id:
+                            new_character_reference_url = f"https://image.mux.com/{video_playback_id}/thumbnail.jpg?time=1.5&width=1024"
+                            workflow.logger.info(f"Character reference extracted: {new_character_reference_url[:60]}...")
+                    else:
+                        workflow.logger.warning(f"Video generation failed: {child_result.get('error')}")
+
+                except Exception as e:
+                    workflow.logger.error(f"Video workflow failed: {e}")
+                    # Continue without video - article is still valid
+
+            else:
+                # REUSE PARENT VIDEO: Guide, Voices, Nomad modes reuse Story video
+                workflow.logger.info(f"Phase 5: Reusing Story video for {article_mode} mode (cost optimization)")
+
+                try:
+                    # Get parent (story) article video from cluster
+                    parent_video = await workflow.execute_activity(
+                        "get_cluster_story_video",
+                        args=[cluster_id],
                         start_to_close_timeout=timedelta(seconds=30)
                     )
-                    workflow.logger.info(f"Video tags saved for {article_mode}")
 
-                    # For story mode, extract character reference for other modes
-                    if article_mode == "story" and video_playback_id:
-                        new_character_reference_url = f"https://image.mux.com/{video_playback_id}/thumbnail.jpg?time=1.5&width=1024"
-                        workflow.logger.info(f"Character reference extracted: {new_character_reference_url[:60]}...")
-                else:
-                    workflow.logger.warning(f"Video generation failed: {child_result.get('error')}")
+                    if parent_video and parent_video.get("video_playback_id"):
+                        video_playback_id = parent_video["video_playback_id"]
+                        video_asset_id = parent_video.get("video_asset_id")
+                        # Note: video_url not needed - we only need playback_id for frontend
+                        workflow.logger.info(f"Reusing Story video: {video_playback_id}")
+                    else:
+                        workflow.logger.warning(f"No Story video found to reuse for {article_mode}")
 
-            except Exception as e:
-                workflow.logger.error(f"Video workflow failed: {e}")
-                # Continue without video - article is still valid
+                except Exception as e:
+                    workflow.logger.error(f"Failed to retrieve Story video: {e}")
+                    # Continue without video - finessing will handle fallback later
 
         # ===== PHASE 6: FINAL UPDATE WITH VIDEO =====
         workflow.logger.info(f"Phase 6: Final update with video")

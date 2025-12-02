@@ -1239,6 +1239,52 @@ async def get_cluster_videos(
         return {"videos_by_mode": {}, "section_videos": {}, "primary_video": None}
 
 
+@activity.defn(name="get_cluster_story_video")
+async def get_cluster_story_video(cluster_id: str) -> Dict[str, Any]:
+    """
+    Get the Story mode video from a cluster for reuse by other modes.
+
+    Used by video cost optimization: Guide, Voices, and Nomad modes
+    reuse the Story video instead of generating their own (60% savings).
+
+    Args:
+        cluster_id: UUID of the cluster
+
+    Returns:
+        Dict with video_playback_id and video_asset_id, or empty dict if not found
+    """
+    activity.logger.info(f"Getting Story video from cluster {cluster_id}")
+
+    try:
+        async with await psycopg.AsyncConnection.connect(
+            config.DATABASE_URL
+        ) as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("""
+                    SELECT video_playback_id, video_asset_id
+                    FROM articles
+                    WHERE cluster_id = %s
+                      AND article_mode = 'story'
+                      AND video_playback_id IS NOT NULL
+                    LIMIT 1
+                """, (cluster_id,))
+
+                row = await cur.fetchone()
+
+                if row:
+                    return {
+                        "video_playback_id": row[0],
+                        "video_asset_id": row[1]
+                    }
+                else:
+                    activity.logger.warning(f"No Story video found in cluster {cluster_id}")
+                    return {}
+
+    except Exception as e:
+        activity.logger.error(f"Failed to get Story video: {e}")
+        return {}
+
+
 @activity.defn(name="get_cluster_videos_with_topics")
 async def get_cluster_videos_with_topics(
     cluster_id: str
@@ -1476,6 +1522,41 @@ async def finesse_cluster_media(
                 if not primary_video:
                     activity.logger.warning(f"No videos found in cluster {cluster_id}")
                     return stats
+
+                # 1.5. VIDEO OPTIMIZATION: Explicitly map non-video modes to Story video
+                # Guide, Voices, Nomad should always use Story video (cost savings)
+                VIDEO_FALLBACK_MAP = {
+                    "guide": "story",
+                    "voices": "story",
+                    "nomad": "story"
+                }
+
+                story_video = videos_by_mode.get("story", {}).get("video_playback_id")
+                if story_video:
+                    for mode, fallback in VIDEO_FALLBACK_MAP.items():
+                        # If this mode doesn't have a video, assign Story video
+                        if mode not in videos_by_mode and fallback == "story":
+                            await cur.execute("""
+                                UPDATE articles
+                                SET video_playback_id = %s,
+                                    video_asset_id = (
+                                        SELECT video_asset_id FROM articles
+                                        WHERE cluster_id = %s AND article_mode = 'story'
+                                        LIMIT 1
+                                    )
+                                WHERE cluster_id = %s
+                                  AND article_mode = %s
+                                  AND (video_playback_id IS NULL OR video_playback_id = '')
+                                RETURNING id
+                            """, (story_video, cluster_id, cluster_id, mode))
+
+                            updated = await cur.fetchone()
+                            if updated:
+                                activity.logger.info(f"Assigned Story video to {mode} mode (optimization)")
+                                stats["videos_propagated"].append({
+                                    "target": f"{mode}_mode",
+                                    "video": story_video[:20] + "..."
+                                })
 
                 # 2. Update hub video if missing
                 await cur.execute("""

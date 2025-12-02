@@ -295,7 +295,7 @@ with tab_article:
         video_quality = st.selectbox(
             "Video Quality",
             ["None", "low", "medium", "high"],
-            index=0,
+            index=1,  # Changed from 0 to 1 - defaults to "low" (480p)
             help="None: No video\nlow: 480p ($0.045)\nmedium: 720p ($0.075)\nhigh: Premium (coming soon)",
             key="video_quality"
         )
