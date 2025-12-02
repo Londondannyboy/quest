@@ -1055,7 +1055,8 @@ Every claim needs a source link. This guide should be the definitive resource fo
             generation_config=genai.GenerationConfig(
                 max_output_tokens=16000,
                 temperature=0.7
-            )
+            ),
+            request_options={"timeout": 1800.0}  # 30 min timeout for large content generation
         )
 
         response_text = response.text
