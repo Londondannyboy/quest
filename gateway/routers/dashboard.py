@@ -229,6 +229,27 @@ async def get_all_articles(
         return {"articles": [], "error": str(e)}
 
 
+@router.get("/content/articles/{slug}")
+async def get_article_by_slug(slug: str) -> Dict[str, Any]:
+    """
+    Get a single article by slug with full content.
+
+    No auth required - public content.
+    """
+    if not CONTENT_SERVICE_ENABLED:
+        return {"article": None, "error": "Content service not available"}
+
+    try:
+        article = await content_service.get_article_by_slug(slug)
+        if not article:
+            return {"article": None, "error": "Article not found"}
+        return {"article": article}
+
+    except Exception as e:
+        logger.error("get_article_by_slug_error", slug=slug, error=str(e))
+        return {"article": None, "error": str(e)}
+
+
 @router.post("/content/search")
 async def search_content(
     query: str = Query(..., description="Search query"),

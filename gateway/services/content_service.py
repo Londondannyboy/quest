@@ -345,6 +345,52 @@ class ContentService:
             logger.error("get_all_articles_error", error=str(e))
             return []
 
+    async def get_article_by_slug(self, slug: str) -> Optional[Dict[str, Any]]:
+        """Get a single article by slug with full content."""
+        pool = await self._get_pool()
+        if not pool:
+            return None
+
+        try:
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow("""
+                    SELECT a.id, a.title, a.slug, a.excerpt, a.content, a.country, a.article_mode,
+                           a.featured_asset_url, a.hero_asset_url, a.published_at,
+                           a.word_count, a.is_featured, a.video_playback_id, a.author,
+                           c.name as country_name, c.flag_emoji
+                    FROM articles a
+                    LEFT JOIN countries c ON c.code = a.country_code
+                    WHERE a.slug = $1
+                    AND a.status = 'published'
+                    AND a.app = 'relocation'
+                """, slug)
+
+                if not row:
+                    return None
+
+                return {
+                    "id": row["id"],
+                    "slug": row["slug"],
+                    "title": row["title"],
+                    "excerpt": row["excerpt"],
+                    "content": row["content"],
+                    "country": row["country"],
+                    "country_name": row["country_name"],
+                    "flag_emoji": row["flag_emoji"],
+                    "article_mode": row["article_mode"] or "topic",
+                    "featured_asset_url": row["featured_asset_url"],
+                    "hero_asset_url": row["hero_asset_url"],
+                    "video_playback_id": row["video_playback_id"],
+                    "published_at": row["published_at"].isoformat() if row["published_at"] else None,
+                    "word_count": row["word_count"],
+                    "is_featured": row["is_featured"],
+                    "author": row["author"],
+                }
+
+        except Exception as e:
+            logger.error("get_article_by_slug_error", slug=slug, error=str(e))
+            return None
+
 
 # Singleton instance
 content_service = ContentService()
