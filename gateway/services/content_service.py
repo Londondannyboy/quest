@@ -121,6 +121,7 @@ class ContentService:
                            featured_asset_url, hero_asset_url
                     FROM articles
                     WHERE status = 'published'
+                    AND app = 'relocation'
                     AND (
                         title ILIKE $1
                         OR excerpt ILIKE $1
@@ -267,7 +268,7 @@ class ContentService:
 
 
     async def get_recent_articles(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """Get recent published articles."""
+        """Get recent published relocation articles."""
         pool = await self._get_pool()
         if not pool:
             return []
@@ -279,6 +280,7 @@ class ContentService:
                            featured_asset_url, hero_asset_url
                     FROM articles
                     WHERE status = 'published'
+                    AND app = 'relocation'
                     AND published_at IS NOT NULL
                     ORDER BY published_at DESC
                     LIMIT $1
