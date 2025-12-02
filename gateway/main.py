@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import routers (relative imports for Railway deployment)
-from routers import health, workflows, voice, user_profile
+from routers import health, workflows, voice, user_profile, dashboard
 from temporal_client import TemporalClientManager
 
 
@@ -123,6 +123,7 @@ app.include_router(health.router)
 app.include_router(workflows.router)
 app.include_router(voice.router)
 app.include_router(user_profile.router)
+app.include_router(dashboard.router)
 
 
 # ============================================================================

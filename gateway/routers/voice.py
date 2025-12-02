@@ -391,6 +391,27 @@ class GeminiAssistant:
                                 "name": result.get("name", ""),
                                 "url": f"https://relocation.quest/countries/{result.get('slug', '')}"
                             })
+
+                    # Emit content suggestion events for dashboard
+                    if user_id and user_id != "anonymous":
+                        try:
+                            from services.event_publisher import emit_content_suggestion
+                            for result in neon_results.get("results", [])[:5]:
+                                await emit_content_suggestion(
+                                    user_id=user_id,
+                                    content_type=result.get("type", "article"),
+                                    content_id=result.get("id", 0),
+                                    title=result.get("title") or result.get("name", ""),
+                                    slug=result.get("slug", ""),
+                                    excerpt=result.get("description", "")[:200] if result.get("description") else None,
+                                    country=result.get("name") if result.get("type") == "country" else None,
+                                    country_flag=result.get("flag_emoji"),
+                                    match_reason=f"Relevant to your question about {query[:50]}",
+                                    search_context=query
+                                )
+                        except Exception as evt_err:
+                            logger.debug("content_event_emit_error", error=str(evt_err))
+
                     logger.info("using_neon_fallback",
                                results_count=len(neon_results["results"]),
                                types=neon_results.get("types", {}))
@@ -398,6 +419,13 @@ class GeminiAssistant:
             # Log if no context found from either source
             if not context:
                 logger.info("no_knowledge_found", query=query, zep_tried=True, neon_tried=bool(self.neon_store))
+                # Emit no results event
+                if user_id and user_id != "anonymous":
+                    try:
+                        from services.event_publisher import emit_content_no_results
+                        await emit_content_no_results(user_id, query)
+                    except Exception:
+                        pass
 
             # System prompt optimized for voice interaction
             system_prompt = """You are the voice assistant for Relocation Quest (relocation.quest), a comprehensive
@@ -523,9 +551,9 @@ TONE:
                             profile_id = await user_profile_service.get_or_create_profile(user_id)
 
                             if profile_id:
-                                # Store each extracted fact
+                                # Store each extracted fact and emit events
                                 for fact_type, value in extracted_info.items():
-                                    await user_profile_service.store_fact(
+                                    fact_id = await user_profile_service.store_fact(
                                         user_profile_id=profile_id,
                                         fact_type=fact_type,
                                         fact_value={"value": value},
@@ -534,6 +562,19 @@ TONE:
                                         session_id=thread_id,
                                         extracted_from=query[:500]
                                     )
+
+                                    # Emit SSE event for dashboard
+                                    try:
+                                        from services.event_publisher import emit_fact_extracted
+                                        await emit_fact_extracted(user_id, {
+                                            "id": fact_id,
+                                            "fact_type": fact_type,
+                                            "fact_value": {"value": value},
+                                            "confidence": 0.7,
+                                            "source": "voice"
+                                        })
+                                    except Exception as evt_err:
+                                        logger.debug("event_emit_error", error=str(evt_err))
 
                                 logger.info("neon_facts_stored",
                                            user_id=user_id,

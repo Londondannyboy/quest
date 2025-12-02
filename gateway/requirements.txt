@@ -2,6 +2,10 @@
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
 websockets>=12.0
+sse-starlette>=2.0.0
+
+# Async PostgreSQL (for content queries)
+asyncpg>=0.29.0
 
 # Temporal Client
 temporalio>=1.7.0
