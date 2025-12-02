@@ -970,7 +970,7 @@ class CountryGuideCreationWorkflow:
                             },
                             id=f"topic-{country_code.lower()}-{slugify(kw['keyword'])[:30]}-p{parent_id}",
                             task_queue="quest-content-queue",
-                            execution_timeout=timedelta(minutes=10)  # Faster without video gen
+                            execution_timeout=timedelta(minutes=20)  # Increased from 10 for comprehensive content
                         )
 
                         if topic_result.get("success"):
