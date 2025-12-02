@@ -295,3 +295,44 @@ async def get_mux_asset_info(asset_id: str) -> Dict[str, Any]:
         "playback_ids": [p.id for p in asset.data.playback_ids] if asset.data.playback_ids else [],
         "created_at": str(asset.data.created_at) if asset.data.created_at else None,
     }
+
+
+@activity.defn(name="inject_section_images")
+async def inject_section_images_activity(
+    content: str,
+    video_playback_id: Optional[str],
+    image_width: int = 800,
+    max_sections: Optional[int] = None,
+    four_act_content: Optional[list] = None
+) -> str:
+    """
+    Inject Mux thumbnail images into article content at section breaks.
+
+    This activity wraps the inject_section_images utility function to make it
+    safe for use from Temporal workflows (avoids sandbox restrictions).
+
+    Args:
+        content: HTML content to process
+        video_playback_id: Mux video playback ID for thumbnails
+        image_width: Width of thumbnail images
+        max_sections: Maximum number of sections to add images to (None = unlimited)
+        four_act_content: Video act descriptions for AI matching (optional)
+
+    Returns:
+        HTML content with injected images
+    """
+    activity.logger.info(f"Injecting section images for video {video_playback_id}")
+
+    # Import here (inside activity) to avoid Temporal workflow sandbox restrictions
+    from src.utils.inject_section_images import inject_section_images
+
+    result = inject_section_images(
+        content,
+        video_playback_id,
+        image_width=image_width,
+        max_sections=max_sections,
+        four_act_content=four_act_content
+    )
+
+    activity.logger.info("Section images injected successfully")
+    return result

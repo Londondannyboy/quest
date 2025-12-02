@@ -639,6 +639,51 @@ async def generate_hub_content(
                 voices_md += f"> {voice}\n\n"
         sections.append(voices_md)
 
+    # Topic Clusters section (SEO-targeted articles)
+    topic_articles = [
+        article for article in embedded.values()
+        if isinstance(article, dict) and article.get("mode") == "topic"
+    ]
+    if not topic_articles and payload.get("cluster_articles"):
+        # Extract from cluster_articles if not in embedded
+        topic_articles = [
+            article for article in payload["cluster_articles"]
+            if article.get("mode") == "topic"
+        ]
+
+    if topic_articles:
+        topic_md = f"## Essential Guides for {location_name}\n\n"
+        topic_md += f"Explore our in-depth guides covering specific topics about relocating to {location_name}:\n\n"
+
+        # Group by planning_type
+        by_type = {}
+        for article in topic_articles:
+            p_type = "General"
+            if isinstance(article, dict):
+                payload_data = article.get("payload", {})
+                p_type = payload_data.get("planning_type", "general").title()
+            by_type.setdefault(p_type, []).append(article)
+
+        # Display by category
+        for category, articles in sorted(by_type.items()):
+            topic_md += f"### {category}\n\n"
+            for article in articles[:5]:  # Max 5 per category
+                if isinstance(article, dict):
+                    title = article.get("title", "")
+                    slug = article.get("slug", "")
+                    excerpt = article.get("excerpt", "")
+                    video = article.get("video_playback_id", "")
+
+                    if slug and title:
+                        topic_md += f"- **[{title}](/{slug})**"
+                        if excerpt:
+                            topic_md += f" - {excerpt}"
+                        topic_md += "\n"
+
+            topic_md += "\n"
+
+        sections.append(topic_md)
+
     # FAQ section
     if faq:
         faq_md = f"## Frequently Asked Questions\n\n"

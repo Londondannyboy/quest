@@ -356,7 +356,7 @@ class ContentService:
                 row = await conn.fetchrow("""
                     SELECT a.id, a.title, a.slug, a.excerpt, a.content, a.country, a.article_mode,
                            a.featured_asset_url, a.hero_asset_url, a.published_at,
-                           a.word_count, a.is_featured, a.video_playback_id, a.author,
+                           a.word_count, a.is_featured, a.video_playback_id,
                            c.name as country_name, c.flag_emoji
                     FROM articles a
                     LEFT JOIN countries c ON c.code = a.country_code
@@ -384,7 +384,6 @@ class ContentService:
                     "published_at": row["published_at"].isoformat() if row["published_at"] else None,
                     "word_count": row["word_count"],
                     "is_featured": row["is_featured"],
-                    "author": row["author"],
                 }
 
         except Exception as e:

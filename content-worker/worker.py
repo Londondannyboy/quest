@@ -120,6 +120,7 @@ from src.activities.media.mux_client import (
     upload_video_file_to_mux,
     delete_mux_asset,
     get_mux_asset_info,
+    inject_section_images_activity,
 )
 
 from src.activities.articles.analyze_sections import (
@@ -364,6 +365,7 @@ async def main():
             upload_video_file_to_mux,
             delete_mux_asset,
             get_mux_asset_info,
+            inject_section_images_activity,
 
             # Generation
             generate_company_profile_v2,

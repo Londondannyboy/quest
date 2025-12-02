@@ -210,7 +210,9 @@ class ClusterArticleWorkflow:
                     {
                         "country_name": country_name,
                         "country_code": country_code,
+                        "cluster_id": cluster_id,  # Add cluster_id for Mux metadata
                         "segment": video_segment,
+                        "article_mode": article_mode,  # Add article_mode for Mux title
                         "video_quality": video_quality,
                         "article_id": article_id,
                         "four_act_content": payload.get("four_act_content") if article_mode == "story" else None,

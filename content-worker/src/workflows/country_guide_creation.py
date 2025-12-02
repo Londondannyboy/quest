@@ -19,6 +19,7 @@ from temporalio.common import RetryPolicy
 from datetime import timedelta
 import asyncio
 from typing import Dict, Any
+from slugify import slugify
 
 
 @workflow.defn
@@ -967,7 +968,7 @@ class CountryGuideCreationWorkflow:
                                 "parent_playback_id": parent_playback_id,
                                 "parent_four_act_content": parent_four_act_content,
                             },
-                            id=f"topic-{country_code.lower()}-{workflow.uuid4().hex[:8]}",
+                            id=f"topic-{country_code.lower()}-{slugify(kw['keyword'])[:30]}-p{parent_id}",
                             task_queue="quest-content-queue",
                             execution_timeout=timedelta(minutes=10)  # Faster without video gen
                         )
@@ -1044,8 +1045,10 @@ class CountryGuideCreationWorkflow:
                 )
                 country_facts = country_data.get("facts", {}) if country_data else {}
 
-                # Build cluster articles list for aggregation
+                # Build cluster articles list for aggregation (mode articles + topic clusters)
                 all_cluster_data = []
+
+                # Add mode articles (story/guide/yolo/voices/nomad)
                 for ca in cluster_articles:
                     all_cluster_data.append({
                         "article_id": ca.get("article_id"),
@@ -1056,6 +1059,24 @@ class CountryGuideCreationWorkflow:
                         "video_playback_id": ca.get("video_playback_id"),
                         "content": content_modes.get(ca.get("article_mode", "story"), {}).get("content", ""),
                         "payload": article,
+                    })
+
+                # Add topic cluster articles (SEO-targeted keywords)
+                workflow.logger.info(f"    Adding {len(topic_cluster_articles)} topic cluster articles to hub...")
+                for topic in topic_cluster_articles:
+                    all_cluster_data.append({
+                        "article_id": topic.get("article_id"),
+                        "slug": topic.get("slug"),
+                        "article_mode": "topic",
+                        "title": topic.get("title", ""),
+                        "excerpt": f"Complete guide to {topic.get('target_keyword', '')}",
+                        "video_playback_id": topic.get("video_playback_id"),
+                        "content": "",  # Don't embed full content, just navigation link
+                        "payload": {
+                            "target_keyword": topic.get("target_keyword"),
+                            "keyword_volume": topic.get("keyword_volume", 0),
+                            "planning_type": topic.get("planning_type", "general"),
+                        },
                     })
 
                 hub_payload = await workflow.execute_activity(

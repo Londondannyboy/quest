@@ -1043,6 +1043,24 @@ The STRUCTURED DATA section is MANDATORY - without it, no video can be generated
         content = re.sub(r'---\s*STRUCTURED\s*DATA\s*---\s*```json\s*.+?\s*```', '', content, flags=re.DOTALL | re.IGNORECASE).strip()
         content = re.sub(r'---\s*STRUCTURED\s*DATA\s*---\s*\{.+?\}', '', content, flags=re.DOTALL | re.IGNORECASE).strip()
 
+        # Clean markdown artifacts and formatting issues
+        # Remove triple dashes (markdown separators) - they're not valid HTML
+        content = re.sub(r'^---\s*$', '', content, flags=re.MULTILINE)
+        content = re.sub(r'\n---\s*\n', '\n\n', content)
+
+        # Remove code blocks (```html, ```markdown, etc.)
+        content = re.sub(r'```\w*\n?', '', content)
+
+        # Remove "Copy like this" annotations
+        content = re.sub(r'"Copy like this\.?"', '', content, flags=re.IGNORECASE)
+
+        # Fix spacing: Ensure double line breaks before H2 headers for mobile readability
+        content = re.sub(r'(<h2[^>]*>)', r'\n\n\1', content)
+
+        # Clean up excessive whitespace
+        content = re.sub(r'\n{4,}', '\n\n\n', content)  # Max 3 newlines (2 blank lines)
+        content = content.strip()
+
         # Log structured data extraction
         sections = structured_data.get("sections", [])
         if sections:

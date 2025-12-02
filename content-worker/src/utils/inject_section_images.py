@@ -133,14 +133,47 @@ If there are more sections than acts, reuse the most relevant acts.
         if json_match:
             timestamps = json.loads(json_match.group(0))
             if len(timestamps) == len(section_titles):
+                print(f"AI matching succeeded: {len(timestamps)} timestamps for {len(section_titles)} sections")
                 return timestamps
+            else:
+                print(f"AI matching returned wrong count: {len(timestamps)} timestamps for {len(section_titles)} sections, using fallback")
 
     except Exception as e:
         # Fallback on any error
         print(f"AI matching failed: {e}, using even distribution")
 
     # Fallback to even distribution
+    print(f"Using even distribution for {len(section_titles)} sections")
     return get_video_time_points(len(section_titles))
+
+
+def section_has_video(content: str) -> bool:
+    """
+    Check if a section already contains a video embed.
+
+    Returns True if the section has:
+    - <video> tags
+    - <iframe> tags (YouTube, Vimeo, etc.)
+    - Mux video embeds
+    """
+    if not content:
+        return False
+
+    # Check for common video patterns
+    video_patterns = [
+        r'<video[^>]*>',           # HTML5 video
+        r'<iframe[^>]*>',          # iframe embeds (YouTube, Vimeo, etc.)
+        r'data-playback-id',       # Mux playback ID
+        r'player\.vimeo\.com',     # Vimeo
+        r'youtube\.com/embed',     # YouTube
+        r'youtu\.be/',             # YouTube short links
+    ]
+
+    for pattern in video_patterns:
+        if re.search(pattern, content, re.IGNORECASE):
+            return True
+
+    return False
 
 
 def split_content_by_h2(html: str) -> List[Tuple[str, str]]:
@@ -241,8 +274,11 @@ def inject_section_images(
         # Add H2 tag
         result_parts.append(h2_tag)
 
-        # Add image after H2 if we have a time point for this section
-        if section_index < len(time_points):
+        # Check if section already has a video - if so, don't inject image (avoid duplication)
+        has_video = section_has_video(section_content)
+
+        # Add image after H2 if we have a time point for this section AND no video exists
+        if section_index < len(time_points) and not has_video:
             time = time_points[section_index]
             img_url = get_mux_thumbnail_url(video_playback_id, time, image_width)
 

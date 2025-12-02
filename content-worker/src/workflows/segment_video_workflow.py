@@ -50,12 +50,14 @@ class SegmentVideoWorkflow:
         """
         country_name = input_dict["country_name"]
         country_code = input_dict["country_code"]
+        cluster_id = input_dict.get("cluster_id")
         segment = input_dict["segment"]
+        article_mode = input_dict.get("article_mode", segment)  # Fallback to segment if not provided
         video_quality = input_dict.get("video_quality", "low")
         article_id = input_dict.get("article_id")
         four_act_content = input_dict.get("four_act_content")
 
-        workflow.logger.info(f"SegmentVideoWorkflow: {segment.upper()} video for {country_name}")
+        workflow.logger.info(f"SegmentVideoWorkflow: {segment.upper()} video for {country_name} ({article_mode} mode)")
 
         # ===== PHASE 1: GENERATE VIDEO PROMPT =====
         workflow.logger.info(f"Phase 1: Generate {segment} video prompt")
@@ -119,14 +121,30 @@ class SegmentVideoWorkflow:
         workflow.logger.info(f"Video generated: {raw_video_url[:60]}...")
 
         # ===== PHASE 3: UPLOAD TO MUX =====
-        workflow.logger.info(f"Phase 3: Upload {segment} video to Mux")
+        workflow.logger.info(f"Phase 3: Upload {segment} video to Mux with metadata")
+
+        # Build human-readable title for Mux
+        # Format: "Slovakia STORY: Why Slovakia?" or "Malta GUIDE: Practical Guide"
+        mux_title = f"{country_name} {article_mode.upper()}: {segment_title}"
 
         mux_result = await workflow.execute_activity(
             "upload_video_to_mux",
-            args=[raw_video_url],
+            args=[
+                raw_video_url,  # video_url
+                True,  # public
+                cluster_id,  # cluster_id
+                article_id,  # article_id
+                country_name,  # country
+                article_mode,  # article_mode
+                ["relocation", country_name.lower(), article_mode, segment],  # tags
+                mux_title,  # title (human-readable)
+                "relocation"  # app
+            ],
             start_to_close_timeout=timedelta(minutes=5),
             retry_policy=RetryPolicy(maximum_attempts=2)
         )
+
+        workflow.logger.info(f"Uploaded to Mux: '{mux_title}'")
 
         playback_id = mux_result.get("playback_id")
         asset_id = mux_result.get("asset_id")
