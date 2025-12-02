@@ -17,7 +17,8 @@ Usage in workflow:
 
 import re
 from typing import Optional, List, Tuple, Dict, Any
-import google.generativeai as genai
+# Lazy import to avoid Temporal workflow sandbox restrictions
+# import google.generativeai as genai
 from src.utils.config import config
 
 
@@ -80,6 +81,9 @@ def match_sections_to_acts_with_ai(
         return get_video_time_points(len(section_titles))
 
     try:
+        # Lazy import inside function to avoid Temporal workflow sandbox restrictions
+        import google.generativeai as genai
+
         # Configure Gemini
         genai.configure(api_key=config.gemini_api_key)
         model = genai.GenerativeModel('gemini-2.0-flash-exp')
