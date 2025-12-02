@@ -123,6 +123,13 @@ from src.activities.media.mux_client import (
     inject_section_images_activity,
 )
 
+from src.activities.media.mux_catalog import (
+    query_videos_by_country,
+    query_videos_by_mode,
+    query_videos_by_article,
+    get_all_videos_summary,
+)
+
 from src.activities.articles.analyze_sections import (
     analyze_article_sections,
 )
@@ -366,6 +373,11 @@ async def main():
             delete_mux_asset,
             get_mux_asset_info,
             inject_section_images_activity,
+            # Mux Asset Catalog (MCP)
+            query_videos_by_country,
+            query_videos_by_mode,
+            query_videos_by_article,
+            get_all_videos_summary,
 
             # Generation
             generate_company_profile_v2,

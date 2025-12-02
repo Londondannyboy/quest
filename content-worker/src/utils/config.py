@@ -92,6 +92,7 @@ class Config:
     # ===== VIDEO SERVICES =====
     MUX_TOKEN_ID: Optional[str] = os.getenv("MUX_TOKEN_ID")
     MUX_TOKEN_SECRET: Optional[str] = os.getenv("MUX_TOKEN_SECRET")
+    MUX_MCP_URL: str = os.getenv("MUX_MCP_URL", "https://mcp.mux.com/")
 
     # ===== KNOWLEDGE GRAPH =====
     ZEP_API_KEY: Optional[str] = os.getenv("ZEP_API_KEY")
