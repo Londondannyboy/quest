@@ -357,6 +357,7 @@ class ContentService:
                     SELECT a.id, a.title, a.slug, a.excerpt, a.content, a.country, a.article_mode,
                            a.featured_asset_url, a.hero_asset_url, a.published_at,
                            a.word_count, a.is_featured, a.video_playback_id,
+                           a.payload, a.video_narrative, a.article_angle,
                            c.name as country_name, c.flag_emoji
                     FROM articles a
                     LEFT JOIN countries c ON c.code = a.country_code
@@ -368,6 +369,24 @@ class ContentService:
                 if not row:
                     return None
 
+                # Parse payload JSON
+                payload = row["payload"]
+                if isinstance(payload, str):
+                    import json
+                    try:
+                        payload = json.loads(payload)
+                    except:
+                        payload = {}
+
+                # Parse video_narrative JSON
+                video_narrative = row["video_narrative"]
+                if isinstance(video_narrative, str):
+                    import json
+                    try:
+                        video_narrative = json.loads(video_narrative)
+                    except:
+                        video_narrative = {}
+
                 return {
                     "id": row["id"],
                     "slug": row["slug"],
@@ -378,12 +397,15 @@ class ContentService:
                     "country_name": row["country_name"],
                     "flag_emoji": row["flag_emoji"],
                     "article_mode": row["article_mode"] or "topic",
+                    "article_angle": row["article_angle"],
                     "featured_asset_url": row["featured_asset_url"],
                     "hero_asset_url": row["hero_asset_url"],
                     "video_playback_id": row["video_playback_id"],
                     "published_at": row["published_at"].isoformat() if row["published_at"] else None,
                     "word_count": row["word_count"],
                     "is_featured": row["is_featured"],
+                    "payload": payload,
+                    "video_narrative": video_narrative,
                 }
 
         except Exception as e:
