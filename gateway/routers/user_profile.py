@@ -415,8 +415,26 @@ async def update_fact_simple(
             except Exception as evt_err:
                 logger.debug("emit_fact_updated_error", error=str(evt_err))
 
+            # Sync to ZEP User Graph after fact update
+            try:
+                if ZEP_USER_GRAPH_ENABLED and zep_user_graph_service:
+                    profile = await user_profile_service.get_profile_by_stack_id(user_id)
+                    all_facts = await user_profile_service.get_facts_by_stack_id(user_id, active_only=True)
+                    sync_result = await zep_user_graph_service.sync_user_profile(
+                        user_id=user_id,
+                        profile=profile or {},
+                        facts=all_facts,
+                        app_id="relocation"
+                    )
+                    logger.info("zep_graph_synced_from_repo",
+                               user_id=user_id,
+                               fact_type=request.fact_type,
+                               facts_synced=sync_result.get("facts_synced", 0))
+            except Exception as zep_err:
+                logger.warning("zep_sync_error_from_repo", error=str(zep_err))
+
             logger.info("fact_updated_success", fact_id=fact_id)
-            return {"success": True, "id": fact_id, "updated": True}
+            return {"success": True, "id": fact_id, "updated": True, "zep_synced": ZEP_USER_GRAPH_ENABLED}
         else:
             # No valid fact_id - try to find existing fact by type and update it
             existing_facts = await user_profile_service.get_facts_by_stack_id(
@@ -433,8 +451,22 @@ async def update_fact_simple(
                         is_user_verified=True
                     )
                     if success:
+                        # Sync to ZEP after update by type
+                        try:
+                            if ZEP_USER_GRAPH_ENABLED and zep_user_graph_service:
+                                profile = await user_profile_service.get_profile_by_stack_id(user_id)
+                                all_facts = await user_profile_service.get_facts_by_stack_id(user_id, active_only=True)
+                                await zep_user_graph_service.sync_user_profile(
+                                    user_id=user_id,
+                                    profile=profile or {},
+                                    facts=all_facts,
+                                    app_id="relocation"
+                                )
+                        except Exception as zep_err:
+                            logger.warning("zep_sync_error_from_repo", error=str(zep_err))
+
                         logger.info("fact_updated_by_type", fact_type=request.fact_type)
-                        return {"success": True, "id": existing_fact_id, "updated": True}
+                        return {"success": True, "id": existing_fact_id, "updated": True, "zep_synced": ZEP_USER_GRAPH_ENABLED}
 
             # Create new fact if no existing fact found
             profile_id = await user_profile_service.get_or_create_profile(user_id)
@@ -450,8 +482,22 @@ async def update_fact_simple(
                 is_verified=True
             )
 
+            # Sync to ZEP after new fact creation
+            try:
+                if ZEP_USER_GRAPH_ENABLED and zep_user_graph_service:
+                    profile = await user_profile_service.get_profile_by_stack_id(user_id)
+                    all_facts = await user_profile_service.get_facts_by_stack_id(user_id, active_only=True)
+                    await zep_user_graph_service.sync_user_profile(
+                        user_id=user_id,
+                        profile=profile or {},
+                        facts=all_facts,
+                        app_id="relocation"
+                    )
+            except Exception as zep_err:
+                logger.warning("zep_sync_error_from_repo", error=str(zep_err))
+
             logger.info("fact_created", fact_id=new_fact_id, fact_type=request.fact_type)
-            return {"success": True, "id": new_fact_id, "created": True}
+            return {"success": True, "id": new_fact_id, "created": True, "zep_synced": ZEP_USER_GRAPH_ENABLED}
 
     except HTTPException:
         raise

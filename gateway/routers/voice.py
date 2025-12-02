@@ -1493,12 +1493,44 @@ async def _generate_sse_response(messages: list, user_id: str = "anonymous"):
 
     logger.info("sse_streaming_request", query=user_message[:100], user_id=user_id)
 
+    # Bridge expressions for natural conversation flow during processing
+    import random
+    BRIDGE_EXPRESSIONS = [
+        "Let me think about that...",
+        "Hmm, that's a great question...",
+        "Let me look into that for you...",
+        "One moment while I check...",
+        "Good question, let me see...",
+    ]
+
+    # For longer/complex queries, send bridge expression first
+    is_complex_query = len(user_message) > 50 or any(
+        kw in user_message.lower() for kw in ['compare', 'difference', 'explain', 'tell me about', 'what are', 'how do']
+    )
+
+    chunk_id = f"chatcmpl-{int(datetime.utcnow().timestamp())}"
+
     try:
+        # Send bridge expression for complex queries to hide processing time
+        if is_complex_query:
+            bridge = random.choice(BRIDGE_EXPRESSIONS)
+            bridge_chunk = {
+                "id": chunk_id,
+                "object": "chat.completion.chunk",
+                "created": int(datetime.utcnow().timestamp()),
+                "model": "gemini-2.0-flash",
+                "choices": [{
+                    "index": 0,
+                    "delta": {"content": bridge + " "},
+                    "finish_reason": None
+                }]
+            }
+            yield f"data: {json.dumps(bridge_chunk)}\n\n"
+
         # Get response from Gemini + Zep (with user_id for profile/fact storage)
         response_text = await gemini_assistant.process_query(user_message, user_id=user_id)
 
         # Stream response in chunks (simulating streaming for better UX)
-        chunk_id = f"chatcmpl-{int(datetime.utcnow().timestamp())}"
         words = response_text.split()
 
         for i, word in enumerate(words):
