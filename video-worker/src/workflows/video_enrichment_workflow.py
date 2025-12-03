@@ -193,21 +193,17 @@ class VideoEnrichmentWorkflow:
         workflow.logger.info("Step 5/6: Uploading video to MUX...")
         mux_result = await workflow.execute_activity(
             upload_video_to_mux,
-            args=[
-                video_url,
-                {
-                    "article_id": str(article_id),
-                    "article_slug": slug,
-                    "article_title": article_title,
-                    "video_type": "hero_4act",
-                    "app": app,
-                }
-            ],
+            args=[video_url],
+            kwargs={
+                "article_id": article_id,
+                "title": article_title,
+                "app": app,
+            },
             start_to_close_timeout=timedelta(minutes=3),
         )
 
-        if not mux_result.get("success"):
-            raise ValueError(f"MUX upload failed: {mux_result.get('error', 'Unknown error')}")
+        if not mux_result.get("playback_id"):
+            raise ValueError(f"MUX upload failed: No playback_id returned")
 
         playback_id = mux_result.get("playback_id")
         workflow.logger.info(f"Video uploaded to MUX: {playback_id}")
