@@ -15,8 +15,9 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Import workflow
+# Import workflows
 from src.workflows.video_enrichment_workflow import VideoEnrichmentWorkflow
+from src.workflows.video_enrich_v2 import VideoEnrichmentV2
 
 # Import activities
 from src.activities.storage.neon_database import (
@@ -92,11 +93,11 @@ async def main():
         print(f"❌ Failed to connect to Temporal: {e}")
         sys.exit(1)
 
-    # Create worker with video enrichment workflow
+    # Create worker with video enrichment workflows
     worker = Worker(
         client,
         task_queue=config.TEMPORAL_TASK_QUEUE,
-        workflows=[VideoEnrichmentWorkflow],
+        workflows=[VideoEnrichmentWorkflow, VideoEnrichmentV2],
         activities=[
             # Database - Articles
             get_article_by_slug,
@@ -127,7 +128,8 @@ async def main():
     print("=" * 70)
 
     print("\n📋 Registered Workflows:")
-    print("   - VideoEnrichmentWorkflow (Dashboard-triggered video enrichment)")
+    print("   - VideoEnrichmentWorkflow (Legacy)")
+    print("   - VideoEnrichmentV2 (FRESH CODE - Use this!)")
 
     print("\n📋 Registered Activities:")
     print("   - get_article_by_slug")
