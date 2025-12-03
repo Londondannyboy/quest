@@ -109,44 +109,65 @@ class VideoEnrichmentWorkflow:
                 "skipped": True
             }
 
-        # Step 2: Generate 4-act video prompt briefs from article content
-        workflow.logger.info("Step 2/6: Generating 4-act video prompt briefs from article...")
-        brief_result = await workflow.execute_activity(
-            generate_four_act_video_prompt_brief,
-            args=[article, app, None],  # character_style = None (use app default)
-            start_to_close_timeout=timedelta(minutes=3),
-        )
+        # Step 2: Generate video prompt (with fallback for hubs)
+        workflow.logger.info("Step 2/6: Generating video prompt...")
 
-        if not brief_result.get("success"):
-            raise ValueError("Failed to generate video prompt briefs")
+        # For hubs, use simple prompt fallback
+        if is_hub:
+            workflow.logger.info("Hub detected - using simple prompt from title/meta")
+            title = article.get("title", "Relocation Guide")
+            country_name = article.get("location_name", "")
 
-        # Update article with four_act_content
-        four_act_content = brief_result.get("four_act_content", [])
-        workflow.logger.info(f"Generated {len(four_act_content)} act briefs")
+            # Create simple cinematic prompt for hub video
+            video_prompt = f"""A cinematic 12-second video about relocating to {country_name}.
 
-        # Save briefs to article
-        await workflow.execute_activity(
-            update_article_four_act_content,
-            args=[article_id, four_act_content, None],  # video_prompt will be set later
-            start_to_close_timeout=timedelta(seconds=30),
-        )
+Act 1 (0-3s): Aerial view of {country_name} landmarks and cityscape, golden hour lighting
+Act 2 (3-6s): Professional woman mid-20s walking through modern office district, confident mood
+Act 3 (6-9s): Cafe scene with laptop, working remotely, warm atmosphere
+Act 4 (9-12s): Happy group of diverse young professionals, celebrating new life
 
-        # Update article dict with four_act_content for prompt generation
-        article["four_act_content"] = four_act_content
+CRITICAL: NO text, words, letters, or numbers visible anywhere. Purely visual.
+Character: North European woman, mid-20s, healthy skin, professional attire.
+Style: Cinematic, aspirational, 480p optimized."""
 
-        # Step 3: Generate 4-act video prompt
-        workflow.logger.info("Step 3/6: Assembling 4-act video prompt...")
-        prompt_result = await workflow.execute_activity(
-            generate_four_act_video_prompt,
-            args=[article, app, video_model, None],  # character_style = None
-            start_to_close_timeout=timedelta(seconds=30),
-        )
+            workflow.logger.info(f"Generated simple hub prompt: {len(video_prompt)} characters")
 
-        if not prompt_result.get("success"):
-            raise ValueError("Failed to generate video prompt")
+        else:
+            # For articles, use full 4-act brief generation
+            brief_result = await workflow.execute_activity(
+                generate_four_act_video_prompt_brief,
+                args=[article, app, None],
+                start_to_close_timeout=timedelta(minutes=3),
+            )
 
-        video_prompt = prompt_result.get("prompt", "")
-        workflow.logger.info(f"Generated video prompt: {len(video_prompt)} characters")
+            if not brief_result.get("success"):
+                raise ValueError("Failed to generate video prompt briefs")
+
+            four_act_content = brief_result.get("four_act_content", [])
+            workflow.logger.info(f"Generated {len(four_act_content)} act briefs")
+
+            # Save briefs to article
+            await workflow.execute_activity(
+                update_article_four_act_content,
+                args=[article_id, four_act_content, None],
+                start_to_close_timeout=timedelta(seconds=30),
+            )
+
+            # Update article dict for prompt generation
+            article["four_act_content"] = four_act_content
+
+            # Assemble final prompt
+            prompt_result = await workflow.execute_activity(
+                generate_four_act_video_prompt,
+                args=[article, app, video_model, None],
+                start_to_close_timeout=timedelta(seconds=30),
+            )
+
+            if not prompt_result.get("success"):
+                raise ValueError("Failed to generate video prompt")
+
+            video_prompt = prompt_result.get("prompt", "")
+            workflow.logger.info(f"Generated article prompt: {len(video_prompt)} characters")
 
         # Step 4: Generate 4-act video
         workflow.logger.info(f"Step 4/6: Generating 12-second 4-act video with {video_model}...")
