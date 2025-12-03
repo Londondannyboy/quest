@@ -2035,36 +2035,31 @@ async def generate_four_act_video_prompt_brief(
     # Check if this is a hub (needs content parsing)
     is_hub = article.get("is_hub", False)
     if is_hub:
-        activity.logger.info("Detected hub content - parsing HTML into sections")
-        # Parse hub HTML content by H2 headings to extract sections
+        activity.logger.info("Detected hub content - parsing markdown/HTML into sections")
         import re
         from bs4 import BeautifulSoup
 
         content_html = article.get("content", "")
-        soup = BeautifulSoup(content_html, 'html.parser')
 
-        # Find all H2 headings
-        h2_tags = soup.find_all('h2')
+        # Hub content has markdown headings (## Title) mixed with HTML
+        # Extract markdown H2 headings first
+        markdown_sections = re.findall(r'##\s+([^\n]+)\n+((?:(?!##).)*)' , content_html, re.DOTALL)
 
-        # Extract first 4 H2 sections for 4-act structure
         sections_text = []
-        for h2 in h2_tags[:4]:
-            # Get section title
-            section_title = h2.get_text(strip=True)
+        for title, content in markdown_sections[:4]:
+            # Clean title
+            section_title = title.strip()
 
-            # Get content between this H2 and next H2 (or end)
-            section_content = []
-            for sibling in h2.find_next_siblings():
-                if sibling.name == 'h2':
-                    break
-                if sibling.name in ['p', 'ul', 'ol']:
-                    section_content.append(sibling.get_text(strip=True))
+            # Parse content HTML to extract text from paragraphs
+            soup = BeautifulSoup(content, 'html.parser')
+            paragraphs = soup.find_all('p')
+            section_text = ' '.join([p.get_text(strip=True) for p in paragraphs[:3]])[:500]  # First 3 paragraphs, max 500 chars
 
-            section_text = ' '.join(section_content)[:500]  # First 500 chars
-            sections_text.append({
-                "title": section_title,
-                "content": section_text
-            })
+            if section_text:  # Only add if we got content
+                sections_text.append({
+                    "title": section_title,
+                    "content": section_text
+                })
 
         # If we got at least 4 sections, use them for content extraction
         if len(sections_text) >= 4:
@@ -2074,9 +2069,9 @@ async def generate_four_act_video_prompt_brief(
                 for s in sections_text[:4]
             ])
             article["content"] = content_summary
-            activity.logger.info(f"✅ Parsed {len(sections_text)} sections from hub HTML")
+            activity.logger.info(f"✅ Parsed {len(sections_text)} markdown sections from hub")
         else:
-            activity.logger.warning(f"⚠️ Only found {len(sections_text)} H2 sections in hub, need 4 for 4-act video")
+            activity.logger.warning(f"⚠️ Only found {len(sections_text)} markdown H2 sections in hub, need 4 for 4-act video")
 
     # Get app config NOW - at video prompt time
     app_config = APP_CONFIGS.get(app)
