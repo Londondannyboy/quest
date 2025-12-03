@@ -21,8 +21,8 @@ with workflow.unsafe.imports_passed_through():
     from src.activities.generation.article_generation import (
         generate_simple_video_prompt,
     )
-    from src.activities.media.video_generation import (
-        generate_four_act_video,
+    from src.activities.media.simple_video_generation import (
+        generate_video_simple,
     )
     from src.activities.media.mux_client import (
         upload_video_to_mux,
@@ -107,21 +107,16 @@ class VideoEnrichmentV2:
         video_prompt = prompt_result.get("prompt", "")
         workflow.logger.info(f"✅ Prompt ready: {len(video_prompt)} chars")
 
-        # STEP 3: Generate video
+        # STEP 3: Generate video - FRESH ACTIVITY, NO VALIDATION!
         workflow.logger.info("3/4: Generating video with Seedance (1-3 min)...")
         video_result = await workflow.execute_activity(
-            generate_four_act_video,
-            args=[
-                title,           # title
-                "",              # content
-                app,             # app
-                "low",           # quality
-                12,              # duration
-                "16:9",          # aspect_ratio
-                "seedance",      # video_model
-                video_prompt,    # video_prompt
-                None             # reference_image
-            ],
+            generate_video_simple,
+            args=[video_prompt],
+            kwargs={
+                "duration": 12,
+                "resolution": "720p",
+                "aspect_ratio": "16:9",
+            },
             start_to_close_timeout=timedelta(minutes=5),
         )
 

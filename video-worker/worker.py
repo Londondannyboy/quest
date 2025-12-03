@@ -34,6 +34,9 @@ from src.activities.generation.article_generation import (
 from src.activities.media.video_generation import (
     generate_four_act_video,
 )
+from src.activities.media.simple_video_generation import (
+    generate_video_simple,
+)
 from src.activities.media.mux_client import (
     upload_video_to_mux,
 )
@@ -110,10 +113,13 @@ async def main():
             # Video prompt generation
             generate_four_act_video_prompt_brief,
             generate_four_act_video_prompt,
-    generate_simple_video_prompt,
+            generate_simple_video_prompt,
 
-            # Video generation
+            # Video generation (legacy)
             generate_four_act_video,
+
+            # Video generation (FRESH - NO VALIDATION)
+            generate_video_simple,
 
             # MUX upload
             upload_video_to_mux,
@@ -139,7 +145,8 @@ async def main():
     print("   - generate_four_act_video_prompt_brief")
     print("   - generate_four_act_video_prompt")
     print("   - generate_simple_video_prompt")
-    print("   - generate_four_act_video")
+    print("   - generate_four_act_video (Legacy)")
+    print("   - generate_video_simple (FRESH - NO VALIDATION)")
     print("   - upload_video_to_mux")
 
     print("\n✅ Worker is ready to process video enrichment workflows")

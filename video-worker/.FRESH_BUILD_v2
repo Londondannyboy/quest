@@ -1,4 +1,5 @@
-FRESH BUILD V2 - 2025-12-03-13:10
+FRESH BUILD V2 - 2025-12-03-13:30
 VideoEnrichmentV2 workflow
+NEW: generate_video_simple activity - ZERO validation!
+NO legacy validation blocking good prompts
 Clean, simple code
-No legacy issues
