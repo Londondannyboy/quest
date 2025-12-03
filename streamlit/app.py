@@ -165,7 +165,7 @@ with tab_company:
                 try:
                     # Call Gateway API
                     response = requests.post(
-                        f"{GATEWAY_URL}/v1/workflows/company-worker",
+                        f"{GATEWAY_URL}/v1/workflows/content-worker",
                         headers={
                             "Content-Type": "application/json",
                             "X-API-Key": API_KEY
