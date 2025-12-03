@@ -2235,3 +2235,58 @@ ACT 4 (9-12s): {act_4_role}
     error_msg = f"❌ FAILED to generate valid 4-act briefs after {max_retries} attempts. Last error: {last_error}"
     activity.logger.error(error_msg)
     raise ValueError(error_msg)
+
+@activity.defn(name="generate_simple_video_prompt")
+async def generate_simple_video_prompt(
+    article: Dict[str, Any],
+    app: str,
+    video_model: str = "seedance"
+) -> Dict[str, Any]:
+    """
+    Generate simple video prompt from article/hub title and location.
+
+    Template-based prompt generation - no AI, no parsing, always works.
+    Use this for hubs or any content without structured 4-act sections.
+
+    Args:
+        article: Content dict with title, location_name or country
+        app: Application context
+        video_model: Target model (seedance or wan-2.5)
+
+    Returns:
+        {"prompt": str, "success": bool}
+    """
+    activity.logger.info(f"🎬 Generating simple video prompt: {article.get('title', 'Content')[:50]}...")
+
+    title = article.get("title", "Relocation Guide")
+    location = article.get("location_name") or article.get("country", "")
+
+    # Get app config for character style
+    app_config = APP_CONFIGS.get(app)
+    if app_config:
+        effective_style = app_config.character_style
+    else:
+        effective_style = CharacterStyle.NORTH_EUROPEAN_FEMALE
+
+    character_prompt = CHARACTER_STYLE_PROMPTS.get(effective_style, "")
+
+    # Create cinematic prompt
+    prompt = f"""A cinematic 12-second video about relocating to {location}.
+
+Act 1 (0-3s): Aerial view of {location} landmarks and cityscape, golden hour lighting, smooth drone movement
+Act 2 (3-6s): {character_prompt} walking through modern business district, confident mood, natural lighting
+Act 3 (6-9s): Cafe scene with laptop open, working remotely, warm cozy atmosphere, shallow depth of field
+Act 4 (9-12s): Happy group of diverse young professionals celebrating, excited expressions, bright setting
+
+CRITICAL: NO text, words, letters, or numbers visible anywhere in any frame. Purely visual storytelling.
+Style: Cinematic, aspirational, professional, 480p optimized for quality.
+Lighting: Natural, warm tones. Camera: Smooth movements, professional framing."""
+
+    activity.logger.info(f"✅ Generated simple prompt: {len(prompt)} characters")
+
+    return {
+        "prompt": prompt,
+        "success": True,
+        "model": video_model,
+        "cost": 0
+    }

@@ -28,6 +28,7 @@ from src.activities.storage.neon_database import (
 from src.activities.generation.article_generation import (
     generate_four_act_video_prompt_brief,
     generate_four_act_video_prompt,
+    generate_simple_video_prompt,
 )
 from src.activities.media.video_generation import (
     generate_four_act_video,
@@ -108,6 +109,7 @@ async def main():
             # Video prompt generation
             generate_four_act_video_prompt_brief,
             generate_four_act_video_prompt,
+    generate_simple_video_prompt,
 
             # Video generation
             generate_four_act_video,

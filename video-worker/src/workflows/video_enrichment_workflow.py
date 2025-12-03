@@ -109,31 +109,27 @@ class VideoEnrichmentWorkflow:
                 "skipped": True
             }
 
-        # Step 2: Generate video prompt (with fallback for hubs)
+        # Step 2/3: Generate video prompt
         workflow.logger.info("Step 2/6: Generating video prompt...")
 
-        # For hubs, use simple prompt fallback
+        # For hubs, use simple template-based prompt
+        # For articles, use full 4-act brief generation
         if is_hub:
-            workflow.logger.info("Hub detected - using simple prompt from title/meta")
-            title = article.get("title", "Relocation Guide")
-            country_name = article.get("location_name", "")
+            workflow.logger.info("Using simple prompt generator (template-based)")
+            from src.activities.generation.article_generation import generate_simple_video_prompt
 
-            # Create simple cinematic prompt for hub video
-            video_prompt = f"""A cinematic 12-second video about relocating to {country_name}.
+            prompt_result = await workflow.execute_activity(
+                generate_simple_video_prompt,
+                args=[article, app, video_model],
+                start_to_close_timeout=timedelta(seconds=10),
+            )
 
-Act 1 (0-3s): Aerial view of {country_name} landmarks and cityscape, golden hour lighting
-Act 2 (3-6s): Professional woman mid-20s walking through modern office district, confident mood
-Act 3 (6-9s): Cafe scene with laptop, working remotely, warm atmosphere
-Act 4 (9-12s): Happy group of diverse young professionals, celebrating new life
-
-CRITICAL: NO text, words, letters, or numbers visible anywhere. Purely visual.
-Character: North European woman, mid-20s, healthy skin, professional attire.
-Style: Cinematic, aspirational, 480p optimized."""
-
-            workflow.logger.info(f"Generated simple hub prompt: {len(video_prompt)} characters")
+            video_prompt = prompt_result.get("prompt", "")
+            workflow.logger.info(f"Generated simple prompt: {len(video_prompt)} characters")
 
         else:
-            # For articles, use full 4-act brief generation
+            workflow.logger.info("Using full 4-act brief generator (AI-powered)")
+            # Generate briefs
             brief_result = await workflow.execute_activity(
                 generate_four_act_video_prompt_brief,
                 args=[article, app, None],
@@ -146,17 +142,16 @@ Style: Cinematic, aspirational, 480p optimized."""
             four_act_content = brief_result.get("four_act_content", [])
             workflow.logger.info(f"Generated {len(four_act_content)} act briefs")
 
-            # Save briefs to article
+            # Save briefs
             await workflow.execute_activity(
                 update_article_four_act_content,
                 args=[article_id, four_act_content, None],
                 start_to_close_timeout=timedelta(seconds=30),
             )
 
-            # Update article dict for prompt generation
             article["four_act_content"] = four_act_content
 
-            # Assemble final prompt
+            # Assemble prompt
             prompt_result = await workflow.execute_activity(
                 generate_four_act_video_prompt,
                 args=[article, app, video_model, None],
