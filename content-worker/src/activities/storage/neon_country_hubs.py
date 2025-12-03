@@ -592,52 +592,54 @@ async def generate_hub_content(
         # Extract first few paragraphs as intro
         paragraphs = story_content.split("\n\n")[:3]
         intro = "\n\n".join(paragraphs)
-        sections.append(f"## Why {location_name}?\n\n{intro}")
+        sections.append(f'<h2 class="text-3xl font-bold text-gray-900 mt-8 mb-6">Why {location_name}?</h2>\n\n{intro}')
 
     # Quick Stats section
     if quick_stats:
-        stats_md = f"## {location_name} at a Glance\n\n"
+        stats_html = f'<h2 class="text-3xl font-bold text-gray-900 mt-8 mb-6">{location_name} at a Glance</h2>\n\n'
+        stats_html += '<ul class="list-disc pl-6 space-y-2 text-lg text-gray-700">\n'
         if quick_stats.get("cost_of_living"):
             col = quick_stats["cost_of_living"]
             if isinstance(col, dict):
-                stats_md += f"- **Monthly Cost of Living:** ${col.get('monthly_estimate', 'N/A')}\n"
+                stats_html += f'<li><strong>Monthly Cost of Living:</strong> ${col.get("monthly_estimate", "N/A")}</li>\n'
         if quick_stats.get("visa_types"):
-            stats_md += f"- **Visa Options:** {', '.join(quick_stats['visa_types'][:3])}\n"
+            stats_html += f'<li><strong>Visa Options:</strong> {", ".join(quick_stats["visa_types"][:3])}</li>\n'
         if quick_stats.get("language"):
-            stats_md += f"- **Language:** {quick_stats['language']}\n"
+            stats_html += f'<li><strong>Language:</strong> {quick_stats["language"]}</li>\n'
         if quick_stats.get("timezone"):
-            stats_md += f"- **Timezone:** {quick_stats['timezone']}\n"
-        sections.append(stats_md)
+            stats_html += f'<li><strong>Timezone:</strong> {quick_stats["timezone"]}</li>\n'
+        stats_html += '</ul>'
+        sections.append(stats_html)
 
     # Practical Guide section (from guide mode)
     if "guide" in embedded:
         guide_content = embedded["guide"].get("content", "")
-        sections.append(f"## The Practical Guide\n\n{guide_content}")
+        sections.append(f'<h2 class="text-3xl font-bold text-gray-900 mt-8 mb-6">The Practical Guide</h2>\n\n{guide_content}')
 
     # YOLO Adventure section
     if "yolo" in embedded:
         yolo_content = embedded["yolo"].get("content", "")
-        sections.append(f"## The Adventure Awaits\n\n{yolo_content}")
+        sections.append(f'<h2 class="text-3xl font-bold text-gray-900 mt-8 mb-6">The Adventure Awaits</h2>\n\n{yolo_content}')
 
     # Voices section
     if "voices" in embedded:
         voices_content = embedded["voices"].get("content", "")
-        sections.append(f"## Real Voices from {location_name}\n\n{voices_content}")
+        sections.append(f'<h2 class="text-3xl font-bold text-gray-900 mt-8 mb-6">Real Voices from {location_name}</h2>\n\n{voices_content}')
     elif voices:
         # Use aggregated voices
-        voices_md = f"## What Expats Say About {location_name}\n\n"
+        voices_html = f'<h2 class="text-3xl font-bold text-gray-900 mt-8 mb-6">What Expats Say About {location_name}</h2>\n\n'
         for i, voice in enumerate(voices[:5]):
             if isinstance(voice, dict):
                 quote = voice.get("quote", voice.get("text", ""))
                 author = voice.get("author", voice.get("username", "Expat"))
                 source = voice.get("source", "")
-                voices_md += f"> \"{quote}\"\n> — {author}"
+                voices_html += f'<blockquote class="border-l-4 border-blue-500 pl-4 italic text-gray-700 my-4">"{quote}"<br><cite class="not-italic font-semibold">— {author}'
                 if source:
-                    voices_md += f" ({source})"
-                voices_md += "\n\n"
+                    voices_html += f' ({source})'
+                voices_html += '</cite></blockquote>\n\n'
             elif isinstance(voice, str):
-                voices_md += f"> {voice}\n\n"
-        sections.append(voices_md)
+                voices_html += f'<blockquote class="border-l-4 border-blue-500 pl-4 italic text-gray-700 my-4">{voice}</blockquote>\n\n'
+        sections.append(voices_html)
 
     # Topic Clusters section (SEO-targeted articles)
     topic_articles = [
@@ -652,8 +654,8 @@ async def generate_hub_content(
         ]
 
     if topic_articles:
-        topic_md = f"## Essential Guides for {location_name}\n\n"
-        topic_md += f"Explore our in-depth guides covering specific topics about relocating to {location_name}:\n\n"
+        topic_html = f'<h2 class="text-3xl font-bold text-gray-900 mt-8 mb-6">Essential Guides for {location_name}</h2>\n\n'
+        topic_html += f'<p class="text-lg text-gray-700 mb-6">Explore our in-depth guides covering specific topics about relocating to {location_name}:</p>\n\n'
 
         # Group by planning_type
         by_type = {}
@@ -666,7 +668,8 @@ async def generate_hub_content(
 
         # Display by category
         for category, articles in sorted(by_type.items()):
-            topic_md += f"### {category}\n\n"
+            topic_html += f'<h3 class="text-2xl font-semibold text-gray-800 mt-6 mb-4">{category}</h3>\n\n'
+            topic_html += '<ul class="list-disc pl-6 space-y-2 text-lg">\n'
             for article in articles[:5]:  # Max 5 per category
                 if isinstance(article, dict):
                     title = article.get("title", "")
@@ -675,41 +678,42 @@ async def generate_hub_content(
                     video = article.get("video_playback_id", "")
 
                     if slug and title:
-                        topic_md += f"- **[{title}](/{slug})**"
+                        topic_html += f'<li><strong><a href="/{slug}" class="text-blue-600 hover:text-blue-800">{title}</a></strong>'
                         if excerpt:
-                            topic_md += f" - {excerpt}"
-                        topic_md += "\n"
+                            topic_html += f' - <span class="text-gray-700">{excerpt}</span>'
+                        topic_html += '</li>\n'
+            topic_html += '</ul>\n\n'
 
-            topic_md += "\n"
-
-        sections.append(topic_md)
+        sections.append(topic_html)
 
     # FAQ section
     if faq:
-        faq_md = f"## Frequently Asked Questions\n\n"
+        faq_html = '<h2 class="text-3xl font-bold text-gray-900 mt-8 mb-6">Frequently Asked Questions</h2>\n\n'
         for item in faq[:10]:
             if isinstance(item, dict):
                 q = item.get("question", item.get("q", ""))
                 a = item.get("answer", item.get("a", ""))
                 if q and a:
-                    faq_md += f"### {q}\n\n{a}\n\n"
-        sections.append(faq_md)
+                    faq_html += f'<div class="mb-6">\n<h3 class="text-xl font-semibold text-gray-800 mb-2">{q}</h3>\n<p class="text-lg text-gray-700 leading-relaxed">{a}</p>\n</div>\n\n'
+        sections.append(faq_html)
 
     # Sources section
     if sources:
-        sources_md = "## Sources & References\n\n"
+        sources_html = '<h2 class="text-3xl font-bold text-gray-900 mt-8 mb-6">Sources & References</h2>\n\n'
+        sources_html += '<ul class="list-disc pl-6 space-y-2 text-lg">\n'
         for src in sources[:12]:
             if isinstance(src, dict):
                 title = src.get("title", src.get("name", "Source"))
                 url = src.get("url", src.get("link", ""))
                 if url:
-                    sources_md += f"- [{title}]({url})\n"
+                    sources_html += f'<li><a href="{url}" class="text-blue-600 hover:text-blue-800" target="_blank" rel="noopener">{title}</a></li>\n'
             elif isinstance(src, str):
-                sources_md += f"- {src}\n"
-        sections.append(sources_md)
+                sources_html += f'<li class="text-gray-700">{src}</li>\n'
+        sources_html += '</ul>'
+        sections.append(sources_html)
 
-    # Combine all sections
-    full_content = "\n\n---\n\n".join(sections)
+    # Combine all sections with proper spacing
+    full_content = '\n\n<div class="my-8"></div>\n\n'.join(sections)
 
     # Inject section images into hub content if video exists
     hub_video_playback_id = payload.get("video_playback_id")
