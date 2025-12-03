@@ -24,6 +24,7 @@ from src.workflows.segment_video_workflow import SegmentVideoWorkflow
 from src.workflows.crawl_url_workflow import CrawlUrlWorkflow
 from src.workflows.cluster_article_workflow import ClusterArticleWorkflow
 from src.workflows.topic_cluster_workflow import TopicClusterWorkflow
+from src.workflows.video_enrichment_workflow import VideoEnrichmentWorkflow
 # NarrativeArticleCreationWorkflow removed - superseded by 4-act workflow in ArticleCreationWorkflow
 
 # Import all activities
@@ -310,7 +311,7 @@ async def main():
     worker = Worker(
         client,
         task_queue=config.TEMPORAL_TASK_QUEUE,
-        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow, NewsCreationWorkflow, CountryGuideCreationWorkflow, SegmentVideoWorkflow, CrawlUrlWorkflow, ClusterArticleWorkflow, TopicClusterWorkflow],
+        workflows=[CompanyCreationWorkflow, ArticleCreationWorkflow, NewsCreationWorkflow, CountryGuideCreationWorkflow, SegmentVideoWorkflow, CrawlUrlWorkflow, ClusterArticleWorkflow, TopicClusterWorkflow, VideoEnrichmentWorkflow],
         activities=[
             # Normalization
             normalize_company_url,
@@ -474,6 +475,7 @@ async def main():
     print("   - ClusterArticleWorkflow (Child workflow for cluster articles)")
     print("   - CrawlUrlWorkflow (Child workflow for individual URL crawls)")
     print("   - TopicClusterWorkflow (SEO-targeted topic cluster articles)")
+    print("   - VideoEnrichmentWorkflow (Dashboard-triggered video enrichment)")
 
     print("\n📋 Registered Activities:")
     activity_groups = [

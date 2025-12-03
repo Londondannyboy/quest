@@ -65,7 +65,7 @@ with st.sidebar:
     st.caption("Powered by Temporal + Gemini 2.5 Flash")
 
 # Main navigation tabs
-tab_company, tab_article = st.tabs(["🏢 Company Profile", "📝 Article Creation"])
+tab_company, tab_article, tab_video_enrich = st.tabs(["🏢 Company Profile", "📝 Article Creation", "🎬 Video Enrichment"])
 
 # ===== COMPANY PROFILE TAB =====
 with tab_company:
@@ -477,6 +477,142 @@ with tab_article:
                         steps += f"\n\n                        **Estimated time:** {time_estimate}"
 
                         st.markdown(steps)
+
+                    else:
+                        # Error response
+                        st.error(f"❌ **Error {response.status_code}**")
+
+                        try:
+                            error_data = response.json()
+                            st.code(error_data, language="json")
+                        except:
+                            st.text(response.text)
+
+                except requests.exceptions.Timeout:
+                    st.error("❌ Request timed out. The workflow may still have started - check Temporal UI.")
+
+                except requests.exceptions.ConnectionError:
+                    st.error(f"❌ Could not connect to Gateway at {GATEWAY_URL}")
+                    st.info("Check that the Gateway URL is correct and the service is running.")
+
+                except Exception as e:
+                    st.error(f"❌ Unexpected error: {str(e)}")
+                    st.code(str(e), language="text")
+
+# ===== VIDEO ENRICHMENT TAB =====
+with tab_video_enrich:
+    st.subheader("Enrich Article with Videos")
+    st.markdown("*Analyze article and add hero video + 4-act videos to sections*")
+
+    st.info("📹 This tool will:\n- Ensure hero video is present\n- Generate 12-second 4-act video from article content\n- Cut video into 4 sections using MUX\n- Insert videos into key sections\n- Add thumbnails to remaining sections")
+
+    # Article URL (required)
+    article_url = st.text_input(
+        "Article URL or Slug *",
+        placeholder="https://relocation.quest/articles/moving-to-portugal or just 'moving-to-portugal'",
+        help="Full URL or just the slug of the article to enrich",
+        key="article_url"
+    )
+
+    # App context for styling
+    video_app = st.selectbox(
+        "App Context *",
+        ["relocation", "placement", "newsroom"],
+        index=0,
+        help="Which app is this article from? (determines video style)",
+        key="video_app"
+    )
+
+    # Video model
+    video_model = st.selectbox(
+        "Video Model",
+        ["cdream", "seedance"],
+        index=0,
+        help="cdream: Default 480p | seedance: Higher quality"
+    )
+
+    # Options
+    st.divider()
+    col1, col2 = st.columns(2)
+
+    with col1:
+        min_sections = st.number_input(
+            "Minimum Video Sections",
+            min_value=1,
+            max_value=4,
+            value=4,
+            help="Ensure at least this many sections have videos"
+        )
+
+    with col2:
+        force_regenerate = st.checkbox(
+            "Force Video Regeneration",
+            value=False,
+            help="Regenerate video even if article already has one"
+        )
+
+    # Submit button
+    st.divider()
+
+    if st.button("🎬 Enrich with Videos", type="primary", use_container_width=True, key="enrich_video"):
+        # Validation
+        if not article_url:
+            st.error("❌ Please provide an article URL or slug")
+        else:
+            # Extract slug from URL if full URL provided
+            if "http" in article_url:
+                slug = article_url.rstrip('/').split('/')[-1]
+            else:
+                slug = article_url.strip()
+
+            # Show progress
+            with st.spinner("🎬 Enriching article with videos... This takes 2-5 minutes"):
+                try:
+                    # Call Gateway API
+                    response = requests.post(
+                        f"{GATEWAY_URL}/v1/workflows/video-enrichment",
+                        headers={
+                            "Content-Type": "application/json",
+                            "X-API-Key": API_KEY
+                        },
+                        json={
+                            "slug": slug,
+                            "app": video_app,
+                            "video_model": video_model,
+                            "min_sections": min_sections,
+                            "force_regenerate": force_regenerate
+                        },
+                        timeout=30
+                    )
+
+                    # Handle response
+                    if response.status_code == 200 or response.status_code == 201:
+                        data = response.json()
+
+                        # Success message
+                        st.success("✅ **Video Enrichment Started!**")
+
+                        # Workflow details
+                        st.info(f"**Workflow ID:**\n```\n{data['workflow_id']}\n```")
+
+                        if "article_title" in data:
+                            st.info(f"**Article:** {data['article_title']}")
+
+                        st.info(f"**Status:** {data.get('status', 'started').upper()}")
+
+                        # Temporal link
+                        temporal_url = f"https://cloud.temporal.io/namespaces/quickstart-quest.zivkb/workflows/{data['workflow_id']}"
+                        st.markdown(f"### [📊 Monitor in Temporal UI]({temporal_url})")
+
+                        # Instructions
+                        st.divider()
+                        st.markdown("""
+                        **Next Steps:**
+                        1. Click the Temporal link above to monitor progress
+                        2. Workflow takes 2-5 minutes to complete
+                        3. Videos will be generated and inserted into the article
+                        4. Check your article for the new hero video and section videos
+                        """)
 
                     else:
                         # Error response
