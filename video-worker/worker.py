@@ -6,10 +6,6 @@ Executes VideoEnrichmentWorkflow for adding videos to existing articles.
 
 import asyncio
 import os
-import sys
-
-# Add content-worker to path to reuse activities
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'content-worker'))
 
 from temporalio.client import Client
 from temporalio.worker import Worker
@@ -21,23 +17,23 @@ load_dotenv()
 # Import workflow
 from src.workflows.video_enrichment_workflow import VideoEnrichmentWorkflow
 
-# Import shared activities from content-worker
-from content_worker.src.activities.storage.neon_database import (
+# Import activities
+from src.activities.storage.neon_database import (
     get_article_by_slug,
     update_article_four_act_content,
 )
-from content_worker.src.activities.generation.article_generation import (
+from src.activities.generation.article_generation import (
     generate_four_act_video_prompt_brief,
     generate_four_act_video_prompt,
 )
-from content_worker.src.activities.media.video_generation import (
+from src.activities.media.video_generation import (
     generate_four_act_video,
 )
-from content_worker.src.activities.media.mux_client import (
+from src.activities.media.mux_client import (
     upload_video_to_mux,
 )
 
-from content_worker.src.utils.config import config
+from src.utils.config import config
 
 
 async def main():
