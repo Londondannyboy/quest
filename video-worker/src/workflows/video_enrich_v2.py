@@ -111,12 +111,7 @@ class VideoEnrichmentV2:
         workflow.logger.info("3/4: Generating video with Seedance (1-3 min)...")
         video_result = await workflow.execute_activity(
             generate_video_simple,
-            args=[video_prompt],
-            kwargs={
-                "duration": 12,
-                "resolution": "720p",
-                "aspect_ratio": "16:9",
-            },
+            args=[video_prompt, 12, "720p", "16:9"],
             start_to_close_timeout=timedelta(minutes=5),
         )
 
