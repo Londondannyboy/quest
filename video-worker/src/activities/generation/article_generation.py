@@ -2032,6 +2032,52 @@ async def generate_four_act_video_prompt_brief(
     """
     activity.logger.info(f"📝 Generating 4-act video prompt briefs: {article.get('title', 'Untitled')[:50]}...")
 
+    # Check if this is a hub (needs content parsing)
+    is_hub = article.get("is_hub", False)
+    if is_hub:
+        activity.logger.info("Detected hub content - parsing HTML into sections")
+        # Parse hub HTML content by H2 headings to extract sections
+        import re
+        from bs4 import BeautifulSoup
+
+        content_html = article.get("content", "")
+        soup = BeautifulSoup(content_html, 'html.parser')
+
+        # Find all H2 headings
+        h2_tags = soup.find_all('h2')
+
+        # Extract first 4 H2 sections for 4-act structure
+        sections_text = []
+        for h2 in h2_tags[:4]:
+            # Get section title
+            section_title = h2.get_text(strip=True)
+
+            # Get content between this H2 and next H2 (or end)
+            section_content = []
+            for sibling in h2.find_next_siblings():
+                if sibling.name == 'h2':
+                    break
+                if sibling.name in ['p', 'ul', 'ol']:
+                    section_content.append(sibling.get_text(strip=True))
+
+            section_text = ' '.join(section_content)[:500]  # First 500 chars
+            sections_text.append({
+                "title": section_title,
+                "content": section_text
+            })
+
+        # If we got at least 4 sections, use them for content extraction
+        if len(sections_text) >= 4:
+            # Build a content summary from the sections for AI analysis
+            content_summary = "\n\n".join([
+                f"## {s['title']}\n{s['content']}"
+                for s in sections_text[:4]
+            ])
+            article["content"] = content_summary
+            activity.logger.info(f"✅ Parsed {len(sections_text)} sections from hub HTML")
+        else:
+            activity.logger.warning(f"⚠️ Only found {len(sections_text)} H2 sections in hub, need 4 for 4-act video")
+
     # Get app config NOW - at video prompt time
     app_config = APP_CONFIGS.get(app)
     if app_config:
