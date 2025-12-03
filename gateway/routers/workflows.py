@@ -880,8 +880,8 @@ async def trigger_video_enrichment(
     # Generate workflow ID
     workflow_id = f"video-enrichment-{request.slug}-{uuid4().hex[:8]}"
 
-    # Use quest-content-queue for VideoEnrichmentWorkflow
-    task_queue = "quest-content-queue"
+    # Use quest-video-queue for VideoEnrichmentV2
+    task_queue = "quest-video-queue"
 
     try:
         # Start VideoEnrichmentV2 - FRESH CODE, NO VALIDATION
