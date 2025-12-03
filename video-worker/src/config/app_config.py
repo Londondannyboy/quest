@@ -204,42 +204,42 @@ CHARACTER_STYLE_PROMPTS: Dict[CharacterStyle, str] = {
     CharacterStyle.NONE: "No people. Abstract visuals, architecture, cityscapes only.",
 
     # North European
-    CharacterStyle.NORTH_EUROPEAN_MALE: "Main character: North European man.",
-    CharacterStyle.NORTH_EUROPEAN_FEMALE: "Main character: North European woman.",
-    CharacterStyle.NORTH_EUROPEAN_GROUP: "Cast: North European professionals, mixed gender.",
+    CharacterStyle.NORTH_EUROPEAN_MALE: "Main character: North European man, mid-20s.",
+    CharacterStyle.NORTH_EUROPEAN_FEMALE: "Main character: North European woman, mid-20s, healthy skin.",
+    CharacterStyle.NORTH_EUROPEAN_GROUP: "Cast: North European professionals, mid-20s, mixed gender.",
 
     # South European
-    CharacterStyle.SOUTH_EUROPEAN_MALE: "Main character: Southern European man (Mediterranean).",
-    CharacterStyle.SOUTH_EUROPEAN_FEMALE: "Main character: Southern European woman (Mediterranean).",
-    CharacterStyle.SOUTH_EUROPEAN_GROUP: "Cast: Southern European professionals, mixed gender.",
+    CharacterStyle.SOUTH_EUROPEAN_MALE: "Main character: Southern European man (Mediterranean), mid-20s.",
+    CharacterStyle.SOUTH_EUROPEAN_FEMALE: "Main character: Southern European woman (Mediterranean), mid-20s, healthy skin.",
+    CharacterStyle.SOUTH_EUROPEAN_GROUP: "Cast: Southern European professionals, mid-20s, mixed gender.",
 
     # East Asian
-    CharacterStyle.EAST_ASIAN_MALE: "Main character: East Asian man.",
-    CharacterStyle.EAST_ASIAN_FEMALE: "Main character: East Asian woman.",
-    CharacterStyle.EAST_ASIAN_GROUP: "Cast: East Asian professionals, mixed gender.",
+    CharacterStyle.EAST_ASIAN_MALE: "Main character: East Asian man, mid-20s.",
+    CharacterStyle.EAST_ASIAN_FEMALE: "Main character: East Asian woman, mid-20s, healthy skin.",
+    CharacterStyle.EAST_ASIAN_GROUP: "Cast: East Asian professionals, mid-20s, mixed gender.",
 
     # Southeast Asian
-    CharacterStyle.SOUTHEAST_ASIAN_MALE: "Main character: Southeast Asian man.",
-    CharacterStyle.SOUTHEAST_ASIAN_FEMALE: "Main character: Southeast Asian woman.",
-    CharacterStyle.SOUTHEAST_ASIAN_GROUP: "Cast: Southeast Asian professionals, mixed gender.",
+    CharacterStyle.SOUTHEAST_ASIAN_MALE: "Main character: Southeast Asian man, mid-20s.",
+    CharacterStyle.SOUTHEAST_ASIAN_FEMALE: "Main character: Southeast Asian woman, mid-20s, healthy skin.",
+    CharacterStyle.SOUTHEAST_ASIAN_GROUP: "Cast: Southeast Asian professionals, mid-20s, mixed gender.",
 
     # South Asian
-    CharacterStyle.SOUTH_ASIAN_MALE: "Main character: South Asian man.",
-    CharacterStyle.SOUTH_ASIAN_FEMALE: "Main character: South Asian woman.",
-    CharacterStyle.SOUTH_ASIAN_GROUP: "Cast: South Asian professionals, mixed gender.",
+    CharacterStyle.SOUTH_ASIAN_MALE: "Main character: South Asian man, mid-20s.",
+    CharacterStyle.SOUTH_ASIAN_FEMALE: "Main character: South Asian woman, mid-20s, healthy skin.",
+    CharacterStyle.SOUTH_ASIAN_GROUP: "Cast: South Asian professionals, mid-20s, mixed gender.",
 
     # Middle Eastern
-    CharacterStyle.MIDDLE_EASTERN_MALE: "Main character: Middle Eastern/Arab man.",
-    CharacterStyle.MIDDLE_EASTERN_FEMALE: "Main character: Middle Eastern/Arab woman.",
-    CharacterStyle.MIDDLE_EASTERN_GROUP: "Cast: Middle Eastern/Arab professionals, mixed gender.",
+    CharacterStyle.MIDDLE_EASTERN_MALE: "Main character: Middle Eastern/Arab man, mid-20s.",
+    CharacterStyle.MIDDLE_EASTERN_FEMALE: "Main character: Middle Eastern/Arab woman, mid-20s, healthy skin.",
+    CharacterStyle.MIDDLE_EASTERN_GROUP: "Cast: Middle Eastern/Arab professionals, mid-20s, mixed gender.",
 
     # Black
-    CharacterStyle.BLACK_MALE: "Main character: Black man.",
-    CharacterStyle.BLACK_FEMALE: "Main character: Black woman.",
-    CharacterStyle.BLACK_GROUP: "Cast: Black professionals, mixed gender.",
+    CharacterStyle.BLACK_MALE: "Main character: Black man, mid-20s.",
+    CharacterStyle.BLACK_FEMALE: "Main character: Black woman, mid-20s, healthy skin.",
+    CharacterStyle.BLACK_GROUP: "Cast: Black professionals, mid-20s, mixed gender.",
 
     # Diverse
-    CharacterStyle.DIVERSE: "Cast: diverse international professionals, mixed ethnicity and gender.",
+    CharacterStyle.DIVERSE: "Cast: diverse international professionals, mid-20s, mixed ethnicity and gender.",
 }
 
 
