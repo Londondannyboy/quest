@@ -21,7 +21,9 @@ from src.workflows.video_enrichment_workflow import VideoEnrichmentWorkflow
 # Import activities
 from src.activities.storage.neon_database import (
     get_article_by_slug,
+    get_hub_by_slug,
     update_article_four_act_content,
+    update_hub_video,
 )
 from src.activities.generation.article_generation import (
     generate_four_act_video_prompt_brief,
@@ -95,9 +97,13 @@ async def main():
         task_queue=config.TEMPORAL_TASK_QUEUE,
         workflows=[VideoEnrichmentWorkflow],
         activities=[
-            # Database
+            # Database - Articles
             get_article_by_slug,
             update_article_four_act_content,
+
+            # Database - Hubs
+            get_hub_by_slug,
+            update_hub_video,
 
             # Video prompt generation
             generate_four_act_video_prompt_brief,
@@ -123,7 +129,9 @@ async def main():
 
     print("\n📋 Registered Activities:")
     print("   - get_article_by_slug")
+    print("   - get_hub_by_slug")
     print("   - update_article_four_act_content")
+    print("   - update_hub_video")
     print("   - generate_four_act_video_prompt_brief")
     print("   - generate_four_act_video_prompt")
     print("   - generate_four_act_video")

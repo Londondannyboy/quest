@@ -818,6 +818,135 @@ async def update_article_four_act_content(
 
 
 @activity.defn
+async def get_hub_by_slug(slug: str) -> Optional[Dict[str, Any]]:
+    """
+    Retrieve country hub by slug.
+
+    Args:
+        slug: Hub slug
+
+    Returns:
+        Hub data dict or None
+    """
+    activity.logger.info(f"Fetching hub: {slug}")
+
+    try:
+        async with await psycopg.AsyncConnection.connect(
+            config.DATABASE_URL
+        ) as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("""
+                    SELECT
+                        id,
+                        slug,
+                        title,
+                        country_code,
+                        location_name,
+                        hub_content,
+                        meta_description,
+                        payload,
+                        video_playback_id,
+                        status,
+                        published_at,
+                        created_at,
+                        updated_at
+                    FROM country_hubs
+                    WHERE slug = %s
+                """, (slug,))
+
+                row = await cur.fetchone()
+
+                if not row:
+                    return None
+
+                return {
+                    "id": str(row[0]),
+                    "slug": row[1],
+                    "title": row[2],
+                    "country_code": row[3],
+                    "location_name": row[4],
+                    "content": row[5],  # hub_content mapped to content for consistency
+                    "meta_description": row[6],
+                    "payload": row[7],
+                    "video_playback_id": row[8],
+                    "status": row[9],
+                    "published_at": row[10].isoformat() if row[10] else None,
+                    "created_at": row[11].isoformat() if row[11] else None,
+                    "updated_at": row[12].isoformat() if row[12] else None,
+                    "app": "relocation",  # Hubs are always relocation app
+                    "is_hub": True,  # Flag to indicate this is a hub, not article
+                }
+
+    except Exception as e:
+        activity.logger.error(f"Failed to fetch hub: {e}")
+        return None
+
+
+@activity.defn
+async def update_hub_video(
+    hub_id: str,
+    video_playback_id: str,
+    four_act_content: Optional[List[Dict[str, Any]]] = None
+) -> bool:
+    """
+    Update hub's video_playback_id and optional four_act_content in payload.
+
+    Args:
+        hub_id: Hub ID
+        video_playback_id: MUX playback ID
+        four_act_content: Optional 4-act video sections
+
+    Returns:
+        Success boolean
+    """
+    activity.logger.info(f"Updating video for hub {hub_id}")
+
+    try:
+        async with await psycopg.AsyncConnection.connect(
+            config.DATABASE_URL
+        ) as conn:
+            async with conn.cursor() as cur:
+                if four_act_content:
+                    # Get existing payload
+                    await cur.execute("""
+                        SELECT payload FROM country_hubs WHERE id = %s
+                    """, (hub_id,))
+                    row = await cur.fetchone()
+                    payload = row[0] if row else {}
+
+                    # Update payload with four_act_content
+                    payload["four_act_content"] = four_act_content
+
+                    # Update both video and payload
+                    await cur.execute("""
+                        UPDATE country_hubs
+                        SET
+                            video_playback_id = %s,
+                            payload = %s,
+                            updated_at = NOW()
+                        WHERE id = %s
+                    """, (video_playback_id, json.dumps(payload), hub_id))
+                else:
+                    # Update only video
+                    await cur.execute("""
+                        UPDATE country_hubs
+                        SET
+                            video_playback_id = %s,
+                            updated_at = NOW()
+                        WHERE id = %s
+                    """, (video_playback_id, hub_id))
+
+                await conn.commit()
+
+                activity.logger.info(f"✅ Updated video for hub {hub_id}")
+                return True
+
+    except Exception as e:
+        activity.logger.error(f"Failed to update hub video: {e}")
+        return False
+
+
+@activity.defn
 async def save_spawn_candidate(
     spawn_opportunity: Dict[str, Any],
     parent_article_id: str,

@@ -16,7 +16,9 @@ from typing import Dict, Any
 with workflow.unsafe.imports_passed_through():
     from src.activities.storage.neon_database import (
         get_article_by_slug,
+        get_hub_by_slug,
         update_article_four_act_content,
+        update_hub_video,
     )
     from src.activities.generation.article_generation import (
         generate_four_act_video_prompt_brief,
@@ -67,20 +69,33 @@ class VideoEnrichmentWorkflow:
 
         workflow.logger.info(f"🎬 Starting video enrichment for slug: {slug}")
 
-        # Step 1: Fetch article
-        workflow.logger.info("Step 1/6: Fetching article from database...")
+        # Step 1: Fetch article or hub
+        workflow.logger.info("Step 1/6: Fetching content from database...")
+
+        # Try article first
         article = await workflow.execute_activity(
             get_article_by_slug,
             slug,
             start_to_close_timeout=timedelta(seconds=30),
         )
 
+        # If not found, try hub
         if not article:
-            raise ValueError(f"Article not found with slug: {slug}")
+            workflow.logger.info("Not found in articles, trying country_hubs...")
+            article = await workflow.execute_activity(
+                get_hub_by_slug,
+                slug,
+                start_to_close_timeout=timedelta(seconds=30),
+            )
+
+        if not article:
+            raise ValueError(f"Content not found with slug: {slug} (checked both articles and country_hubs)")
 
         article_id = article.get("id")
         article_title = article.get("title", "Untitled")
-        workflow.logger.info(f"Found article: {article_title}")
+        is_hub = article.get("is_hub", False)
+        content_type = "hub" if is_hub else "article"
+        workflow.logger.info(f"Found {content_type}: {article_title}")
 
         # Check if video already exists
         existing_video = article.get("video_playback_id")
@@ -170,15 +185,24 @@ class VideoEnrichmentWorkflow:
         playback_id = mux_result.get("playback_id")
         workflow.logger.info(f"Video uploaded to MUX: {playback_id}")
 
-        # Step 6: Update article with video and save video_prompt
-        workflow.logger.info("Step 6/6: Updating article with video...")
+        # Step 6: Update content with video
+        workflow.logger.info(f"Step 6/6: Updating {content_type} with video...")
 
-        # Update article with video_playback_id and video_prompt
-        await workflow.execute_activity(
-            update_article_four_act_content,
-            args=[article_id, four_act_content, video_prompt],
-            start_to_close_timeout=timedelta(seconds=30),
-        )
+        # Update based on content type
+        if is_hub:
+            # Update hub with video
+            await workflow.execute_activity(
+                update_hub_video,
+                args=[article_id, playback_id, four_act_content],
+                start_to_close_timeout=timedelta(seconds=30),
+            )
+        else:
+            # Update article with video_playback_id and video_prompt
+            await workflow.execute_activity(
+                update_article_four_act_content,
+                args=[article_id, four_act_content, video_prompt],
+                start_to_close_timeout=timedelta(seconds=30),
+            )
 
         # Note: MUX will automatically cut the video into 4 sections (0-3s, 3-6s, 6-9s, 9-12s)
         # These can be accessed via the playback_id with time parameters
