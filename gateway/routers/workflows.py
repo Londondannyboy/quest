@@ -884,13 +884,11 @@ async def trigger_video_enrichment(
     task_queue = "quest-content-queue"
 
     try:
-        # Start VideoEnrichmentWorkflow
-        workflow_name = "VideoEnrichmentWorkflow"
+        # Start VideoEnrichmentV2 - FRESH CODE, NO VALIDATION
+        workflow_name = "VideoEnrichmentV2"
         workflow_args = [
             request.slug,
             request.app,
-            request.video_model,
-            request.min_sections,
             request.force_regenerate
         ]
 
