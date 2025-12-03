@@ -1011,12 +1011,21 @@ with tab_video_enrich:
         key="video_app"
     )
 
-    # Video model
-    video_model = st.selectbox(
+    # Video model (fixed to seedance-1-pro-fast)
+    st.text_input(
         "Video Model",
-        ["cdream", "seedance"],
+        value="seedance-1-pro-fast",
+        disabled=True,
+        help="Using Replicate's seedance-1-pro-fast for 12-second videos"
+    )
+    video_model = "seedance-1-pro-fast"
+
+    # Video resolution
+    video_resolution = st.selectbox(
+        "Video Resolution",
+        ["480p", "720p"],
         index=0,
-        help="cdream: Default 480p | seedance: Higher quality"
+        help="480p: Faster generation | 720p: Higher quality"
     )
 
     # Options
@@ -1067,6 +1076,7 @@ with tab_video_enrich:
                             "slug": slug,
                             "app": video_app,
                             "video_model": video_model,
+                            "video_resolution": video_resolution,
                             "min_sections": min_sections,
                             "force_regenerate": force_regenerate
                         },
