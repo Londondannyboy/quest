@@ -69,6 +69,16 @@ class CompanyWorkerRequest(BaseModel):
     research_depth: str = Field(default="standard", description="Research depth: quick, standard, deep")
 
 
+class VideoEnrichmentRequest(BaseModel):
+    """Request to trigger VideoEnrichmentWorkflow"""
+    slug: str = Field(..., description="Article slug to enrich with videos", min_length=3)
+    app: str = Field(default="relocation", description="App context: relocation, placement, newsroom")
+    video_model: str = Field(default="seedance-1-pro-fast", description="Video model: seedance-1-pro-fast")
+    video_resolution: str = Field(default="480p", description="Video resolution: 480p or 720p")
+    min_sections: int = Field(default=4, ge=1, le=10, description="Minimum sections with videos")
+    force_regenerate: bool = Field(default=False, description="Force video regeneration even if exists")
+
+
 class WorkflowResponse(BaseModel):
     """Response after triggering workflow"""
     workflow_id: str
@@ -806,6 +816,99 @@ async def trigger_country_guide_workflow(
             topic=f"{request.country_name} Country Guide",
             app=request.app,
             message=f"Country guide workflow started for {request.country_name} ({request.country_code}). Expected completion: 8-15 minutes. Use workflow_id to check status.",
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start workflow: {str(e)}",
+        )
+
+
+@router.post("/video-enrichment", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED)
+async def trigger_video_enrichment(
+    request: VideoEnrichmentRequest,
+    api_key: str = Depends(validate_api_key),
+) -> WorkflowResponse:
+    """
+    Trigger VideoEnrichmentWorkflow to add videos to existing article
+
+    Analyzes article content and enriches with videos:
+    - Ensures hero video is present
+    - Generates 12-second 4-act videos using seedance-1-pro-fast
+    - Inserts videos into at least 4 content sections
+    - Uses thumbnails for remaining sections
+    - Uploads to MUX and creates time-based cuts
+
+    Workflow phases (2-5 minutes):
+    1. Fetch article from database
+    2. Check if video already exists (skip unless force_regenerate)
+    3. Generate 4-act video prompt from article content
+    4. Generate 12-second video with seedance-1-pro-fast
+    5. Upload to MUX and cut into 4 acts
+    6. Update article with video embeds and thumbnails
+
+    Requires X-API-Key header for authentication.
+
+    Args:
+        request: Video enrichment parameters
+        api_key: Validated API key from header
+
+    Returns:
+        Workflow execution details with workflow_id for status tracking
+
+    Example:
+        POST /v1/workflows/video-enrichment
+        {
+            "slug": "france-relocation-guide",
+            "app": "relocation",
+            "video_model": "seedance-1-pro-fast",
+            "video_resolution": "480p",
+            "min_sections": 4,
+            "force_regenerate": false
+        }
+    """
+    # Get Temporal client
+    try:
+        client = await TemporalClientManager.get_client()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Failed to connect to Temporal: {str(e)}",
+        )
+
+    # Generate workflow ID
+    workflow_id = f"video-enrichment-{request.slug}-{uuid4().hex[:8]}"
+
+    # Use quest-content-queue for VideoEnrichmentWorkflow
+    task_queue = "quest-content-queue"
+
+    try:
+        # Start VideoEnrichmentWorkflow
+        workflow_name = "VideoEnrichmentWorkflow"
+        workflow_args = [
+            request.slug,
+            request.app,
+            request.video_model,
+            request.min_sections,
+            request.force_regenerate
+        ]
+
+        # Start workflow execution
+        handle = await client.start_workflow(
+            workflow_name,
+            args=workflow_args,
+            id=workflow_id,
+            task_queue=task_queue,
+        )
+
+        return WorkflowResponse(
+            workflow_id=handle.id,
+            status="started",
+            started_at=datetime.utcnow(),
+            topic=request.slug,
+            app=request.app,
+            message=f"Video enrichment workflow started for article '{request.slug}'. Expected completion: 2-5 minutes. Use workflow_id to check status.",
         )
 
     except Exception as e:
