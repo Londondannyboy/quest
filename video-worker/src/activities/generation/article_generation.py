@@ -2273,10 +2273,10 @@ async def generate_simple_video_prompt(
     # Create cinematic prompt
     prompt = f"""A cinematic 12-second video about relocating to {location}.
 
-Act 1 (0-3s): Aerial view of {location} landmarks and cityscape, golden hour lighting, smooth drone movement
-Act 2 (3-6s): {character_prompt} walking through modern business district, confident mood, natural lighting
-Act 3 (6-9s): Cafe scene with laptop open, working remotely, warm cozy atmosphere, shallow depth of field
-Act 4 (9-12s): Happy group of diverse young professionals celebrating, excited expressions, bright setting
+ACT 1 (0-3s): Aerial view of {location} landmarks and cityscape, golden hour lighting, smooth drone movement
+ACT 2 (3-6s): {character_prompt} walking through modern business district, confident mood, natural lighting
+ACT 3 (6-9s): Cafe scene with laptop open, working remotely, warm cozy atmosphere, shallow depth of field
+ACT 4 (9-12s): Happy group of diverse young professionals celebrating, excited expressions, bright setting
 
 CRITICAL: NO text, words, letters, or numbers visible anywhere in any frame. Purely visual storytelling.
 Style: Cinematic, aspirational, professional, 480p optimized for quality.
