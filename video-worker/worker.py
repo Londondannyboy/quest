@@ -6,6 +6,7 @@ Executes VideoEnrichmentWorkflow for adding videos to existing articles.
 
 import asyncio
 import os
+import sys
 
 from temporalio.client import Client
 from temporalio.worker import Worker
