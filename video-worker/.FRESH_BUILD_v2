@@ -3,3 +3,4 @@ VideoEnrichmentV2 workflow
 NEW: generate_video_simple activity - ZERO validation!
 NO legacy validation blocking good prompts
 Clean, simple code
+FORCE REBUILD - Wed  3 Dec 2025 13:57:36 GMT
