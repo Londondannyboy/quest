@@ -125,6 +125,7 @@ class VideoEnrichmentWorkflow:
             )
 
             video_prompt = prompt_result.get("prompt", "")
+            four_act_content = []  # Hubs don't have structured 4-act content
             workflow.logger.info(f"Generated simple prompt: {len(video_prompt)} characters")
 
         else:
@@ -168,14 +169,24 @@ class VideoEnrichmentWorkflow:
         workflow.logger.info(f"Step 4/6: Generating 12-second 4-act video with {video_model}...")
         video_result = await workflow.execute_activity(
             generate_four_act_video,
-            args=[video_prompt, video_model],
+            args=[
+                article_title,  # title
+                "",  # content (not needed when video_prompt is provided)
+                app,  # app
+                "low",  # quality
+                12,  # duration
+                "16:9",  # aspect_ratio
+                video_model,  # video_model
+                video_prompt,  # video_prompt (the actual prompt!)
+                None  # reference_image
+            ],
             start_to_close_timeout=timedelta(minutes=5),  # Video generation can take time
         )
 
-        if not video_result.get("success"):
-            raise ValueError(f"Video generation failed: {video_result.get('error', 'Unknown error')}")
+        if not video_result.get("video_url"):
+            raise ValueError(f"Video generation failed: No video URL returned")
 
-        video_url = video_result.get("output")
+        video_url = video_result.get("video_url")
         workflow.logger.info(f"Video generated: {video_url}")
 
         # Step 5: Upload to MUX with proper naming
