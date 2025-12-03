@@ -136,6 +136,7 @@ async def main():
     print("   - update_hub_video")
     print("   - generate_four_act_video_prompt_brief")
     print("   - generate_four_act_video_prompt")
+    print("   - generate_simple_video_prompt")
     print("   - generate_four_act_video")
     print("   - upload_video_to_mux")
 
