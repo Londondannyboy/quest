@@ -275,33 +275,34 @@ async def generate_four_act_article(
         prompt = build_prompt(topic, research_context)
 
         # AI provider is configurable via ARTICLE_AI_PROVIDER env var
-        # Default: anthropic (better quality), set to "gemini" for 30% cost savings
-        preferred_provider = config.ARTICLE_AI_PROVIDER.lower()
+        # Determine which provider to use: Gateway > Anthropic > Gemini
+        gateway_key = os.environ.get("PYDANTIC_AI_GATEWAY_API_KEY") or getattr(config, "PYDANTIC_AI_GATEWAY_API_KEY", None)
 
-        # Determine which provider to use based on preference and availability
-        if preferred_provider == "gemini" and config.GOOGLE_API_KEY:
-            use_gemini = True
-        elif preferred_provider == "anthropic" and config.ANTHROPIC_API_KEY:
+        if gateway_key:
+            # Use Gateway (best reliability)
             use_gemini = False
-        elif config.GOOGLE_API_KEY:
-            # Fallback to Gemini if available
-            use_gemini = True
-        elif config.ANTHROPIC_API_KEY:
-            # Fallback to Anthropic if available
-            use_gemini = False
-        else:
-            raise ValueError("No AI API key configured (need GOOGLE_API_KEY or ANTHROPIC_API_KEY)")
-
-        if use_gemini:
-            provider = "google"
-            model_name = "gemini-2.5-pro"  # Stable version
+            use_gateway = True
+            provider = "gateway"
+            model_name = "gpt-4o"
             activity.logger.info(f"Using AI: {provider}:{model_name}")
-            genai.configure(api_key=config.GOOGLE_API_KEY)
-        else:
+        elif config.ANTHROPIC_API_KEY:
+            # Fallback to Anthropic
+            use_gemini = False
+            use_gateway = False
             provider = "anthropic"
             model_name = "claude-sonnet-4-20250514"
             activity.logger.info(f"Using AI: {provider}:{model_name}")
             anthropic_client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+        elif config.GOOGLE_API_KEY:
+            # Last resort: Gemini
+            use_gemini = True
+            use_gateway = False
+            provider = "google"
+            model_name = "gemini-2.5-pro"
+            activity.logger.info(f"Using AI: {provider}:{model_name}")
+            genai.configure(api_key=config.GOOGLE_API_KEY)
+        else:
+            raise ValueError("No AI API key configured (need PYDANTIC_AI_GATEWAY_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY)")
 
         # Get app config for rich context
         app_config = APP_CONFIGS.get(app)
@@ -947,8 +948,19 @@ HOLISTIC VIDEO QUALITY (AI video models struggle with these - follow strictly):
 Source links are MANDATORY - articles without <a href> tags will be rejected.
 The STRUCTURED DATA section is MANDATORY - without it, no video can be generated."""
 
-        # Generate article using Gemini (primary) or Anthropic (fallback)
-        if use_gemini:
+        # Generate article using Gateway (primary), Anthropic (secondary), or Gemini (fallback)
+        if use_gateway:
+            # Use Gateway with GPT-4o
+            from src.utils.ai_gateway import get_completion_async
+            full_prompt = f"{system_prompt}\n\n{prompt}"
+            article_text = await get_completion_async(
+                full_prompt,
+                model="quality",  # gpt-4o via gateway
+                max_tokens=16384,
+                temperature=0.7
+            )
+            activity.logger.info(f"Gateway response received: {len(article_text)} chars")
+        elif use_gemini:
             # Gemini 2.5 Pro (stable)
             model = genai.GenerativeModel(
                 model_name='gemini-2.5-pro',
@@ -1135,7 +1147,12 @@ The STRUCTURED DATA section is MANDATORY - without it, no video can be generated
         activity.logger.info(f"Article generated: {word_count} words")
 
         # Calculate cost (rough estimate)
-        if use_gemini:
+        if use_gateway:
+            # Gateway with GPT-4o pricing estimate
+            input_tokens = len(prompt) // 4  # Rough estimate
+            output_tokens = len(article_text) // 4
+            cost = (input_tokens * 0.0025 + output_tokens * 0.01) / 1000  # GPT-4o pricing
+        elif use_gemini:
             # Gemini token estimation (no direct usage API in response)
             input_tokens = len(prompt) // 4  # Rough estimate
             output_tokens = len(article_text) // 4
