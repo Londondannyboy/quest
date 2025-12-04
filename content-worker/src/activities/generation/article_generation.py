@@ -294,7 +294,7 @@ async def generate_four_act_article(
 
         if use_gemini:
             provider = "google"
-            model_name = "gemini-2.5-pro-preview-06-05"
+            model_name = "gemini-2.5-pro"  # Stable version
             activity.logger.info(f"Using AI: {provider}:{model_name}")
             genai.configure(api_key=config.GOOGLE_API_KEY)
         else:
@@ -949,9 +949,9 @@ The STRUCTURED DATA section is MANDATORY - without it, no video can be generated
 
         # Generate article using Gemini (primary) or Anthropic (fallback)
         if use_gemini:
-            # Gemini 3 Pro Preview
+            # Gemini 2.5 Pro (stable)
             model = genai.GenerativeModel(
-                model_name='gemini-3-pro-preview',
+                model_name='gemini-2.5-pro',
                 system_instruction=system_prompt
             )
             response = model.generate_content(
@@ -1774,9 +1774,9 @@ IMPORTANT:
 - Don't invent sources - only suggest replacements if you're certain they exist
 - Keep fixes minimal - don't rewrite entire paragraphs"""
 
-        # Use Gemini 3 Pro for better quality link fixing
+        # Use Gemini 2.5 Flash for fast, quality link fixing
         genai.configure(api_key=config.GOOGLE_API_KEY)
-        model = genai.GenerativeModel('gemini-3-pro-preview')
+        model = genai.GenerativeModel('gemini-2.5-flash')
 
         response = model.generate_content(
             prompt,

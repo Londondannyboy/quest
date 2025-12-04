@@ -1042,11 +1042,11 @@ Every claim needs a source link. This guide should be the definitive resource fo
     use_gemini = bool(config.GOOGLE_API_KEY)
 
     if use_gemini:
-        activity.logger.info("Using AI: google:gemini-3-pro-preview")
+        activity.logger.info("Using AI: google:gemini-2.5-pro (stable)")
         genai.configure(api_key=config.GOOGLE_API_KEY)
 
         model = genai.GenerativeModel(
-            model_name='gemini-3-pro-preview',
+            model_name='gemini-2.5-pro',
             system_instruction=system_prompt
         )
 
@@ -2314,11 +2314,11 @@ Write with authority. This should be THE definitive resource for "{target_keywor
     use_gemini = bool(config.GOOGLE_API_KEY)
 
     if use_gemini:
-        activity.logger.info("Using AI: google:gemini-3-pro-preview")
+        activity.logger.info("Using AI: google:gemini-2.5-pro (stable)")
         genai.configure(api_key=config.GOOGLE_API_KEY)
 
         model = genai.GenerativeModel(
-            model_name='gemini-3-pro-preview',
+            model_name='gemini-2.5-pro',
             system_instruction=system_prompt
         )
 

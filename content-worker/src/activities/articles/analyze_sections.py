@@ -4,16 +4,17 @@ Article Section Analysis Activity
 Extracts H2 sections from markdown/HTML content and analyzes narrative structure
 for sequential image generation with Flux Kontext.
 
-Uses Gemini 3 Pro for better quality analysis.
+Uses Pydantic AI with Gemini 2.5 Flash for quality analysis.
 """
 
 import re
 import json
+import os
 from typing import Dict, Any, List
 from temporalio import activity
-import google.generativeai as genai
 
 from src.utils.config import config
+from src.utils.ai_gateway import get_completion_async
 
 
 def extract_sections(content: str) -> List[Dict[str, Any]]:
@@ -103,10 +104,7 @@ async def analyze_article_sections(
     ])
 
     try:
-        # Use Gemini 3 Pro
-        genai.configure(api_key=config.GOOGLE_API_KEY)
-        model = genai.GenerativeModel('gemini-3-pro-preview')
-
+        # Use AI Gateway or Anthropic fallback
         prompt = f"""Analyze this article for image generation. Return a JSON object.
 
 Article Title: {title}
@@ -141,16 +139,12 @@ Rules:
 - IMPORTANT: visual_moment descriptions must be purely visual - NO text, words, signs, or typography
 - Only return valid JSON, no other text"""
 
-        response = model.generate_content(
+        response_text = await get_completion_async(
             prompt,
-            generation_config=genai.types.GenerationConfig(
-                max_output_tokens=4096,
-                temperature=0.3
-            )
+            model="fast",  # gpt-4o-mini via gateway
+            temperature=0.3
         )
-
-        response_text = response.text
-        activity.logger.info(f"Gemini analysis response: {len(response_text)} chars")
+        activity.logger.info(f"AI analysis response: {len(response_text)} chars")
 
         # Parse JSON from response - handle markdown code blocks
         if "```json" in response_text:

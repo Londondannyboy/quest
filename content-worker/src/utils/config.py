@@ -55,6 +55,10 @@ class Config:
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 
     # ===== AI SERVICES =====
+    # Pydantic AI Gateway (unified access - preferred when available)
+    PYDANTIC_AI_GATEWAY_API_KEY: Optional[str] = os.getenv("PYDANTIC_AI_GATEWAY_API_KEY")
+
+    # Direct provider keys (fallback when gateway not configured)
     GOOGLE_API_KEY: Optional[str] = os.getenv("GOOGLE_API_KEY")
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
     ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY")
@@ -153,8 +157,9 @@ class Config:
             # "CLOUDINARY_URL": cls.CLOUDINARY_URL,
         }
 
-        # At least one AI provider
+        # At least one AI provider (gateway or direct)
         has_ai = any([
+            cls.PYDANTIC_AI_GATEWAY_API_KEY,
             cls.GOOGLE_API_KEY,
             cls.OPENAI_API_KEY,
             cls.ANTHROPIC_API_KEY
@@ -178,15 +183,42 @@ class Config:
         Returns:
             Tuple of (provider, model_name)
         """
-        # Anthropic Claude for article generation (Sonnet for comprehensive long-form content)
+        # Prefer Pydantic AI Gateway when available (unified access)
+        if cls.PYDANTIC_AI_GATEWAY_API_KEY:
+            # Gateway format: gateway/<provider>:<model>
+            return ("gateway/anthropic", "claude-sonnet-4-5")
+
+        # Fallback to direct provider keys
         if cls.ANTHROPIC_API_KEY:
             return ("anthropic", "claude-sonnet-4-20250514")
         elif cls.GOOGLE_API_KEY:
-            return ("google-gla", "gemini-1.5-flash")
+            return ("google-gla", "gemini-2.5-flash")
         elif cls.OPENAI_API_KEY:
             return ("openai", "gpt-4o-mini")
         else:
             raise ValueError("No AI API key configured")
+
+    @classmethod
+    def get_gemini_model(cls, model_type: str = "flash") -> str:
+        """
+        Get Gemini model string (gateway or direct).
+
+        Args:
+            model_type: "flash" for fast, "pro" for quality
+
+        Returns:
+            Model string for Pydantic AI GoogleModel
+        """
+        model_name = "gemini-2.5-pro" if model_type == "pro" else "gemini-2.5-flash"
+
+        if cls.PYDANTIC_AI_GATEWAY_API_KEY:
+            return f"gateway/google-vertex:{model_name}"
+        return model_name
+
+    @classmethod
+    def use_gateway(cls) -> bool:
+        """Check if Pydantic AI Gateway is configured"""
+        return bool(cls.PYDANTIC_AI_GATEWAY_API_KEY)
 
     @classmethod
     def is_production(cls) -> bool:
@@ -210,7 +242,8 @@ class Config:
             "has_replicate": bool(cls.REPLICATE_API_TOKEN),
             "has_cloudinary": bool(cls.CLOUDINARY_URL),
             "has_mux": bool(cls.MUX_TOKEN_ID and cls.MUX_TOKEN_SECRET),
-            "has_ai": bool(cls.GOOGLE_API_KEY or cls.OPENAI_API_KEY or cls.ANTHROPIC_API_KEY),
+            "has_gateway": bool(cls.PYDANTIC_AI_GATEWAY_API_KEY),
+            "has_ai": bool(cls.PYDANTIC_AI_GATEWAY_API_KEY or cls.GOOGLE_API_KEY or cls.OPENAI_API_KEY or cls.ANTHROPIC_API_KEY),
         }
 
 

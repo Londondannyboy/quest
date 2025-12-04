@@ -16,9 +16,9 @@ Usage in workflow:
 """
 
 import re
+import os
 from typing import Optional, List, Tuple, Dict, Any
-# Lazy import to avoid Temporal workflow sandbox restrictions
-# import google.generativeai as genai
+# Use Pydantic AI for stable model access
 from src.utils.config import config
 
 
@@ -82,11 +82,16 @@ def match_sections_to_acts_with_ai(
 
     try:
         # Lazy import inside function to avoid Temporal workflow sandbox restrictions
-        import google.generativeai as genai
+        import asyncio
+        from src.utils.ai_gateway import get_completion_async, is_gateway_available
 
-        # Configure Gemini
-        genai.configure(api_key=config.gemini_api_key)
-        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        # Check if any AI is available
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY") or getattr(config, "ANTHROPIC_API_KEY", None)
+        gateway_key = os.environ.get("PYDANTIC_AI_GATEWAY_API_KEY") or getattr(config, "PYDANTIC_AI_GATEWAY_API_KEY", None)
+
+        if not gateway_key and not anthropic_key:
+            print("No AI API key configured, using even distribution")
+            return get_video_time_points(len(section_titles))
 
         # Build act descriptions
         act_descriptions = []
@@ -123,8 +128,23 @@ Return ONLY a JSON array of timestamps (one per section), like: [1.5, 4.5, 7.5, 
 If there are more sections than acts, reuse the most relevant acts.
 """
 
-        response = model.generate_content(prompt)
-        result_text = response.text.strip()
+        # Run async completion synchronously (this function is called from sync context)
+        async def run_completion():
+            return await get_completion_async(prompt, model="fast", temperature=0.3)
+
+        # Get or create event loop
+        try:
+            loop = asyncio.get_running_loop()
+            # If we're in an async context, create a task
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, run_completion())
+                result_text = future.result()
+        except RuntimeError:
+            # No running loop, safe to use asyncio.run
+            result_text = asyncio.run(run_completion())
+
+        result_text = result_text.strip()
 
         # Extract JSON array
         import json

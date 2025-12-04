@@ -4,7 +4,7 @@ Research Curation Activity
 Stage 1 of article generation: Filter, dedupe, and deeply analyze research sources
 before passing to article generation.
 
-Uses Gemini 2.5 Pro for curation (1M context window, best reasoning/extraction).
+Uses Pydantic AI with Gemini 2.5 Pro for curation (1M context window, best reasoning/extraction).
 Pro is ~2x better at fact extraction (SimpleQA: 54.5% vs Flash's 29.7%).
 This ensures we capture all nuances, opinions, unique angles, and interesting facts
 that Sonnet needs to write a comprehensive, insightful article.
@@ -13,9 +13,10 @@ that Sonnet needs to write a comprehensive, insightful article.
 import os
 import re
 import json
-import google.generativeai as genai
 from temporalio import activity
 from typing import Dict, Any, List
+
+from src.utils.ai_gateway import get_completion_async
 
 
 def is_relevant_to_topic(title: str, content: str, topic: str) -> bool:
@@ -413,7 +414,7 @@ SOURCES TO ANALYZE:
 
 OUTPUT (JSON only):"""
 
-    # Use Gemini 2.5 Pro for curation - best reasoning, 2x better fact extraction
+    # Use Pydantic AI with Gemini 2.5 Pro for curation - best reasoning, 2x better fact extraction
     api_key = os.environ.get("GOOGLE_API_KEY")
     if not api_key:
         activity.logger.error("GOOGLE_API_KEY not set for curation")
@@ -429,21 +430,15 @@ OUTPUT (JSON only):"""
             "error": "No API key, returned uncurated"
         }
 
-    genai.configure(api_key=api_key)
-
     try:
-        # Gemini 2.5 Pro - best reasoning, ~2x better at fact extraction than Flash
-        # Cost: ~$0.40 vs $0.04 per curation - worth it for quality
-        model = genai.GenerativeModel("gemini-2.5-pro-preview-06-05")
-        response = model.generate_content(
+        # Use AI Gateway (GPT-4o) or Anthropic Sonnet for quality curation
+        # Higher quality model for research extraction
+        response_text = await get_completion_async(
             prompt,
-            generation_config=genai.types.GenerationConfig(
-                max_output_tokens=16384,
-                temperature=0.2,  # Lower temp for more consistent JSON
-            )
+            model="quality",  # gpt-4o via gateway
+            max_tokens=16384,
+            temperature=0.2  # Lower temp for consistent JSON
         )
-
-        response_text = response.text
         activity.logger.info(f"Gemini response length: {len(response_text)} chars")
 
         # Use robust JSON parser

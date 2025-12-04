@@ -1,16 +1,27 @@
 """
 News Assessment Activity
 
-Evaluates news stories for relevance using Gemini 3 Pro.
+Evaluates news stories for relevance using Pydantic AI Gateway or Anthropic.
 Determines which stories should be promoted to article creation.
 """
 
-import google.generativeai as genai
+from pydantic import BaseModel
 from temporalio import activity
 from typing import Dict, Any, List
 import json
+import os
 
 from src.utils.config import config
+from src.utils.ai_gateway import get_completion_async, is_gateway_available
+
+
+class StoryAssessment(BaseModel):
+    story_index: int
+    title: str
+    relevant: bool
+    relevance_score: float
+    priority: str
+    reasoning: str
 
 
 @activity.defn(name="assess_news_relevancy")
@@ -36,15 +47,14 @@ async def assess_news_batch(
     """
     activity.logger.info(f"Assessing {len(stories)} stories for app: {app}")
 
-    if not config.GOOGLE_API_KEY:
+    api_key = os.environ.get("GOOGLE_API_KEY") or getattr(config, "GOOGLE_API_KEY", None)
+    if not api_key:
         return {
             "stories_assessed": 0,
             "relevant_stories": [],
             "skipped_stories": [],
             "error": "GOOGLE_API_KEY not configured"
         }
-
-    genai.configure(api_key=config.GOOGLE_API_KEY)
 
     # Build context for assessment
     keywords = app_context.get("keywords", [])
@@ -91,17 +101,13 @@ Prioritize stories matching keywords.
 Return ONLY valid JSON array, no other text."""
 
     try:
-        model = genai.GenerativeModel('gemini-3-pro-preview')
-        response = model.generate_content(
+        # Use AI Gateway (OpenAI via proxy) or Anthropic fallback
+        response_text = await get_completion_async(
             prompt,
-            generation_config=genai.types.GenerationConfig(
-                max_output_tokens=2000,
-                temperature=0.3  # Lower temp for more consistent assessment
-            )
+            model="fast",  # gpt-4o-mini via gateway, or claude-haiku fallback
+            temperature=0.3  # Lower temp for consistent assessment
         )
-
-        response_text = response.text
-        activity.logger.info(f"Gemini assessment response: {len(response_text)} chars")
+        activity.logger.info(f"AI assessment response: {len(response_text)} chars")
 
         # Parse JSON - handle markdown code blocks
         if "```json" in response_text:
