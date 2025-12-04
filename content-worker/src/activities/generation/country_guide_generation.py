@@ -1039,26 +1039,16 @@ RESEARCH DATA:
 Use ALL of this research. Be specific. Include real numbers, dates, and requirements.
 Every claim needs a source link. This guide should be the definitive resource for anyone considering {country_name}."""
 
-    # Generate with Gateway (primary), Anthropic (secondary), or Gemini (fallback)
-    # Prefer Gateway for unified access and reliability
+    # Generate with Anthropic (primary for country guides), Gateway (secondary), or Gemini (fallback)
+    # Claude handles long-form country guide content better than GPT-4o
     from src.utils.ai_gateway import get_completion_async, is_gateway_available
 
     gateway_key = os.environ.get("PYDANTIC_AI_GATEWAY_API_KEY") or getattr(config, "PYDANTIC_AI_GATEWAY_API_KEY", None)
     anthropic_key = config.ANTHROPIC_API_KEY
 
-    if gateway_key:
-        # Use Gateway with GPT-4o for quality article generation
-        activity.logger.info("Using AI: gateway/gpt-4o (primary)")
-        full_prompt = f"{system_prompt}\n\n{research_prompt}"
-        response_text = await get_completion_async(
-            full_prompt,
-            model="quality",  # gpt-4o via gateway
-            max_tokens=16000,
-            temperature=0.7
-        )
-    elif anthropic_key:
-        # Fallback to Claude
-        activity.logger.info("Using AI: anthropic:claude-sonnet-4 (fallback)")
+    if anthropic_key:
+        # Use Claude for country guides (handles long-form content better than GPT-4o)
+        activity.logger.info("Using AI: anthropic:claude-sonnet-4 (primary for country guides)")
         client = anthropic.Anthropic(api_key=anthropic_key)
 
         response = client.messages.create(
@@ -1068,6 +1058,16 @@ Every claim needs a source link. This guide should be the definitive resource fo
             messages=[{"role": "user", "content": research_prompt}]
         )
         response_text = response.content[0].text
+    elif gateway_key:
+        # Fallback to Gateway with GPT-4o
+        activity.logger.info("Using AI: gateway/gpt-4o (fallback)")
+        full_prompt = f"{system_prompt}\n\n{research_prompt}"
+        response_text = await get_completion_async(
+            full_prompt,
+            model="quality",  # gpt-4o via gateway
+            max_tokens=16000,
+            temperature=0.7
+        )
     elif config.GOOGLE_API_KEY:
         # Last resort: Gemini
         activity.logger.info("Using AI: google:gemini-2.5-pro (last resort)")
@@ -1091,7 +1091,7 @@ Every claim needs a source link. This guide should be the definitive resource fo
         raise ValueError("No AI API key configured")
 
     # Log response length for debugging
-    ai_provider = "Gateway" if gateway_key else ("Claude" if anthropic_key else "Gemini")
+    ai_provider = "Claude" if anthropic_key else ("Gateway" if gateway_key else "Gemini")
     activity.logger.info(f"{ai_provider} response received: {len(response_text)} chars")
     activity.logger.info(f"First 500 chars: {response_text[:500]}")
 
