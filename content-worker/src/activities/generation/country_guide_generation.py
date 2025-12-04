@@ -7,6 +7,8 @@ Generates comprehensive country relocation guides covering all 8 motivations:
 Outputs structured payload matching [country].astro frontend expectations.
 """
 
+import os
+
 from temporalio import activity
 from typing import Dict, Any, List, Optional
 from slugify import slugify
