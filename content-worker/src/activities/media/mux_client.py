@@ -29,7 +29,7 @@ async def upload_video_to_mux(
     public: bool = True,
     # Passthrough metadata for tagging
     cluster_id: Optional[str] = None,
-    article_id: Optional[int] = None,
+    article_id: Optional[Any] = None,  # Accept str or int
     country: Optional[str] = None,
     article_mode: Optional[str] = None,
     tags: Optional[list] = None,

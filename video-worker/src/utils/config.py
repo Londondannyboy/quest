@@ -20,7 +20,9 @@ class Config:
     TEMPORAL_ADDRESS: str = os.getenv("TEMPORAL_ADDRESS", "localhost:7233")
     TEMPORAL_NAMESPACE: str = os.getenv("TEMPORAL_NAMESPACE", "default")
     TEMPORAL_API_KEY: Optional[str] = os.getenv("TEMPORAL_API_KEY")
-    TEMPORAL_TASK_QUEUE: str = os.getenv("TEMPORAL_TASK_QUEUE", "quest-content-queue")
+    # IMPORTANT: Video worker MUST use a different queue than content-worker
+    # to avoid workflow registration conflicts
+    TEMPORAL_TASK_QUEUE: str = os.getenv("TEMPORAL_TASK_QUEUE", "quest-video-queue")
 
     @staticmethod
     def _parse_cloudinary_url() -> tuple[Optional[str], Optional[str], Optional[str]]:
