@@ -3,3 +3,4 @@ requests>=2.31.0
 python-dotenv>=1.0.0
 zep-cloud>=2.0.0
 psycopg[binary]>=3.0.0
+temporalio>=1.7.0

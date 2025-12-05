@@ -79,7 +79,7 @@ with st.sidebar:
     st.caption("Powered by Temporal + Gemini 2.5 Flash")
 
 # Main navigation tabs
-tab_company, tab_article, tab_country, tab_video_enrich, tab_zep = st.tabs(["🏢 Company Profile", "📝 Article Creation", "🌍 Country Guide", "🎬 Video Enrichment", "🧠 Zep Facts"])
+tab_company, tab_article, tab_country, tab_video_enrich, tab_zep, tab_new_worker = st.tabs(["🏢 Company Profile", "📝 Article Creation", "🌍 Country Guide", "🎬 Video Enrichment", "🧠 Zep Facts", "🧪 New Worker"])
 
 # ===== COMPANY PROFILE TAB =====
 with tab_company:
@@ -1132,6 +1132,156 @@ with tab_video_enrich:
                 except Exception as e:
                     st.error(f"❌ Unexpected error: {str(e)}")
                     st.code(str(e), language="text")
+
+# ===== NEW WORKER TEST TAB =====
+with tab_new_worker:
+    st.subheader("🧪 New Worker Test")
+    st.markdown("*Test the new Python content-worker (quest-py) on separate queue*")
+
+    st.info("""
+    **About New Worker:**
+    - Uses `new-content-queue` (separate from old workers)
+    - Pydantic AI Gateway for all AI calls
+    - Clean Python codebase in `quest-py` repo
+    - Testing before replacing old workers
+    """)
+
+    # Temporal connection settings
+    TEMPORAL_ADDRESS = os.getenv("TEMPORAL_ADDRESS", "europe-west3.gcp.api.temporal.io:7233")
+    TEMPORAL_NAMESPACE = os.getenv("TEMPORAL_NAMESPACE", "quickstart-quest.zivkb")
+    TEMPORAL_API_KEY = os.getenv("TEMPORAL_API_KEY", "")
+
+    # Sub-tabs for different workflow types
+    nw_tab1, nw_tab2, nw_tab3, nw_tab4 = st.tabs(["🏢 Company", "📝 Article", "🎬 Video", "📰 News"])
+
+    # ===== NEW WORKER: COMPANY =====
+    with nw_tab1:
+        st.markdown("### Create Company (New Worker)")
+
+        nw_company_url = st.text_input(
+            "Company Website URL *",
+            placeholder="https://stripe.com",
+            help="The company's official website",
+            key="nw_company_url"
+        )
+
+        nw_company_category = st.selectbox(
+            "Category",
+            ["AI", "FinTech", "SaaS", "Marketplace", "Investment Bank", "Consulting", "Other"],
+            key="nw_company_category"
+        )
+
+        nw_company_app = st.selectbox(
+            "App Context",
+            ["placement", "relocation", "gtm"],
+            key="nw_company_app"
+        )
+
+        nw_company_jurisdiction = st.selectbox(
+            "Jurisdiction",
+            ["US", "UK", "EU"],
+            key="nw_company_jurisdiction"
+        )
+
+        if st.button("🚀 Create Company (New Worker)", type="primary", key="nw_create_company"):
+            if not nw_company_url:
+                st.error("Please provide a company URL")
+            elif not TEMPORAL_API_KEY:
+                st.error("TEMPORAL_API_KEY not configured in environment")
+            else:
+                with st.spinner("Starting workflow on new-content-queue..."):
+                    try:
+                        from temporalio.client import Client, TLSConfig
+                        import uuid
+
+                        async def start_company_workflow():
+                            client = await Client.connect(
+                                target_host=TEMPORAL_ADDRESS,
+                                namespace=TEMPORAL_NAMESPACE,
+                                tls=TLSConfig(),
+                                api_key=TEMPORAL_API_KEY
+                            )
+
+                            workflow_id = f"nw-company-{uuid.uuid4().hex[:8]}"
+
+                            handle = await client.start_workflow(
+                                "CreateCompanyWorkflow",
+                                {
+                                    "url": nw_company_url,
+                                    "category": nw_company_category,
+                                    "app": nw_company_app,
+                                    "jurisdiction": nw_company_jurisdiction,
+                                },
+                                id=workflow_id,
+                                task_queue="new-content-queue",
+                            )
+                            return workflow_id
+
+                        workflow_id = asyncio.run(start_company_workflow())
+
+                        st.success("✅ **Workflow Started on New Worker!**")
+                        st.info(f"**Workflow ID:** `{workflow_id}`")
+                        st.info(f"**Queue:** `new-content-queue`")
+
+                        temporal_url = f"https://cloud.temporal.io/namespaces/{TEMPORAL_NAMESPACE}/workflows/{workflow_id}"
+                        st.markdown(f"### [📊 Monitor in Temporal UI]({temporal_url})")
+
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
+
+    # ===== NEW WORKER: ARTICLE =====
+    with nw_tab2:
+        st.markdown("### Create Article (New Worker)")
+        st.warning("⚠️ Article workflow not yet implemented in new worker")
+
+        nw_article_topic = st.text_input(
+            "Article Topic *",
+            placeholder="OpenAI announces GPT-5 release",
+            key="nw_article_topic"
+        )
+
+        nw_article_type = st.selectbox(
+            "Article Type",
+            ["news", "guide", "comparison"],
+            key="nw_article_type"
+        )
+
+        nw_article_app = st.selectbox(
+            "App Context",
+            ["placement", "relocation", "gtm"],
+            key="nw_article_app"
+        )
+
+        if st.button("📝 Create Article (New Worker)", type="primary", key="nw_create_article", disabled=True):
+            st.info("Coming soon...")
+
+    # ===== NEW WORKER: VIDEO =====
+    with nw_tab3:
+        st.markdown("### Generate Video (New Worker)")
+        st.warning("⚠️ Video workflow not yet implemented in new worker")
+
+        nw_video_slug = st.text_input(
+            "Article Slug *",
+            placeholder="openai-gpt5-announcement",
+            key="nw_video_slug"
+        )
+
+        if st.button("🎬 Generate Video (New Worker)", type="primary", key="nw_create_video", disabled=True):
+            st.info("Coming soon...")
+
+    # ===== NEW WORKER: NEWS =====
+    with nw_tab4:
+        st.markdown("### Monitor News (New Worker)")
+        st.warning("⚠️ News monitoring workflow not yet implemented in new worker")
+
+        nw_news_app = st.selectbox(
+            "App Context",
+            ["placement", "relocation"],
+            key="nw_news_app"
+        )
+
+        if st.button("📰 Start News Monitor (New Worker)", type="primary", key="nw_start_news", disabled=True):
+            st.info("Coming soon...")
 
 # Footer
 st.divider()
