@@ -33,7 +33,7 @@ from src.config.app_config import get_app_config, APP_CONFIGS, CharacterStyle, C
 class FourActSection(BaseModel):
     """One act/section with all required fields."""
     act: int = Field(..., ge=1, le=4, description="Act number 1-4")
-    title: str = Field(..., min_length=10, description="Section H2 title")
+    title: str = Field(..., min_length=5, description="Section H2 title")
     factoid: str = Field(..., min_length=10, description="Stat or fact for thumbnail overlay")
     video_title: str = Field(..., min_length=2, max_length=30, description="Short 2-4 word title like 'The Grind'")
     four_act_visual_hint: str = Field(..., min_length=100, max_length=400, description="45-55 word cinematic scene description")
