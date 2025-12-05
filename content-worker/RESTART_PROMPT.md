@@ -1,9 +1,112 @@
 # Quest Content Worker - Comprehensive Restart Prompt
 
-**Last Updated:** 2025-11-25
-**Last Commit:** 947dc28
+**Last Updated:** 2025-12-04
+**Last Commits:** `b0c4ae9`, `563bf83`
 
 Use this document to quickly restore context when starting a new Claude Code session.
+
+---
+
+## CRITICAL: Recent Session (2025-12-04)
+
+### Problem Solved
+Country Guide workflow was broken due to:
+1. **Deprecated Google model names:** `gemini-3-pro-preview`, `gemini-2.0-flash-exp`, `gemini-2.5-pro-preview-06-05`
+2. **Expired `GOOGLE_API_KEY`** on Railway worker
+
+### Solution: Pydantic AI Gateway
+Created unified AI access via Gateway proxy. **Priority order: Gateway → Anthropic → Gemini**
+
+### New Files Created
+| File | Purpose |
+|------|---------|
+| `src/utils/ai_gateway.py` | Gateway utility: `get_completion_async()`, `is_gateway_available()` |
+| `test_pydantic_ai.py` | Integration test for AI providers |
+
+### Key Pattern - AI Gateway Usage
+```python
+from src.utils.ai_gateway import get_completion_async
+
+response = await get_completion_async(
+    prompt,
+    model="fast",     # gpt-4o-mini (news, sections)
+    # model="quality",  # gpt-4o (curation, articles)
+    temperature=0.7,
+    max_tokens=4096
+)
+```
+
+### Gateway works via OpenAI proxy
+```python
+import openai
+client = openai.Client(
+    base_url='https://gateway.pydantic.dev/proxy/chat/',
+    api_key='paig_7fYwHe34BlYcQgYf4OJpEd7qnzScyWFs',
+)
+```
+
+### Environment Variable Required
+```bash
+PYDANTIC_AI_GATEWAY_API_KEY=paig_7fYwHe34BlYcQgYf4OJpEd7qnzScyWFs
+```
+**Must be set on Railway** (where Temporal worker runs), not just Vercel.
+
+### Files Updated for Gateway
+- `src/activities/research/news_assessment.py`
+- `src/activities/articles/analyze_sections.py`
+- `src/utils/inject_section_images.py`
+- `src/activities/generation/research_curation.py`
+- `src/activities/generation/article_generation.py`
+- `src/activities/generation/country_guide_generation.py`
+- `src/utils/config.py`
+- `requirements.txt` → `pydantic-ai-slim>=0.8.0`
+
+### Current Status
+- ✅ Gateway tested and working locally
+- ✅ Code committed and pushed
+- ⏳ Railway needs `PYDANTIC_AI_GATEWAY_API_KEY` env var
+- ❌ Google API key expired (but Gateway bypasses this)
+
+### To Test After Railway Redeploy
+```bash
+python scripts/test_country_guide.py Switzerland CH
+```
+
+### Quick Test Gateway Locally
+```bash
+# Test gateway is working
+PYDANTIC_AI_GATEWAY_API_KEY="paig_7fYwHe34BlYcQgYf4OJpEd7qnzScyWFs" python3 -c "
+import asyncio
+from src.utils.ai_gateway import get_completion_async, is_gateway_available
+print('Gateway available:', is_gateway_available())
+print(asyncio.run(get_completion_async('Say hello', model='fast')))
+"
+```
+
+### Error Pattern That Triggered This Session
+```json
+{
+  "type": "activity_failed",
+  "workflow_run_id": "...",
+  "error": {
+    "type": "ApplicationError",
+    "message": "API Key not found. Please pass a valid API key.",
+    "cause": "got unexpected status code 400"
+  }
+}
+```
+**Cause:** Expired `GOOGLE_API_KEY` in Railway env vars.
+**Solution:** Use Gateway as primary, not Google.
+
+---
+
+## PENDING TASKS (2025-12-04)
+
+| Priority | Task | Status |
+|----------|------|--------|
+| 🔴 HIGH | Set `PYDANTIC_AI_GATEWAY_API_KEY` on Railway | ⏳ Pending |
+| 🟡 MED | Re-test Switzerland Country Guide after Railway redeploys | ⏳ Pending |
+| 🟢 LOW | Update Google API key if needed (backup only) | Optional |
 
 ---
 
@@ -108,6 +211,38 @@ Phase 11: Final Update (5s)
   - Embed media in article content
   - Update Neon with final payload
 ```
+
+### CountryGuideCreationWorkflow (`src/workflows/country_guide_creation.py`)
+
+**Used for:** Comprehensive relocation guides (e.g., "Switzerland", "Portugal")
+
+**AI Provider Order:** Gateway (GPT-4o) → Anthropic (Claude) → Gemini
+
+```
+Phase 1: Research Country Topics
+  - Multiple parallel Serper searches per topic
+  - Crawl4AI for full content
+
+Phase 2: Curate Research (Gateway/GPT-4o)
+  - Extract facts, costs, requirements
+  - Generate section outlines
+
+Phase 3: Generate Guide Content (Gateway/GPT-4o)
+  - Comprehensive country guide
+  - 10-15 sections typical
+
+Phase 4: Save to Database
+  - Neon PostgreSQL
+
+Phase 5: Sync to Zep
+  - Knowledge graph update
+```
+
+**Key Files:**
+- `src/workflows/country_guide_creation.py` - Main workflow
+- `src/activities/generation/country_guide_generation.py` - Content generation (uses Gateway)
+
+---
 
 ### Input Parameters (from Gateway)
 
@@ -251,11 +386,11 @@ while elapsed < max_wait:  # 10 minutes
 
 ---
 
-## Curation (Gemini 2.5 Pro)
+## Curation (Gateway/GPT-4o)
 
 **File:** `src/activities/generation/research_curation.py`
 
-Uses Gemini 2.5 Pro for best fact extraction (2x better than Flash on SimpleQA benchmark).
+Uses **GPT-4o via Pydantic AI Gateway** (or Anthropic fallback) for fact extraction.
 
 **Pre-filter:** `is_relevant_to_topic()` requires ≥2 keyword matches
 
@@ -271,7 +406,7 @@ Uses Gemini 2.5 Pro for best fact extraction (2x better than Flash on SimpleQA b
 - High-authority sources
 - Timeline of events
 
-**Model:** `gemini-2.5-pro-preview-06-05` (can update to `gemini-2.5-pro` for stable)
+**Model Priority:** Gateway (`gpt-4o`) → Anthropic (`claude-sonnet-4`) → Gemini (`gemini-2.5-pro`)
 
 ---
 
@@ -304,10 +439,11 @@ TEMPORAL_NAMESPACE=quickstart-quest.zivkb
 TEMPORAL_API_KEY=xxx
 TEMPORAL_TASK_QUEUE=company-worker
 
-# AI Models
-ANTHROPIC_API_KEY=xxx       # Claude Sonnet for articles
-GOOGLE_API_KEY=xxx          # Gemini for curation
-REPLICATE_API_TOKEN=xxx     # Video generation
+# AI Models (PRIORITY ORDER)
+PYDANTIC_AI_GATEWAY_API_KEY=paig_...  # PRIMARY - unified access to GPT-4o
+ANTHROPIC_API_KEY=xxx                  # SECONDARY - Claude fallback
+GOOGLE_API_KEY=xxx                     # LAST RESORT - Gemini (currently expired)
+REPLICATE_API_TOKEN=xxx                # Video generation
 
 # Research
 SERPER_API_KEY=xxx
@@ -329,6 +465,8 @@ DASHBOARD_PASSWORD=xxx
 API_KEY=xxx
 GATEWAY_URL=https://quest-gateway-production.up.railway.app
 ```
+
+**IMPORTANT:** The `PYDANTIC_AI_GATEWAY_API_KEY` must be set on **Railway** (where the Temporal worker runs).
 
 ---
 
@@ -455,10 +593,10 @@ https://cloud.temporal.io/namespaces/quickstart-quest.zivkb/workflows
 │                                                       │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │
 │  │  Research   │  │  Generation │  │    Media    │  │
-│  │  Serper     │  │  Gemini Pro │  │  Replicate  │  │
-│  │  Exa        │  │  Sonnet     │  │  Mux        │  │
-│  │  DataForSEO │  │  Haiku      │  │  Flux       │  │
-│  │  Crawl4AI   │  │             │  │             │  │
+│  │  Serper     │  │  Gateway*   │  │  Replicate  │  │
+│  │  Exa        │  │  (GPT-4o)   │  │  Mux        │  │
+│  │  DataForSEO │  │  Anthropic  │  │  Flux       │  │
+│  │  Crawl4AI   │  │  (fallback) │  │             │  │
 │  └─────────────┘  └─────────────┘  └─────────────┘  │
 │                                                       │
 │  ┌─────────────┐  ┌─────────────┐                    │
