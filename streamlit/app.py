@@ -1135,15 +1135,17 @@ with tab_video_enrich:
 
 # ===== NEW WORKER TEST TAB =====
 with tab_new_worker:
-    st.subheader("🧪 New Worker Test")
-    st.markdown("*Test the new Python content-worker (quest-py) on separate queue*")
+    st.subheader("🚀 New Worker (Production Ready)")
+    st.markdown("*Clean Python rewrite with Pydantic AI Gateway*")
 
-    st.info("""
-    **About New Worker:**
-    - Uses `new-content-queue` (separate from old workers)
-    - Pydantic AI Gateway for all AI calls
-    - Clean Python codebase in `quest-py` repo
-    - Testing before replacing old workers
+    st.success("""
+    **New Worker Features:**
+    - ✅ `new-content-queue` (separate from legacy workers)
+    - ✅ All workflows tested and working
+    - ✅ CreateCompanyWorkflow, CreateArticleWorkflow
+    - ✅ CreateVideoWorkflow (Seedance + MUX)
+    - ✅ CreateNewsWorkflow (auto-article generation)
+    - 🔧 Job scrapers on `new-job-queue`
     """)
 
     # Temporal connection settings
@@ -1232,17 +1234,16 @@ with tab_new_worker:
     # ===== NEW WORKER: ARTICLE =====
     with nw_tab2:
         st.markdown("### Create Article (New Worker)")
-        st.warning("⚠️ Article workflow not yet implemented in new worker")
 
         nw_article_topic = st.text_input(
             "Article Topic *",
-            placeholder="OpenAI announces GPT-5 release",
+            placeholder="Private Equity Trends 2025",
             key="nw_article_topic"
         )
 
         nw_article_type = st.selectbox(
             "Article Type",
-            ["news", "guide", "comparison"],
+            ["standard", "news", "guide"],
             key="nw_article_type"
         )
 
@@ -1252,27 +1253,139 @@ with tab_new_worker:
             key="nw_article_app"
         )
 
-        if st.button("📝 Create Article (New Worker)", type="primary", key="nw_create_article", disabled=True):
-            st.info("Coming soon...")
+        nw_article_word_count = st.slider(
+            "Target Word Count",
+            min_value=1000,
+            max_value=3000,
+            value=2000,
+            step=500,
+            key="nw_article_word_count"
+        )
+
+        nw_article_video = st.checkbox(
+            "Generate Video",
+            value=False,
+            help="Generate 4-act video (adds ~$0.30)",
+            key="nw_article_video"
+        )
+
+        if st.button("📝 Create Article (New Worker)", type="primary", key="nw_create_article"):
+            if not nw_article_topic:
+                st.error("Please provide an article topic")
+            elif not TEMPORAL_API_KEY:
+                st.error("TEMPORAL_API_KEY not configured in environment")
+            else:
+                with st.spinner("Starting workflow on new-content-queue..."):
+                    try:
+                        from temporalio.client import Client, TLSConfig
+                        import uuid
+
+                        async def start_article_workflow():
+                            client = await Client.connect(
+                                target_host=TEMPORAL_ADDRESS,
+                                namespace=TEMPORAL_NAMESPACE,
+                                tls=TLSConfig(),
+                                api_key=TEMPORAL_API_KEY
+                            )
+
+                            workflow_id = f"nw-article-{uuid.uuid4().hex[:8]}"
+
+                            handle = await client.start_workflow(
+                                "CreateArticleWorkflow",
+                                {
+                                    "topic": nw_article_topic,
+                                    "article_type": nw_article_type,
+                                    "app": nw_article_app,
+                                    "word_count": nw_article_word_count,
+                                    "generate_video": nw_article_video,
+                                    "video_quality": "low" if nw_article_video else None,
+                                },
+                                id=workflow_id,
+                                task_queue="new-content-queue",
+                            )
+                            return workflow_id
+
+                        workflow_id = asyncio.run(start_article_workflow())
+
+                        st.success("✅ **Article Workflow Started on New Worker!**")
+                        st.info(f"**Workflow ID:** `{workflow_id}`")
+                        st.info(f"**Queue:** `new-content-queue`")
+
+                        temporal_url = f"https://cloud.temporal.io/namespaces/{TEMPORAL_NAMESPACE}/workflows/{workflow_id}"
+                        st.markdown(f"### [📊 Monitor in Temporal UI]({temporal_url})")
+
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
 
     # ===== NEW WORKER: VIDEO =====
     with nw_tab3:
-        st.markdown("### Generate Video (New Worker)")
-        st.warning("⚠️ Video workflow not yet implemented in new worker")
+        st.markdown("### Generate Video for Article (New Worker)")
+        st.info("Generate a 4-act video for an existing article (by article ID)")
 
-        nw_video_slug = st.text_input(
-            "Article Slug *",
-            placeholder="openai-gpt5-announcement",
-            key="nw_video_slug"
+        nw_video_article_id = st.text_input(
+            "Article ID *",
+            placeholder="238",
+            help="The numeric ID of the article",
+            key="nw_video_article_id"
         )
 
-        if st.button("🎬 Generate Video (New Worker)", type="primary", key="nw_create_video", disabled=True):
-            st.info("Coming soon...")
+        nw_video_quality = st.selectbox(
+            "Video Quality",
+            ["low", "medium", "high"],
+            index=0,
+            help="low: 480p (~$0.15) | medium: 720p (~$0.30) | high: 1080p (~$0.50)",
+            key="nw_video_quality"
+        )
+
+        if st.button("🎬 Generate Video (New Worker)", type="primary", key="nw_create_video"):
+            if not nw_video_article_id:
+                st.error("Please provide an article ID")
+            elif not TEMPORAL_API_KEY:
+                st.error("TEMPORAL_API_KEY not configured in environment")
+            else:
+                with st.spinner("Starting video workflow on new-content-queue..."):
+                    try:
+                        from temporalio.client import Client, TLSConfig
+                        import uuid
+
+                        async def start_video_workflow():
+                            client = await Client.connect(
+                                target_host=TEMPORAL_ADDRESS,
+                                namespace=TEMPORAL_NAMESPACE,
+                                tls=TLSConfig(),
+                                api_key=TEMPORAL_API_KEY
+                            )
+
+                            workflow_id = f"nw-video-{uuid.uuid4().hex[:8]}"
+
+                            handle = await client.start_workflow(
+                                "CreateVideoWorkflow",
+                                {
+                                    "article_id": nw_video_article_id,
+                                    "video_quality": nw_video_quality,
+                                },
+                                id=workflow_id,
+                                task_queue="new-content-queue",
+                            )
+                            return workflow_id
+
+                        workflow_id = asyncio.run(start_video_workflow())
+
+                        st.success("✅ **Video Workflow Started on New Worker!**")
+                        st.info(f"**Workflow ID:** `{workflow_id}`")
+                        st.info(f"**Queue:** `new-content-queue`")
+                        st.caption("⏱️ Video generation takes 3-5 minutes")
+
+                        temporal_url = f"https://cloud.temporal.io/namespaces/{TEMPORAL_NAMESPACE}/workflows/{workflow_id}"
+                        st.markdown(f"### [📊 Monitor in Temporal UI]({temporal_url})")
+
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
 
     # ===== NEW WORKER: NEWS =====
     with nw_tab4:
-        st.markdown("### Monitor News (New Worker)")
-        st.warning("⚠️ News monitoring workflow not yet implemented in new worker")
+        st.markdown("### Create News Articles (New Worker)")
+        st.info("Search news, assess relevance, and create articles for top stories")
 
         nw_news_app = st.selectbox(
             "App Context",
@@ -1280,8 +1393,77 @@ with tab_new_worker:
             key="nw_news_app"
         )
 
-        if st.button("📰 Start News Monitor (New Worker)", type="primary", key="nw_start_news", disabled=True):
-            st.info("Coming soon...")
+        nw_news_keywords = st.text_input(
+            "Keywords (optional)",
+            placeholder="private equity, M&A deals",
+            help="Comma-separated keywords. Leave empty for defaults.",
+            key="nw_news_keywords"
+        )
+
+        nw_news_max_articles = st.slider(
+            "Max Articles to Create",
+            min_value=1,
+            max_value=5,
+            value=2,
+            help="Maximum number of articles to create from news",
+            key="nw_news_max_articles"
+        )
+
+        nw_news_video = st.checkbox(
+            "Generate Videos",
+            value=False,
+            help="Generate videos for created articles",
+            key="nw_news_video"
+        )
+
+        if st.button("📰 Start News Workflow (New Worker)", type="primary", key="nw_start_news"):
+            if not TEMPORAL_API_KEY:
+                st.error("TEMPORAL_API_KEY not configured in environment")
+            else:
+                with st.spinner("Starting news workflow on new-content-queue..."):
+                    try:
+                        from temporalio.client import Client, TLSConfig
+                        import uuid
+
+                        async def start_news_workflow():
+                            client = await Client.connect(
+                                target_host=TEMPORAL_ADDRESS,
+                                namespace=TEMPORAL_NAMESPACE,
+                                tls=TLSConfig(),
+                                api_key=TEMPORAL_API_KEY
+                            )
+
+                            workflow_id = f"nw-news-{uuid.uuid4().hex[:8]}"
+
+                            # Parse keywords
+                            keywords = [k.strip() for k in nw_news_keywords.split(",")] if nw_news_keywords.strip() else None
+
+                            handle = await client.start_workflow(
+                                "CreateNewsWorkflow",
+                                {
+                                    "app": nw_news_app,
+                                    "keywords": keywords,
+                                    "max_articles": nw_news_max_articles,
+                                    "generate_video": nw_news_video,
+                                    "video_quality": "low" if nw_news_video else None,
+                                },
+                                id=workflow_id,
+                                task_queue="new-content-queue",
+                            )
+                            return workflow_id
+
+                        workflow_id = asyncio.run(start_news_workflow())
+
+                        st.success("✅ **News Workflow Started on New Worker!**")
+                        st.info(f"**Workflow ID:** `{workflow_id}`")
+                        st.info(f"**Queue:** `new-content-queue`")
+                        st.caption("⏱️ This may create multiple articles")
+
+                        temporal_url = f"https://cloud.temporal.io/namespaces/{TEMPORAL_NAMESPACE}/workflows/{workflow_id}"
+                        st.markdown(f"### [📊 Monitor in Temporal UI]({temporal_url})")
+
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
 
 # Footer
 st.divider()
