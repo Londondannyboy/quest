@@ -1039,38 +1039,16 @@ RESEARCH DATA:
 Use ALL of this research. Be specific. Include real numbers, dates, and requirements.
 Every claim needs a source link. This guide should be the definitive resource for anyone considering {country_name}."""
 
-    # Generate with Anthropic (primary for country guides), Gateway (secondary), or Gemini (fallback)
-    # Claude handles long-form country guide content better than GPT-4o
+    # Generate with Gemini 2.5 (primary), Gateway (secondary), or Anthropic (fallback)
+    # Gemini 2.5 handles long-form country guide content excellently
     from src.utils.ai_gateway import get_completion_async, is_gateway_available
 
     gateway_key = os.environ.get("PYDANTIC_AI_GATEWAY_API_KEY") or getattr(config, "PYDANTIC_AI_GATEWAY_API_KEY", None)
     anthropic_key = config.ANTHROPIC_API_KEY
 
-    if anthropic_key:
-        # Use Claude for country guides (handles long-form content better than GPT-4o)
-        activity.logger.info("Using AI: anthropic:claude-sonnet-4 (primary for country guides)")
-        client = anthropic.Anthropic(api_key=anthropic_key)
-
-        response = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=16000,
-            system=system_prompt,
-            messages=[{"role": "user", "content": research_prompt}]
-        )
-        response_text = response.content[0].text
-    elif gateway_key:
-        # Fallback to Gateway with GPT-4o
-        activity.logger.info("Using AI: gateway/gpt-4o (fallback)")
-        full_prompt = f"{system_prompt}\n\n{research_prompt}"
-        response_text = await get_completion_async(
-            full_prompt,
-            model="quality",  # gpt-4o via gateway
-            max_tokens=16000,
-            temperature=0.7
-        )
-    elif config.GOOGLE_API_KEY:
-        # Last resort: Gemini
-        activity.logger.info("Using AI: google:gemini-2.5-pro (last resort)")
+    if config.GOOGLE_API_KEY:
+        # Primary: Gemini 2.5 for country guides
+        activity.logger.info("Using AI: google:gemini-2.5-pro (primary for country guides)")
         genai.configure(api_key=config.GOOGLE_API_KEY)
 
         model = genai.GenerativeModel(
@@ -1087,11 +1065,33 @@ Every claim needs a source link. This guide should be the definitive resource fo
             request_options={"timeout": 1800.0}
         )
         response_text = response.text
+    elif gateway_key:
+        # Fallback to Gateway with GPT-4o
+        activity.logger.info("Using AI: gateway/gpt-4o (fallback)")
+        full_prompt = f"{system_prompt}\n\n{research_prompt}"
+        response_text = await get_completion_async(
+            full_prompt,
+            model="quality",  # gpt-4o via gateway
+            max_tokens=16000,
+            temperature=0.7
+        )
+    elif anthropic_key:
+        # Last resort: Anthropic Claude
+        activity.logger.info("Using AI: anthropic:claude-sonnet-4 (last resort)")
+        client = anthropic.Anthropic(api_key=anthropic_key)
+
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=16000,
+            system=system_prompt,
+            messages=[{"role": "user", "content": research_prompt}]
+        )
+        response_text = response.content[0].text
     else:
         raise ValueError("No AI API key configured")
 
     # Log response length for debugging
-    ai_provider = "Claude" if anthropic_key else ("Gateway" if gateway_key else "Gemini")
+    ai_provider = "Gemini" if config.GOOGLE_API_KEY else ("Gateway" if gateway_key else "Claude")
     activity.logger.info(f"{ai_provider} response received: {len(response_text)} chars")
     activity.logger.info(f"First 500 chars: {response_text[:500]}")
 
@@ -2326,37 +2326,15 @@ REQUIREMENTS:
 
 Write with authority. This should be THE definitive resource for "{target_keyword}"."""
 
-    # Generate with Gateway (primary), Anthropic (secondary), or Gemini (fallback)
+    # Generate with Gemini 2.5 (primary), Gateway (secondary), or Anthropic (fallback)
     from src.utils.ai_gateway import get_completion_async
 
     gateway_key = os.environ.get("PYDANTIC_AI_GATEWAY_API_KEY") or getattr(config, "PYDANTIC_AI_GATEWAY_API_KEY", None)
     anthropic_key = config.ANTHROPIC_API_KEY
 
-    if gateway_key:
-        # Use Gateway with GPT-4o for quality
-        activity.logger.info("Using AI: gateway/gpt-4o (primary)")
-        full_prompt = f"{system_prompt}\n\n{research_prompt}"
-        response_text = await get_completion_async(
-            full_prompt,
-            model="quality",  # gpt-4o via gateway
-            max_tokens=8000,
-            temperature=0.7
-        )
-    elif anthropic_key:
-        # Fallback to Claude
-        activity.logger.info("Using AI: anthropic:claude-sonnet-4 (fallback)")
-        client = anthropic.Anthropic(api_key=anthropic_key)
-
-        response = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=8000,
-            system=system_prompt,
-            messages=[{"role": "user", "content": research_prompt}]
-        )
-        response_text = response.content[0].text
-    elif config.GOOGLE_API_KEY:
-        # Last resort: Gemini
-        activity.logger.info("Using AI: google:gemini-2.5-pro (last resort)")
+    if config.GOOGLE_API_KEY:
+        # Primary: Gemini 2.5 for topic clusters
+        activity.logger.info("Using AI: google:gemini-2.5-pro (primary)")
         genai.configure(api_key=config.GOOGLE_API_KEY)
 
         model = genai.GenerativeModel(
@@ -2372,6 +2350,28 @@ Write with authority. This should be THE definitive resource for "{target_keywor
             )
         )
         response_text = response.text
+    elif gateway_key:
+        # Fallback to Gateway with GPT-4o
+        activity.logger.info("Using AI: gateway/gpt-4o (fallback)")
+        full_prompt = f"{system_prompt}\n\n{research_prompt}"
+        response_text = await get_completion_async(
+            full_prompt,
+            model="quality",  # gpt-4o via gateway
+            max_tokens=8000,
+            temperature=0.7
+        )
+    elif anthropic_key:
+        # Last resort: Anthropic Claude
+        activity.logger.info("Using AI: anthropic:claude-sonnet-4 (last resort)")
+        client = anthropic.Anthropic(api_key=anthropic_key)
+
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=8000,
+            system=system_prompt,
+            messages=[{"role": "user", "content": research_prompt}]
+        )
+        response_text = response.content[0].text
     else:
         raise ValueError("No AI API key configured")
 
