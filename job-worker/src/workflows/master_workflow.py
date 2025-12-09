@@ -1,4 +1,5 @@
 from datetime import timedelta
+from typing import Optional, List, Dict
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 
@@ -11,7 +12,7 @@ class JobScrapingWorkflow:
     """Master workflow that orchestrates all job scraping"""
 
     @workflow.run
-    async def run(self, companies: list[dict] | None = None) -> dict:
+    async def run(self, companies: Optional[List[dict]] = None) -> dict:
         """
         Run job scraping for all configured companies.
 
@@ -30,7 +31,7 @@ class JobScrapingWorkflow:
         child_workflows = []
 
         # Group companies by board type
-        companies_by_type: dict[str, list] = {}
+        companies_by_type: Dict[str, list] = {}
         for company in companies:
             board_type = company.get("board_type", "unknown")
             if board_type not in companies_by_type:

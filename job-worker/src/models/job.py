@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 from enum import Enum
+from typing import Optional, List, Dict
 
 
 class SkillImportance(str, Enum):
@@ -11,23 +12,23 @@ class SkillImportance(str, Enum):
 
 class Skill(BaseModel):
     name: str
-    category: str | None = None  # technical, soft, domain, tool
+    category: Optional[str] = None  # technical, soft, domain, tool
     importance: SkillImportance = SkillImportance.ESSENTIAL
 
 
 class Job(BaseModel):
-    id: str | None = None
+    id: Optional[str] = None
     title: str
     company_name: str
-    department: str | None = None
-    location: str | None = None
-    employment_type: str | None = None
-    description: str | None = None
-    url: str | None = None
-    posted_date: datetime | None = None
-    salary_min: int | None = None
-    salary_max: int | None = None
-    skills: list[Skill] = []
+    department: Optional[str] = None
+    location: Optional[str] = None
+    employment_type: Optional[str] = None
+    description: Optional[str] = None
+    url: Optional[str] = None
+    posted_date: Optional[datetime] = None
+    salary_min: Optional[int] = None
+    salary_max: Optional[int] = None
+    skills: List[Skill] = []
     vertical: str = "tech"  # tech, finance, healthcare, etc.
 
 
@@ -44,7 +45,7 @@ class ScrapingResult(BaseModel):
     jobs_found: int
     jobs_added: int
     jobs_updated: int
-    errors: list[str] = []
+    errors: List[str] = []
     duration_seconds: float
 
 
@@ -53,5 +54,5 @@ class CompanyTrend(BaseModel):
     total_jobs: int
     recent_postings: int
     hiring_velocity: str  # high, medium, low
-    top_departments: dict[str, int]
-    focus_areas: list[str]
+    top_departments: Dict[str, int]
+    focus_areas: List[str]

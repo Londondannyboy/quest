@@ -10,6 +10,7 @@ from .workflows import (
     GreenhouseScraperWorkflow,
     LeverScraperWorkflow,
     UnknownScraperWorkflow,
+    FractionalJobsScraperWorkflow,
 )
 from .activities import (
     get_companies_to_scrape,
@@ -21,6 +22,12 @@ from .activities import (
     calculate_company_trends,
     save_jobs_to_database,
     update_job_graphs,
+    scrape_fractional_jobs,
+    classify_fractional_jobs,
+    save_fractional_jobs_to_database,
+    classify_jobs_with_gemini,
+    deep_scrape_job_urls,
+    save_jobs_to_zep,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -38,6 +45,7 @@ async def main():
         settings.temporal_host,
         namespace=settings.temporal_namespace,
         api_key=settings.temporal_api_key if settings.temporal_api_key else None,
+        tls=settings.temporal_tls,
     )
 
     worker = Worker(
@@ -49,6 +57,7 @@ async def main():
             GreenhouseScraperWorkflow,
             LeverScraperWorkflow,
             UnknownScraperWorkflow,
+            FractionalJobsScraperWorkflow,
         ],
         activities=[
             get_companies_to_scrape,
@@ -60,6 +69,12 @@ async def main():
             calculate_company_trends,
             save_jobs_to_database,
             update_job_graphs,
+            scrape_fractional_jobs,
+            classify_fractional_jobs,
+            save_fractional_jobs_to_database,
+            classify_jobs_with_gemini,
+            deep_scrape_job_urls,
+            save_jobs_to_zep,
         ],
     )
 

@@ -5,6 +5,7 @@ from .scraper_workflows import (
     LeverScraperWorkflow,
     UnknownScraperWorkflow,
 )
+from .fractional_workflow import FractionalJobsScraperWorkflow
 
 __all__ = [
     "JobScrapingWorkflow",
@@ -12,4 +13,5 @@ __all__ = [
     "GreenhouseScraperWorkflow",
     "LeverScraperWorkflow",
     "UnknownScraperWorkflow",
+    "FractionalJobsScraperWorkflow",
 ]
