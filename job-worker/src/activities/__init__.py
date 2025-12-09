@@ -17,6 +17,11 @@ from .classification import (
     deep_scrape_job_urls,
     save_jobs_to_zep,
 )
+from .normalization import (
+    normalize_jobs,
+    normalize_single_job,
+    compute_enhanced_site_tags,
+)
 
 __all__ = [
     "get_companies_to_scrape",
@@ -34,4 +39,7 @@ __all__ = [
     "classify_jobs_with_gemini",
     "deep_scrape_job_urls",
     "save_jobs_to_zep",
+    "normalize_jobs",
+    "normalize_single_job",
+    "compute_enhanced_site_tags",
 ]

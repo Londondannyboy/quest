@@ -3,36 +3,15 @@ import json
 from datetime import datetime
 from temporalio import activity
 from ..config.settings import get_settings
+from .normalization import compute_enhanced_site_tags
 
 
 def compute_site_tags(job: dict) -> list:
     """
     Compute which sites this job should appear on based on classification.
-
-    Sites:
-    - 'fractional': fractional.quest - fractional/part-time executive roles
-    - 'startup-jobs': future site - all startup tech jobs
-    - 'all': master list of all jobs
+    Now uses the enhanced site tags from normalization module.
     """
-    tags = ['all']  # Every job goes to master list
-
-    # Fractional jobs go to fractional.quest
-    if job.get("is_fractional"):
-        tags.append('fractional')
-
-    # Part-time, contract, temporary also go to fractional if senior enough
-    employment_type = job.get("employment_type", "").lower()
-    seniority = job.get("seniority_level", "").lower()
-
-    if employment_type in ('part_time', 'contract', 'temporary', 'fractional'):
-        if seniority in ('c_suite', 'vp', 'director'):
-            if 'fractional' not in tags:
-                tags.append('fractional')
-
-    # All tech/startup jobs go to startup-jobs site
-    tags.append('startup-jobs')
-
-    return tags
+    return compute_enhanced_site_tags(job)
 
 
 @activity.defn
