@@ -8,6 +8,7 @@ import httpx
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
+from urllib.parse import quote
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -28,33 +29,18 @@ async def test_apify_api():
         return False
 
     api_key = settings.apify_api_key
-    actor_id = settings.apify_actor_id
+    task_id = settings.apify_task_id
     base_url = settings.apify_base_url
 
     print("\n" + "=" * 70)
     print("Testing Apify API Integration")
     print("=" * 70)
-    print(f"Actor ID: {actor_id}")
+    print(f"Task ID: {task_id}")
     print(f"Base URL: {base_url}")
 
     async with httpx.AsyncClient(timeout=60.0) as client:
-        # Test 1: Check API connectivity
-        print("\n1️⃣  Testing API connectivity...")
-        try:
-            response = await client.get(
-                f"{base_url}/acts/{actor_id}",
-                headers={"Authorization": f"Bearer {api_key}"},
-            )
-            response.raise_for_status()
-            actor_info = response.json()
-            print(f"✅ Actor found: {actor_info['data']['name']}")
-            print(f"   Title: {actor_info['data'].get('title', 'N/A')}")
-        except Exception as e:
-            print(f"❌ API connectivity failed: {e}")
-            return False
-
-        # Test 2: Start a small test run
-        print("\n2️⃣  Starting test run (50 results, UK only)...")
+        # Test 1: Start a small test run (we'll verify connectivity this way)
+        print("\n1️⃣  Starting test run (50 results, UK only)...")
         try:
             run_input = {
                 "job_title": "Fractional",
@@ -64,8 +50,10 @@ async def test_apify_api():
                 "job_post_time": "r86400",  # Recent jobs (24 hours)
             }
 
+            # URL encode the task_id since it contains slashes
+            encoded_task_id = quote(task_id, safe='')
             response = await client.post(
-                f"{base_url}/acts/{actor_id}/runs",
+                f"{base_url}/actor-tasks/{encoded_task_id}/runs",
                 headers={
                     "Content-Type": "application/json",
                     "Authorization": f"Bearer {api_key}",
@@ -83,8 +71,8 @@ async def test_apify_api():
             print(f"❌ Failed to start run: {e}")
             return False
 
-        # Test 3: Check run status
-        print("\n3️⃣  Checking run status...")
+        # Test 2: Check run status
+        print("\n2️⃣  Checking run status...")
         try:
             response = await client.get(
                 f"{base_url}/actor-runs/{run_id}",

@@ -4,6 +4,7 @@ import asyncio
 import httpx
 from typing import List, Dict
 from temporalio import activity
+from urllib.parse import quote
 import logging
 
 from ..config.settings import get_settings
@@ -53,8 +54,10 @@ async def scrape_linkedin_via_apify(config: dict = None) -> List[dict]:
         # Step 1: Start actor run
         activity.logger.info("Posting run request to Apify API...")
         try:
+            # URL encode task_id since it contains slashes
+            encoded_task_id = quote(settings.apify_task_id, safe='')
             response = await client.post(
-                f"{settings.apify_base_url}/acts/{settings.apify_actor_id}/runs",
+                f"{settings.apify_base_url}/actor-tasks/{encoded_task_id}/runs",
                 headers={
                     "Content-Type": "application/json",
                     "Authorization": f"Bearer {settings.apify_api_key}",
