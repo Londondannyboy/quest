@@ -20,10 +20,11 @@ class ApifyRunStatus(str, Enum):
 class ApifyRunInput(BaseModel):
     """Input configuration for LinkedIn Jobs Scraper actor."""
 
+    job_title: str = "Fractional"
     location: str = "United Kingdom"
-    searchKeywords: str = "fractional OR part-time OR contract OR interim"
-    maxResults: int = 500
-    scrapeJobDetails: bool = True
+    jobs_entries: int = 100  # Number of jobs to scrape
+    start_jobs: int = 0  # Starting offset
+    job_post_time: str = "r86400"  # Recent jobs (24 hours)
 
 
 class ApifyRunResponse(BaseModel):

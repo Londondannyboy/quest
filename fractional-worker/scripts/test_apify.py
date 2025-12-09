@@ -57,17 +57,18 @@ async def test_apify_api():
         print("\n2️⃣  Starting test run (50 results, UK only)...")
         try:
             run_input = {
+                "job_title": "Fractional",
                 "location": "United Kingdom",
-                "searchKeywords": "fractional",
-                "maxResults": 50,
-                "scrapeJobDetails": False,  # Faster for testing
+                "jobs_entries": 50,
+                "start_jobs": 0,
+                "job_post_time": "r86400",  # Recent jobs (24 hours)
             }
 
             response = await client.post(
                 f"{base_url}/acts/{actor_id}/runs",
                 headers={
-                    "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
+                    "Authorization": f"Bearer {api_key}",
                 },
                 json=run_input,
             )

@@ -56,8 +56,8 @@ async def scrape_linkedin_via_apify(config: dict = None) -> List[dict]:
             response = await client.post(
                 f"{settings.apify_base_url}/acts/{settings.apify_actor_id}/runs",
                 headers={
-                    "Authorization": f"Bearer {settings.apify_api_key}",
                     "Content-Type": "application/json",
+                    "Authorization": f"Bearer {settings.apify_api_key}",
                 },
                 json=run_input.dict(),
             )
