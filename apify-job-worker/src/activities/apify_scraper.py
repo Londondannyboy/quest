@@ -25,10 +25,10 @@ async def scrape_linkedin_via_apify(config: dict = None) -> List[dict]:
     4. Normalize to internal job format
 
     Args:
-        config: Optional overrides for location, keywords, maxResults
+        config: Optional overrides for location, maxResults
             - location: Default "United Kingdom"
-            - keywords: Default "fractional OR part-time OR contract OR interim"
-            - max_results: Default 500
+            - max_results: Default 100
+            - Keywords are fixed to "fractional" only (core scraper purpose)
 
     Returns:
         List of normalized job dictionaries
@@ -41,10 +41,11 @@ async def scrape_linkedin_via_apify(config: dict = None) -> List[dict]:
     config = config or {}
 
     # Build run input
+    # Always search for "fractional" only - this is the core purpose of this scraper
     run_input = ApifyRunInput(
         job_title=config.get("job_title", "Fractional"),
         location=config.get("location", "United Kingdom"),
-        searchKeywords=config.get("keywords", "fractional"),
+        searchKeywords="fractional",  # Fixed to fractional only - do not override
         jobs_entries=config.get("jobs_entries", 100),
         start_jobs=config.get("start_jobs", 0),
         scrapeJobDetails=True,

@@ -217,29 +217,75 @@ async def save_jobs_to_zep(jobs: List[dict]) -> dict:
                 # Search failed, proceed with add (might be new graph)
                 activity.logger.debug(f"Zep search failed, proceeding: {search_err}")
 
-            # Build job node for graph
-            job_node = {
-                "type": "Job",
-                "id": unique_id,
-                "url": job_url,
-                "title": job_title,
-                "company": job.get("company_name"),
-                "location": job.get("location"),
-                "department": job.get("department"),
-                "employment_type": job.get("employment_type"),
-                "seniority_level": job.get("seniority_level"),
-                "is_fractional": job.get("is_fractional", False),
-                "is_remote": job.get("is_remote"),
-                "classification_confidence": job.get("classification_confidence", 0.0),
-            }
+            # Build rich text episode with entity hints for ZEP to extract
+            # This allows ZEP to create proper entity nodes and relationships
+            company_name = job.get("company_name", "Unknown Company")
+            location = job.get("location", "Location not specified")
+            department = job.get("department", "")
+            seniority = job.get("seniority_level", "")
+            is_fractional = job.get("is_fractional", False)
+            is_remote = job.get("is_remote", False)
+
+            episode_text = f"""Job Posting: {job_title} at {company_name}
+
+The company {company_name} has posted a position for {job_title}"""
+
+            if department:
+                episode_text += f" in the {department} department"
+
+            episode_text += ".\n\n"
+
+            # Add job details
+            if location:
+                episode_text += f"Location: {location}\n"
+            if seniority:
+                episode_text += f"Seniority Level: {seniority}\n"
+            if is_remote:
+                episode_text += f"Remote Work: Yes\n"
+            if job.get("employment_type"):
+                episode_text += f"Employment Type: {job.get('employment_type')}\n"
+
+            # Add fractional flag
+            if is_fractional:
+                episode_text += "\nThis is a fractional role, suitable for experienced professionals seeking part-time or contract opportunities.\n"
+
+            # Add description if available
+            description = job.get("description", "")
+            if description:
+                # Limit description to avoid token limits
+                episode_text += f"\nJob Description:\n{description[:500]}"
+                if len(description) > 500:
+                    episode_text += "..."
+                episode_text += "\n"
+
+            # Add skills as entities
+            skills = job.get("skills", [])
+            if skills:
+                episode_text += "\nRequired Skills:\n"
+                for skill in skills[:10]:  # Limit to top 10 skills
+                    if isinstance(skill, dict):
+                        skill_name = skill.get("name", "")
+                        importance = skill.get("importance", "")
+                        if skill_name:
+                            episode_text += f"- {skill_name}"
+                            if importance:
+                                episode_text += f" ({importance})"
+                            episode_text += "\n"
+                    elif isinstance(skill, str):
+                        episode_text += f"- {skill}\n"
+
+            # Add job URL
+            if job_url:
+                episode_text += f"\nApply: {job_url}"
 
             try:
                 await zep.graph.add(
                     graph_id="jobs",
-                    type="json",
-                    data=json.dumps(job_node)
+                    type="text",  # Changed from "json" to "text" for entity extraction
+                    data=episode_text
                 )
                 saved += 1
+                activity.logger.info(f"Added job to ZEP: {job_title} at {company_name}")
             except Exception as e:
                 # Check if it's a duplicate error
                 if "duplicate" in str(e).lower() or "already exists" in str(e).lower():

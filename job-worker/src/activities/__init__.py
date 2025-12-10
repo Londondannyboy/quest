@@ -22,6 +22,11 @@ from .normalization import (
     normalize_single_job,
     compute_enhanced_site_tags,
 )
+from .zep_retrieval import (
+    get_job_skill_graph,
+    get_skills_for_company,
+    search_jobs_by_skills,
+)
 
 __all__ = [
     "get_companies_to_scrape",
@@ -42,4 +47,7 @@ __all__ = [
     "normalize_jobs",
     "normalize_single_job",
     "compute_enhanced_site_tags",
+    "get_job_skill_graph",
+    "get_skills_for_company",
+    "search_jobs_by_skills",
 ]

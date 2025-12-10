@@ -94,9 +94,11 @@ Your task is to analyze job postings and extract structured information about:
 **Important Guidelines:**
 
 **Fractional Classification:**
-- Mark is_fractional=true ONLY for senior/executive fractional roles (CTO, CFO, CMO, COO, etc.)
-- Keywords: "fractional", "interim", "part-time executive", "0.5 FTE", "2-3 days/week"
-- employment_type should be "fractional" for these roles
+- Mark is_fractional=true for ANY fractional/part-time/contract/interim role (not just executives)
+- This includes fractional directors, interim managers, part-time specialists, contract engineers, etc.
+- Keywords: "fractional", "interim", "part-time", "contract", "0.5 FTE", "2-3 days/week", "reduced hours"
+- employment_type should be "fractional", "part_time", or "contract" for these roles
+- For scraped results filtered by "fractional OR part-time OR contract OR interim", most should be classified as fractional
 
 **Country Detection:**
 - Extract the primary country from the location field
@@ -162,7 +164,7 @@ async def classify_job(
     # Build prompt with all available context
     prompt = f"""Classify this job posting and return a JSON object with these fields:
 - employment_type: "fractional", "part_time", "contract", "full_time", "temporary", or "freelance"
-- is_fractional: boolean (true for fractional/part-time/interim executive roles)
+- is_fractional: boolean (true for ANY fractional/part-time/contract/interim role, not just executives)
 - country: full country name (e.g., "United Kingdom")
 - city: city name if available, otherwise null
 - is_remote: boolean

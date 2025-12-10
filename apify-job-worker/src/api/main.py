@@ -33,9 +33,9 @@ class TriggerScrapeRequest(BaseModel):
     """Request to trigger a job scrape."""
     location: str = "United Kingdom"
     job_title: str = "Fractional"
-    keywords: Optional[str] = "fractional"
     max_results: int = 100
     post_time_filter: str = "r86400"  # Last 24 hours
+    # Note: Keywords are fixed to "fractional" only in the scraper - this is the core purpose
 
 
 class TriggerScrapeResponse(BaseModel):
@@ -106,9 +106,9 @@ async def trigger_scrape(request: TriggerScrapeRequest):
         config = {
             "location": request.location,
             "job_title": request.job_title,
-            "keywords": request.keywords,
             "jobs_entries": request.max_results,
             "job_post_time": request.post_time_filter,
+            # Keywords are fixed to "fractional" in the activity - do not override
         }
 
         handle = await client.start_workflow(

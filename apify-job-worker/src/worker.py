@@ -68,6 +68,19 @@ async def main():
         elif settings.gemini_api_key:
             os.environ["GEMINI_API_KEY"] = settings.gemini_api_key
 
+    # Ensure ZEP_API_KEY is set for ZEP knowledge graph sync
+    if not os.getenv("ZEP_API_KEY"):
+        if settings.zep_api_key:
+            os.environ["ZEP_API_KEY"] = settings.zep_api_key
+            logger.info("✅ Set ZEP_API_KEY for knowledge graph sync")
+
+    # Ensure other API keys are available in environment
+    if settings.apify_api_key and not os.getenv("APIFY_API_KEY"):
+        os.environ["APIFY_API_KEY"] = settings.apify_api_key
+
+    if settings.database_url and not os.getenv("DATABASE_URL"):
+        os.environ["DATABASE_URL"] = settings.database_url
+
     logger.info("=" * 70)
     logger.info("LinkedIn Apify Scraper Worker")
     logger.info("=" * 70)
