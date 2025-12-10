@@ -41,11 +41,10 @@ async def scrape_linkedin_via_apify(config: dict = None) -> List[dict]:
     config = config or {}
 
     # Build run input
-    # Always search for "fractional" only - this is the core purpose of this scraper
     run_input = ApifyRunInput(
         job_title=config.get("job_title", "Fractional"),
         location=config.get("location", "United Kingdom"),
-        searchKeywords="fractional",  # Fixed to fractional only - do not override
+        searchKeywords=config.get("keywords", "fractional OR part-time OR contract OR interim"),
         jobs_entries=config.get("jobs_entries", 100),
         start_jobs=config.get("start_jobs", 0),
         scrapeJobDetails=True,
