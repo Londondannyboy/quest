@@ -25,10 +25,10 @@ async def scrape_linkedin_via_apify(config: dict = None) -> List[dict]:
     4. Normalize to internal job format
 
     Args:
-        config: Optional overrides for location, maxResults
+        config: Optional overrides for location, keywords, maxResults
             - location: Default "United Kingdom"
+            - keywords: Default "fractional OR part-time OR contract OR interim"
             - max_results: Default 100
-            - Keywords are fixed to "fractional" only (core scraper purpose)
 
     Returns:
         List of normalized job dictionaries
