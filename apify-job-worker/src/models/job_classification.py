@@ -161,6 +161,11 @@ async def classify_job(
     Returns:
         JobClassification with all structured fields
     """
+    # Quick keyword check for fractional roles - if keywords present, it's definitely fractional
+    combined_text = f"{job_title} {job_description}".lower()
+    fractional_keywords = ["fractional", "part-time", "part time", "contract", "interim", "0.5 fte", "2-3 days", "3 days a week"]
+    has_fractional_keyword = any(keyword in combined_text for keyword in fractional_keywords)
+
     # Build prompt with all available context
     prompt = f"""Classify this job posting and return a JSON object with these fields:
 - employment_type: "fractional", "part_time", "contract", "full_time", "temporary", or "freelance"
@@ -210,7 +215,18 @@ async def classify_job(
             response_text = response_text.split("```")[1].split("```")[0].strip()
 
         data_dict = json.loads(response_text)
-        return JobClassification(**data_dict)
+    else:
+        data_dict = response_text
 
-    # If it's already a dict or object
-    return JobClassification(**response_text)
+    classification = JobClassification(**data_dict)
+
+    # Override fractional classification if we found explicit keywords
+    if has_fractional_keyword and not classification.is_fractional:
+        classification.is_fractional = True
+        classification.employment_type = "fractional"
+        classification.classification_confidence = max(0.95, classification.classification_confidence)
+        classification.reasoning = f"Keyword-based detection: Found fractional keywords in title/description. {classification.reasoning}"
+        if "fractional-jobs" not in classification.site_tags:
+            classification.site_tags = [*classification.site_tags, "fractional-jobs"]
+
+    return classification
