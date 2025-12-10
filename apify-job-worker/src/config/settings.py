@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # Apify
     apify_api_key: str = ""
-    apify_task_id: str = "infrastructure_quest/rapid-linkedin-jobs-scraper-free-jobs-scraper-task"
+    apify_task_id: str = "BHzefUZlZRKWxkTck"  # Numeric task ID (works with Apify API)
     apify_base_url: str = "https://api.apify.com/v2"
 
     # AI APIs
